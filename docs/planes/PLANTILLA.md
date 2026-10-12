@@ -41,6 +41,8 @@
 
 - [ ] <comando, prueba o comportamiento observable>
 - [ ] <criterio de aceptación enlazado>
+- [ ] Se cumplieron los controles y la definición de terminado de
+      `docs/metodologia-desarrollo.md`.
 
 ## Riesgos y decisiones del plan
 

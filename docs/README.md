@@ -8,6 +8,7 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 | Ruta | Propósito |
 |---|---|
 | [`diseno-general.md`](./diseno-general.md) | Define qué juego se quiere construir, sus conceptos y sus restricciones. |
+| [`metodologia-desarrollo.md`](./metodologia-desarrollo.md) | Define cómo se diseñan, implementan y verifican los incrementos. |
 | [`tecnica/`](./tecnica/) | Alojará las decisiones técnicas que explican cómo implementar el diseño. |
 | [`planes/pendientes/`](./planes/pendientes/) | Contiene planes de implementación todavía no terminados. |
 | [`planes/completados/`](./planes/completados/) | Conserva los planes ya implementados y su resultado real. |
@@ -25,6 +26,5 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 4. Cuando la implementación y sus verificaciones terminan, el mismo archivo se
    completa con el resultado y se mueve a `planes/completados/`.
 
-Los estándares y protocolos de desarrollo se definirán en una etapa posterior.
-Hasta entonces, este índice describe solamente el flujo documental, no normas de
-programación.
+La [metodología de desarrollo](./metodologia-desarrollo.md) gobierna este flujo,
+los estándares de implementación, las pruebas y la definición de terminado.
