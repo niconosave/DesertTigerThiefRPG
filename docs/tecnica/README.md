@@ -5,14 +5,16 @@ Este directorio alojará los documentos que traduzcan el
 Todavía no contiene una arquitectura elegida: esa será la siguiente etapa del
 proyecto.
 
-Cada documento técnico debería incluir, como mínimo:
+La futura documentación se dividirá en un diseño técnico general y documentos
+específicos para cada parte del código o de los datos. Cada documento técnico
+debería incluir, como mínimo:
 
 - estado, responsables conceptuales y fecha de revisión;
-- requisitos `DG-*` que pretende satisfacer;
+- elementos del diseño general que desarrolla;
 - decisión adoptada y alternativas descartadas;
 - límites, responsabilidades y dirección de dependencias;
 - contratos de datos y comportamiento;
-- errores, validación, determinismo y persistencia cuando correspondan;
+- errores, validación y persistencia cuando correspondan;
 - estrategia de pruebas y criterios de aceptación;
 - compatibilidad, migraciones y preguntas todavía abiertas.
 

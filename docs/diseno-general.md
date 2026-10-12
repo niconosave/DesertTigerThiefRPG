@@ -1,522 +1,346 @@
-# Desert Tiger Thief RPG — Documento de diseño general
+# Desert Tiger Thief RPG — Diseño general del juego
 
 | Campo | Valor |
 |---|---|
-| Estado | Borrador base para discusión |
-| Versión | 0.1 |
+| Estado | Borrador en construcción |
+| Versión | 0.2 |
 | Fecha | 2026-10-12 |
-| Alcance | Diseño de producto y contratos conceptuales |
 
-## 1. Propósito del documento
+## 1. Propósito
 
-Este documento define la experiencia que se quiere construir, el vocabulario
-común del proyecto y las restricciones que deberán respetar la documentación
-técnica y los planes de implementación posteriores. No prescribe todavía crates,
-módulos de Rust, traits, formatos de archivo ni APIs concretas.
+Este documento define solamente las bases del juego: sus elementos principales,
+las relaciones entre ellos y el flujo general de una partida. Cada elemento será
+desarrollado posteriormente en documentación técnica propia.
 
-Las afirmaciones importantes usan identificadores `DG-*` para que otros
-documentos puedan enlazarlas sin depender solamente del título de una sección.
+La documentación del proyecto tendrá cuatro niveles:
 
-- **Decidido:** forma parte de la visión actual y solo debería cambiar mediante
-  una revisión explícita de este documento.
-- **Provisional:** permite avanzar, pero debe validarse jugando o durante el
-  diseño técnico.
-- **Abierto:** requiere una decisión futura y no debe asumirse en una
-  implementación sin dejar constancia.
+1. Este diseño general describe qué elementos forman el juego.
+2. Un diseño técnico general describirá la organización global del desarrollo.
+3. Documentos técnicos específicos diseñarán cada parte del código y de los datos.
+4. Los planes de implementación contendrán únicamente pasos de trabajo y
+   referencias a esos documentos técnicos.
 
-## 2. Visión
+El desarrollo será incremental. Cada etapa deberá dejar una versión jugable para
+poder evaluar el funcionamiento y la calidad antes de añadir nuevos elementos.
 
-### 2.1 Resumen
+## 2. Concepto básico
 
-Un RPG sandbox local, para una sola persona y presentado en una terminal con
-gráficos ASCII. Cada campaña crea un mundo autocontenido a partir de contenido
-editable y una semilla. El jugador controla a un actor dentro de una simulación
-de lugares, actores, recursos, relaciones y sucesos que continúa reaccionando a
-sus decisiones. La muerte es permanente y cada campaña busca producir una
-historia distinta, comprensible y con final.
+El juego será un RPG sandbox local, escrito en Rust y jugado en una terminal con
+gráficos ASCII. La duración buscada para una partida completa es de cinco o seis
+horas y la muerte del actor jugador será permanente.
 
-### 2.2 Promesa al jugador
+La primera versión será más limitada: no tendrá guardado, victoria ni derrota.
+Si el actor jugador adquiere la característica `muerto`, dejará de poder tomar
+acciones.
 
-> Entrar en un mundo desconocido, comprender sus tensiones, elegir qué perseguir,
-> improvisar frente a consecuencias duraderas y cerrar una historia propia,
-> incluso cuando termina en fracaso.
+El mundo y sus elementos se diseñarán en archivos de contenido editables. Al
+iniciar una partida, el juego cargará esos datos y creará nuevas instancias de
+los elementos. La creación inicial no modificará ni elegirá aleatoriamente sus
+datos. Las diferencias entre partidas surgirán de las acciones, las decisiones,
+los resultados azarosos y el comportamiento de los NPC.
 
-### 2.3 Forma del producto
+## 3. Elementos fundamentales
 
-- **DG-VIS-001 — Decidido:** la duración objetivo de una campaña completa es de
-  cinco a seis horas. No es obligatorio jugarla de una sola vez; se podrá
-  suspender y continuar.
-- **DG-VIS-002 — Decidido:** el juego es un **sandbox acotado**. Da libertad sobre
-  métodos, alianzas, rutas y objetivos secundarios, pero una presión del mundo
-  conduce a un desenlace en un horizonte finito.
-- **DG-VIS-003 — Decidido:** las campañas son independientes. Al crear una nueva,
-  se genera un mundo nuevo en vez de continuar indefinidamente el anterior.
-- **DG-VIS-004 — Provisional:** una campaña puede acabar por logro, retirada,
-  fracaso irreversible, vencimiento de la presión global o muerte. La fantasía
-  concreta del personaje y el significado exacto de “ganar” siguen abiertos.
-- **DG-VIS-005 — Decidido:** “campaña” o “partida” designa el recorrido completo
-  hasta un desenlace; “sesión” designa cada período real de juego entre apertura
-  y cierre de la aplicación.
-- **DG-VIS-006 — Decidido:** el frontend inicial se ejecuta en una terminal y usa
-  gráficos ASCII.
-- **DG-VIS-007 — Decidido:** la implementación inicial se desarrolla en Rust. La
-  elección no altera el requisito de mantener el núcleo separado del frontend.
+### Partida
 
-## 3. Pilares de diseño
+Es la ejecución de una instancia del mundo, creada al cargar los archivos de
+contenido. Contiene el estado mutable producido durante el juego.
 
-### DG-PIL-001 — Libertad dentro de límites legibles
+### Mundo
 
-El jugador debe poder elegir qué problemas abordar y cómo hacerlo. El mundo
-impone escasez, tiempo y consecuencias suficientes para que no todas las opciones
-sean compatibles en una misma campaña.
+Existe un solo mundo por partida. Es el elemento raíz y contiene o referencia los
+lugares, actores, mapa y demás elementos de esa partida.
 
-### DG-PIL-002 — Variación con coherencia
+También mantiene datos globales, entre ellos:
 
-Las campañas deben variar en actores, relaciones, conflictos, recursos,
-oportunidades y sucesos; no solamente en nombres o en el dibujo del mapa. La
-generación debe obedecer restricciones que produzcan mundos jugables y
-comprensibles.
+- la fecha actual, expresada con un calendario de doce meses;
+- variables del mundo que pueden consultar las acciones y los scripts Lua.
 
-### DG-PIL-003 — Consecuencias sistémicas y explicables
+### Mapa
 
-Las acciones cambian el estado de actores, lugares y mundo. El jugador debe poder
-reconstruir las causas principales de un resultado mediante mensajes, señales y
-un registro, sin conocer necesariamente toda la información oculta.
+Es una matriz de tiles con propósito exclusivamente visual. Sus caracteres
+representan la vista del mundo en la terminal, pero no determinan las reglas.
 
-### DG-PIL-004 — Riesgo justo y permadeath significativo
+El mapa no establece dónde está un actor, qué lugares están conectados ni qué
+acciones son posibles.
 
-La muerte termina la campaña. Las amenazas graves deben poder anticiparse,
-investigarse o evitarse; una derrota puede sorprender, pero no debería depender
-solo de información imposible de obtener o de azar opaco.
+### Lugar
 
-### DG-PIL-005 — Actores con capacidad de iniciativa
+Es un elemento interactuable que pertenece al mundo. Puede contener actores y
+poseer características.
 
-El personaje del jugador y los demás actores participan del mismo modelo
-conceptual de acciones. Los actores no jugadores tienen estado y motivaciones
-suficientes para alterar el mundo sin esperar siempre al jugador.
+Un lugar incluye información destinada a su presentación:
 
-### DG-PIL-006 — Contenido modificable
+- un tile central correspondiente a una coordenada del mapa;
+- una lista de coordenadas donde el frontend puede escribir su nombre.
 
-Los elementos de contenido se describen en archivos humanos editables. Una
-campaña nueva carga, valida y combina esas definiciones para crear sus instancias
-de juego. Modificar contenido no debe requerir recompilar el programa.
+Estas coordenadas no tienen consecuencias de gameplay. Solo relacionan al lugar
+con su representación visual.
 
-### DG-PIL-007 — Núcleo independiente de la presentación
+### Actor
 
-Las reglas pueden ejecutarse sin una terminal. Teclas, caracteres, color, ANSI,
-tamaño de ventana y coordenadas de pantalla pertenecen al frontend, no a la
-lógica del juego.
+Todos los actores usan el mismo modelo conceptual. La forma concreta de
+representarlo en Rust se decidirá en la documentación técnica.
 
-### DG-PIL-008 — La terminal es una interfaz completa
+Un actor:
 
-El frontend inicial no es una consola de depuración: debe ofrecer información,
-controles y respuesta visual suficientes para jugar una campaña completa con
-claridad.
+- siempre está en un lugar y nunca está lógicamente en un tile;
+- posee características que expresan inicialmente todo su estado de gameplay;
+- puede formar parte del grupo del jugador;
+- puede tener arte ASCII definido en sus archivos de contenido;
+- puede incluir código Lua cuando necesita decidir acciones como NPC.
 
-## 4. Estructura y ritmo de una campaña
+El actor jugador se diferencia por recibir sus decisiones desde el frontend. Los
+NPC reciben sus decisiones desde reglas y scripts.
 
-La duración se controla con tiempo del mundo y evolución de conflictos, no con
-un cronómetro de tiempo real.
+### Grupo
 
-| Fase | Duración orientativa | Propósito |
-|---|---:|---|
-| Descubrimiento | 30–60 min | Reconocer el entorno, sus actores, peligros y oportunidades. |
-| Desarrollo | 3–4 h | Conseguir recursos, crear relaciones y perseguir una ambición. |
-| Crisis | 60–90 min | La presión global obliga a comprometerse y aceptar pérdidas. |
-| Desenlace | 10–30 min | Resolver, escapar, retirarse, fracasar o morir; producir un epílogo. |
+El grupo está formado por el actor jugador y los actores reclutados.
 
-Estas cifras son objetivos de ritmo, no límites rígidos por fase.
+En la primera versión:
 
-- **DG-RIT-001 — Decidido:** desde el comienzo existen varias líneas de acción
-  viables; no hay una única secuencia obligatoria de misiones.
-- **DG-RIT-002 — Provisional:** una crisis o reloj global se vuelve más urgente a
-  medida que avanzan las acciones y garantiza que el mundo no quede estático.
-- **DG-RIT-003 — Decidido:** el final debe resumir la causa del desenlace y los
-  cambios más importantes provocados por el jugador y otros actores.
-- **DG-RIT-004 — Provisional:** la retirada voluntaria puede conservar una historia
-  de supervivencia, pero no equivale necesariamente a cumplir la ambición de la
-  campaña.
+- todos sus integrantes están siempre en el mismo lugar;
+- viajan juntos y no pueden separarse;
+- la lógica de cada acción general decide si un compañero ayuda, actúa o sufre
+  una consecuencia.
 
-## 5. Bucle de juego
+### Característica
 
-### 5.1 Bucle principal
+Es una etiqueta expresada como una palabra o adjetivo y asociada a un actor o
+lugar. Las acciones consultan estas etiquetas para decidir qué puede ocurrir.
 
-1. Observar el lugar actual, los actores presentes y la información conocida.
-2. Elegir una intención: viajar, investigar, conversar, negociar, tomar, usar,
-   descansar, ayudar, robar, luchar u otra acción disponible.
-3. Verificar requisitos y comunicar costes o riesgos que el actor pueda conocer.
-4. Resolver la acción y registrar sus efectos.
-5. Avanzar el tiempo del mundo cuando corresponda.
-6. Resolver acciones de otros actores y sistemas del mundo.
-7. Presentar consecuencias, nueva información y opciones actualizadas.
-8. Repetir hasta alcanzar un desenlace.
+Ejemplos iniciales:
 
-- **DG-BUC-001 — Decidido:** toda mutación relevante de la simulación ocurre a
-  través de acciones, efectos o sucesos identificables, no desde el frontend.
-- **DG-BUC-002 — Decidido:** una acción se expresa como intención semántica; el
-  frontend solicita, la lógica valida y la lógica devuelve un resultado.
-- **DG-BUC-003 — Provisional:** el juego usa turnos discretos y espera una orden
-  del jugador. La unidad exacta de tiempo y el orden de actuación se definirán en
-  la documentación técnica.
+- `fuerte`;
+- `rápido`;
+- `empinado`;
+- `fortificado`;
+- `inalcanzable`;
+- `cargaTesoro`;
+- `herido`;
+- `muerto`.
 
-### 5.2 Flujo de una campaña
+Las características pueden representar cualidades, posesiones o estados. En un
+principio no habrá otro sistema de estadísticas para los actores.
+
+### Relación
+
+Es un objeto sencillo que conecta dos elementos del mundo. Por ejemplo, una
+relación `conectado` entre dos lugares indicará que están conectados
+geográficamente.
+
+El sistema de relaciones se desarrollará más adelante. La primera versión de la
+acción `Viajar` todavía no dependerá de él.
+
+### Acción general
+
+Representa una actividad completa elegida por un actor, como viajar o atacar.
+Su código organiza el contexto, las decisiones, las acciones particulares, las
+viñetas y el tiempo consumido.
+
+### Acción particular
+
+Es una operación reutilizable con su propia lógica de simulación. Puede ser
+ejecutada desde distintas partes del código y desde distintas acciones generales.
+Calcula y aplica un resultado sobre los elementos de la partida.
+
+### Viñeta
+
+Es una pantalla breve que presenta una parte de una acción. Puede mostrar una
+descripción, pedir una decisión o comunicar el resultado de una acción
+particular. Una acción general puede producir varias viñetas sucesivas.
+
+## 4. Relaciones entre mundo, mapa, lugares y actores
 
 ```text
-Elegir contenido y mods
-          ↓
-Cargar y validar definiciones
-          ↓
-Generar y validar el mundo desde una semilla
-          ↓
-Jugar: intención → acción → consecuencias → avance del mundo
-          ↓
-Desenlace o muerte
-          ↓
-Epílogo y registro histórico
+Mundo
+├── Mapa visual: matriz de tiles
+├── Lugares
+│   └── coordenadas usadas solamente para presentación
+└── Actores
+    └── cada actor está lógicamente en un lugar
 ```
 
-## 6. Modelo conceptual
+Las reglas fundamentales son:
 
-### 6.1 Definiciones e instancias
+- un actor está en un lugar, no en el mapa;
+- un tile nunca determina la ubicación lógica de un actor;
+- el frontend puede dibujar actores sobre el mapa para ilustrar dónde hay
+  actividad;
+- el tile exacto elegido para esa ilustración es una decisión estética;
+- cambiar la representación del mapa no cambia el estado del juego;
+- viajar modifica el lugar de los integrantes del grupo, no sus coordenadas de
+  tiles.
 
-El proyecto distingue dos clases de datos:
+## 5. Archivos de contenido e instancias
 
-- Una **definición de contenido** describe una plantilla editable: por ejemplo,
-  un arquetipo de actor, objeto o lugar.
-- Una **instancia de partida** posee identidad y estado propios: por ejemplo, un
-  actor concreto herido, con inventario y relaciones generadas.
+Los archivos de contenido definirán al menos:
 
-- **DG-MOD-001 — Decidido:** las reglas nunca deben confundir una definición con
-  una instancia mutable.
-- **DG-MOD-002 — Decidido:** los identificadores de instancia son únicos dentro de
-  una campaña y las referencias entre elementos no dependen de nombres visibles.
+- el mundo;
+- el mapa y sus tiles;
+- los lugares;
+- los actores;
+- las características asociadas;
+- el arte ASCII de los actores;
+- las partes de Lua utilizadas por los NPC.
 
-### 6.2 Elementos del mundo
+Al comenzar una partida, el programa carga esos archivos y crea nuevas instancias
+con los mismos datos iniciales. En esta etapa no habrá generación procedural ni
+variación del estado inicial.
 
-| Concepto | Responsabilidad conceptual | No es responsable de |
-|---|---|---|
-| **Mundo** | Raíz de la campaña. Mantiene la semilla, reloj, estado global y referencias o registros de todos sus elementos runtime. | Leer teclado, dibujar o decidir el layout de la terminal. |
-| **Lugar** | Contexto lógico en el que hay actores, objetos, oportunidades y sucesos. Sus rutas permiten viajar a otros lugares. | Ser una región de tiles o una coordenada de pantalla. |
-| **Actor** | Entidad capaz de intentar acciones. Posee estado, capacidades, conocimiento, relaciones, objetivos y una situación en el mundo. | Mutar el mundo saltándose la resolución de acciones. |
-| **Acción** | Intención validable que puede consumir tiempo o recursos y producir efectos. | Mostrar por sí misma menús, teclas o animaciones. |
-| **Objeto** | Entidad manipulable o recurso con identidad y estado cuando la partida lo necesita. | Definir código arbitrario desde un mod. |
-| **Suceso** | Hecho ocurrido o programado que comunica consecuencias y puede provocar reacciones. | Sustituir silenciosamente el estado autoritativo del mundo. |
-| **Relación/ruta** | Vínculo lógico entre actores o lugares, con los datos necesarios para las reglas. | Depender de que dos glifos sean adyacentes. |
-| **Mapa visual** | Matriz de tiles o tokens dedicada a representar el mundo. | Decidir ubicación lógica, colisión, distancia, pertenencia o acciones posibles. |
+El formato, la distribución entre archivos, las referencias, la validación y la
+representación de animaciones y scripts se diseñarán en la documentación técnica.
+El setting, sus personajes, conflictos y lugares se diseñarán después de definir
+esa estructura.
 
-Se podrán añadir categorías —por ejemplo facciones, rumores, misiones o efectos—
-cuando el diseño técnico demuestre que tienen identidad y ciclo de vida propios.
+## 6. Sistema de acciones
 
-### 6.3 Relaciones e invariantes
+Las acciones generales previstas son:
 
-- **DG-MUN-001 — Decidido:** el mundo ofrece acceso autoritativo a todos los
-  elementos runtime que pertenecen a la campaña.
-- **DG-MUN-002 — Decidido:** cada dato tiene una sola fuente de verdad. No se
-  mantiene, por ejemplo, la ubicación de un actor en dos colecciones mutables que
-  puedan contradecirse.
-- **DG-MUN-003 — Provisional:** un actor está en exactamente un lugar o en un
-  estado explícito de tránsito, retiro o muerte.
-- **DG-MUN-004 — Decidido:** el viaje ocurre entre lugares mediante relaciones y
-  reglas lógicas, nunca recorriendo tiles por colisión.
-- **DG-MUN-005 — Decidido:** el personaje controlado por el jugador es un actor y
-  no una excepción completamente separada del modelo del mundo.
-- **DG-MUN-006 — Decidido:** la simulación debe poder avanzar y resolver acciones
-  sin construir ninguna vista de terminal.
+- viajar de un lugar a otro;
+- acampar o descansar para recuperarse;
+- atacar a alguien o a un lugar;
+- rescatar o recuperar una persona o un tesoro;
+- afrontar una prueba o tarea;
+- buscar algo o buscar una salida;
+- rogar o pedir ayuda o asilo;
+- reclutar a un NPC;
+- engañar;
+- convencer;
+- identificar una falsedad o una identidad oculta.
 
-### 6.4 Contrato del mapa visual
+El desarrollo inicial se concentrará en:
 
-El mapa y los lugares son conceptos deliberadamente distintos.
+1. viajar;
+2. acampar;
+3. atacar;
+4. rescatar;
+5. reclutar.
 
-- **DG-MAP-001 — Decidido:** un tile no contiene un identificador de lugar y un
-  lugar no contiene coordenadas de tiles como parte de sus reglas.
-- **DG-MAP-002 — Decidido:** la lógica no consulta caracteres, colores o tiles
-  para validar movimiento, alcance, presencia, interacción o combate.
-- **DG-MAP-003 — Decidido:** cambiar, regenerar u omitir el mapa visual no cambia
-  por sí mismo el estado lógico de la campaña.
-- **DG-MAP-004 — Provisional:** el mundo puede referenciar una representación
-  visual neutral generada para la campaña, pero el frontend decide cómo
-  convertir sus tokens a ASCII, color y composición en pantalla.
-- **DG-MAP-005 — Provisional:** cualquier indicador de actores o lugares que se
-  superponga al mapa es una proyección transitoria de presentación, no una nueva
-  fuente de verdad.
+### Ejecución de una acción
 
-Esta separación implica una obligación de interfaz: si el mapa parece permitir
-movimiento celda por celda, el jugador esperará reglas espaciales que no existen.
-La presentación debe comunicar con claridad que la navegación real sucede entre
-lugares o contextos.
+La lógica inicial de las acciones estará escrita directamente en el backend:
 
-## 7. Acciones, sucesos y simulación
+1. Un actor solicita una acción general.
+2. La acción establece su contexto y puede pedir una decisión.
+3. El frontend presenta la decisión cuando quien actúa es el jugador.
+4. La acción general ejecuta una o más acciones particulares.
+5. Cada acción particular calcula y aplica su resultado.
+6. El backend entrega al frontend el texto y los resultados correspondientes.
+7. El frontend decide cómo presentarlos mediante viñetas.
+8. La acción general continúa hasta terminar.
 
-### 7.1 Resolución de acciones
+Una acción general puede quedar a la espera de una elección del jugador y
+continuar después. Si un NPC debe tomar una decisión intermedia, la primera
+versión elegirá al azar. Esa selección podrá volverse más compleja posteriormente
+sin cambiar la lógica compartida de las acciones.
 
-Toda acción sigue conceptualmente este recorrido:
+La participación de los compañeros se decide dentro del código de la acción
+general. La acción puede consultar sus características e incluirlos en cálculos,
+viñetas y consecuencias.
+
+### Viajar en la primera versión
+
+Al elegir `Viajar`, el frontend entra en un modo para seleccionar un lugar. Un
+lugar con la característica `inalcanzable` no puede ser elegido como destino.
+
+La lógica inicial de viaje tendrá una lista pequeña de grupos de viñetas y
+seleccionará uno al azar. Más adelante podrá usar lugares, actores, relaciones y
+reglas RPG para realizar una simulación más compleja.
+
+Cuando el viaje se completa, el actor jugador y todos los integrantes de su grupo
+pasan al lugar de destino.
+
+## 7. Tiempo y fase de NPC
+
+Las acciones particulares añaden al total de la acción general el tiempo que
+consumen. Las cantidades iniciales —por ejemplo, un día o un mes— estarán
+escritas directamente en su código y podrán modificarse a medida que se ejecuta
+la acción.
+
+Al terminar una acción del jugador:
+
+1. La fecha del mundo avanza por el tiempo total calculado.
+2. El programa recorre los scripts Lua de los NPC.
+3. Los scripts consultan características, variables del mundo, la fecha y otros
+   datos disponibles.
+4. Cuando se cumple una condición, el script solicita una acción para su NPC.
+5. Esa acción se ejecuta mediante la misma lógica común utilizada por el jugador.
+6. Las decisiones internas del NPC se toman al azar en la primera versión.
+7. El frontend resume lo sucedido mediante un texto breve en su barra inferior.
+8. Cuando termina la fase de NPC, el control regresa al jugador.
+
+Las acciones de los NPC se consideran ocurridas dentro de la franja temporal que
+ya produjo la acción del jugador. Por lo tanto, sus duraciones no vuelven a
+adelantar la fecha del mundo.
+
+## 8. Bucle inicial de la partida
 
 ```text
-intención → validación → cálculo → efectos → sucesos → avance temporal
+Iniciar partida
+      ↓
+Cargar archivos y crear instancias
+      ↓
+Mostrar el mundo y las acciones disponibles
+      ↓
+El jugador elige y completa una acción
+      ↓
+Avanzar la fecha según la duración acumulada
+      ↓
+Evaluar scripts y ejecutar acciones de NPC
+      ↓
+Mostrar resúmenes de la fase de NPC
+      ↓
+Volver a las acciones del jugador
 ```
 
-- **DG-SIM-001 — Decidido:** una acción inválida no altera parcialmente el mundo.
-- **DG-SIM-002 — Decidido:** la aleatoriedad usada al resolver una acción proviene
-  del estado controlado de la campaña, no de una fuente global invisible.
-- **DG-SIM-003 — Decidido:** el resultado contiene información suficiente para
-  que cualquier frontend pueda describir qué ocurrió sin reimplementar reglas.
-- **DG-SIM-004 — Provisional:** los actores no jugadores reutilizan el mismo
-  catálogo de acciones cuando las capacidades coinciden; sus controladores eligen
-  intenciones, pero no obtienen permisos especiales implícitos.
-- **DG-SIM-005 — Decidido:** los cambios importantes producen una traza causal
-  apta para el registro de juego, depuración y epílogo.
+Si el actor jugador posee la característica `muerto`, no puede solicitar otra
+acción. En la primera versión esto no activa todavía una derrota formal.
 
-### 7.2 Actividad del mundo
+## 9. Frontend de terminal
 
-El mundo debe dar la impresión de tener iniciativa propia, pero no es requisito
-simular cada actor con el mismo detalle en todo momento.
+La pantalla principal utiliza las dimensiones de la ventana de la terminal y
+presenta:
 
-- Los actores persiguen objetivos o necesidades simples y reaccionan a sucesos.
-- Los conflictos y oportunidades pueden evolucionar sin intervención del
-  jugador.
-- El paso del tiempo puede activar viajes, recuperación, escasez, rumores,
-  cambios de relación o etapas de la crisis.
-- La frecuencia y nivel de detalle de la simulación fuera del lugar actual quedan
-  abiertos para el diseño técnico, siempre que los resultados sean coherentes y
-  reproducibles.
+- una vista del mapa mediante caracteres ASCII;
+- los nombres de los lugares escritos sobre el mapa;
+- arte ASCII animado, desde la cintura hacia arriba, del actor jugador y de los
+  integrantes de su grupo;
+- los retratos del grupo ligeramente superpuestos uno junto al otro;
+- una barra horizontal inferior con las acciones disponibles;
+- una letra resaltada con otro color en cada acción para indicar su atajo.
 
-## 8. Contenido editable y generación
+Al activar `Viajar`:
 
-### 8.1 Contrato de contenido
+- el frontend entra en modo de selección de lugar;
+- la vista se centra en el lugar enfocado;
+- el nombre de ese lugar cambia de color;
+- aparece una segunda barra horizontal con una frase breve que explica el modo
+  actual.
 
-- **DG-CON-001 — Decidido:** el contenido del juego base y el contenido de mods
-  pasan por la misma carga y validación conceptual.
-- **DG-CON-002 — Decidido:** las referencias usan identificadores estables y los
-  errores indican archivo, elemento y causa antes de iniciar una campaña.
-- **DG-CON-003 — Decidido:** una campaña conserva la versión o huella del juego y
-  del conjunto de contenido con el que fue creada.
-- **DG-CON-004 — Provisional:** el primer alcance de modding acepta datos y
-  parámetros de comportamientos soportados, pero no scripts ni código arbitrario.
-- **DG-CON-005 — Provisional:** no hay recarga en caliente durante una campaña.
-  Los cambios de archivos afectan la siguiente campaña, no el estado ya creado.
-- **DG-CON-006 — Abierto:** el formato, los esquemas, el orden de capas, la
-  resolución de conflictos y la política de compatibilidad se decidirán en la
-  documentación técnica.
+Durante las acciones del jugador, el frontend muestra las viñetas y recoge sus
+decisiones. Durante la fase de NPC, omite esas viñetas y presenta resúmenes
+breves.
 
-“Fácil de modificar” exige además ejemplos, mensajes de error accionables y una
-forma de validar contenido sin tener que jugar una campaña completa.
+El frontend controla la presentación, los modos, el foco, el dibujo y la entrada.
+El backend controla las reglas y le entrega decisiones, textos y resultados. El
+diseño exacto de los modos, menús, teclas y animaciones se realizará en la
+documentación técnica.
 
-### 8.2 Generación de una campaña
+## 10. Límites actuales
 
-Pipeline conceptual:
+Todavía no se han definido:
 
-1. Descubrir los paquetes de contenido habilitados.
-2. Cargar y validar sintaxis, identificadores, referencias y restricciones.
-3. Elegir o aceptar una semilla.
-4. Seleccionar una premisa y plantillas compatibles.
-5. Crear lugares y sus relaciones lógicas de viaje.
-6. Crear actores, objetos, recursos y relaciones.
-7. Crear conflictos, oportunidades y una presión de final de campaña.
-8. Establecer al personaje del jugador y su contexto inicial.
-9. Crear la representación visual.
-10. Validar invariantes de jugabilidad; reparar o regenerar si fallan.
-11. Guardar la huella de contenido y comenzar la campaña.
+- las reglas RPG concretas de cada acción particular;
+- una estructura técnica para el código Rust;
+- el formato y esquema de los archivos de contenido;
+- el funcionamiento detallado de relaciones y facciones;
+- sistemas de estadísticas distintos de las características;
+- guardado y reanudación;
+- victoria, derrota y presentación del final de una partida;
+- comportamiento avanzado de NPC;
+- el setting y su contenido;
+- los detalles técnicos de la interfaz y del arte ASCII animado.
 
-- **DG-GEN-001 — Decidido:** la misma semilla solo promete el mismo mundo cuando
-  también coinciden la versión del juego y la huella del contenido.
-- **DG-GEN-002 — Decidido:** el generador combina azar con restricciones; una
-  selección puramente aleatoria no se considera generación suficiente.
-- **DG-GEN-003 — Decidido:** un fallo de validación nunca entrega silenciosamente
-  al jugador un mundo imposible; debe reparar, reintentar o abortar con un error.
-- **DG-GEN-004 — Decidido:** la semilla y la información necesaria para reproducir
-  una campaña forman parte de su registro.
-
-### 8.3 Invariantes mínimos de una campaña válida
-
-- El actor del jugador existe y tiene una situación inicial válida.
-- Todas las referencias requeridas resuelven a elementos existentes y compatibles.
-- Existe más de una acción inicial razonable.
-- Los lugares necesarios para el recorrido lógico son alcanzables mediante rutas.
-- La presión global tiene señales observables y al menos una respuesta viable.
-- Ningún actor vivo ocupa estados incompatibles a la vez.
-- Existe alguna vía hacia un desenlace; la campaña no depende de continuar para
-  siempre.
-- La representación visual tiene dimensiones y tokens válidos, pero un problema
-  visual no redefine las reglas del mundo.
-
-## 9. Permadeath, persistencia y epílogo
-
-- **DG-PER-001 — Decidido:** se guarda para suspender y continuar, no para volver
-  voluntariamente a un estado anterior y deshacer consecuencias.
-- **DG-PER-002 — Decidido:** al morir, la campaña queda terminada y ya no puede
-  reanudarse como partida activa.
-- **DG-PER-003 — Decidido:** debe existir una estrategia de recuperación frente a
-  cierres inesperados que no convierta el guardado en rebobinado normal.
-- **DG-PER-004 — Decidido:** una campaña terminada conserva al menos semilla,
-  duración, causa del desenlace y un resumen de hechos relevantes.
-- **DG-PER-005 — Provisional:** cualquier metaprogresión futura desbloquea variedad,
-  opciones o conocimiento, no aumentos permanentes fuertes de poder.
-- **DG-PER-006 — Decidido:** al ser un juego local y modificable, el objetivo es
-  preservar la intención del permadeath en el flujo normal; no se promete impedir
-  toda manipulación deliberada de archivos por parte del usuario.
-
-## 10. Frontend de terminal y portabilidad
-
-### 10.1 Responsabilidades del frontend
-
-El frontend de terminal:
-
-- transforma entrada de teclado en comandos semánticos;
-- consulta una vista pública del estado permitido al jugador;
-- representa mapa, contexto del lugar, actores, estado personal y registro;
-- presenta opciones, costes conocidos, errores y resultados;
-- gestiona composición, foco, redimensionado, color y glifos;
-- nunca decide por su cuenta si una acción es válida o cuál es su resultado.
-
-### 10.2 Requisitos de interacción
-
-- **DG-UI-001 — Decidido:** ninguna información imprescindible depende solamente
-  del color.
-- **DG-UI-002 — Decidido:** el jugador puede identificar el lugar actual, los
-  actores accesibles, su estado relevante, la presión global conocida y las
-  acciones disponibles.
-- **DG-UI-003 — Decidido:** una orden rechazada explica el motivo sin cambiar el
-  estado de la campaña.
-- **DG-UI-004 — Provisional:** la interfaz se adapta a un tamaño mínimo de terminal
-  todavía por definir y degrada paneles secundarios antes de ocultar información
-  imprescindible.
-- **DG-UI-005 — Decidido:** las reglas no reciben glifos, códigos ANSI, eventos de
-  teclado ni coordenadas de pantalla.
-
-### 10.3 Prueba de portabilidad
-
-- **DG-ARQ-001 — Decidido:** el núcleo completo puede ejecutarse de forma headless
-  mediante pruebas o un controlador mínimo que envía comandos y lee resultados.
-- **DG-ARQ-002 — Decidido:** sustituir la terminal por otro frontend no requiere
-  reescribir generación, acciones, IA, persistencia ni reglas del mundo.
-- **DG-ARQ-003 — Decidido:** el núcleo no depende de rutas de archivos, reloj del
-  sistema o aleatoriedad ambiental sin que esas dependencias entren mediante un
-  límite explícito.
-
-La documentación técnica determinará cómo materializar estos límites en Rust.
-
-## 11. Alcance inicial
-
-El primer hito jugable debe ser una sección vertical completa y corta. Intentar
-producir inmediatamente seis horas de contenido haría demasiado lenta la
-validación del bucle y del permadeath.
-
-| Área | Sección vertical / MVP | Objetivo de producto |
-|---|---|---|
-| Duración por campaña | 30–90 minutos para validar el ciclo | 5–6 horas |
-| Mundo | Una región y una premisa | Varias combinaciones dentro de una campaña coherente |
-| Lugares | 4–8 lugares lógicos | Cantidad ajustada por ritmo; referencia inicial de 12–20 |
-| Actores | Jugador y 8–15 actores simples | Densidad ajustada; referencia inicial de 15–30 |
-| Grupos | 2 intereses enfrentados | Al menos 3 fuerzas con relaciones variables |
-| Acciones | Observar, viajar, interactuar, tomar/usar, descansar y resolver un conflicto | Verbos sociales, sigilo, comercio y conflicto suficientemente expresivos |
-| Arco | Una presión global y varios desenlaces | Campaña completa con desarrollo y crisis |
-| Contenido | Archivos externos para lugares, actores y objetos | Cobertura de todos los elementos configurables acordados |
-| Presentación | Frontend ASCII jugable | Experiencia de terminal completa y legible |
-| Persistencia | Suspender, reanudar y cerrar por muerte | Historial y epílogo completos |
-
-Las cantidades son referencias provisionales; importan más la densidad de
-decisiones y el ritmo que alcanzar un número fijo.
-
-### 11.1 Fuera del MVP
-
-- Multijugador o servicios en línea.
-- Tiempo real.
-- Movimiento o combate táctico gobernado por tiles.
-- Mundo infinito o una campaña persistente sin final.
-- Scripting o ejecución de código aportado por mods.
-- Editor visual de contenido.
-- Economía, política o planificación de IA de gran profundidad.
-- Múltiples frontends de producción; basta demostrar la independencia del núcleo.
-- Compatibilidad indefinida con todos los guardados o mods futuros.
-- Metaprogresión de poder entre campañas.
-
-## 12. Criterios de éxito del diseño
-
-- **DG-ACE-001:** cambiar un archivo válido de contenido cambia una campaña nueva
-  sin recompilar el juego.
-- **DG-ACE-002:** una referencia de contenido inválida produce un diagnóstico
-  claro antes de generar el mundo.
-- **DG-ACE-003:** con versión, huella de contenido, semilla y secuencia de comandos
-  iguales, la simulación produce el mismo resultado salvo excepciones documentadas.
-- **DG-ACE-004:** ninguna regla decide en función de un carácter ASCII o tile.
-- **DG-ACE-005:** el núcleo puede completar campañas simuladas sin frontend.
-- **DG-ACE-006:** una campaña puede suspenderse sin ofrecer rebobinado como parte
-  del flujo normal.
-- **DG-ACE-007:** el mundo cambia sin intervención directa del jugador.
-- **DG-ACE-008:** toda campaña válida puede llegar a uno o más desenlaces.
-- **DG-ACE-009:** los peligros capaces de terminar una campaña tienen señales o
-  contramedidas descubribles.
-- **DG-ACE-010:** el epílogo identifica las cadenas causales más importantes en
-  vez de mostrar solo una etiqueta de victoria o derrota.
-
-## 13. Riesgos de diseño
-
-| Riesgo | Consecuencia | Respuesta de diseño |
-|---|---|---|
-| Sandbox sin cierre | Campañas mucho más largas o sin propósito | Presión global, horizonte finito y varios desenlaces. |
-| Muerte arbitraria tras varias horas | Frustración y pérdida de confianza | Señales, vías de escape, registro causal y azar controlado. |
-| Mapa visual engañoso | El jugador espera movimiento espacial inexistente | Separar visualmente navegación lógica de decoración por tiles. |
-| Azar sin estructura | Mundos absurdos, inertes o imposibles | Generación por fases, restricciones, validación y reparación. |
-| Demasiados actores simulados | Rendimiento pobre y comportamiento difícil de explicar | Niveles de detalle o frecuencias distintas, preservando coherencia. |
-| Contenido y runtime mezclados | Mods frágiles y guardados inconsistentes | Definiciones separadas de instancias y huella por campaña. |
-| Reglas filtradas al frontend | Portar el juego obliga a reescribirlo | Comandos semánticos, resultados y ejecución headless. |
-| Alcance de modding excesivo | Retraso, inseguridad y APIs inestables | Datos validados primero; scripting fuera del MVP. |
-| Variación superficial | Las campañas se sienten iguales | Variar relaciones, objetivos, presiones y recursos, no solo nombres. |
-
-## 14. Decisiones abiertas prioritarias
-
-Estas preguntas no bloquean el documento base. Las decisiones provisionales
-permiten avanzar, pero deberán resolverse antes del plan que dependa de ellas.
-
-| ID | Pregunta |
-|---|---|
-| DG-ABI-001 | ¿Cuál es la ambientación y la fantasía concreta del personaje? |
-| DG-ABI-002 | ¿Qué ambiciones equivalen a ganar y cómo se presenta la retirada? |
-| DG-ABI-003 | ¿Qué forma toma la presión global que limita una campaña? |
-| DG-ABI-004 | ¿El jugador controla siempre un solo actor? |
-| DG-ABI-005 | ¿Qué muestra exactamente el mapa: mundo, región, lugar actual o una composición de escalas? |
-| DG-ABI-006 | ¿Cuál es el modelo de combate y cuánto depende de posición lógica? |
-| DG-ABI-007 | ¿Qué información del mundo se conoce al comenzar y cómo se descubre el resto? |
-| DG-ABI-008 | ¿Qué profundidad de objetivos, memoria y planificación necesitan los actores? |
-| DG-ABI-009 | ¿Qué simulación continúa fuera del lugar actual? |
-| DG-ABI-010 | ¿Cuál es la unidad temporal y el orden exacto de resolución? |
-| DG-ABI-011 | ¿Qué compatibilidad se promete a contenido y guardados entre versiones? |
-| DG-ABI-012 | ¿Cómo se ordenan mods y cómo se resuelven conflictos? |
-| DG-ABI-013 | ¿Existe metaprogresión de variedad o conocimiento? |
-| DG-ABI-014 | ¿Qué tamaño mínimo de terminal y modos de entrada se soportan? |
-
-## 15. Glosario
-
-- **Campaña / partida:** mundo autocontenido desde su generación hasta un
-  desenlace; puede abarcar varias sesiones reales.
-- **Sesión:** intervalo real durante el que la aplicación permanece abierta.
-- **Contenido:** definiciones editables que describen posibilidades del juego.
-- **Definición:** plantilla inmutable leída del contenido.
-- **Instancia:** elemento concreto y mutable creado para una campaña.
-- **Mundo:** raíz autoritativa del estado de una campaña.
-- **Lugar:** contexto lógico de presencia e interacción, independiente de tiles.
-- **Actor:** entidad capaz de proponer acciones.
-- **Acción:** intención validada y resuelta por las reglas.
-- **Efecto:** cambio de estado producido al resolver una acción o suceso.
-- **Suceso:** hecho registrado o programado capaz de informar y provocar reacciones.
-- **Mapa visual:** matriz no autoritativa destinada a representación.
-- **Tile:** celda de esa matriz visual; no equivale a un lugar.
-- **Frontend:** adaptador de entrada y presentación; inicialmente, la terminal.
-- **Núcleo:** lógica de generación, reglas y simulación independiente del frontend.
-- **Semilla:** dato inicial de la aleatoriedad reproducible.
-- **Huella de contenido:** identificación del conjunto y versión de definiciones
-  usados para crear una campaña.
-- **Permadeath:** cierre irreversible de la campaña activa cuando muere el actor
-  del jugador.
-
-## 16. Uso de este documento
-
-La documentación técnica deberá citar los requisitos `DG-*` relevantes y explicar
-cómo los satisface. Si una decisión técnica contradice este documento, primero se
-actualiza o discute el diseño general; no se oculta la diferencia dentro de un
-plan de implementación.
-
-Los planes pueden dividir el trabajo, pero no crear requisitos de producto nuevos
-sin incorporarlos aquí. Las preguntas `DG-ABI-*` resueltas deben convertirse en
-decisiones dentro de la sección correspondiente, conservando un breve registro
-del cambio.
+Estos elementos se añadirán de forma incremental. No deben suponerse antes de ser
+diseñados.

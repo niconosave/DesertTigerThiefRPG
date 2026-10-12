@@ -15,11 +15,13 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 
 ## Relación entre documentos
 
-1. El diseño general fija la intención y usa identificadores estables `DG-*`.
-2. La documentación técnica traduce esa intención a contratos y decisiones de
-   implementación, y debe indicar qué requisitos `DG-*` satisface.
-3. Cada plan pendiente divide una parte de esa documentación técnica en pasos
-   verificables y enlaza las secciones en las que se apoya.
+1. El diseño general enumera los elementos fundamentales del juego y sus
+   relaciones conceptuales.
+2. El diseño técnico general define la organización global del desarrollo y los
+   documentos técnicos específicos diseñan cada parte del código y de los datos.
+3. Cada plan pendiente convierte una parte de esa documentación técnica en pasos
+   verificables y enlaza las secciones en las que se apoya. El plan no sustituye
+   ni repite el diseño técnico.
 4. Cuando la implementación y sus verificaciones terminan, el mismo archivo se
    completa con el resultado y se mueve a `planes/completados/`.
 

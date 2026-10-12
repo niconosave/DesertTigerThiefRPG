@@ -13,8 +13,7 @@
 
 ## Referencias
 
-- Diseño general: `<DG-...>`
-- Documentación técnica: <enlace relativo a `docs/tecnica/` y su sección exacta>
+- Documentación técnica: <enlace relativo a `docs/tecnica/` y a la sección exacta>
 - Otros planes o decisiones: <si corresponde>
 
 ## Alcance

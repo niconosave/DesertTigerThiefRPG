@@ -6,7 +6,7 @@ pequeños, ordenados y verificables.
 ## Flujo
 
 1. Copiar [`PLANTILLA.md`](./PLANTILLA.md) a `pendientes/AAAA-MM-DD-nombre.md`.
-2. Enlazar los requisitos `DG-*` y las secciones técnicas aplicables.
+2. Enlazar las secciones aplicables de la documentación técnica.
 3. Definir alcance, exclusiones, pasos y verificaciones antes de implementar.
 4. Mantener el plan actualizado si la ejecución se desvía de forma relevante.
 5. Completar resultado, verificaciones y desviaciones al terminar.
