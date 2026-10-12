@@ -1,7 +1,9 @@
 # Documentación técnica
 
-Este directorio traducirá el [diseño general](../diseno-general.md) a decisiones
-de implementación verificables. Todavía no contiene una arquitectura elegida.
+Este directorio traduce el [diseño general](../diseno-general.md) a decisiones de
+implementación verificables. El
+[diseño técnico general](./diseno-tecnico-general.md) define la arquitectura y
+los límites compartidos del proyecto.
 
 La estructura prevista es:
 
@@ -12,7 +14,7 @@ tecnica/
     └── <documentos técnicos específicos>.md
 ```
 
-El diseño técnico general definirá la organización global, los límites entre
+El diseño técnico general define la organización global, los límites entre
 partes y las reglas compartidas. Los documentos de `componentes/` diseñarán en
 detalle una parte concreta del código o de los datos.
 
