@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Borrador en construcción |
-| Versión | 0.2 |
+| Versión | 0.3 |
 | Fecha | 2026-10-12 |
 
 ## 1. Propósito
@@ -63,6 +63,13 @@ representan la vista del mundo en la terminal, pero no determinan las reglas.
 
 El mapa no establece dónde está un actor, qué lugares están conectados ni qué
 acciones son posibles.
+
+Cada Partida posee su propia instancia del mapa. Sus tiles podrán modificarse
+durante la partida para representar visualmente un cambio que haya ocurrido en
+el mundo; por ejemplo, los tiles de un bosque podrán convertirse en árboles
+quemados después de un incendio. La transformación automática se diseñará en un
+incremento posterior. Esa modificación seguirá siendo visual: los tiles no
+pasarán a ser la fuente del estado ni de las reglas que causaron el cambio.
 
 ### Lugar
 
@@ -168,7 +175,10 @@ Las reglas fundamentales son:
 - el frontend puede dibujar actores sobre el mapa para ilustrar dónde hay
   actividad;
 - el tile exacto elegido para esa ilustración es una decisión estética;
-- cambiar la representación del mapa no cambia el estado del juego;
+- un cambio del estado del mundo puede producir un cambio en su representación
+  visual;
+- modificar por sí solo un tile no cambia el estado reglado ni habilita o
+  impide acciones;
 - viajar modifica el lugar de los integrantes del grupo, no sus coordenadas de
   tiles.
 
@@ -185,8 +195,9 @@ Los archivos de contenido definirán al menos:
 - las partes de Lua utilizadas por los NPC.
 
 Al comenzar una partida, el programa carga esos archivos y crea nuevas instancias
-con los mismos datos iniciales. En esta etapa no habrá generación procedural ni
-variación del estado inicial.
+con los mismos datos iniciales, incluida una instancia visual propia del mapa que
+podrá cambiar durante esa Partida. Los archivos fuente no se modifican. En esta
+etapa no habrá generación procedural ni variación del estado inicial.
 
 El formato, la distribución entre archivos, las referencias, la validación y la
 representación de animaciones y scripts se diseñarán en la documentación técnica.

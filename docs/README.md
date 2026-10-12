@@ -9,7 +9,7 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 |---|---|
 | [`diseno-general.md`](./diseno-general.md) | Define qué juego se quiere construir, sus conceptos y sus restricciones. |
 | [`metodologia-desarrollo.md`](./metodologia-desarrollo.md) | Define cómo se diseñan, implementan y verifican los incrementos. |
-| [`tecnica/`](./tecnica/) | Alojará las decisiones técnicas que explican cómo implementar el diseño. |
+| [`tecnica/`](./tecnica/) | Contiene la arquitectura general y los diseños técnicos específicos. |
 | [`planes/pendientes/`](./planes/pendientes/) | Contiene planes de implementación todavía no terminados. |
 | [`planes/completados/`](./planes/completados/) | Conserva los planes ya implementados y su resultado real. |
 | [`planes/PLANTILLA.md`](./planes/PLANTILLA.md) | Punto de partida obligatorio para un nuevo plan. |

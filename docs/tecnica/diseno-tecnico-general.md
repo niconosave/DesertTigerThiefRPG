@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Borrador |
-| Versión | 0.2 |
+| Versión | 0.5 |
 | Fecha | 2026-10-12 |
 
 ## 1. Propósito
@@ -25,6 +25,8 @@ La estructura debe garantizar que:
 - los tiles y las coordenadas visuales nunca determinen el gameplay;
 - jugador y NPC utilicen el mismo motor de acciones;
 - el contenido editable produzca instancias nuevas al comenzar una partida;
+- cada sesión pueda actualizar su mapa visual sin exponer sus tiles a las
+  reglas;
 - Lua solicite acciones, pero no modifique el mundo directamente;
 - una acción pueda esperar una decisión y continuar después;
 - azar, entrada y tiempo real puedan controlarse en pruebas;
@@ -81,13 +83,16 @@ Biblioteca que ofrece una fachada independiente del frontend:
 - crea y posee la sesión activa;
 - coordina las fases del jugador, avance temporal y NPC;
 - integra Lua como fuente de decisiones;
-- conserva los datos de presentación;
+- conserva acceso de solo lectura a las definiciones de presentación y posee el
+  estado actual del mapa de la sesión;
 - expone comandos, salidas narrativas y vistas de solo lectura.
 
-La aplicación coordina operaciones, pero toda mutación del mundo pasa por el
-núcleo. Su API pública usa valores poseídos y tipos propios o reexportados por
-`desert-tiger-app`, de modo que un frontend nunca necesite depender directamente
-de `desert-tiger-core`.
+La aplicación coordina operaciones, pero toda mutación del estado reglado del
+mundo pasa por el núcleo. También puede actualizar su propio estado de
+presentación como consecuencia de resultados semánticos del núcleo, sin usarlo
+para calcular gameplay. Su API pública usa valores poseídos y tipos propios o
+reexportados por `desert-tiger-app`, de modo que un frontend nunca necesite
+depender directamente de `desert-tiger-core`.
 
 La carga de contenido y Lua comenzarán como módulos internos de este crate. Solo
 se extraerán a crates separados si aparece una razón concreta.
@@ -134,8 +139,11 @@ desarrollo.
 ## 5. Sesión, estado y presentación
 
 La sesión de juego representará técnicamente la **Partida** del diseño general.
-Poseerá la proyección reglada del Mundo, el contenido de presentación, las
-políticas de NPC, la acción pendiente y la fuente de azar. Su nombre y sus tipos
+Poseerá una única instancia de `Mundo`, cuyo tipo y operaciones están definidos
+por `desert-tiger-core`; no existe otra copia del Mundo dentro del núcleo.
+Poseerá también el estado actual del mapa de esa Partida y tendrá acceso de solo
+lectura a las definiciones de presentación. Las políticas de NPC, la acción
+pendiente y la fuente de azar completarán su estado. Sus nombres y tipos
 concretos se definirán en los documentos específicos.
 
 El estado reglado usará identificadores estables y tipados para referenciar sus
@@ -146,14 +154,19 @@ garantizará que permanezcan siempre en el mismo lugar y se muevan juntos.
 
 La Partida contendrá exactamente un Mundo y este estará ligado obligatoriamente
 a un único mapa visual. El núcleo solo conservará una referencia opaca a ese
-mapa: sus tiles, las coordenadas de rótulos y el arte ASCII estarán en un
-catálogo de presentación administrado por `desert-tiger-app`. Las políticas Lua
-también estarán asociadas por identificador con sus actores. El frontend
-recibirá una vista que combina estos datos sin exponer el estado mutable.
+mapa mediante su identificador. `desert-tiger-app` resolverá ese identificador a
+la instancia visual mutable de la sesión. Los tiles y las coordenadas de rótulos,
+junto con el arte ASCII, permanecerán fuera del núcleo. Las políticas Lua también
+estarán asociadas por identificador con sus actores. El frontend recibirá una
+vista que combina estos datos sin exponer el estado mutable.
 
 Así se respeta que mapa, lugares y actores pertenecen al mismo mundo, pero se
 impide que viajar, atacar u otra regla consulte accidentalmente una coordenada
-visual.
+visual. Si una regla produce un cambio semántico con consecuencias visibles, la
+aplicación podrá reflejarlo en los tiles de esa Partida; la representación visual
+nunca producirá el cambio inverso en el estado reglado. Toda condición duradera
+que las reglas deban observar permanecerá en el Mundo: el mapa no podrá ser su
+único registro.
 
 ## 6. Carga de contenido
 
@@ -162,10 +175,10 @@ núcleo. Luego se validarán campos, identificadores, referencias y scripts ante
 de convertirlos en contenido apto para crear una partida.
 
 La carga será atómica: cualquier error impedirá crear una sesión parcial y
-producirá un diagnóstico con contexto. Los archivos fuente permanecerán
-inmutables durante la partida. Dos sesiones creadas desde el mismo contenido
-comenzarán iguales y tendrán estados mutables independientes; la creación
-inicial no introducirá azar.
+producirá un diagnóstico con contexto. Los archivos fuente y las definiciones
+validadas permanecerán inmutables durante la partida. Dos sesiones creadas desde
+el mismo contenido comenzarán iguales y tendrán estados reglados y mapas
+visuales mutables independientes; la creación inicial no introducirá azar.
 
 El formato, esquema, distribución de `content/` y representación concreta de
 referencias se decidirán en el documento técnico de contenido.
@@ -175,19 +188,23 @@ referencias se decidirán en el documento técnico de contenido.
 La frontera entre frontend y aplicación será una interfaz interna de Rust con
 significado propio del juego. Mediante llamadas directas, el frontend enviará
 comandos como comenzar una acción o responder una decisión, identificando
-acciones, actores, objetivos y opciones; nunca enviará teclas ni coordenadas de
-tiles al núcleo.
+acciones, objetivos y opciones; nunca elegirá la identidad del actor ni enviará
+teclas o coordenadas de tiles al núcleo. La aplicación vinculará esos comandos
+al actor jugador. El coordinador de NPC será quien forme internamente solicitudes
+para el actor correspondiente a cada política Lua.
 
 La aplicación devolverá:
 
 - vistas de solo lectura derivadas del estado real;
-- fragmentos narrativos y resultados neutrales;
+- fragmentos narrativos y resultados semánticos estructurados;
 - solicitudes de decisión con opciones identificadas;
 - rechazos y resúmenes de la fase de NPC.
 
 El frontend decide si un fragmento se muestra como viñeta, barra u otra forma.
 El texto inicial puede estar escrito en el backend, pero no incluirá color,
-posición ni instrucciones de dibujo.
+posición ni instrucciones de dibujo. Cuando se diseñe la transformación visual
+de resultados semánticos, la aplicación podrá usarlos para actualizar el mapa de
+la sesión. El núcleo no emitirá ni recibirá coordenadas o tiles para hacerlo.
 
 La aplicación ofrecerá acciones y objetivos disponibles para ayudar a construir
 la interfaz, pero el núcleo volverá a validar cada comando. Si el actor jugador
@@ -228,10 +245,10 @@ mundo mutable; Rust convertirá y validará su respuesta antes de ejecutarla. To
 estado persistente deberá vivir en el Mundo y el azar será proporcionado por
 Rust, de modo que las pruebas puedan reproducirlo.
 
-El entorno permitirá únicamente capacidades necesarias. El documento específico
+El entorno permitirá únicamente capacidades necesarias. El documento de Lua
 definirá su API, bibliotecas disponibles, límites de ejecución y política ante
-errores. También definirá el orden de NPC, qué cambios observa cada uno y cuántas
-acciones puede solicitar durante una fase.
+errores. El documento de tiempo y fase de NPC definirá el orden de evaluación,
+qué cambios observa cada NPC y cuántas acciones puede solicitar durante una fase.
 
 ## 9. Frontend de terminal
 
@@ -250,7 +267,7 @@ Ratatui y Crossterm existirán exclusivamente en `desert-tiger-terminal`. Su
 bucle inicial será síncrono y monohilo, separando:
 
 1. traducción de eventos;
-2. actualización del estado visual;
+2. actualización del estado de interfaz;
 3. renderizado.
 
 El reloj usado para animar no avanza el tiempo del mundo. El frontend deberá
@@ -274,6 +291,8 @@ Este diseño se considerará respetado cuando:
 
 - el grafo de dependencias siga únicamente `terminal → app → core`;
 - ninguna regla pueda acceder a tipos de terminal ni a datos del mapa visual;
+- dos sesiones puedan modificar sus mapas de forma independiente sin cambiar el
+  contenido fuente ni los resultados de las reglas;
 - una prueba sin frontend pueda completar una acción, avanzar la fecha, procesar
   NPC y devolver el control;
 - jugador y NPC atraviesen el mismo motor de acciones;
