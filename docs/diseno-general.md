@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Base inicial aprobada |
-| Versión | 0.8 |
+| Versión | 0.9 |
 | Fecha | 2026-10-15 |
 
 ## 1. Propósito
@@ -12,13 +12,15 @@ Este documento define solamente las bases del juego: sus elementos principales,
 las relaciones entre ellos y el flujo general de una partida. Cada elemento será
 desarrollado posteriormente en documentación técnica propia.
 
-La documentación del proyecto tendrá cuatro niveles:
+La documentación del proyecto tendrá cinco niveles:
 
 1. Este diseño general describe qué elementos forman el juego.
-2. Un diseño técnico general describirá la organización global del desarrollo.
-3. Documentos técnicos específicos diseñarán cada parte del código y de los datos.
-4. Los planes de implementación contendrán únicamente pasos de trabajo y
-   referencias a esos documentos técnicos.
+2. Briefs de contenido describirán la intención creativa de regiones,
+   personajes y otros conjuntos concretos sin duplicar sus archivos de datos.
+3. Un diseño técnico general describirá la organización global del desarrollo.
+4. Documentos técnicos específicos diseñarán cada parte del código y de los datos.
+5. Los planes de implementación contendrán únicamente pasos de trabajo y
+   referencias a los diseños aplicables.
 
 El desarrollo será incremental. Cada etapa deberá dejar una versión jugable para
 poder evaluar el funcionamiento y la calidad antes de añadir nuevos elementos.
@@ -230,8 +232,9 @@ etapa no habrá generación procedural ni variación del estado inicial.
 
 El formato, la distribución entre archivos, las referencias, la validación y la
 representación de animaciones y scripts se diseñarán en la documentación técnica.
-El setting, sus personajes, conflictos y lugares se diseñarán después de definir
-esa estructura.
+Los briefs de contenido definirán la intención del setting, sus personajes,
+conflictos y lugares; los archivos editables serán la fuente de sus datos
+concretos.
 
 ## 6. Sistema de acciones
 
@@ -464,7 +467,9 @@ recorrido vertical. Permanecen fuera de ese alcance:
 - comportamiento avanzado de NPC y varias políticas independientes;
 - creación o modificación de variables globales durante la Partida;
 - transformación automática de consecuencias del mundo en regiones del mapa;
-- el setting, su contenido narrativo y el acabado artístico definitivo.
+- la ampliación del setting más allá del
+  [escenario inicial](./contenido/escenario-inicial.md), sus conflictos
+  narrativos y el acabado artístico definitivo.
 
 Estos elementos se añadirán de forma incremental. No deben suponerse antes de ser
 diseñados.

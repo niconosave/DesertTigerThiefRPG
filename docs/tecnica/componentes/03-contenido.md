@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.16 |
-| Fecha | 2026-10-14 |
+| Versión | 0.17 |
+| Fecha | 2026-10-15 |
 
 ## 1. Propósito y alcance
 
@@ -22,9 +22,12 @@ Su alcance comprende:
 - crear estados mutables nuevos, iguales al contenido inicial e independientes
   entre sí.
 
-Quedan fuera el setting concreto, las reglas de las acciones, el formato de
-guardado, la combinación de varios paquetes o prioridades de mods, la recarga en
-caliente y la generación procedural. La ejecución de scripts se define en
+Quedan fuera el diseño creativo del setting, las reglas de las acciones, el
+formato de guardado, la combinación de varios paquetes o prioridades de mods, la
+recarga en caliente y la generación procedural. El
+[brief del escenario inicial](../../contenido/escenario-inicial.md) define la
+intención creativa; este documento solo fija cómo se representa y valida. La
+ejecución de scripts se define en
 [`08-integracion-lua.md`](./08-integracion-lua.md); aquí solo se carga, asocia y
 valida su presencia.
 
@@ -553,18 +556,18 @@ El esquema completo y normativo de `world.ron` es:
     mapa: "mapa_inicial",
 
     lugares: [
-        "refugio",
-        "bosque",
+        "zona_arida",
+        "valle_fertil",
     ],
     actores: [
-        "jugador",
-        "companera",
-        "viajero",
+        "principe_perdido",
+        "bandido",
+        "cazador",
     ],
 
-    actor_jugador: "jugador",
+    actor_jugador: "principe_perdido",
     companeros_iniciales: [
-        "companera",
+        "bandido",
     ],
 
     fecha_inicial: (
@@ -574,24 +577,9 @@ El esquema completo y normativo de `world.ron` es:
     ),
 
     variables_globales: (
-        booleanas: [
-            (
-                clave: "incendioBosqueOcurrio",
-                valor: false,
-            ),
-        ],
-        enteras: [
-            (
-                clave: "vecesVisitadoBosque",
-                valor: 0,
-            ),
-        ],
-        textos: [
-            (
-                clave: "estadoPuertaNorte",
-                valor: "cerrada",
-            ),
-        ],
+        booleanas: [],
+        enteras: [],
+        textos: [],
     ),
 )
 ```
@@ -602,6 +590,17 @@ referencia exactamente un archivo; `lugares`, `actores` y
 `companeros_iniciales` son listas no vacías y sin repeticiones. Las dos primeras
 establecen el orden canónico y la tercera conserva exactamente el orden de los
 compañeros. Cada una de las tres listas de variables puede estar vacía.
+
+Cuando se necesiten valores, cada entrada usa exactamente una de estas tres
+formas; este ejemplo aislado no añade esas claves al contenido oficial:
+
+```ron
+variables_globales: (
+    booleanas: [(clave: "eventoOcurrio", valor: false)],
+    enteras: [(clave: "contador", valor: 0)],
+    textos: [(clave: "estado", valor: "inicial")],
+)
+```
 
 La fecha inicial usa la estructura numérica mostrada dentro de `world.ron`.
 
@@ -652,27 +651,30 @@ Partida. Los `LugarInicial` y `ActorInicial` entregados al núcleo llevan esos I
 `Mundo::nuevo` comprueba nuevamente que cada uno coincida con su posición
 canónica.
 
-El esquema completo y normativo de un archivo de Lugar es:
+El siguiente ejemplo muestra todos los campos normativos de un archivo de Lugar
+mediante `zona_arida`. Sus coordenadas solo ilustran la forma del dato; las
+coordenadas oficiales se fijarán en `content/base/` después de dibujar el mapa:
 
 ```ron
 (
-    clave: "refugio",
-    nombre: "Refugio",
-    caracteristicas: [
-        "fortificado",
-    ],
+    clave: "zona_arida",
+    nombre: "Zona Árida",
+    caracteristicas: [],
     coordenada_central: (
-        x: 3,
-        y: 2,
+        x: 14,
+        y: 16,
     ),
     coordenadas_rotulo: [
-        (x: 0, y: 1),
-        (x: 1, y: 1),
-        (x: 2, y: 1),
-        (x: 3, y: 1),
-        (x: 4, y: 1),
-        (x: 5, y: 1),
-        (x: 6, y: 1),
+        (x: 10, y: 15),
+        (x: 11, y: 15),
+        (x: 12, y: 15),
+        (x: 13, y: 15),
+        (x: 14, y: 15),
+        (x: 15, y: 15),
+        (x: 16, y: 15),
+        (x: 17, y: 15),
+        (x: 18, y: 15),
+        (x: 19, y: 15),
     ],
 )
 ```
@@ -685,12 +687,14 @@ Mapa. La coordenada central y todas las coordenadas del rótulo son mutuamente
 distintas dentro del mismo Lugar. Lugares diferentes sí pueden superponer sus
 rótulos, porque esa composición es responsabilidad del diseño del contenido.
 
-El esquema completo y normativo de un archivo de Actor es:
+El siguiente ejemplo muestra todos los campos normativos de un archivo de Actor
+mediante `principe_perdido`. El fotograma solo ilustra el formato; el retrato
+oficial se fijará en `content/base/`:
 
 ```ron
 (
-    clave: "jugador",
-    lugar_inicial: "refugio",
+    clave: "principe_perdido",
+    lugar_inicial: "zona_arida",
     caracteristicas: [],
     retrato: Some((
         fotogramas: [
@@ -741,8 +745,10 @@ durante la carga conforme a la
 Lua tampoco es un formato admitido: Lua decide si solicita una acción, pero no
 construye la definición inicial del Actor.
 
-Un archivo de Mapa incorpora una leyenda junto con su matriz compacta. Su
-esquema completo y normativo es:
+Un archivo de Mapa incorpora una leyenda junto con su matriz compacta. El
+siguiente ejemplo mínimo define la forma normativa del esquema, pero no es la
+matriz del fixture oficial ni debe combinarse con las coordenadas del ejemplo
+de Lugar anterior:
 
 ```ron
 (
@@ -999,34 +1005,36 @@ nunca interviene.
 
 ### Fixture vertical oficial
 
-El conjunto técnico mínimo es la fuente canónica del recorrido de humo; no fija
-el setting narrativo del juego. Usa las claves de los ejemplos normativos y
-cumple exactamente estas precondiciones:
+El conjunto técnico mínimo es la fuente canónica del recorrido de humo y
+materializa el [brief del escenario](../../contenido/escenario-inicial.md). Para
+este incremento usa las siguientes claves técnicas estables y cumple exactamente
+estas precondiciones:
 
-- `jugador` y `companera` comienzan en `refugio`, y `companera` es la única
-  integrante inicial del Grupo;
-- `viajero` comienza en `bosque`, no pertenece al Grupo y contiene la política
-  canónica de
+- `principe_perdido` y `bandido` comienzan en `zona_arida`, y `bandido` es el
+  único integrante inicial del Grupo;
+- `cazador` comienza en `valle_fertil`, no pertenece al Grupo y contiene la
+  política canónica de
   [`08-integracion-lua.md`](./08-integracion-lua.md#43-solicitud-de-acción);
-- `refugio` y `bosque` existen y ninguno posee `inalcanzable`;
+- `zona_arida` y `valle_fertil` existen y ninguno posee `inalcanzable`;
 - la fecha inicial es `2025-01-31`;
 - la fuente de azar programada entrega los índices `0, 0`: el primero selecciona
   `Trayecto tranquilo` para el jugador y el segundo selecciona la misma rama
   para el NPC.
 
 El recorrido envía primero
-`SolicitudAccion::Viajar { actor: jugador, destino: bosque }`. Jugador y
-compañera llegan a `bosque` después de dos días y la fecha queda exactamente en
-`2025-02-02`. La fase NPC evalúa entonces a `viajero`; la condición temporal ya
-es verdadera y produce
-`SolicitudAccion::Viajar { actor: viajero, destino: refugio }`. Ese viaje mueve
-solo al NPC, calcula dos días que no se aplican a la fecha y deja el Mundo todavía
-en `2025-02-02`.
+`SolicitudAccion::Viajar { actor: principe_perdido, destino: valle_fertil }`.
+Príncipe Perdido y Bandido llegan a `valle_fertil` después de dos días y la
+fecha queda exactamente en `2025-02-02`. La fase NPC evalúa entonces a
+`cazador`; la condición temporal ya es verdadera y produce
+`SolicitudAccion::Viajar { actor: cazador, destino: zona_arida }`. Ese viaje
+mueve solo al NPC, calcula dos días que no se aplican a la fecha y deja el Mundo
+todavía en `2025-02-02`.
 
-Evaluada contra la instantánea inicial, la misma política devuelve `nil`. No usa
-una variable alternativa ni otro cambio de estado para habilitarse. Los retratos,
-nombres y demás contenido expresivo del producto se decidirán al diseñar el
-setting; el fixture de prueba usará valores mínimos que satisfagan el esquema.
+Evaluada contra la instantánea inicial, la misma política devuelve `nil`. Una vez
+que el Cazador se encuentra en `zona_arida`, también devuelve `nil` aunque la
+fecha siga cumpliendo la condición. No usa una variable alternativa ni otro
+cambio de estado para habilitarse. Los retratos, la matriz y las coordenadas
+exactas se crearán siguiendo el brief y serán datos canónicos de `content/base/`.
 
 ### Ejemplos inválidos
 
@@ -1036,8 +1044,8 @@ campo produce `FormatoRonInvalido`:
 
 ```ron
 (
-    clave: "viajero",
-    lugar_inicial: "bosque",
+    clave: "cazador",
+    lugar_inicial: "valle_fertil",
     caracteristicas: [],
     politica: Ninguna,
 )
@@ -1048,9 +1056,9 @@ Este Actor incluye un campo que el esquema no conoce y también produce
 
 ```ron
 (
-    clave: "viajero",
-    nombre: "Viajero",
-    lugar_inicial: "bosque",
+    clave: "cazador",
+    nombre: "Cazador",
+    lugar_inicial: "valle_fertil",
     caracteristicas: [],
     retrato: None,
     politica: Ninguna,
@@ -1077,7 +1085,7 @@ Finalmente, este archivo es RON válido pero su referencia no resuelve y produce
 
 ```ron
 (
-    clave: "viajero",
+    clave: "cazador",
     lugar_inicial: "lugar_que_no_existe",
     caracteristicas: [],
     retrato: None,
@@ -1198,8 +1206,8 @@ catálogo ni otra instancia.
 
 ## 9. Decisiones aplazadas
 
-- identidad, historia, presentación y cantidad exacta de los compañeros
-  iniciales, que se resolverán con el setting respetando el mínimo de uno;
+- historia detallada, nombres propios y presentación definitiva de los Actores;
+- cambios posteriores en la composición del Grupo;
 - Relaciones y facciones;
 - transformación visual de zonas y tiles;
 - evolución entre versiones del esquema;

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Vigente |
-| Versión | 0.3 |
-| Fecha | 2026-10-13 |
+| Versión | 0.4 |
+| Fecha | 2026-10-15 |
 
 ## 1. Propósito
 
@@ -27,10 +27,11 @@ por inferencia.
 | Nivel | Documento o artefacto | Responsabilidad |
 |---|---|---|
 | 1 | [`diseno-general.md`](./diseno-general.md) | Define qué juego se quiere construir y sus elementos confirmados. |
-| 2 | `tecnica/diseno-tecnico-general.md` | Define la organización global, los límites y las reglas compartidas del desarrollo. |
-| 3 | `tecnica/componentes/*.md` y `tecnica/acciones/**/*.md` | Diseñan en detalle un componente o las reglas de una acción. |
-| 4 | `planes/pendientes/*.md` | Ordena pasos de implementación y verificación basados en documentos técnicos. |
-| 5 | Código, datos y pruebas | Implementan el diseño aprobado. |
+| 2 | `contenido/*.md` | Define la intención creativa de conjuntos concretos sin duplicar sus datos serializados. |
+| 3 | `tecnica/diseno-tecnico-general.md` | Define la organización global, los límites y las reglas compartidas del desarrollo. |
+| 4 | `tecnica/componentes/*.md` y `tecnica/acciones/**/*.md` | Diseñan en detalle un componente o las reglas de una acción. |
+| 5 | `planes/pendientes/*.md` | Ordena pasos de implementación y verificación basados en diseños aprobados. |
+| 6 | Código, datos y pruebas | Implementan el diseño aprobado. |
 | Historial | `planes/completados/*.md` | Conserva qué se hizo, cómo se verificó y qué se desvió. |
 
 Una capa inferior puede detallar a una superior, pero no contradecirla. Cada
@@ -38,10 +39,14 @@ decisión debe tener una sola fuente de verdad; los demás documentos la enlazan
 vez de copiarla.
 
 - Un cambio conceptual del juego comienza en el diseño general.
+- Una decisión narrativa o visual limitada a un conjunto de contenido comienza
+  en su brief creativo.
 - Una decisión que afecta a todo el proyecto comienza en el diseño técnico
   general.
 - Una decisión limitada a una parte comienza en su documento técnico específico.
 - Un cambio en el orden o ejecución del trabajo se registra en el plan.
+- Los briefs expresan propósito, atmósfera y función, pero no copian matrices,
+  coordenadas, claves, retratos ni scripts completos.
 - Los archivos de contenido serán la fuente de sus datos concretos; la
   documentación técnica definirá su estructura y significado sin duplicarlos.
 

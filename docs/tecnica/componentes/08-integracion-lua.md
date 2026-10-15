@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.7 |
-| Fecha | 2026-10-14 |
+| Versión | 0.8 |
+| Fecha | 2026-10-15 |
 
 ## 1. Propósito y alcance
 
@@ -156,7 +156,7 @@ ni suplantar a otro mediante esta API inicial.
 La única factoría inicial es:
 
 ```lua
-acciones.viajar("refugio")
+acciones.viajar("zona_arida")
 ```
 
 Recibe exactamente una clave externa de Lugar como cadena UTF-8 y devuelve un
@@ -205,16 +205,22 @@ no implica que sea aceptable en el estado vigente.
 El bloque oficial del fixture vertical será:
 
 ```lua
-if mundo.fecha.anio == 2025 and mundo.fecha.mes >= 2 then
-    return acciones.viajar("refugio")
+if actor.lugar == "valle_fertil"
+    and mundo.fecha.anio == 2025
+    and mundo.fecha.mes >= 2
+then
+    return acciones.viajar("zona_arida")
 end
 
 return nil
 ```
 
-La fecha inicial del fixture estará en enero y el `Viajar` del jugador la hará
-avanzar a febrero. Por ello, la misma política no solicita nada antes de esa
-acción y solicita el viaje del NPC después.
+La política pertenece a `cazador`, que comienza en `valle_fertil`. La fecha
+inicial del fixture estará en enero y el viaje de `principe_perdido` junto con
+`bandido` la hará avanzar a febrero. Por ello, la política no solicita nada
+antes de esa acción y después solicita el viaje del Cazador a `zona_arida`. La
+condición sobre `actor.lugar` hace que una evaluación posterior vuelva a
+producir `nil` en vez de solicitar un viaje al Lugar donde ya se encuentra.
 
 ## 5. Entorno aislado y determinista
 
@@ -357,7 +363,11 @@ Las pruebas cubrirán:
 - compilación válida sin ejecución durante la carga;
 - error de sintaxis con Actor, archivo, etapa y clase correctos;
 - condición falsa que devuelve `nil` y no solicita una acción;
-- ejecución real del bloque del fixture y conversión al `Viajar` esperado;
+- ejecución del bloque del fixture en enero desde `valle_fertil`, con resultado
+  `nil`;
+- ejecución del bloque en febrero desde `valle_fertil` y conversión al `Viajar`
+  esperado hacia `zona_arida`;
+- nueva ejecución en febrero desde `zona_arida`, con resultado `nil`;
 - aceptación equivalente de ningún valor y de un solo `nil`;
 - rechazo de varios valores, booleanos, cadenas, tablas y userdata ajeno;
 - imposibilidad de indicar o reemplazar el Actor vinculado;
