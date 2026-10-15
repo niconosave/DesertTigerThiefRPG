@@ -44,9 +44,13 @@
 - [ ] Se cumplieron los controles y la definición de terminado de
       `docs/metodologia-desarrollo.md`.
 
-## Riesgos y decisiones del plan
+## Riesgos y decisiones operativas
 
-- <riesgo y mitigación, o “Ninguno identificado”>
+- <riesgo, mitigación u orden operativo, o “Ninguno identificado”>
+
+Esta sección no puede crear reglas de juego ni decisiones técnicas. Si durante
+la ejecución aparece una, se actualiza y aprueba primero su documento canónico;
+el plan solo registra el enlace y el efecto sobre el trabajo.
 
 ## Resultado de la implementación
 

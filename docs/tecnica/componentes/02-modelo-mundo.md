@@ -1,258 +1,739 @@
-# Modelo de Partida y Mundo
+# Modelo reglado de `Mundo`
 
 | Campo | Valor |
 |---|---|
-| Estado | Borrador |
-| Versión | 0.3 |
-| Fecha | 2026-10-12 |
+| Estado | Aprobado para implementar |
+| Versión | 0.10 |
+| Fecha | 2026-10-14 |
 
-## 1. Propósito
+## 1. Propósito y autoridad
 
-Este documento define la propiedad de los datos, las referencias y las
-invariantes mínimas de la Partida y del Mundo descritos en el
-[diseño general](../../diseno-general.md), dentro de los límites del
-[diseño técnico general](../diseno-tecnico-general.md). Incluye actores, lugares,
-grupo, características, relaciones y el vínculo obligatorio con el mapa visual.
+Este documento es la fuente canónica para el tipo `Mundo`, sus elementos
+reglados, referencias, operaciones e invariantes dentro de
+`desert-tiger-core`.
 
-Quedan fuera los formatos de contenido, reglas de acciones, calendario, Lua,
-conducta de NPC, composición visual, guardado y generación procedural.
+La composición de `Partida` pertenece al
+[contrato de sesión](./04-sesion-aplicacion.md); los archivos de entrada y la
+conversión desde datos externos pertenecen al
+[documento de contenido](./03-contenido.md).
 
-## 2. Propiedad del estado
+El alcance inicial incluye Mundo, Lugar, Actor, Grupo, Característica, fecha,
+variables globales y la identidad opaca del mapa. Las Relaciones se incorporarán
+en un incremento posterior y no forman parte del modelo implementable inicial.
 
-Aquí se distinguen dos clases de propiedad que no implican dos Mundos:
+## 2. Ubicación del tipo y de la instancia
 
-- **propiedad del código:** `desert-tiger-core` define el tipo `Mundo`, sus
-  operaciones y sus invariantes;
-- **propiedad en ejecución:** la `Partida`, administrada por
-  `desert-tiger-app`, almacena una única instancia concreta de ese tipo.
-
-Por lo tanto, `Mundo` no está copiado ni dividido entre ambos crates. La
-aplicación posee el valor y solo puede consultarlo o modificarlo mediante la API
-definida por el núcleo.
-
-Conceptualmente, sin fijar todavía los nombres Rust definitivos:
+`desert-tiger-core` define el tipo `Mundo`, sus operaciones y sus invariantes.
+`desert-tiger-app` posee, dentro de la Partida, una única instancia concreta de
+ese tipo. No hay dos Mundos ni una copia almacenada dentro del núcleo.
 
 ```text
-desert-tiger-core define: Mundo + sus operaciones
+desert-tiger-core define: Mundo + operaciones
 
 desert-tiger-app posee:   Partida
-                         ├── mundo: Mundo      (la única instancia)
-                         └── mapa: EstadoMapa  (presentación)
+                         └── mundo: Mundo
 ```
 
-Además de esa única instancia de `Mundo`, la Partida posee el estado actual del
-mapa y tiene acceso de solo lectura a las definiciones de presentación del
-contenido validado. Otros estados de sesión se detallarán en sus documentos
-correspondientes.
+La instancia es la única autoridad sobre el gameplay. Sus colecciones no se
+exponen de forma mutable; cualquier modificación atraviesa una operación
+semántica del núcleo.
 
-La instancia de `Mundo` es la autoridad sobre el gameplay. Posee o referencia
-mediante identificadores:
+Actores y Lugares se almacenan en secuencias privadas que preservan el orden
+explícito recibido durante la construcción. Las consultas que los enumeran usan
+ese orden y nunca el de una tabla hash. Como cada ID canónico corresponde a su
+posición, la resolución comprobada no necesita un índice auxiliar.
 
-- la fecha, variables globales, lugares y actores;
-- el actor jugador;
-- el grupo del jugador;
-- características y relaciones;
-- la identidad opaca del único mapa visual asociado.
+## 3. Identificadores internos
 
-Sus datos mutables no se exponen directamente. Cada operación semántica del
-núcleo preserva las invariantes o falla sin cambios parciales. La atomicidad de
-una transición completa que combine varias operaciones pertenece al motor de
-acciones.
+Cada clase referenciable del alcance tendrá un identificador tipado. Como
+mínimo existirán conceptos equivalentes a:
 
-## 3. Identificadores y referencias
+- `IdActor`;
+- `IdLugar`;
+- `IdMapa`.
 
-Cada clase de elemento tendrá un identificador tipado: un `IdActor` no podrá
-usarse como `IdLugar`, `IdRelacion` o `IdMapa`. Su representación concreta se
-decidirá junto con el esquema de contenido.
+Un identificador de una clase no podrá usarse como otro. Los identificadores:
 
-Los identificadores cumplen estos contratos:
+- son únicos dentro de su clase y estables durante la Partida;
+- no son nombres visibles ni coordenadas;
+- todo `IdActor` e `IdLugar` almacenado dentro de un Mundo válido resuelve allí;
+- `IdMapa` resuelve en la Partida, porque el mapa pertenece a la aplicación;
+- permiten expresar referencias sin préstamos mutables entre elementos.
 
-- son únicos por clase y estables durante la Partida;
-- no son índices ni coordenadas;
-- toda referencia resuelve a un elemento existente;
-- permiten señalar elementos sin referencias mutables.
+Cada tipo es un newtype opaco y copiable sobre `u32`, con campo interno privado.
+Las listas canónicas del contenido asignan esos valores desde cero en su orden
+declarado. La API exacta es:
 
-La carga convierte referencias externas en identificadores tipados. El núcleo
-comprueba igualmente sus invariantes al construir el Mundo. La unicidad por
-clase descrita aquí corresponde a los IDs internos; el espacio y la sintaxis de
-los identificadores escritos en contenido se definen en el documento de carga.
+```rust
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct IdActor(u32);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct IdLugar(u32);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct IdMapa(u32);
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ErrorIdentificador {
+    PosicionFueraDeRango {
+        posicion: usize,
+    },
+}
+
+impl IdActor {
+    pub fn desde_posicion(
+        posicion: usize,
+    ) -> Result<Self, ErrorIdentificador>;
+}
+
+impl IdLugar {
+    pub fn desde_posicion(
+        posicion: usize,
+    ) -> Result<Self, ErrorIdentificador>;
+}
+
+impl IdMapa {
+    pub fn desde_posicion(
+        posicion: usize,
+    ) -> Result<Self, ErrorIdentificador>;
+}
+```
+
+`desde_posicion` acepta exactamente los valores representables en `u32` y no
+trunca. `ErrorIdentificador` implementa `Display` y `Error`; su texto no es API
+estable. La implementación usa `u32::try_from(posicion)` al construir y una
+conversión comprobada a `usize`, seguida de `Vec::get`, al resolver; no usa
+conversiones `as`. El entero privado puede exponerse solamente dentro del módulo
+del modelo mediante un acceso privado o `pub(crate)` si la implementación lo
+necesita, nunca como parte de la API pública.
+
+El valor se utiliza internamente para direccionar una secuencia, pero no se
+expone como entero ni autoriza acceso sin comprobarlo contra el Mundo vigente.
+No se serializa como identidad estable del contenido y ningún llamador debe
+suponer el mismo número después de reordenar archivos. La identidad estable para
+autoría es la clave textual externa; `desert-tiger-app` conserva la tabla que la
+resuelve al newtype tipado. Dos Partidas creadas desde el mismo
+`ContenidoValidado` reciben la misma correspondencia.
+
+El newtype identifica una posición dentro de la correspondencia de una Partida,
+pero no codifica de qué Partida proviene. Mientras no exista persistencia y haya
+una sola sesión activa, `desert-tiger-app` mantiene los IDs asociados a esa
+sesión y no mezcla valores procedentes de otro `Mundo`.
 
 ## 4. Elementos reglados
 
-### Lugar
+### `Lugar`
 
-Un Lugar tiene identidad y características. No almacena tiles ni coordenadas.
-Tampoco mantiene otra lista mutable de sus actores: los presentes se obtienen
-consultando la ubicación de cada Actor, única fuente de verdad.
+Tiene identidad y un conjunto de Características sin duplicados. No almacena
+tiles, coordenadas ni una lista propia de actores presentes.
 
-### Actor
+El Lugar conceptual del diseño general sí incluye datos para representarlo. La
+frontera técnica los divide: este tipo conserva solamente su estado reglado y el
+[catálogo de presentación](./03-contenido.md) conserva, bajo el mismo `IdLugar`,
+su nombre, coordenada central y lista ordenada de coordenadas del rótulo. Juntas
+forman el elemento cargado, sin copiar datos visuales al núcleo.
 
-Todos los actores comparten el mismo tipo de dominio. Cada Actor tiene:
+Los actores presentes se derivan consultando la ubicación de cada Actor; de ese
+modo no existe una segunda fuente de verdad.
+
+### `Actor`
+
+Todos los actores usan el mismo tipo. Cada uno tiene:
 
 - identidad;
 - exactamente un `IdLugar` como ubicación lógica;
-- un conjunto de características.
+- un conjunto de Características sin duplicados.
 
-Ser jugador o NPC no crea subtipos. El Mundo identifica a un único actor como
-jugador; la aplicación determina el origen de sus decisiones.
+Ser jugador o NPC no crea subtipos. `Mundo` identifica exactamente un Actor como
+jugador. Arte ASCII y política Lua se asocian externamente mediante `IdActor` y
+no forman parte del estado reglado.
 
-El arte ASCII y la política Lua se asocian al `IdActor` fuera del núcleo. No son
-parte de su estado reglado.
+### `Grupo`
 
-### Grupo
+Registra únicamente a los compañeros del actor jugador, sin duplicados. El actor
+jugador no es integrante del Grupo. En el primer incremento, el Grupo contiene
+al menos un compañero. Su orden canónico es exactamente el orden recibido en
+`DatosInicialesMundo::companeros`; el constructor lo conserva y no lo ordena.
 
-El Grupo registra al jugador y a los reclutados, sin duplicados. No posee una
-ubicación propia: esta se deriva de sus integrantes.
+El Grupo no posee ubicación propia: todos sus integrantes deben referenciar el
+mismo Lugar que el actor jugador. Trasladar al jugador con su Grupo cambia
+atómicamente la ubicación del jugador y de todos los compañeros o no mueve a
+ninguno.
 
-El jugador pertenece al Grupo. Todos sus integrantes están en el mismo Lugar y no
-pueden separarse. Mover al Grupo cambia atómicamente el `IdLugar` de todos o no
-mueve a ninguno.
+### `Característica`
 
-Reclutar y determinar la participación de compañeros corresponde al motor de
-acciones. Todo cambio de integrantes debe mantener estas invariantes.
+Es una etiqueta tipada asociada a un Actor o Lugar y consultada por presencia.
+El núcleo permite comprobar su presencia sin exponer la colección mutable. Las
+operaciones para agregarla o retirarla se incorporarán cuando una acción
+aprobada del incremento las necesite.
 
-### Característica
+```rust
+pub const MAX_BYTES_CARACTERISTICA: usize = 64;
 
-Una Característica es una etiqueta asociada a un Actor o Lugar. Se almacena sin
-duplicados y se consulta por presencia.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Caracteristica(String);
 
-Las reglas pueden consultarlas y modificarlas. El significado de etiquetas como
-`muerto` o `inalcanzable` se aplica en las acciones correspondientes; sintaxis y
-normalización se definirán con el esquema de contenido.
+impl Caracteristica {
+    pub fn nueva(valor: String) -> Result<Self, ErrorCaracteristica>;
+    pub fn como_str(&self) -> &str;
+}
 
-### Relación
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ErrorCaracteristica {
+    SintaxisInvalida,
+    DemasiadoLarga {
+        longitud_bytes: usize,
+        maximo_bytes: usize,
+    },
+}
+```
 
-Una Relación identificada conecta dos elementos existentes y posee un tipo. Este
-modelo no presupone que sea dirigida, simétrica o exclusiva.
+`ErrorCaracteristica` implementa `Display` y `Error`; su texto no es API
+estable.
 
-Viajar no depende todavía de `conectado`. La disponibilidad, semántica y
-operaciones de las relaciones se diseñarán cuando una regla vaya a utilizarlas.
+Su representación externa utiliza `lowerCamelCase`: comienza con una palabra en
+minúscula y cada palabra posterior comienza con mayúscula, por ejemplo
+`cargaTesoro`. No admite espacios, guiones ni guiones bajos y no se corrige o
+normaliza silenciosamente. La gramática exacta es una palabra inicial `[a-z]+`
+seguida de cero o más palabras `[A-Z][a-z]*`; no se admiten dígitos. Sus claves
+utilizan exclusivamente letras ASCII y ocupan como máximo 64 bytes; por ejemplo,
+se escribe `rapido` y no `rápido`. Los acentos y demás caracteres Unicode quedan
+reservados para el texto visible al jugador.
 
-## 5. Mapa y datos de presentación
+Este modelo solo almacena y consulta las etiquetas; no define su significado.
+El bloqueo común del actor jugador por `muerto` pertenece al
+[motor de acciones](./05-motor-acciones.md), y `inalcanzable` pertenece a las
+reglas de [`Viajar`](../acciones/01-viajar.md).
 
-Toda Partida requiere un mapa visual. `Mundo` conserva su `IdMapa` opaco como
-referencia conceptual al mapa de la Partida, pero no puede consultar tiles ni
-coordenadas. No será una referencia Rust prestada al objeto: la sesión posee
-ambos estados y `desert-tiger-app` resuelve el identificador estable.
+### Fecha
 
-La aplicación distingue:
+`Mundo` contiene la única fecha vigente, cuyo tipo pertenece al
+[calendario](./06-calendario-duracion.md).
 
-- un catálogo inmutable perteneciente al contenido validado, con las
-  definiciones visuales cargadas;
-- un estado de mapa propio de la Partida, cuya matriz de tiles sí puede cambiar.
+La fecha se almacena como un único valor `Fecha`, no como campos independientes
+del Mundo. Este expone exactamente la consulta `fecha(&self) -> Fecha` y la
+operación atómica `avanzar_fecha(&mut self, Duracion) -> Result<Fecha,
+ErrorCalendario>` aprobadas en el documento de calendario. Ninguna otra
+operación del Mundo modifica el tiempo.
 
-La Partida solo necesita acceso de lectura al catálogo. Este diseño no exige
-copiarlo para cada sesión ni decide todavía cómo se compartirá en Rust.
+### Variables globales
 
-Las definiciones de presentación contienen:
+Las variables globales forman un registro de datos extensible por contenido. Sus
+claves no se enumeran en Rust ni originan un campo, variante o rama de código por
+cada variable. Agregar una entrada válida al contenido permite consultarla en
+una Partida nueva sin modificar ni recompilar código específico para esa clave.
 
-- la matriz inicial del mapa;
-- el nombre visible de cada Lugar, distinto de su identificador;
-- el tile central y las coordenadas de rótulo de cada Lugar;
-- el arte ASCII de los actores que lo tengan definido;
-- cualquier otro dato exclusivamente visual que se defina después.
+El contrato de dominio es:
 
-Al crear la Partida, `desert-tiger-app` instancia la matriz actual a partir de
-esa definición. Puede modificarla para representar un resultado semántico del
-Mundo —por ejemplo, mostrar un bosque quemado— sin modificar el catálogo ni el
-mapa de otra Partida. La forma exacta de traducir cada cambio semántico a una
-zona y unos tiles se diseñará cuando se implemente esa capacidad.
+```rust
+pub const MAX_BYTES_CLAVE_VARIABLE_GLOBAL: usize = 64;
 
-El flujo es unidireccional: el estado reglado puede provocar una actualización
-visual, pero cambiar el dibujo no cambia ubicaciones lógicas, características,
-disponibilidad de acciones ni resultados. El núcleo no recibe la matriz actual.
-Toda condición duradera que deba consultar una regla queda confirmada en el
-Mundo; la matriz solo la representa y nunca se usa para reconstruirla.
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ClaveVariableGlobal(String);
 
-## 6. Entradas, consultas y salidas
+impl ClaveVariableGlobal {
+    pub fn nueva(valor: String)
+        -> Result<Self, ErrorClaveVariableGlobal>;
 
-La construcción recibe datos deserializados y validados por la capa de contenido.
-El núcleo produce un Mundo válido o un error contextualizado, nunca uno parcial.
+    pub fn como_str(&self) -> &str;
+}
 
-El Mundo ofrece consultas de solo lectura para:
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TipoVariableGlobal {
+    Booleana,
+    Entera,
+    Texto,
+}
 
-- obtener actores, lugares y relaciones por identificador;
-- conocer la ubicación de un actor;
-- enumerar actores presentes en un lugar;
-- consultar integrantes y ubicación común del Grupo;
-- consultar características, fecha y variables globales.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ValorVariableGlobal {
+    Booleana(bool),
+    Entera(i64),
+    Texto(String),
+}
 
-La aplicación recibe valores o vistas inmutables. La mutación usa operaciones
-semánticas, no acceso libre a colecciones. El motor de acciones definirá quién
-puede invocarlas y en qué orden.
+impl ValorVariableGlobal {
+    pub fn tipo(&self) -> TipoVariableGlobal;
+}
 
-## 7. Contratos e invariantes
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VariableGlobalInicial {
+    pub clave: ClaveVariableGlobal,
+    pub valor: ValorVariableGlobal,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ErrorClaveVariableGlobal {
+    SintaxisInvalida,
+    DemasiadoLarga {
+        longitud_bytes: usize,
+        maximo_bytes: usize,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ErrorConsultaVariableGlobal {
+    Inexistente {
+        clave: ClaveVariableGlobal,
+    },
+    TipoIncompatible {
+        clave: ClaveVariableGlobal,
+        esperado: TipoVariableGlobal,
+        encontrado: TipoVariableGlobal,
+    },
+}
+```
+
+`ErrorClaveVariableGlobal` y `ErrorConsultaVariableGlobal` implementan
+`std::fmt::Display` y `std::error::Error`; sus textos no forman una API estable.
+
+Una clave usa `lowerCamelCase` ASCII, con la misma gramática de las
+Características: `[a-z]+(?:[A-Z][a-z]*)*`. Distingue mayúsculas, no se normaliza
+y ocupa como máximo 64 bytes. Los valores admitidos son exclusivamente booleano,
+entero con signo de 64 bits y texto UTF-8; el texto vacío es válido.
+
+Cada clave es única en todo el registro, incluso entre tipos. Por ejemplo, no
+pueden coexistir una booleana y un texto llamados `puertaNorteAbierta`. La
+separación en tres listas pertenece al formato de autoría; el dominio las reúne
+como valores tipados bajo un solo espacio de claves. Su almacenamiento e índice
+son privados y no exponen una colección mutable.
+
+Las consultas requeridas son:
+
+```rust
+impl Mundo {
+    pub fn variable_global(
+        &self,
+        clave: &ClaveVariableGlobal,
+    ) -> Result<&ValorVariableGlobal, ErrorConsultaVariableGlobal>;
+
+    pub fn variable_booleana(
+        &self,
+        clave: &ClaveVariableGlobal,
+    ) -> Result<bool, ErrorConsultaVariableGlobal>;
+
+    pub fn variable_entera(
+        &self,
+        clave: &ClaveVariableGlobal,
+    ) -> Result<i64, ErrorConsultaVariableGlobal>;
+
+    pub fn variable_texto(
+        &self,
+        clave: &ClaveVariableGlobal,
+    ) -> Result<&str, ErrorConsultaVariableGlobal>;
+
+    pub fn variables_globales(
+        &self,
+    ) -> impl ExactSizeIterator<
+        Item = (&ClaveVariableGlobal, &ValorVariableGlobal),
+    > + '_;
+}
+```
+
+La enumeración usa orden lexicográfico de clave para que toda instantánea sea
+determinista; ese orden no expresa prioridad de gameplay. Una consulta ausente
+devuelve `Inexistente`, nunca `false`, cero ni texto vacío. Una consulta tipada
+contra otro tipo devuelve `TipoIncompatible` con ambos tipos. Estas reglas hacen
+visible un error de escritura en contenido o Lua.
+
+El primer incremento construye y consulta el registro, pero no crea, modifica ni
+elimina variables durante una Partida. Su representación genérica permite añadir
+después operaciones semánticas validadas para eventos narrativos sin convertir
+Lua en dueño mutable del Mundo.
+
+## 5. Vínculo opaco con el mapa
+
+`Mundo` conserva un único `IdMapa` para mantener la relación conceptual con el
+mapa de la Partida. No puede resolverlo ni consultar tiles, dimensiones,
+coordenadas o arte.
+
+La carga valida la referencia externa y la
+[sesión de aplicación](./04-sesion-aplicacion.md) comprueba que el identificador
+corresponda a su EstadoMapa. Los datos visuales se definen en contenido y no se
+copian al núcleo.
+
+Ninguna regla puede usar un tile como fuente de ubicación, conectividad,
+disponibilidad o estado. Toda condición duradera relevante para gameplay debe
+estar representada en este modelo, aunque posteriormente tenga una proyección
+visual.
+
+## 6. Construcción, consultas y operaciones
+
+El núcleo recibe valores ya deserializados y con referencias externas resueltas,
+incluida una `Fecha` ya válida, pero vuelve a comprobar todas sus invariantes de
+dominio. No recibe por separado año, mes y día. La construcción devuelve un
+Mundo completo o un error; nunca publica uno parcial.
+
+### Datos de construcción y almacenamiento
+
+Los datos de entrada son valores consumibles distintos de los tipos vivos:
+
+```rust
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LugarInicial {
+    pub id: IdLugar,
+    pub caracteristicas: Vec<Caracteristica>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActorInicial {
+    pub id: IdActor,
+    pub lugar: IdLugar,
+    pub caracteristicas: Vec<Caracteristica>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DatosInicialesMundo {
+    pub mapa: IdMapa,
+    pub fecha: Fecha,
+    pub lugares: Vec<LugarInicial>,
+    pub actores: Vec<ActorInicial>,
+    pub actor_jugador: IdActor,
+    pub companeros: Vec<IdActor>,
+    pub variables_globales: Vec<VariableGlobalInicial>,
+}
+
+pub struct Lugar {
+    id: IdLugar,
+    caracteristicas: BTreeSet<Caracteristica>,
+}
+
+pub struct Actor {
+    id: IdActor,
+    lugar: IdLugar,
+    caracteristicas: BTreeSet<Caracteristica>,
+}
+
+pub struct Grupo {
+    integrantes: Vec<IdActor>,
+}
+
+pub struct Mundo {
+    mapa: IdMapa,
+    fecha: Fecha,
+    lugares: Vec<Lugar>,
+    actores: Vec<Actor>,
+    actor_jugador: IdActor,
+    grupo: Grupo,
+    variables_globales:
+        BTreeMap<ClaveVariableGlobal, ValorVariableGlobal>,
+}
+```
+
+`BTreeMap` y `BTreeSet` son los tipos de `std::collections`. Los IDs de cada
+`LugarInicial` y `ActorInicial` deben coincidir exactamente con
+`desde_posicion` para su posición en la secuencia. Esto permite resolverlos por
+índice en tiempo constante sin una segunda tabla ni una segunda fuente de orden.
+Las colecciones vivas y todos sus campos permanecen privados.
+
+```rust
+impl Mundo {
+    pub fn nuevo(
+        datos: DatosInicialesMundo,
+    ) -> Result<Self, ErrorConstruirMundo>;
+}
+```
+
+`nuevo` consume los datos y valida todo antes de publicar el valor. No modifica
+los argumentos por referencia, no produce un Mundo parcial y no consume azar.
+Los conjuntos ordenados eliminan la dependencia del orden de una tabla hash,
+pero un duplicado se detecta y rechaza antes de construirlos.
+
+### Consultas de solo lectura
+
+```rust
+impl Lugar {
+    pub fn id(&self) -> IdLugar;
+    pub fn tiene_caracteristica(
+        &self,
+        caracteristica: &Caracteristica,
+    ) -> bool;
+    pub fn caracteristicas(
+        &self,
+    ) -> impl ExactSizeIterator<Item = &Caracteristica> + '_;
+}
+
+impl Actor {
+    pub fn id(&self) -> IdActor;
+    pub fn lugar(&self) -> IdLugar;
+    pub fn tiene_caracteristica(
+        &self,
+        caracteristica: &Caracteristica,
+    ) -> bool;
+    pub fn caracteristicas(
+        &self,
+    ) -> impl ExactSizeIterator<Item = &Caracteristica> + '_;
+}
+
+impl Grupo {
+    pub fn integrantes(&self) -> &[IdActor];
+    pub fn contiene(&self, actor: IdActor) -> bool;
+}
+
+impl Mundo {
+    pub fn id_mapa(&self) -> IdMapa;
+    pub fn actor_jugador(&self) -> IdActor;
+    pub fn grupo(&self) -> &Grupo;
+    pub fn ubicacion_grupo(&self) -> IdLugar;
+
+    pub fn actor(&self, id: IdActor) -> Option<&Actor>;
+    pub fn lugar(&self, id: IdLugar) -> Option<&Lugar>;
+    pub fn ubicacion_actor(&self, id: IdActor) -> Option<IdLugar>;
+
+    pub fn actores(&self) -> &[Actor];
+    pub fn lugares(&self) -> &[Lugar];
+
+    pub fn actores_en_lugar(
+        &self,
+        lugar: IdLugar,
+    ) -> Option<impl Iterator<Item = &Actor> + '_>;
+}
+```
+
+Los slices e iteradores conservan el orden canónico y no permiten mutación.
+`actores_en_lugar` devuelve `None` si el Lugar no existe; en caso contrario,
+deriva el resultado recorriendo los Actores en orden canónico. No existe una
+lista de presentes almacenada en el Lugar. `ubicacion_grupo` deriva siempre la
+ubicación del jugador.
+
+Las consultas de fecha y variables globales son las definidas en sus secciones
+canónicas anteriores; no hay getters mutables para ninguna colección.
+
+La clausura que implemente el filtro de `actores_en_lugar` captura el `IdLugar`
+copiable por valor (`move`), de manera que el iterador devuelto no tome prestada
+una variable local.
+
+### Traslado semántico
+
+La única mutación de ubicación del incremento es:
+
+```rust
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TrasladoConfirmado {
+    pub actores: Vec<IdActor>,
+    pub origen: IdLugar,
+    pub destino: IdLugar,
+}
+
+impl Mundo {
+    pub fn trasladar(
+        &mut self,
+        actor: IdActor,
+        destino: IdLugar,
+    ) -> Result<TrasladoConfirmado, ErrorTraslado>;
+}
+```
+
+Si `actor` es el jugador, la operación mueve al jugador seguido de todos los
+integrantes del Grupo en su orden canónico. Si es un Actor independiente, mueve
+solo a ese Actor. Un integrante no puede trasladarse separadamente del jugador.
+El resultado poseído describe el cambio ya realizado y puede convertirse uno a
+uno en `ResultadoSemantico::ActoresTrasladados`; no es una orden para repetirlo.
+
+La implementación primero valida actor, destino, origen y Grupo y construye por
+completo tanto la lista poseída y ordenada de `IdActor` que devolverá como la
+lista de índices `usize` que modificará. Solo después cambia las ubicaciones
+mediante pasos infalibles; no vuelve a resolver Actores ni conserva un préstamo
+del Grupo durante esa escritura. No existe un `?`, una conversión ni otra salida
+fallable después del primer cambio. Por ello, todo rechazo conserva exactamente
+el Mundo anterior sin necesitar clonar el Mundo ni ejecutar un rollback.
+
+`trasladar` no interpreta `muerto`, `inalcanzable` ni ninguna otra
+Característica: esas son reglas del motor y de `Viajar`. La operación protege
+únicamente existencia, ausencia de un traslado vacío y las invariantes de
+ubicación y Grupo. El avance de fecha permanece en la operación separada
+aprobada por el calendario.
+
+## 7. Invariantes
 
 Un Mundo válido cumple siempre que:
 
-- existe exactamente un actor jugador y pertenece al Grupo;
+- existe exactamente un actor jugador y no pertenece al Grupo;
 - todo Actor referencia exactamente un Lugar existente;
-- todos los integrantes del Grupo están en el mismo Lugar;
+- el Grupo contiene al menos un compañero;
+- todos los integrantes del Grupo están en el mismo Lugar que el actor jugador;
 - un Actor aparece como máximo una vez en el Grupo;
-- toda Relación referencia elementos existentes;
 - todos los identificadores son únicos dentro de su clase;
-- existe un `IdMapa` y la Partida posee las definiciones asociadas y una
-  instancia actual de ese mapa;
-- tiles y coordenadas nunca intervienen en una consulta o mutación reglada;
-- una mutación aceptada conserva todas las invariantes;
-- una mutación rechazada no altera el estado observable.
+- existe exactamente un `IdMapa` opaco;
+- toda variable global tiene una clave válida, un único valor y un único tipo;
+- ninguna clave de variable global aparece más de una vez;
+- tiles y coordenadas no intervienen en consultas ni mutaciones regladas;
+- una operación aceptada conserva todas las invariantes;
+- una operación rechazada no altera el estado observable.
 
-No se duplica la ubicación en Actor, Lugar y Grupo. La única ubicación persistida
-es la de cada Actor; las demás vistas se derivan de ella.
+La única ubicación persistida es la de cada Actor. Lugar y Grupo derivan sus
+consultas de ella.
 
 ## 8. Errores y validaciones
 
-La creación de la Partida debe rechazar, con el identificador y contexto
-pertinentes:
+Los errores propios de construcción y traslado son:
 
-- identificadores duplicados o referencias inexistentes;
-- ausencia o multiplicidad del actor jugador;
-- un Actor sin Lugar válido;
-- un Grupo sin el jugador, con duplicados o con integrantes separados;
-- Relaciones con extremos inexistentes;
-- ausencia del mapa obligatorio o divergencia entre su identidad, las
-  definiciones y la instancia visual;
-- datos de presentación que referencien actores o lugares inexistentes, cuando
-  esa referencia sea requerida por el contenido.
+```rust
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ErrorConstruirMundo {
+    SinLugares,
+    SinActores,
+    PosicionLugarFueraDeRango {
+        posicion: usize,
+    },
+    PosicionActorFueraDeRango {
+        posicion: usize,
+    },
+    IdLugarNoCanonico {
+        posicion: usize,
+        esperado: IdLugar,
+        encontrado: IdLugar,
+    },
+    IdActorNoCanonico {
+        posicion: usize,
+        esperado: IdActor,
+        encontrado: IdActor,
+    },
+    CaracteristicaLugarDuplicada {
+        lugar: IdLugar,
+        caracteristica: Caracteristica,
+    },
+    CaracteristicaActorDuplicada {
+        actor: IdActor,
+        caracteristica: Caracteristica,
+    },
+    LugarDeActorDesconocido {
+        actor: IdActor,
+        lugar: IdLugar,
+    },
+    ActorJugadorDesconocido {
+        actor: IdActor,
+    },
+    GrupoVacio,
+    JugadorIncluidoEnGrupo {
+        actor: IdActor,
+    },
+    IntegranteGrupoDuplicado {
+        actor: IdActor,
+    },
+    IntegranteGrupoDesconocido {
+        actor: IdActor,
+    },
+    IntegranteGrupoSeparado {
+        actor: IdActor,
+        lugar_actor: IdLugar,
+        lugar_jugador: IdLugar,
+    },
+    VariableGlobalDuplicada {
+        clave: ClaveVariableGlobal,
+    },
+}
 
-En ejecución se rechazan identificadores desconocidos, cambios que rompan el
-Grupo y transiciones inválidas. Los errores distinguirán datos iniciales
-inválidos de solicitudes de juego inválidas, sin fallos silenciosos ni `panic`
-ante entradas esperables.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ErrorTraslado {
+    ActorDesconocido {
+        actor: IdActor,
+    },
+    DestinoDesconocido {
+        destino: IdLugar,
+    },
+    DestinoEsLugarActual {
+        lugar: IdLugar,
+    },
+    IntegranteGrupoNoPuedeTrasladarseSolo {
+        actor: IdActor,
+    },
+    EstadoInconsistente,
+}
+```
 
-## 9. Pruebas y criterios de aceptación
+Ambos implementan `Display` y `Error`; sus textos no forman una API estable. Los
+tipos `Fecha`, `Caracteristica`, `ClaveVariableGlobal` e `IdMapa` vuelven
+irrepresentables una fecha inválida, una etiqueta inválida o la ausencia del
+campo de mapa dentro de `DatosInicialesMundo`. Tener un único campo
+`actor_jugador` vuelve irrepresentable declarar dos jugadores; el constructor
+solo debe comprobar que ese ID exista.
 
-Las pruebas unitarias del núcleo cubrirán al menos:
+`nuevo` devuelve el primer error conforme a este orden determinista:
+
+1. cardinalidad mínima de Lugares y Actores;
+2. ID canónico y Características repetidas de cada Lugar, en orden;
+3. ID canónico, Lugar y Características repetidas de cada Actor, en orden;
+4. existencia del jugador;
+5. Grupo no vacío y luego cada integrante en el orden recibido: jugador
+   incluido, duplicado, desconocido o separado;
+6. claves de variables globales repetidas en el orden recibido.
+
+`trasladar` valida, también en orden: existencia del Actor; existencia del
+destino; existencia del Lugar de origen almacenado por el Actor; destino distinto
+del origen; prohibición de mover a un integrante solo; y consistencia interna del
+Grupo cuando se mueve al jugador. Un origen inexistente o una ruptura del Grupo
+produce `EstadoInconsistente`. Un error no produce ninguna escritura.
+
+El motor usa consultas de solo lectura para convertir condiciones previsibles en
+los rechazos de `Viajar`. Cuando la acción ya fue aceptada y alcanzó su punto de
+traslado, cualquier `ErrorTraslado` indica que cambió un supuesto ya validado o
+se rompió una invariante y se convierte en `FalloMotor::InvarianteRota`; nunca se
+degrada a un rechazo recuperable después de emitir narrativa o consumir azar.
+
+La capa de contenido conserva la responsabilidad por sintaxis, archivos y
+diagnósticos de origen; el núcleo conserva siempre la validación de sus
+invariantes aunque el llamador ya haya validado los DTO.
+
+Por privacidad de Rust, toda implementación que acceda a campos privados de
+`Mundo` reside en el mismo módulo que el tipo o en uno descendiente. En
+particular, el comportamiento de `avanzar_fecha` sigue siendo canónico en el
+documento de calendario, pero su bloque `impl Mundo` no se ubica en un módulo
+hermano que carezca de acceso a `fecha`.
+
+## 9. Pruebas y aceptación
+
+Las pruebas unitarias del núcleo cubrirán:
 
 - construcción de un Mundo mínimo válido;
-- rechazo individual de cada invariante rota;
-- consulta de actores por Lugar sin una lista duplicada;
-- alta, consulta y retirada de características sin duplicados;
-- traslado atómico de todos los integrantes del Grupo;
-- rechazo de un traslado que dejaría integrantes separados;
-- resolución de referencias y relaciones por identificadores tipados;
-- ausencia de cambios después de una operación rechazada.
+- rechazo individual y precedencia de cada variante de `ErrorConstruirMundo`;
+- resolución de IDs tipados, límites de `u32` y rechazo sin truncamiento;
+- rechazo de un ID no canónico para su posición;
+- conservación del orden canónico de los slices y de `actores_en_lugar`;
+- consulta de actores por Lugar sin una lista duplicada en el Lugar;
+- construcción y consulta de Características sin exponer su colección mutable;
+- rechazo de Características inválidas, mayores que 64 bytes o repetidas;
+- construcción y consulta genérica de variables booleanas, enteras y de texto;
+- consulta tipada correcta de cada clase de variable global;
+- aceptación de una clave inventada por contenido sin conocimiento semántico en
+  Rust;
+- rechazo de claves de variable con sintaxis inválida, Unicode, dígitos,
+  separadores o más de 64 bytes;
+- rechazo de una clave repetida dentro de un tipo o entre tipos diferentes;
+- consulta inexistente sin valor predeterminado y consulta de tipo incompatible
+  con los tipos esperado y encontrado;
+- enumeración determinista de variables sin acceso mutable;
+- traslado de un Actor ajeno al Grupo con un resultado de un solo ID;
+- traslado atómico del jugador y todos los integrantes del Grupo, con jugador
+  primero y compañeros en su orden canónico;
+- origen, destino y actores exactos en `TrasladoConfirmado` después del cambio;
+- rechazo de Actor desconocido, destino desconocido, destino actual e intento de
+  traslado independiente de un compañero;
+- `EstadoInconsistente` ante una ruptura interna detectada en una prueba del
+  módulo;
+- ausencia de cualquier cambio después de cada traslado rechazado;
+- inexistencia de un chequeo de `muerto` o `inalcanzable` dentro de `trasladar`;
+- imposibilidad estructural de consultar mapa, Lua o frontend.
 
-Las pruebas de aplicación comprobarán el enlace con mapa, coordenadas y arte;
-que la aplicación pueda modificar los tiles de una Partida sin cambiar el Mundo
-reglado; y que no afecte al mapa de otra Partida ni a las definiciones fuente. La
-traducción automática de un resultado semántico a una región visual se probará
-cuando esa capacidad sea diseñada. Estas pruebas no dependerán del frontend,
-Lua, el orden de archivos ni el azar.
+Una prueba de integración del núcleo ejecutará `Viajar`, convertirá el
+`TrasladoConfirmado` en un único `ResultadoSemantico::ActoresTrasladados` y
+comprobará que el Mundo ya contiene las ubicaciones resultantes.
 
-El componente estará aceptado cuando una Partida mínima pueda crearse, consultarse
-por APIs inmutables y mutarse sin romper invariantes. `desert-tiger-core` tampoco
-podrá acceder a tiles o coordenadas por sus tipos o dependencias.
+## 10. Preguntas bloqueantes
 
-## 10. Preguntas pendientes
+Ninguna para el alcance inicial.
 
-- ¿Qué tipos de valores podrán almacenar las variables globales del Mundo?
-- ¿Qué clases de elementos podrán ocupar los extremos de una Relación y cómo se
-  expresarán sus tipos?
-- ¿Qué semántica tendrán dirección, simetría y multiplicidad cuando las
-  relaciones comiencen a intervenir en reglas?
-- ¿Qué operaciones de ciclo de vida necesitarán actores, lugares y relaciones
-  una vez iniciada la Partida?
-- ¿Qué identidad y cambio del dominio comunicará el núcleo, y cómo los traducirá
-  `desert-tiger-app` a una región y una transformación definidas exclusivamente
-  en los datos de presentación?
+## 11. Decisiones aplazadas
+
+No bloquean el primer incremento:
+
+- Relaciones entre elementos;
+- creación o eliminación dinámica de actores y lugares;
+- facciones y pertenencia;
+- proyección automática de cambios semánticos sobre el mapa;
+- estadísticas distintas de Características;
+- operaciones generales para agregar y retirar Características, hasta que una
+  acción aprobada las necesite;
+- creación, modificación o eliminación de variables globales durante una
+  Partida y los efectos de eventos narrativos que solicitarán esas operaciones.

@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Borrador inicial |
-| Versión | 0.1 |
-| Fecha | 2026-10-12 |
+| Estado | Vigente |
+| Versión | 0.3 |
+| Fecha | 2026-10-13 |
 
 ## 1. Propósito
 
@@ -27,8 +27,8 @@ por inferencia.
 | Nivel | Documento o artefacto | Responsabilidad |
 |---|---|---|
 | 1 | [`diseno-general.md`](./diseno-general.md) | Define qué juego se quiere construir y sus elementos confirmados. |
-| 2 | `tecnica/diseno-tecnico-general.md` | Definirá la organización global, los límites y las reglas compartidas del desarrollo. |
-| 3 | `tecnica/componentes/*.md` | Diseñará en detalle una parte del código o de los datos. |
+| 2 | `tecnica/diseno-tecnico-general.md` | Define la organización global, los límites y las reglas compartidas del desarrollo. |
+| 3 | `tecnica/componentes/*.md` y `tecnica/acciones/**/*.md` | Diseñan en detalle un componente o las reglas de una acción. |
 | 4 | `planes/pendientes/*.md` | Ordena pasos de implementación y verificación basados en documentos técnicos. |
 | 5 | Código, datos y pruebas | Implementan el diseño aprobado. |
 | Historial | `planes/completados/*.md` | Conserva qué se hizo, cómo se verificó y qué se desvió. |
@@ -57,22 +57,43 @@ implementarlos de forma incremental.
 
 Estados posibles de un documento técnico:
 
-- **Borrador:** contiene preguntas o decisiones todavía no aceptadas.
-- **Aprobado para implementar:** tiene información suficiente para crear un plan.
+- **Borrador:** contiene preguntas o decisiones todavía no resueltas que afectan
+  al alcance declarado de su versión actual.
+- **Aprobado para implementar:** no contiene decisiones abiertas dentro de su
+  alcance y tiene información suficiente para crear un plan sin completar el
+  diseño durante la implementación.
 - **Implementado:** describe fielmente código y datos ya verificados.
 - **Obsoleto:** fue reemplazado y enlaza su sustituto.
+
+Una capacidad futura que esté expresamente fuera del alcance no mantiene el
+documento en `Borrador`. Se registra en una sección de decisiones aplazadas o
+puntos de extensión, sin diseñarla prematuramente. La sección de preguntas
+pendientes se reserva para decisiones que sí impiden aprobar el alcance actual.
 
 Todo documento técnico debe indicar estado, versión y fecha. Su contenido mínimo
 es:
 
-1. propósito, alcance y aspectos excluidos;
+1. propósito, alcance de la versión y aspectos excluidos o aplazados;
 2. elementos del diseño general que desarrolla;
 3. responsabilidades y límites;
 4. datos, entradas, salidas y comportamiento observable;
 5. contratos e invariantes que no pueden romperse;
 6. errores y validaciones esperadas;
 7. estrategia de pruebas y criterios de aceptación;
-8. preguntas pendientes.
+8. preguntas bloqueantes, si todavía existen.
+
+Cuando el documento gobierne código, antes de aprobarse deberá fijar además, en
+la medida aplicable:
+
+- el crate y los módulos responsables;
+- los tipos propios y la API pública entre capas;
+- los estados y transiciones observables;
+- las categorías de error y su tratamiento;
+- la relación entre cada contrato importante y su verificación.
+
+Cuando gobierne archivos de contenido, deberá incluir un esquema normativo,
+ejemplos válidos e inválidos y las reglas de compatibilidad necesarias para su
+alcance.
 
 Cuando sea útil, puede incluir tipos, firmas, pseudocódigo, flujos o ejemplos de
 datos. Debe ser suficientemente preciso para que el plan no tenga que decidir qué
@@ -111,6 +132,10 @@ decisión nueva dentro de una desviación del plan.
 
 - Se implementa la solución más sencilla que satisfaga el diseño vigente. No se
   añaden extensiones futuras sin documentarlas.
+- La presentación visual inicial prioriza funcionamiento, legibilidad y
+  coherencia. Su acabado artístico se mejora en incrementos posteriores a partir
+  de pruebas manuales sobre una versión jugable; esos refinamientos no bloquean
+  una capacidad funcional ni relajan sus criterios de accesibilidad.
 - La lógica del juego permanece independiente de terminal, teclas, color y
   composición visual.
 - El frontend presenta información y recoge decisiones; no duplica ni evita las
@@ -149,8 +174,8 @@ técnicos, no en estas normas.
 |---|---|
 | **Unitaria** | Reglas aisladas: características, acciones particulares, tiempo, fecha y estados. |
 | **Integración** | Colaboración entre sistemas: carga de contenido, acciones generales, grupo, avance temporal y fase de NPC. |
-| **Contenido y Lua** | Sintaxis, campos, referencias, coordenadas, arte y scripts incluidos con el juego. |
-| **Frontend** | Traducción de entrada a intenciones, modos, foco y representación de resultados sin ejecutar reglas propias. |
+| **Contenido y Lua** | Sintaxis, campos, referencias, coordenadas, mapa, retratos de Actor y scripts incluidos con el mundo. |
+| **Frontend** | Traducción de entrada a intenciones, modos, foco, resolución de arte propio y representación de resultados sin ejecutar reglas. |
 | **Humo de extremo a extremo** | Inicio desde archivos, una acción completa, avance del mundo, fase de NPC y regreso al jugador. |
 | **Prueba manual** | Estética ASCII, animación, legibilidad, controles, ritmo y sensación de juego. |
 
