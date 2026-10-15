@@ -1,0 +1,26 @@
+(
+    clave: "principe_perdido",
+    lugar_inicial: "zona_arida",
+    caracteristicas: [],
+    retrato: Some((
+        fotogramas: [
+            r#"
+      /^\      
+     /___\     
+     |o o|     
+     |_-_|     
+    /|===|\    
+   /_|___|_\   
+"#,
+            r#"
+      /^\      
+     /___\     
+     |- -|     
+     |_-_|     
+    /|===|\    
+   /_|___|_\   
+"#,
+        ],
+    )),
+    politica: Ninguna,
+)

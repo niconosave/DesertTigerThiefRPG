@@ -54,24 +54,24 @@ fixture sin permitirle mutar el juego.
 
 ## Pasos
 
-1. [ ] Implementar los tipos públicos de presentación y los catálogos internos
+1. [x] Implementar los tipos públicos de presentación y los catálogos internos
        con sus órdenes, consultas y mutaciones atómicas aprobadas.
-2. [ ] Implementar los DTO RON estrictos y la resolución segura y determinista
+2. [x] Implementar los DTO RON estrictos y la resolución segura y determinista
        de `world.ron`, Mapa, Lugares y Actores enumerados.
-3. [ ] Convertir y validar referencias, IDs, fecha, globales, Características,
+3. [x] Convertir y validar referencias, IDs, fecha, globales, Características,
        matriz, rótulos y retratos antes de construir el contenido opaco.
 4. [ ] Implementar diagnósticos agregados y estables, evitando cascadas y la
        exposición de errores físicos o bloques completos.
-5. [ ] Implementar validación y evaluación Lua con una máquina nueva, entorno de
+5. [x] Implementar validación y evaluación Lua con una máquina nueva, entorno de
        solo lectura, API mínima, presupuestos y conversión declarativa a solicitud.
-6. [ ] Integrar políticas validadas y catálogos dentro de `ContenidoValidado`, y
+6. [x] Integrar políticas validadas y catálogos dentro de `ContenidoValidado`, y
        comprobar la creación independiente de Mundo y EstadoMapa.
-7. [ ] Materializar el brief y el fixture técnico en `content/base`: un mapa,
+7. [x] Materializar el brief y el fixture técnico en `content/base`: un mapa,
        dos Lugares y los Actores aprobados, autocontenidos, con los retratos
        mínimos y la única política Lua independiente.
 8. [ ] Añadir los ejemplos inválidos y pruebas de rutas, RON, referencias,
        Unicode, duplicados, Lua, diagnósticos y dos instancias aisladas.
-9. [ ] Ejecutar la validación sobre `content/base`, los controles de app y de la
+9. [x] Ejecutar la validación sobre `content/base`, los controles de app y de la
        workspace, y registrar resultados o desviaciones.
 
 ## Verificación
@@ -106,7 +106,14 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
 > Completar antes de mover a `completados/`.
 
 - Fecha de finalización: Pendiente.
-- Resultado: Pendiente.
-- Verificaciones ejecutadas: Pendiente.
-- Desviaciones respecto del plan: Pendiente.
+- Resultado: cargador RON atómico, contenido base, mapa instanciable y sandbox
+  Lua funcionales; el plan sigue abierto por la agregación de diagnósticos y la
+  matriz completa de fixtures inválidos.
+- Verificaciones ejecutadas: fixture oficial 96 × 32, instancias aisladas,
+  política enero/febrero, consultas tipadas, entorno sin bibliotecas, escritura
+  rechazada, límite de instrucciones, respuesta exacta, `fmt`, `check`, Clippy y
+  pruebas de workspace.
+- Desviaciones respecto del plan: el cargador actual devuelve el primer
+  diagnóstico estable en vez de acumular varios; debe completarse antes de
+  cerrar este plan.
 - Trabajo posterior: [PLAN-2026-005](./2026-10-15-05-implementar-sesion-fase-npc.md).

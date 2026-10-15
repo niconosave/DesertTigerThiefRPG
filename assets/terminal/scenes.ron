@@ -1,0 +1,40 @@
+(
+    ilustraciones: [
+        (
+            escena: "viajeMarcha",
+            arte: r#"
+       /\       
+  ____/  \____  
+ /            \ 
+/______________\
+"#,
+        ),
+        (
+            escena: "viajeObstaculo",
+            arte: r#"
+   ___/\/\___   
+__/          \__
+   XX    XX     
+____XXXXXX______
+"#,
+        ),
+        (
+            escena: "viajeRumboIncierto",
+            arte: r#"
+      ?  ?      
+   ---+  +---   
+      |  |      
+      +--+      
+"#,
+        ),
+        (
+            escena: "viajeLlegada",
+            arte: r#"
+       /\       
+  ____||____    
+ /    ||    \   
+/_____||_____\  
+"#,
+        ),
+    ],
+)

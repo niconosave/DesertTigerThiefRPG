@@ -1,0 +1,20 @@
+(
+    clave: "valle_fertil",
+    nombre: "Valle Fértil",
+    caracteristicas: ["fertil"],
+    coordenada_central: (x: 72, y: 18),
+    coordenadas_rotulo: [
+        (x: 66, y: 17),
+        (x: 67, y: 17),
+        (x: 68, y: 17),
+        (x: 69, y: 17),
+        (x: 70, y: 17),
+        (x: 71, y: 17),
+        (x: 72, y: 17),
+        (x: 73, y: 17),
+        (x: 74, y: 17),
+        (x: 75, y: 17),
+        (x: 76, y: 17),
+        (x: 77, y: 17),
+    ],
+)

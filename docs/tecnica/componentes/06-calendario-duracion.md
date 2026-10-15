@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
+| Estado | Implementado |
 | Versión | 0.3 |
 | Fecha | 2026-10-14 |
 

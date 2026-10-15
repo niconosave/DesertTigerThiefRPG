@@ -51,21 +51,21 @@ el control al jugador en una terminal restaurable y verificadamente jugable.
 
 ## Pasos
 
-1. [ ] Implementar la composición de `main`: analizar configuración, cargar
+1. [x] Implementar la composición de `main`: analizar configuración, cargar
        recursos y contenido, crear la Partida y entrar al bucle solo si todo
        tuvo éxito.
-2. [ ] Conectar el adaptador visual exclusivamente con `VistaSesion`,
+2. [x] Conectar el adaptador visual exclusivamente con `VistaSesion`,
        `IntencionFrontend` y los errores públicos de app.
-3. [ ] Añadir una prueba de humo con `TestBackend`, la fachada pública y una
+3. [x] Añadir una prueba de humo con `TestBackend`, la fachada pública y una
        semilla explícita documentada que produzca una rama con decisión; recorrer
        inicio, selección, fragmentos, decisión, finalización, fase NPC y regreso
        a `VistaSesion::Disponible`.
-4. [ ] Ejecutar dos veces ese recorrido con la misma semilla e intenciones y
+4. [x] Ejecutar dos veces ese recorrido con la misma semilla e intenciones y
        comprobar igualdad de las vistas observables, incluida la nueva ubicación
        del jugador, el resumen NPC y la disponibilidad de otra acción; los
        estados internos exactos del fixture permanecen cubiertos por
        PLAN-2026-005.
-5. [ ] Ejecutar todos los controles normativos, validación del contenido oficial,
+5. [x] Ejecutar todos los controles normativos, validación del contenido oficial,
        árbol de dependencias y build de release.
 6. [ ] Ejecutar manualmente en Manjaro el inicio predeterminado y con
        `--content`, controles, acentos, animación, redimensionado y salida
@@ -73,7 +73,7 @@ el control al jugador en una terminal restaurable y verificadamente jugable.
        contraste reducido.
 7. [ ] Provocar de forma controlada errores de inicio y de sesión para comprobar
        diagnóstico, código de salida y restauración de la terminal.
-8. [ ] Corregir los defectos encontrados sin ampliar el alcance y añadir una
+8. [x] Corregir los defectos encontrados sin ampliar el alcance y añadir una
        prueba de regresión por cada corrección razonablemente automatizable.
 9. [ ] Jugar nuevamente el recorrido completo y confirmar que termina en un
        estado válido donde el jugador puede elegir otra acción.
@@ -111,8 +111,14 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
 > Completar antes de mover a `completados/`.
 
 - Fecha de finalización: Pendiente.
-- Resultado: Pendiente.
-- Verificaciones ejecutadas: Pendiente.
-- Desviaciones respecto del plan: Pendiente.
+- Resultado: el binario y el recorrido automático están integrados; falta la
+  sesión manual completa y cerrar los pendientes registrados en los planes de
+  componentes.
+- Verificaciones ejecutadas: semilla explícita `0` con decisión, dos recorridos
+  observables idénticos, `TestBackend`, PTY real de inicio/animación/acentos y
+  salida normal, build de release y controles normativos.
+- Desviaciones respecto del plan: la prueba PTY realizada cubrió inicio y salida,
+  no todavía el recorrido manual completo, `--content`, temas de contraste ni
+  fallos provocados.
 - Trabajo posterior: ampliar y refinar el setting jugable cuando el recorrido
   técnico resulte satisfactorio.

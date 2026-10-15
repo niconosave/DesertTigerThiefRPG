@@ -55,25 +55,25 @@ completa mediante un backend de Ratatui sin depender de una terminal real.
 
 ## Pasos
 
-1. [ ] Implementar DTO, carga y validación de `tiles.ron`, `ui.ron` y
+1. [x] Implementar DTO, carga y validación de `tiles.ron`, `ui.ron` y
        `scenes.ron` antes de activar el modo raw.
-2. [ ] Crear recursos visuales mínimos que cubran los tipos y escenas del fixture
+2. [x] Crear recursos visuales mínimos que cubran los tipos y escenas del fixture
        sin fijar el acabado artístico definitivo.
-3. [ ] Implementar el estado de interfaz y las transiciones entre vista del
+3. [x] Implementar el estado de interfaz y las transiciones entre vista del
        mundo, selección, presentación, decisión, salida y terminal insuficiente.
-4. [ ] Implementar layout, cámara y capas de mapa, rótulos y retratos con recorte
+4. [x] Implementar layout, cámara y capas de mapa, rótulos y retratos con recorte
        seguro, transparencia y solapamiento aprobados.
 5. [ ] Implementar ventanas, ajuste y paginación de texto, arte opcional y las
        dos barras con prioridades, estilos y estados deshabilitados.
-6. [ ] Implementar el adaptador de teclado y atajos por modo, incluida la
+6. [x] Implementar el adaptador de teclado y atajos por modo, incluida la
        confirmación local de salida sin enviar intenciones extra.
-7. [ ] Implementar reloj monotónico de animación, redimensionado y guardián de
+7. [x] Implementar reloj monotónico de animación, redimensionado y guardián de
        restauración de Crossterm para salidas y fallos.
-8. [ ] Implementar la presentación segura de errores iniciales, rechazos,
+8. [x] Implementar la presentación segura de errores iniciales, rechazos,
        incidencias NPC y vistas fatales.
 9. [ ] Añadir pruebas con eventos sintéticos, reloj falso y `TestBackend` para
        los tamaños, modos, recursos y composiciones exigidos.
-10. [ ] Ejecutar los controles del crate y la workspace y registrar resultados o
+10. [x] Ejecutar los controles del crate y la workspace y registrar resultados o
         correcciones documentales.
 
 ## Verificación
@@ -108,7 +108,11 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
 > Completar antes de mover a `completados/`.
 
 - Fecha de finalización: Pendiente.
-- Resultado: Pendiente.
-- Verificaciones ejecutadas: Pendiente.
-- Desviaciones respecto del plan: Pendiente.
+- Resultado: frontend Ratatui funcional con mapa, rótulos, retratos animados,
+  selección, viñetas, decisiones, barras, confirmación y aviso de tamaño.
+- Verificaciones ejecutadas: `TestBackend` en 80 × 24 y 79 × 24, recursos
+  oficiales, recorrido reproducible y prueba PTY de inicio/salida/restauración.
+- Desviaciones respecto del plan: la primera versión ajusta texto con el widget
+  de Ratatui pero aún no implementa la paginación local normativa ni toda la
+  matriz de composición; por ello el plan permanece abierto.
 - Trabajo posterior: [PLAN-2026-007](./2026-10-15-07-integrar-recorrido-jugable.md).

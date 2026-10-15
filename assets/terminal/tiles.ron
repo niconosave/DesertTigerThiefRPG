@@ -1,0 +1,14 @@
+(
+    reserva: (
+        glifo: '?',
+        estilo: (frente: "blanco", fondo: Some("negro"), modificadores: ["invertido"]),
+    ),
+    apariencias: {
+        "arena": (glifo: '.', estilo: (frente: "amarillo", fondo: Some("negro"), modificadores: [])),
+        "sueloArido": (glifo: ':', estilo: (frente: "amarilloClaro", fondo: Some("negro"), modificadores: ["tenue"])),
+        "montana": (glifo: '^', estilo: (frente: "gris", fondo: Some("negro"), modificadores: ["negrita"])),
+        "vegetacion": (glifo: ',', estilo: (frente: "verdeClaro", fondo: Some("negro"), modificadores: [])),
+        "agua": (glifo: '~', estilo: (frente: "cianClaro", fondo: Some("azul"), modificadores: [])),
+        "bosqueQuemado": (glifo: ';', estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["tenue"])),
+    },
+)

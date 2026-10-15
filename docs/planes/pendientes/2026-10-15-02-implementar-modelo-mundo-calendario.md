@@ -48,34 +48,34 @@ APIs probadas y sin filesystem.
 
 ## Pasos
 
-1. [ ] Crear los módulos de modelo, calendario y azar necesarios dentro de
+1. [x] Crear los módulos de modelo y calendario necesarios dentro de
        `desert-tiger-core`, manteniendo privados los campos reglados.
-2. [ ] Implementar IDs canónicos, Característica, claves y valores de variables
+2. [x] Implementar IDs canónicos, Característica, claves y valores de variables
        globales junto con sus constructores y errores.
-3. [ ] Implementar los datos iniciales, tipos vivos y `Mundo::nuevo` con el orden
+3. [x] Implementar los datos iniciales, tipos vivos y `Mundo::nuevo` con el orden
        de validación documentado.
-4. [ ] Implementar las consultas de Mundo, Actor, Lugar y Grupo sin exponer
+4. [x] Implementar las consultas de Mundo, Actor, Lugar y Grupo sin exponer
        colecciones mutables ni duplicar ubicaciones.
-5. [ ] Implementar `Mundo::trasladar` con validación completa antes de la primera
+5. [x] Implementar `Mundo::trasladar` con validación completa antes de la primera
        escritura y con `TrasladoConfirmado` ordenado.
-6. [ ] Implementar los tipos y operaciones de calendario, suma de duración y
+6. [x] Implementar los tipos y operaciones de calendario, suma de duración y
        `Mundo::avanzar_fecha` con actualización atómica.
-7. [ ] Añadir pruebas unitarias para constructores, precedencia de errores,
+7. [x] Añadir pruebas unitarias para constructores, precedencia de errores,
        consultas, orden, límites numéricos, traslados y calendario.
-8. [ ] Ejecutar los controles del crate y de la workspace; registrar el resultado
+8. [x] Ejecutar los controles del crate y de la workspace; registrar el resultado
        y actualizar los documentos solo si la implementación exige corregirlos.
 
 ## Verificación
 
-- [ ] Se cumplen todos los casos de
+- [x] Se cumplen todos los casos de
       [pruebas del Mundo](../../tecnica/componentes/02-modelo-mundo.md#9-pruebas-y-aceptación).
-- [ ] Se cumplen todos los casos de
+- [x] Se cumplen todos los casos de
       [pruebas del calendario](../../tecnica/componentes/06-calendario-duracion.md#6-pruebas-y-aceptación).
-- [ ] Un rechazo de construcción, traslado o avance temporal conserva el estado
+- [x] Un rechazo de construcción, traslado o avance temporal conserva el estado
       anterior y no requiere `panic`, `unwrap` ni rollback.
-- [ ] Las pruebas de `desert-tiger-core` se ejecutan sin filesystem, Lua ni
+- [x] Las pruebas de `desert-tiger-core` se ejecutan sin filesystem, Lua ni
       terminal y su árbol continúa sin dependencias externas aprobadas para app.
-- [ ] Se cumplieron los controles y la
+- [x] Se cumplieron los controles y la
       [definición de terminado](../../metodologia-desarrollo.md#8-definición-de-terminado).
 
 ## Riesgos y decisiones operativas
@@ -93,8 +93,14 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
 
 > Completar antes de mover a `completados/`.
 
-- Fecha de finalización: Pendiente.
-- Resultado: Pendiente.
-- Verificaciones ejecutadas: Pendiente.
-- Desviaciones respecto del plan: Pendiente.
+- Fecha de finalización: Pendiente del cierre conjunto en PLAN-2026-007.
+- Resultado: alcance acotado implementado; modelo reglado, consultas, traslado
+  atómico, variables globales y calendario gregoriano disponibles en `core`.
+- Verificaciones ejecutadas: 25 pruebas unitarias de `core`, más `fmt`, `check`,
+  `clippy -D warnings` y pruebas de la workspace, todos satisfactorios. La suma
+  coordinada de fecha también quedó cubierta por el recorrido de sesión de
+  PLAN-2026-005.
+- Desviaciones respecto del plan: el módulo de azar se implementará con el motor
+  en PLAN-2026-003, donde existe su primer consumidor y su contrato normativo;
+  no era necesario para el resultado observable de este plan.
 - Trabajo posterior: [PLAN-2026-003](./2026-10-15-03-implementar-motor-viajar.md).

@@ -1,0 +1,26 @@
+(
+    clave: "bandido",
+    lugar_inicial: "zona_arida",
+    caracteristicas: ["fuerte"],
+    retrato: Some((
+        fotogramas: [
+            r#"
+    _______    
+   / _____ \   
+   | >   < |   
+   |  ___  |   
+   /| /_\ |\   
+  /_|_____|_\  
+"#,
+            r#"
+    _______    
+   / _____ \   
+   | -   - |   
+   |  ___  |   
+   /| /_\ |\   
+  /_|_____|_\  
+"#,
+        ],
+    )),
+    politica: Ninguna,
+)

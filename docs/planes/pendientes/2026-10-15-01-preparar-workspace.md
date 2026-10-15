@@ -47,33 +47,33 @@ introducido todavía reglas de juego.
 
 ## Pasos
 
-1. [ ] Comprobar `rustup`, `rustc`, `cargo`, compilador C y `pkg-config`, y
+1. [x] Comprobar `rustup`, `rustc`, `cargo`, compilador C y `pkg-config`, y
        registrar cualquier diferencia respecto del entorno documentado.
-2. [ ] Instalar mediante `rustup`, si corresponde y con autorización, el
+2. [x] Instalar mediante `rustup`, si corresponde y con autorización, el
        toolchain y los componentes fijados.
-3. [ ] Crear `rust-toolchain.toml` y el `Cargo.toml` raíz con miembros,
+3. [x] Crear `rust-toolchain.toml` y el `Cargo.toml` raíz con miembros,
        metadatos, resolver, lints y dependencias exactamente aprobados.
-4. [ ] Crear los tres paquetes en `crates/`, dejando `core` y `app` como
+4. [x] Crear los tres paquetes en `crates/`, dejando `core` y `app` como
        bibliotecas y `terminal` como el único binario.
-5. [ ] Declarar solamente las dependencias permitidas para cada crate y
+5. [x] Declarar solamente las dependencias permitidas para cada crate y
        comprobar que no exista un enlace directo de `terminal` a `core`.
-6. [ ] Añadir el código mínimo necesario para que todos los targets compilen sin
+6. [x] Añadir el código mínimo necesario para que todos los targets compilen sin
        advertencias y generar `Cargo.lock` sin implementar comportamiento futuro.
-7. [ ] Ejecutar los controles de workspace, compilación de producción y árbol de
+7. [x] Ejecutar los controles de workspace, compilación de producción y árbol de
        dependencias definidos por el documento técnico.
-8. [ ] Registrar resultados y desviaciones en este plan y sincronizar la
+8. [x] Registrar resultados y desviaciones en este plan y sincronizar la
        documentación si el entorno real obliga a cambiar una decisión aprobada.
 
 ## Verificación
 
-- [ ] Cargo reconoce exactamente los tres miembros y produce un solo binario.
-- [ ] `cargo tree -p desert-tiger-core` no contiene dependencias de app,
+- [x] Cargo reconoce exactamente los tres miembros y produce un solo binario.
+- [x] `cargo tree -p desert-tiger-core` no contiene dependencias de app,
       terminal, Lua, RON, Serde, `rand`, `rand_chacha` ni interfaz.
-- [ ] `cargo tree --duplicates` no contiene dos versiones de Crossterm.
-- [ ] Pasan formato, check, Clippy, pruebas vacías o mínimas y build de release
+- [x] `cargo tree --duplicates` no contiene dos versiones de Crossterm.
+- [x] Pasan formato, check, Clippy, pruebas vacías o mínimas y build de release
       conforme a los comandos de
       [aceptación de workspace](../../tecnica/componentes/01-workspace-entorno.md#9-pruebas-y-criterios-de-aceptación).
-- [ ] Se cumplieron los controles y la
+- [x] Se cumplieron los controles y la
       [definición de terminado](../../metodologia-desarrollo.md#8-definición-de-terminado).
 
 ## Riesgos y decisiones operativas
@@ -92,8 +92,13 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
 
 > Completar antes de mover a `completados/`.
 
-- Fecha de finalización: Pendiente.
-- Resultado: Pendiente.
-- Verificaciones ejecutadas: Pendiente.
-- Desviaciones respecto del plan: Pendiente.
+- Fecha de finalización: Pendiente del cierre conjunto en PLAN-2026-007.
+- Resultado: alcance acotado implementado; workspace de tres crates, un solo
+  binario, toolchain fijado y lockfile reproducible.
+- Verificaciones ejecutadas: `fmt`, `check`, `clippy`, `test`, build de release,
+  `cargo tree --duplicates`, árbol de `core` y metadatos de la workspace, todos
+  satisfactorios.
+- Desviaciones respecto del plan: ninguna de diseño. Los controles automatizados
+  fijaron `RUSTUP_TOOLCHAIN=1.99.0` porque rustup se instaló sin elegir un
+  toolchain global; `rust-toolchain.toml` continúa siendo la autoridad local.
 - Trabajo posterior: [PLAN-2026-002](./2026-10-15-02-implementar-modelo-mundo-calendario.md).

@@ -49,23 +49,23 @@ su resumen, todo sin una terminal real.
 
 ## Pasos
 
-1. [ ] Implementar el adaptador de `ChaCha12Rng`, la obtención de semilla y el
+1. [x] Implementar el adaptador de `ChaCha12Rng`, la obtención de semilla y el
        constructor interno con fuente programada para pruebas.
-2. [ ] Implementar `Partida::nueva` con estados independientes, handle de
+2. [x] Implementar `Partida::nueva` con estados independientes, handle de
        contenido compartido y proyección inicial validada.
-3. [ ] Implementar las vistas poseídas, reexportaciones y los IDs visibles
+3. [x] Implementar las vistas poseídas, reexportaciones y los IDs visibles
        monotónicos sin exponer tipos de Lua o del frontend.
-4. [ ] Implementar `procesar` y la precedencia de intenciones para comenzar,
+4. [x] Implementar `procesar` y la precedencia de intenciones para comenzar,
        presentar y reanudar la acción, conservando el estado ante rechazo.
-5. [ ] Normalizar emisiones y fronteras sin revelar Mundo actualizado antes de
+5. [x] Normalizar emisiones y fronteras sin revelar Mundo actualizado antes de
        tiempo, y aplicar una sola vez la duración al liberar la finalización.
-6. [ ] Implementar la fase NPC, incluida elegibilidad, evaluación Lua, motor
+6. [x] Implementar la fase NPC, incluida elegibilidad, evaluación Lua, motor
        común, elección automática, descarte narrativo y control de consecuencia.
-7. [ ] Implementar resúmenes y mapeos exactos de creación, intención,
+7. [x] Implementar resúmenes y mapeos exactos de creación, intención,
        incidencia recuperable y estado fatal.
 8. [ ] Añadir pruebas de vistas, IDs antiguos, semillas, contador, jugador
        muerto, ausencia de destinos, calendario y todos los resultados NPC.
-9. [ ] Recorrer mediante la fachada el fixture completo sin terminal y ejecutar
+9. [x] Recorrer mediante la fachada el fixture completo sin terminal y ejecutar
        los controles de app y workspace.
 
 ## Verificación
@@ -98,7 +98,11 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
 > Completar antes de mover a `completados/`.
 
 - Fecha de finalización: Pendiente.
-- Resultado: Pendiente.
-- Verificaciones ejecutadas: Pendiente.
-- Desviaciones respecto del plan: Pendiente.
+- Resultado: fachada de Partida y fase NPC integradas; el recorrido oficial
+  vuelve a `Disponible` con el resumen estructurado esperado.
+- Verificaciones ejecutadas: recorrido con azar `[0, 0]`, rama con decisión,
+  rechazo de ID antiguo, estabilidad de vistas, fecha aplicada una sola vez y
+  controles completos de workspace.
+- Desviaciones respecto del plan: falta completar la matriz exhaustiva de fallos
+  sintéticos y desbordamientos de contadores antes de cerrar el plan.
 - Trabajo posterior: [PLAN-2026-006](./2026-10-15-06-implementar-frontend-terminal.md).

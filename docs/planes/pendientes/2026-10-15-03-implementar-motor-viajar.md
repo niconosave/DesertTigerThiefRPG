@@ -50,36 +50,36 @@ duración y traslado semántico verificables sin frontend.
 
 ## Pasos
 
-1. [ ] Implementar los tipos públicos del protocolo, manteniendo opacos los IDs
+1. [x] Implementar los tipos públicos del protocolo, manteniendo opacos los IDs
        internos y el estado reanudable.
-2. [ ] Implementar `FuenteAzar`, sus errores y una fuente determinista exclusiva
+2. [x] Implementar `FuenteAzar`, sus errores y una fuente determinista exclusiva
        de pruebas sin introducir `rand` en el núcleo.
-3. [ ] Implementar `destinos_disponibles` y la validación inicial de `Viajar` en
+3. [x] Implementar `destinos_disponibles` y la validación inicial de `Viajar` en
        el orden normativo, sin consumo de azar ante rechazo.
-4. [ ] Implementar las acciones particulares internas y la acumulación
+4. [x] Implementar las acciones particulares internas y la acumulación
        comprobada de `Duracion`.
-5. [ ] Implementar las tres ramas y sus fronteras usando exactamente el orden,
+5. [x] Implementar las tres ramas y sus fronteras usando exactamente el orden,
        textos, opciones, claves de escena y consumos de azar documentados.
-6. [ ] Integrar el traslado confirmado y emitir una sola consecuencia semántica
+6. [x] Integrar el traslado confirmado y emitir una sola consecuencia semántica
        antes de la finalización, sin volver a aplicar el cambio.
-7. [ ] Implementar la clasificación de rechazo y fallo fatal, garantizando el
+7. [x] Implementar la clasificación de rechazo y fallo fatal, garantizando el
        estado intacto en toda respuesta recuperable inválida.
-8. [ ] Añadir pruebas para jugador, Grupo y NPC independiente, las tres ramas,
+8. [x] Añadir pruebas para jugador, Grupo y NPC independiente, las tres ramas,
        todas las opciones, secuencias de azar y límites de duración.
-9. [ ] Ejecutar los controles del núcleo y la workspace, y registrar resultados
+9. [x] Ejecutar los controles del núcleo y la workspace, y registrar resultados
        o cualquier corrección documental necesaria.
 
 ## Verificación
 
-- [ ] Se cumplen los criterios del
+- [x] Se cumplen los criterios del
       [motor](../../tecnica/componentes/05-motor-acciones.md#9-pruebas-y-criterios-de-aceptación)
       y de [`Viajar`](../../tecnica/acciones/01-viajar.md#8-pruebas-y-aceptación).
-- [ ] La misma secuencia de azar y respuestas produce las mismas emisiones,
+- [x] La misma secuencia de azar y respuestas produce las mismas emisiones,
       duración y consecuencia.
-- [ ] El motor nunca adelanta la fecha ni conoce Lua, RON, terminal o tiles.
-- [ ] `cargo tree -p desert-tiger-core` continúa sin `rand`, `rand_chacha` ni
+- [x] El motor nunca adelanta la fecha ni conoce Lua, RON, terminal o tiles.
+- [x] `cargo tree -p desert-tiger-core` continúa sin `rand`, `rand_chacha` ni
       dependencias de presentación.
-- [ ] Se cumplieron los controles y la
+- [x] Se cumplieron los controles y la
       [definición de terminado](../../metodologia-desarrollo.md#8-definición-de-terminado).
 
 ## Riesgos y decisiones operativas
@@ -97,8 +97,13 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
 
 > Completar antes de mover a `completados/`.
 
-- Fecha de finalización: Pendiente.
-- Resultado: Pendiente.
-- Verificaciones ejecutadas: Pendiente.
-- Desviaciones respecto del plan: Pendiente.
+- Fecha de finalización: Pendiente del cierre conjunto en PLAN-2026-007.
+- Resultado: alcance acotado implementado; motor reanudable, azar inyectable y
+  las tres ramas completas de `Viajar` funcionan sin frontend.
+- Verificaciones ejecutadas: 25 pruebas unitarias de `core`, incluidos textos,
+  escenas, rechazos, azar, decisiones, duración y traslados, más `fmt`, `check` y
+  `clippy -D warnings`, todos satisfactorios.
+- Desviaciones respecto del plan: ninguna. Las extracciones para elegir
+  automáticamente una opción NPC y el recorrido mediante la fachada quedaron
+  implementados por PLAN-2026-005, su componente propietario.
 - Trabajo posterior: [PLAN-2026-004](./2026-10-15-04-implementar-contenido-lua.md).
