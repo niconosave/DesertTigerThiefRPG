@@ -569,6 +569,7 @@ fn color_retrato(color: ColorRetrato) -> Color {
         ColorRetrato::Cian => Color::Cyan,
         ColorRetrato::Gris => Color::Gray,
         ColorRetrato::GrisOscuro => Color::DarkGray,
+        ColorRetrato::GrisMuyOscuro => Color::Rgb(32, 32, 32),
         ColorRetrato::RojoClaro => Color::LightRed,
         ColorRetrato::VerdeClaro => Color::LightGreen,
         ColorRetrato::AmarilloClaro => Color::LightYellow,
@@ -608,6 +609,10 @@ mod pruebas {
     #[test]
     fn retrato_del_principe_conserva_transparencia_colores_y_parpadeo() {
         assert_eq!(color_retrato(ColorRetrato::Negro), Color::Rgb(0, 0, 0));
+        assert_eq!(
+            color_retrato(ColorRetrato::GrisMuyOscuro),
+            Color::Rgb(32, 32, 32)
+        );
 
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let contenido = cargar_contenido(&raiz.join("content/base")).expect("contenido valido");
@@ -648,9 +653,20 @@ mod pruebas {
         assert_eq!(cerrado.fg, Color::LightMagenta);
         assert_eq!(cerrado.bg, fondo_mapa);
         let transparente = terminal.backend().buffer()[(0, 8)].symbol();
-        assert!(
-            ['.', ':', '^', ',', '~', '*', ';'].contains(&transparente.chars().next().unwrap()),
-            "una celda transparente debe conservar el mapa, pero contiene {transparente:?}"
+        let mapa_transparente_x = 0usize
+            .checked_sub(margen_x)
+            .and_then(|x| x.checked_add(origen_x))
+            .expect("la celda transparente se proyecta dentro del mapa");
+        let mapa_transparente_y = 8usize
+            .checked_sub(margen_y)
+            .and_then(|y| y.checked_add(origen_y))
+            .expect("la celda transparente se proyecta dentro del mapa");
+        let clave_transparente =
+            &mundo.mapa.celdas[mapa_transparente_y * mundo.mapa.ancho + mapa_transparente_x];
+        assert_eq!(
+            transparente,
+            recursos.tile(clave_transparente).glifo.to_string(),
+            "una celda transparente debe conservar el glifo vigente del mapa"
         );
 
         interfaz.avanzar_animacion(1);

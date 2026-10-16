@@ -279,6 +279,7 @@ fn nombre_color_frontal_durdraw(indice: u8) -> Option<&'static str> {
         14 => Some("magentaClaro"),
         15 => Some("amarilloClaro"),
         16 => Some("blanco"),
+        17 => Some("grisMuyOscuro"),
         _ => None,
     }
 }

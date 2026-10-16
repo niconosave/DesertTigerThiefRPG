@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.12 |
-| Fecha | 2026-10-15 |
+| Versión | 0.13 |
+| Fecha | 2026-10-16 |
 
 ## 1. Propósito y autoridad
 
@@ -432,10 +432,10 @@ sigue aplazada. El contenido garantiza que todos tienen retrato.
 idénticas dimensiones. Cada `FotogramaRetrato` publica su ancho, alto y una
 secuencia plana de `CeldaRetrato` en orden de filas. Cada celda expone un
 `char` validado de una columna y un `Option<EstiloCeldaRetrato>`; el estilo
-contiene `ColorRetrato` frontal y fondo opcional mediante los dieciséis nombres
-ANSI del contrato de contenido. Ninguno de estos tipos depende de Ratatui ni
-incluye secuencias ANSI. El frontend decide cómo convertir el valor neutral o
-cómo representar un estilo ausente.
+contiene `ColorRetrato` frontal y fondo opcional mediante los diecisiete nombres
+del contrato de contenido. Ninguno de estos tipos depende de Ratatui ni incluye
+secuencias ANSI. El frontend decide cómo convertir el valor neutral o cómo
+representar un estilo ausente.
 
 La celda `(x, y)` de `VistaMapa` ocupa `y * ancho + x` y
 `celdas.len() == ancho * alto`. `tipos_declarados` incluye incluso las claves

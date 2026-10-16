@@ -116,6 +116,7 @@ pub enum ColorRetrato {
     Cian,
     Gris,
     GrisOscuro,
+    GrisMuyOscuro,
     RojoClaro,
     VerdeClaro,
     AmarilloClaro,
@@ -1390,6 +1391,7 @@ fn color_retrato(texto: &str) -> Option<ColorRetrato> {
         "cian" => Some(ColorRetrato::Cian),
         "gris" => Some(ColorRetrato::Gris),
         "grisOscuro" => Some(ColorRetrato::GrisOscuro),
+        "grisMuyOscuro" => Some(ColorRetrato::GrisMuyOscuro),
         "rojoClaro" => Some(ColorRetrato::RojoClaro),
         "verdeClaro" => Some(ColorRetrato::VerdeClaro),
         "amarilloClaro" => Some(ColorRetrato::AmarilloClaro),
@@ -1738,6 +1740,12 @@ mod pruebas {
 
     #[test]
     fn carga_e_instancia_el_fixture_oficial() {
+        assert_eq!(
+            color_retrato("grisMuyOscuro"),
+            Some(ColorRetrato::GrisMuyOscuro)
+        );
+        assert_eq!(color_retrato("GrisMuyOscuro"), None);
+
         let contenido = cargar_contenido(&raiz_base()).expect("el fixture debe ser válido");
         let (mundo, mapa) = contenido
             .instanciar_estado()

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.19 |
-| Fecha | 2026-10-15 |
+| Versión | 0.20 |
+| Fecha | 2026-10-16 |
 
 ## 1. Propósito y alcance
 
@@ -740,10 +740,10 @@ Un solo elemento representa un retrato estático.
 claves no se repiten y no pueden ser espacios, controles, comillas ni barra
 invertida. `frente` es obligatorio y `fondo` usa `None` o `Some(color)`. Los
 colores admitidos son exactamente `negro`, `rojo`, `verde`, `amarillo`, `azul`,
-`magenta`, `cian`, `gris`, `grisOscuro`, `rojoClaro`, `verdeClaro`,
-`amarilloClaro`, `azulClaro`, `magentaClaro`, `cianClaro` y `blanco`. Estos
-valores son presentación neutral: `desert-tiger-app` no construye un `Style` ni
-depende de Ratatui.
+`magenta`, `cian`, `gris`, `grisOscuro`, `grisMuyOscuro`, `rojoClaro`,
+`verdeClaro`, `amarilloClaro`, `azulClaro`, `magentaClaro`, `cianClaro` y
+`blanco`. Estos valores son presentación neutral: `desert-tiger-app` no
+construye un `Style` ni depende de Ratatui.
 
 Cada entrada de `fotogramas` contiene `arte` y `estilos`. La carga convierte
 CRLF a LF, rechaza cualquier `CR` aislado y retira como máximo un LF inicial y

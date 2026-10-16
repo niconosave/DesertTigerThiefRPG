@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.33 |
+| Versión | 0.34 |
 | Fecha | 2026-10-16 |
 
 ## 1. Propósito
@@ -756,9 +756,11 @@ el rol `destacado` como reserva monocroma. Si contiene un estilo, la terminal
 convierte `ColorRetrato` a la variante equivalente de
 `ratatui::style::Color`, aplica el frente y aplica el fondo solamente cuando sea
 `Some`; no añade `negrita`, no interpreta secuencias ANSI y no consulta los
-recursos de tiles. Un fondo ausente conserva el fondo que ya aportó el mapa. El
-orden de capas mantiene la transparencia y permite que los bloques parciales de
-Durdraw combinen frente y fondo dentro de una celda.
+recursos de tiles. En esa conversión, `Negro` produce `Rgb(0, 0, 0)` y
+`GrisMuyOscuro` produce `Rgb(32, 32, 32)`; los demás colores conservan su
+variante ANSI equivalente. Un fondo ausente conserva el fondo que ya aportó el
+mapa. El orden de capas mantiene la transparencia y permite que los bloques
+parciales de Durdraw combinen frente y fondo dentro de una celda.
 
 Los retratos del contenido oficial inicial deberán caber completos en la región
 situada sobre las barras cuando la terminal tenga el tamaño mínimo admitido. Esta
