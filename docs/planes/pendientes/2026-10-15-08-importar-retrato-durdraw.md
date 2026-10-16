@@ -29,6 +29,8 @@ Actor continúa siendo la única fuente cargada durante una Partida.
 - paleta neutral ANSI de dieciséis colores y estilo opcional por celda;
 - matrices compactas y paralelas de arte y claves de estilo dentro del RON;
 - importador determinista para `.dur` versión 8, gzip, UTF-8 y 16 colores;
+- conversión diferenciada de colores frontales y fondos, usando el fondo negro
+  predeterminado de Durdraw como transparencia de retrato;
 - conversión de `assets/principe.dur` y representación de sus dos fotogramas;
 - compatibilidad monocroma para el retrato existente del Bandido;
 - pruebas de carga, validación, conversión y renderizado.
@@ -59,9 +61,11 @@ Actor continúa siendo la única fuente cargada durante una Partida.
        Bandido al esquema explícito.
 5. [x] Cubrir matrices inválidas, glifos de ancho no admitido, paletas faltantes,
        conversión reproducible y render de ambos fotogramas.
-6. [ ] Ejecutar controles automáticos, build de producción y prueba manual del
+6. [x] Corregir la tabla de fondos Durdraw, regenerar las paletas oficiales y
+       cubrir la transparencia negra y los fondos coloreados con regresiones.
+7. [ ] Ejecutar controles automáticos, build de producción y prueba manual del
        parpadeo sobre el mapa.
-7. [ ] Sincronizar documentación, registrar resultados y mover el plan cuando
+8. [ ] Sincronizar documentación, registrar resultados y mover el plan cuando
        la prueba manual confirme el acabado.
 
 ## Verificación
@@ -95,11 +99,14 @@ Actor continúa siendo la única fuente cargada durante una Partida.
 > Completar antes de mover a `completados/`.
 
 - Fecha de finalización: Pendiente de prueba manual.
-- Resultado: implementación y verificaciones automáticas completas; el plan
-  permanece abierto porque cambió la experiencia visible.
+- Resultado: la carga, la animación y la transparencia de espacios funcionan.
+  La tabla de fondos se corrigió, el negro predeterminado de Durdraw ahora se
+  importa como transparencia y los fondos coloreados conservan su color real;
+  falta confirmar el resultado visual.
 - Verificaciones ejecutadas: formato, compilación de todos los targets, Clippy
-  sin advertencias, 46 pruebas automáticas y build de release.
-- Desviaciones respecto del plan: ninguna.
-- Trabajo posterior: comprobar en Manjaro la apariencia, el parpadeo y el
-  solapamiento; después cerrar el paso 6, sincronizar el resultado final y mover
-  el plan a `completados/`.
+  sin advertencias, 47 pruebas automáticas y build de release.
+- Desviaciones respecto del plan: Durdraw usa tablas diferentes para frente y
+  fondo en modo de 16 colores; el contrato inicial del importador no reflejó esa
+  diferencia.
+- Trabajo posterior: repetir la verificación visual antes de mover el plan a
+  `completados/`.

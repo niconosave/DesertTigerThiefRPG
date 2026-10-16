@@ -615,6 +615,28 @@ mod pruebas {
         let recursos =
             RecursosVisuales::cargar(&raiz.join("assets/terminal")).expect("recursos validos");
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("backend valido");
+        let mundo = &interfaz.ultima_vista_mundo;
+        let area_mundo = Rect::new(0, 0, 80, 22);
+        let objetivo = interfaz.objetivo_camara(mundo);
+        let (origen_x, margen_x) =
+            origen_eje(mundo.mapa.ancho, usize::from(area_mundo.width), objetivo.x);
+        let (origen_y, margen_y) =
+            origen_eje(mundo.mapa.alto, usize::from(area_mundo.height), objetivo.y);
+        let mapa_x = 14usize
+            .checked_sub(margen_x)
+            .and_then(|x| x.checked_add(origen_x))
+            .expect("el ojo se proyecta dentro del mapa");
+        let mapa_y = 15usize
+            .checked_sub(margen_y)
+            .and_then(|y| y.checked_add(origen_y))
+            .expect("el ojo se proyecta dentro del mapa");
+        let clave_tile = &mundo.mapa.celdas[mapa_y * mundo.mapa.ancho + mapa_x];
+        let fondo_mapa = recursos
+            .tile(clave_tile)
+            .estilo
+            .bg
+            .or(recursos.ui.pantalla.bg)
+            .unwrap_or(Color::Reset);
 
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
@@ -622,7 +644,7 @@ mod pruebas {
         let cerrado = &terminal.backend().buffer()[(14, 15)];
         assert_eq!(cerrado.symbol(), "▀");
         assert_eq!(cerrado.fg, Color::LightMagenta);
-        assert_eq!(cerrado.bg, Color::Gray);
+        assert_eq!(cerrado.bg, fondo_mapa);
         let transparente = terminal.backend().buffer()[(0, 8)].symbol();
         assert!(
             ['.', ':', '^', ',', '~', '*', ';'].contains(&transparente.chars().next().unwrap()),
@@ -636,6 +658,6 @@ mod pruebas {
         let abierto = &terminal.backend().buffer()[(14, 15)];
         assert_eq!(abierto.symbol(), "o");
         assert_eq!(abierto.fg, Color::Cyan);
-        assert_eq!(abierto.bg, Color::Gray);
+        assert_eq!(abierto.bg, fondo_mapa);
     }
 }

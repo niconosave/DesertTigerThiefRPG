@@ -1775,7 +1775,7 @@ mod pruebas {
             retrato.fotogramas()[1].celdas()[ojo].estilo,
             Some(EstiloCeldaRetrato {
                 frente: ColorRetrato::Cian,
-                fondo: Some(ColorRetrato::Gris),
+                fondo: Some(ColorRetrato::Negro),
             })
         );
     }

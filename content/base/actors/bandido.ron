@@ -5,16 +5,18 @@
     retrato: Some((
     paleta: {
         '0': (frente: "gris", fondo: None),
-        '1': (frente: "rojoClaro", fondo: Some("gris")),
-        '2': (frente: "negro", fondo: Some("gris")),
-        '3': (frente: "amarillo", fondo: Some("gris")),
-        '4': (frente: "blanco", fondo: Some("gris")),
-        '5': (frente: "gris", fondo: Some("gris")),
-        '6': (frente: "rojo", fondo: Some("gris")),
-        '7': (frente: "grisOscuro", fondo: Some("gris")),
-        '8': (frente: "azul", fondo: Some("gris")),
-        '9': (frente: "amarilloClaro", fondo: Some("gris")),
-        'A': (frente: "gris", fondo: Some("negro")),
+        '1': (frente: "rojoClaro", fondo: None),
+        '2': (frente: "negro", fondo: None),
+        '3': (frente: "amarillo", fondo: None),
+        '4': (frente: "blanco", fondo: None),
+        '5': (frente: "gris", fondo: None),
+        '6': (frente: "rojo", fondo: None),
+        '7': (frente: "grisOscuro", fondo: None),
+        '8': (frente: "azul", fondo: None),
+        '9': (frente: "amarilloClaro", fondo: Some("negro")),
+        'A': (frente: "gris", fondo: Some("azul")),
+        'B': (frente: "rojo", fondo: Some("negro")),
+        'C': (frente: "negro", fondo: Some("negro")),
     },
     fotogramas: [
         (
@@ -42,7 +44,7 @@
 000000001111111111000000
 000000111123221111000000
 000000112232344333300000
-000000122323526663320000
+00000012232354BB63320000
 000000023232555254450000
 000000022133222555550000
 000000011222335550060000
@@ -60,7 +62,7 @@
                         
           ██▄█          
         ▐███████▄▄      
-       ▐██████ )████    
+       ▐██████_)████    
        ▐████████████    
        ▐█████████▀▀     
        ▐█████████       
@@ -76,7 +78,7 @@
 000000001111111111000000
 000000111123221111000000
 000000112232344333300000
-000000122323529963320000
+00000012232354C963320000
 000000023232555254450000
 000000022133222555550000
 000000011222335550000000

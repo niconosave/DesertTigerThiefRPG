@@ -8,6 +8,7 @@ use desert_tiger_app::{ClaveEscena, ClaveTipoTile};
 use ratatui::style::{Color, Modifier, Style};
 use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
+use unicode_width::UnicodeWidthChar;
 
 #[derive(Debug)]
 pub struct ErrorRecursos(String);
@@ -193,7 +194,7 @@ fn leer_ron<T: for<'de> Deserialize<'de>>(ruta: &Path) -> Result<T, ErrorRecurso
 }
 
 fn convertir_apariencia(dto: AparienciaDto) -> Result<AparienciaTile, ErrorRecursos> {
-    if !dto.glifo.is_ascii() || !(dto.glifo == ' ' || dto.glifo.is_ascii_graphic()) {
+    if dto.glifo.is_control() || UnicodeWidthChar::width(dto.glifo) != Some(1) {
         return Err(ErrorRecursos("glifo de tile inválido".to_owned()));
     }
     Ok(AparienciaTile {
@@ -298,4 +299,33 @@ fn normalizar_arte(texto: &str) -> Result<Vec<String>, ErrorRecursos> {
         ));
     }
     Ok(filas)
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    fn apariencia(glifo: char) -> AparienciaDto {
+        AparienciaDto {
+            glifo,
+            estilo: EstiloDto {
+                frente: "blanco".to_owned(),
+                fondo: None,
+                modificadores: Vec::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn admite_glifos_unicode_de_una_celda_para_tiles() {
+        assert_eq!(convertir_apariencia(apariencia('♣')).unwrap().glifo, '♣');
+        assert_eq!(convertir_apariencia(apariencia('⛰')).unwrap().glifo, '⛰');
+    }
+
+    #[test]
+    fn rechaza_glifos_de_ancho_incompatible_para_tiles() {
+        for glifo in ['\n', '\u{0301}', '🍀'] {
+            assert!(convertir_apariencia(apariencia(glifo)).is_err());
+        }
+    }
 }

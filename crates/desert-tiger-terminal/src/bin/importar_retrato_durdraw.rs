@@ -207,8 +207,8 @@ fn validar_par_color([frente, fondo]: [u8; 2]) -> Result<(), String> {
     if !(1..=16).contains(&frente) {
         return Err(format!("color frontal fuera de 1..=16: {frente}"));
     }
-    if fondo > 16 {
-        return Err(format!("color de fondo fuera de 0..=16: {fondo}"));
+    if fondo > 8 {
+        return Err(format!("color de fondo fuera de 0..=8: {fondo}"));
     }
     Ok(())
 }
@@ -222,11 +222,11 @@ fn escribir_ron(
         let codigo = CLAVES_PALETA.get(indice).copied().ok_or_else(|| {
             ErrorImportacion("el retrato requiere demasiados estilos distintos".to_owned())
         })?;
-        let frente = nombre_color(frente)
+        let frente = nombre_color_frontal_durdraw(frente)
             .ok_or_else(|| ErrorImportacion(format!("color frontal no admitido: {frente}")))?;
-        let fondo = match nombre_color(fondo) {
-            Some(nombre) => format!("Some(\"{nombre}\")"),
-            None if fondo == 0 => "None".to_owned(),
+        let fondo = match nombre_fondo_durdraw(fondo) {
+            Some(Some(nombre)) => format!("Some(\"{nombre}\")"),
+            Some(None) => "None".to_owned(),
             None => {
                 return Err(ErrorImportacion(format!(
                     "color de fondo no admitido: {fondo}"
@@ -261,7 +261,7 @@ fn literal_raw(contenido: &str) -> String {
     format!("r{marcas}\"\n{contenido}\n\"{marcas}")
 }
 
-fn nombre_color(indice: u8) -> Option<&'static str> {
+fn nombre_color_frontal_durdraw(indice: u8) -> Option<&'static str> {
     match indice {
         1 => Some("negro"),
         2 => Some("azul"),
@@ -283,6 +283,20 @@ fn nombre_color(indice: u8) -> Option<&'static str> {
     }
 }
 
+fn nombre_fondo_durdraw(indice: u8) -> Option<Option<&'static str>> {
+    match indice {
+        0 | 8 => Some(None),
+        1 => Some(Some("azul")),
+        2 => Some(Some("verde")),
+        3 => Some(Some("cian")),
+        4 => Some(Some("rojo")),
+        5 => Some(Some("magenta")),
+        6 => Some(Some("amarillo")),
+        7 => Some(Some("gris")),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -297,6 +311,19 @@ mod pruebas {
         assert_eq!(primera.matches("arte:").count(), 2);
         assert!(primera.contains('█'));
         assert!(primera.contains("frente: \"magentaClaro\""));
+        assert!(primera.contains("'1': (frente: \"gris\", fondo: None)"));
+        assert!(primera.contains("'7': (frente: \"grisOscuro\", fondo: Some(\"gris\"))"));
+    }
+
+    #[test]
+    fn traduce_la_paleta_de_fondo_y_usa_negro_como_transparencia() {
+        assert_eq!(nombre_fondo_durdraw(0), Some(None));
+        assert_eq!(nombre_fondo_durdraw(8), Some(None));
+        assert_eq!(nombre_fondo_durdraw(1), Some(Some("azul")));
+        assert_eq!(nombre_fondo_durdraw(4), Some(Some("rojo")));
+        assert_eq!(nombre_fondo_durdraw(7), Some(Some("gris")));
+        assert_eq!(nombre_fondo_durdraw(9), None);
+        assert!(validar_par_color([8, 9]).is_err());
     }
 
     #[test]

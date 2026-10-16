@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.29 |
+| Versión | 0.32 |
 | Fecha | 2026-10-15 |
 
 ## 1. Propósito
@@ -58,6 +58,9 @@ El mismo paquete contiene el binario no interactivo de autoría
 `importar-retrato-durdraw`. Usa `flate2` y `serde_json` para leer un `.dur`, pero
 esas dependencias no atraviesan la fachada ni intervienen en el ejecutable del
 juego. La herramienta imprime un fragmento RON y no abre ni modifica contenido.
+Aplica por separado las tablas Durdraw de frente y fondo; en este flujo de
+retratos, el fondo negro predeterminado se convierte en transparencia y los
+otros fondos admitidos permanecen explícitos.
 
 ## 4. Responsabilidades internas
 
@@ -121,12 +124,12 @@ los tiles vigentes durante la Partida. `desert-tiger-app` posee ese estado del
 mapa y el frontend se limita a dibujar la vista que recibe.
 
 La terminal resuelve cada `ClaveTipoTile` mediante su catálogo visual privado.
-La apariencia resultante contiene como mínimo un glifo ASCII de una celda y un
-estilo de Ratatui. La terminal no recibe ni reconstruye la leyenda del archivo de
-Mapa y nunca usa su símbolo de autoría como glifo implícito. Un frontend 2D o 3D
-podrá asociar la misma clave con un recurso completamente distinto. La lista de
-tipos declarados permite comprobar o preparar esas asociaciones aunque un tipo
-todavía no aparezca en la matriz vigente.
+La apariencia resultante contiene como mínimo un glifo de una celda y un estilo
+de Ratatui. La terminal no recibe ni reconstruye la leyenda del archivo de Mapa
+y nunca usa su símbolo de autoría como glifo implícito. Un frontend 2D o 3D podrá
+asociar la misma clave con un recurso completamente distinto. La lista de tipos
+declarados permite comprobar o preparar esas asociaciones aunque un tipo todavía
+no aparezca en la matriz vigente.
 
 ### Catálogo de apariencias de tile
 
@@ -180,9 +183,11 @@ no fijan todavía la paleta artística del juego:
 ```
 
 Las claves siguen la gramática `lowerCamelCase` definida por contenido. Cada
-glifo es un único `char` ASCII imprimible o un espacio y ocupa una celda. El
-estilo se declara directamente dentro de cada apariencia y no referencia otro
-nombre: `frente` es obligatorio, `fondo` es `None` o `Some(color)` y
+glifo es un único `char` que no es de control y cuyo ancho terminal, calculado
+con `unicode-width`, es exactamente una celda; esto admite tanto ASCII como
+Unicode compatible y excluye caracteres combinantes, anchos y secuencias emoji.
+El estilo se declara directamente dentro de cada apariencia y no referencia
+otro nombre: `frente` es obligatorio, `fondo` es `None` o `Some(color)` y
 `modificadores` es una lista sin duplicados cuyo orden no cambia el resultado.
 
 Los únicos colores admitidos son los dieciséis colores ANSI nombrados. La
@@ -899,13 +904,14 @@ evento nunca se reutiliza después de cerrar el modo. `S` y `N` solo tienen este
 significado especial dentro de la confirmación y siguen disponibles para atajos
 dinámicos en los demás modos.
 
-Cada glifo elegido por el catálogo de terminal para un tile será un carácter
-ASCII de exactamente una celda; puede ser un espacio. Esta restricción se aplica
-a la apariencia terminal, no a los símbolos compactos del archivo de Mapa, que
-ya fueron resueltos antes de construir `VistaMapa`. Los textos podrán contener
-acentos; el renderizado deberá medir su ancho visible en celdas y recortarlos sin
-romper la composición. El color reforzará el estado, pero una selección también
-deberá reconocerse por el texto o la forma, no solo por el color.
+Cada glifo elegido por el catálogo de terminal para un tile será un único
+`char` no de control de exactamente una celda según `unicode-width`; puede ser
+un espacio. Esta restricción se aplica a la apariencia terminal, no a los
+símbolos compactos del archivo de Mapa, que ya fueron resueltos antes de
+construir `VistaMapa`. Los textos podrán contener acentos; el renderizado deberá
+medir su ancho visible en celdas y recortarlos sin romper la composición. El
+color reforzará el estado, pero una selección también deberá reconocerse por el
+texto o la forma, no solo por el color.
 
 ## 10. Errores y validaciones
 
@@ -1239,6 +1245,10 @@ Ninguna en este componente.
 
 ## 13. Decisiones aplazadas
 
+- pantalla de diagnóstico que permita al jugador inspeccionar el repertorio
+  Unicode admitido y reconocer glifos ausentes o con un ancho incompatible; su
+  acceso, fuente del repertorio, interacción y recomendaciones se diseñarán
+  antes de implementarla;
 - entrada mediante ratón;
 - ilustración de actores ajenos al Grupo sobre el mapa;
 - duraciones diferentes por fotograma y animaciones distintas por estado;

@@ -5,16 +5,18 @@
     retrato: Some((
         paleta: {
             '0': (frente: "gris", fondo: None),
-            '1': (frente: "gris", fondo: Some("gris")),
-            '2': (frente: "blanco", fondo: Some("gris")),
-            '3': (frente: "grisOscuro", fondo: Some("gris")),
-            '4': (frente: "magenta", fondo: Some("gris")),
-            '5': (frente: "negro", fondo: Some("gris")),
-            '6': (frente: "magentaClaro", fondo: Some("gris")),
-            '7': (frente: "grisOscuro", fondo: Some("amarillo")),
-            '8': (frente: "azul", fondo: Some("gris")),
-            '9': (frente: "amarillo", fondo: Some("gris")),
-            'A': (frente: "cian", fondo: Some("gris")),
+            '1': (frente: "gris", fondo: None),
+            '2': (frente: "blanco", fondo: None),
+            '3': (frente: "grisOscuro", fondo: None),
+            '4': (frente: "magenta", fondo: None),
+            '5': (frente: "negro", fondo: None),
+            '6': (frente: "magentaClaro", fondo: None),
+            '7': (frente: "grisOscuro", fondo: Some("gris")),
+            '8': (frente: "azul", fondo: None),
+            '9': (frente: "amarillo", fondo: None),
+            'A': (frente: "negro", fondo: Some("negro")),
+            'B': (frente: "magentaClaro", fondo: Some("negro")),
+            'C': (frente: "cian", fondo: Some("negro")),
         },
         fotogramas: [
             (
@@ -42,7 +44,7 @@
 000000001222222121000000
 000000122222221321000000
 000000312221134413000000
-000000031115466650000000
+0000000311154BB650000000
 000000000757666666000000
 000000000575666600000000
 000000000757575100000000
@@ -60,7 +62,7 @@
         ▐████████▌      
       ▐███████████      
       ▐███████████      
-       ██████ o█        
+       ██████(o█        
          ████████       
          ███████        
          ██████         
@@ -76,7 +78,7 @@
 000000001222222121000000
 000000122222221321000000
 000000312221134413000000
-00000003111548A650000000
+0000000311154AC650000000
 000000000757666666000000
 000000000575666600000000
 000000000757575100000000

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.18 |
+| Versión | 0.19 |
 | Fecha | 2026-10-15 |
 
 ## 1. Propósito y alcance
@@ -776,6 +776,16 @@ la cadencia pertenece al frontend. El importador nunca modifica el Actor: el
 diseñador revisa e incorpora el fragmento al único RON canónico del elemento.
 `flate2` y `serde_json` se justifican exclusivamente por la lectura segura de
 gzip y JSON en esa herramienta de autoría.
+
+En el modo admitido, los índices frontales `1..=16` siguen la paleta de frente
+de Durdraw. Los índices de fondo tienen una tabla diferente: `1..=7` se
+convierten respectivamente en azul, verde, cian, rojo, magenta, amarillo y gris.
+El fondo `0` es el predeterminado y `8` es el negro del modo normal; el
+importador convierte deliberadamente ambos en `None`: para retratos
+superpuestos, ese negro de autoría funciona como transparencia. Los fondos
+`9..=16`, propios de variantes no cubiertas por este subconjunto, se rechazan.
+Un negro opaco aún puede declararse expresamente en la paleta RON después de
+importar.
 
 Desde la raíz del repositorio, la conversión se ejecuta así:
 
