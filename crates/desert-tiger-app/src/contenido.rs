@@ -75,7 +75,8 @@ pub struct CoordenadaMapa {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FotogramaRetrato {
     ancho: usize,
-    filas: Vec<String>,
+    alto: usize,
+    celdas: Vec<CeldaRetrato>,
 }
 
 impl FotogramaRetrato {
@@ -84,12 +85,44 @@ impl FotogramaRetrato {
     }
 
     pub fn alto(&self) -> usize {
-        self.filas.len()
+        self.alto
     }
 
-    pub fn filas(&self) -> impl ExactSizeIterator<Item = &str> + '_ {
-        self.filas.iter().map(String::as_str)
+    pub fn celdas(&self) -> &[CeldaRetrato] {
+        &self.celdas
     }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CeldaRetrato {
+    pub glifo: char,
+    pub estilo: Option<EstiloCeldaRetrato>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EstiloCeldaRetrato {
+    pub frente: ColorRetrato,
+    pub fondo: Option<ColorRetrato>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ColorRetrato {
+    Negro,
+    Rojo,
+    Verde,
+    Amarillo,
+    Azul,
+    Magenta,
+    Cian,
+    Gris,
+    GrisOscuro,
+    RojoClaro,
+    VerdeClaro,
+    AmarilloClaro,
+    AzulClaro,
+    MagentaClaro,
+    CianClaro,
+    Blanco,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -554,7 +587,46 @@ where
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RetratoDto {
-    fotogramas: Vec<String>,
+    paleta: PaletaRetratoDto,
+    fotogramas: Vec<FotogramaRetratoDto>,
+}
+
+struct PaletaRetratoDto(Vec<(char, EstiloCeldaRetratoDto)>);
+
+impl<'de> Deserialize<'de> for PaletaRetratoDto {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitante;
+        impl<'de> Visitor<'de> for Visitante {
+            type Value = PaletaRetratoDto;
+
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+                formatter.write_str("un mapa de claves de estilo de retrato")
+            }
+
+            fn visit_map<A: MapAccess<'de>>(self, mut acceso: A) -> Result<Self::Value, A::Error> {
+                let mut entradas = Vec::new();
+                while let Some(entrada) = acceso.next_entry::<char, EstiloCeldaRetratoDto>()? {
+                    entradas.push(entrada);
+                }
+                Ok(PaletaRetratoDto(entradas))
+            }
+        }
+        deserializer.deserialize_map(Visitante)
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EstiloCeldaRetratoDto {
+    frente: String,
+    fondo: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FotogramaRetratoDto {
+    arte: String,
+    estilos: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1178,74 +1250,155 @@ fn validar_retrato(
     ruta: &Path,
     clave: &str,
 ) -> Result<RetratoActor, ErrorContenido> {
-    if dto.fotogramas.is_empty() {
-        return Err(error_archivo(
+    let error = |detalle| {
+        error_archivo(
             ruta,
             TipoElementoContenido::Actor,
             Some(clave),
             ClaseDiagnosticoContenido::ValorInvalido,
             None,
-            "el retrato no tiene fotogramas".to_owned(),
-        ));
+            detalle,
+        )
+    };
+    if dto.fotogramas.is_empty() {
+        return Err(error("el retrato no tiene fotogramas".to_owned()));
     }
+
+    let mut paleta = BTreeMap::new();
+    for (codigo, estilo) in dto.paleta.0 {
+        if !codigo.is_ascii_graphic() || matches!(codigo, '\'' | '"' | '\\') {
+            return Err(error(format!(
+                "clave de paleta de retrato no admitida: {}",
+                codigo.escape_default()
+            )));
+        }
+        let frente = color_retrato(&estilo.frente).ok_or_else(|| {
+            error(format!(
+                "color frontal de retrato desconocido: {}",
+                sanear(&estilo.frente)
+            ))
+        })?;
+        let fondo = estilo
+            .fondo
+            .as_deref()
+            .map(|texto| {
+                color_retrato(texto).ok_or_else(|| {
+                    error(format!(
+                        "color de fondo de retrato desconocido: {}",
+                        sanear(texto)
+                    ))
+                })
+            })
+            .transpose()?;
+        if paleta
+            .insert(codigo, EstiloCeldaRetrato { frente, fondo })
+            .is_some()
+        {
+            return Err(error(format!(
+                "clave de paleta de retrato duplicada: {codigo}"
+            )));
+        }
+    }
+
     let mut fotogramas = Vec::with_capacity(dto.fotogramas.len());
     let mut dimensiones = None;
-    for texto in dto.fotogramas {
-        let cuerpo = normalizar_bloque(&texto).map_err(|detalle| {
-            error_archivo(
-                ruta,
-                TipoElementoContenido::Actor,
-                Some(clave),
-                ClaseDiagnosticoContenido::ValorInvalido,
-                None,
-                detalle,
-            )
-        })?;
-        let filas: Vec<String> = cuerpo.split('\n').map(str::to_owned).collect();
-        if filas.is_empty()
-            || filas[0].is_empty()
-            || filas.iter().any(|fila| {
-                fila.is_empty()
-                    || !fila
-                        .chars()
-                        .all(|caracter| caracter == ' ' || caracter.is_ascii_graphic())
-            })
-        {
-            return Err(error_archivo(
-                ruta,
-                TipoElementoContenido::Actor,
-                Some(clave),
-                ClaseDiagnosticoContenido::ValorInvalido,
-                None,
-                "fotograma vacío o con caracteres no admitidos".to_owned(),
-            ));
+    for (numero, fotograma) in dto.fotogramas.into_iter().enumerate() {
+        let cuerpo = normalizar_bloque(&fotograma.arte).map_err(error)?;
+        let filas: Vec<Vec<char>> = cuerpo.lines().map(|fila| fila.chars().collect()).collect();
+        if filas.is_empty() || filas[0].is_empty() || filas.iter().any(Vec::is_empty) {
+            return Err(error(format!("fotograma {} vacío", numero + 1)));
         }
         let ancho = filas[0].len();
         if filas.iter().any(|fila| fila.len() != ancho) {
-            return Err(error_archivo(
-                ruta,
-                TipoElementoContenido::Actor,
-                Some(clave),
-                ClaseDiagnosticoContenido::ValorInvalido,
-                None,
-                "fotograma no rectangular".to_owned(),
-            ));
+            return Err(error(format!(
+                "arte del fotograma {} no rectangular",
+                numero + 1
+            )));
+        }
+        for (y, fila) in filas.iter().enumerate() {
+            for (x, caracter) in fila.iter().copied().enumerate() {
+                if caracter.is_control() || caracter.width() != Some(1) {
+                    return Err(error(format!(
+                        "glifo de retrato no admitido en fotograma {}, ({x}, {y}): {}",
+                        numero + 1,
+                        caracter.escape_default()
+                    )));
+                }
+            }
         }
         let actuales = (ancho, filas.len());
         if dimensiones.is_some_and(|esperadas| esperadas != actuales) {
-            return Err(error_archivo(
-                ruta,
-                TipoElementoContenido::Actor,
-                Some(clave),
-                ClaseDiagnosticoContenido::ValorInvalido,
-                None,
+            return Err(error(
                 "los fotogramas tienen dimensiones diferentes".to_owned(),
             ));
         }
         dimensiones = Some(actuales);
-        fotogramas.push(FotogramaRetrato { ancho, filas });
+
+        let estilos = match fotograma.estilos {
+            None => vec![None; ancho * filas.len()],
+            Some(texto) => {
+                let cuerpo = normalizar_bloque(&texto).map_err(error)?;
+                let filas_estilo: Vec<Vec<char>> =
+                    cuerpo.lines().map(|fila| fila.chars().collect()).collect();
+                if filas_estilo.len() != filas.len()
+                    || filas_estilo.iter().any(|fila| fila.len() != ancho)
+                {
+                    return Err(error(format!(
+                        "matriz de estilos del fotograma {} no coincide con el arte",
+                        numero + 1
+                    )));
+                }
+                let mut estilos = Vec::with_capacity(ancho * filas.len());
+                for (y, fila) in filas_estilo.into_iter().enumerate() {
+                    for (x, codigo) in fila.into_iter().enumerate() {
+                        let estilo = paleta.get(&codigo).copied().ok_or_else(|| {
+                            error(format!(
+                                "estilo de retrato no declarado en fotograma {}, ({x}, {y}): {}",
+                                numero + 1,
+                                codigo.escape_default()
+                            ))
+                        })?;
+                        estilos.push(Some(estilo));
+                    }
+                }
+                estilos
+            }
+        };
+        let celdas = filas
+            .into_iter()
+            .flatten()
+            .zip(estilos)
+            .map(|(glifo, estilo)| CeldaRetrato { glifo, estilo })
+            .collect();
+        fotogramas.push(FotogramaRetrato {
+            ancho,
+            alto: actuales.1,
+            celdas,
+        });
     }
     Ok(RetratoActor { fotogramas })
+}
+
+fn color_retrato(texto: &str) -> Option<ColorRetrato> {
+    match texto {
+        "negro" => Some(ColorRetrato::Negro),
+        "rojo" => Some(ColorRetrato::Rojo),
+        "verde" => Some(ColorRetrato::Verde),
+        "amarillo" => Some(ColorRetrato::Amarillo),
+        "azul" => Some(ColorRetrato::Azul),
+        "magenta" => Some(ColorRetrato::Magenta),
+        "cian" => Some(ColorRetrato::Cian),
+        "gris" => Some(ColorRetrato::Gris),
+        "grisOscuro" => Some(ColorRetrato::GrisOscuro),
+        "rojoClaro" => Some(ColorRetrato::RojoClaro),
+        "verdeClaro" => Some(ColorRetrato::VerdeClaro),
+        "amarilloClaro" => Some(ColorRetrato::AmarilloClaro),
+        "azulClaro" => Some(ColorRetrato::AzulClaro),
+        "magentaClaro" => Some(ColorRetrato::MagentaClaro),
+        "cianClaro" => Some(ColorRetrato::CianClaro),
+        "blanco" => Some(ColorRetrato::Blanco),
+        _ => None,
+    }
 }
 
 fn validar_fecha(dto: FechaDto) -> Result<Fecha, ErrorContenido> {
@@ -1605,14 +1758,83 @@ mod pruebas {
             contenido.presentacion().lugares()[1].nombre(),
             "Valle Fértil"
         );
-        assert_eq!(
-            contenido.presentacion().actores()[0]
-                .retrato()
-                .expect("el príncipe tiene retrato")
+        let retrato = contenido.presentacion().actores()[0]
+            .retrato()
+            .expect("el príncipe tiene retrato");
+        assert_eq!(retrato.fotogramas().len(), 2);
+        assert!(
+            retrato
                 .fotogramas()
-                .len(),
-            2
+                .iter()
+                .all(|fotograma| fotograma.ancho() == 24 && fotograma.alto() == 14)
         );
+        let ojo = 7 * 24 + 14;
+        assert_eq!(retrato.fotogramas()[0].celdas()[ojo].glifo, '▀');
+        assert_eq!(retrato.fotogramas()[1].celdas()[ojo].glifo, 'o');
+        assert_eq!(
+            retrato.fotogramas()[1].celdas()[ojo].estilo,
+            Some(EstiloCeldaRetrato {
+                frente: ColorRetrato::Cian,
+                fondo: Some(ColorRetrato::Gris),
+            })
+        );
+    }
+
+    fn retrato_de_prueba(
+        arte: &str,
+        estilos: Option<&str>,
+        paleta: Vec<(char, EstiloCeldaRetratoDto)>,
+    ) -> RetratoDto {
+        RetratoDto {
+            paleta: PaletaRetratoDto(paleta),
+            fotogramas: vec![FotogramaRetratoDto {
+                arte: arte.to_owned(),
+                estilos: estilos.map(str::to_owned),
+            }],
+        }
+    }
+
+    fn estilo_dto() -> EstiloCeldaRetratoDto {
+        EstiloCeldaRetratoDto {
+            frente: "blanco".to_owned(),
+            fondo: None,
+        }
+    }
+
+    #[test]
+    fn retrato_rechaza_glifos_anchos_y_matrices_de_estilo_incompatibles() {
+        let ruta = Path::new("actors/prueba.ron");
+        let ancho = validar_retrato(retrato_de_prueba("界", None, vec![]), ruta, "prueba")
+            .expect_err("un glifo ancho debe rechazarse");
+        assert!(ancho.diagnosticos()[0].detalle().contains("glifo"));
+
+        let matriz = validar_retrato(
+            retrato_de_prueba("xx\nxx", Some("0"), vec![('0', estilo_dto())]),
+            ruta,
+            "prueba",
+        )
+        .expect_err("las matrices deben coincidir");
+        assert!(matriz.diagnosticos()[0].detalle().contains("no coincide"));
+    }
+
+    #[test]
+    fn retrato_rechaza_estilos_ausentes_y_claves_duplicadas() {
+        let ruta = Path::new("actors/prueba.ron");
+        let ausente = validar_retrato(retrato_de_prueba("x", Some("X"), vec![]), ruta, "prueba")
+            .expect_err("un estilo no declarado debe rechazarse");
+        assert!(ausente.diagnosticos()[0].detalle().contains("no declarado"));
+
+        let duplicada = validar_retrato(
+            retrato_de_prueba(
+                "x",
+                Some("0"),
+                vec![('0', estilo_dto()), ('0', estilo_dto())],
+            ),
+            ruta,
+            "prueba",
+        )
+        .expect_err("una clave duplicada debe rechazarse");
+        assert!(duplicada.diagnosticos()[0].detalle().contains("duplicada"));
     }
 
     #[test]

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.28 |
+| Versión | 0.29 |
 | Fecha | 2026-10-15 |
 
 ## 1. Propósito
@@ -53,6 +53,11 @@ interfaz pública de `desert-tiger-app`.
 Las versiones se fijarán juntas en la workspace para evitar dos versiones
 incompatibles de Crossterm. La versión exacta se registrará en `Cargo.toml` y
 `Cargo.lock` al preparar el entorno.
+
+El mismo paquete contiene el binario no interactivo de autoría
+`importar-retrato-durdraw`. Usa `flate2` y `serde_json` para leer un `.dur`, pero
+esas dependencias no atraviesan la fachada ni intervienen en el ejecutable del
+juego. La herramienta imprime un fragmento RON y no abre ni modifica contenido.
 
 ## 4. Responsabilidades internas
 
@@ -735,10 +740,15 @@ Los espacios de un fotograma de retrato son transparentes. Conservan su posició
 y cuentan para calcular el ancho, la alineación y el solapamiento, pero el
 renderizador omite esas celdas por completo: no reemplaza el glifo ni el estilo
 que ya aportaron el mapa, un rótulo u otro retrato. Cualquier carácter ASCII
-distinto del espacio sí se dibuja sobre la celda con el rol `destacado`: sustituye
-el glifo y aplica su frente blanco y `negrita`, pero su `fondo: None` conserva el
-fondo que ya tenía la celda. Esta es una decisión de presentación inicial y no
-añade estilos a los archivos de Actor.
+distinto del espacio, o cualquier glifo Unicode validado de una columna, sí
+reemplaza el símbolo de la celda. Si `CeldaRetrato::estilo` es `None`, se aplica
+el rol `destacado` como reserva monocroma. Si contiene un estilo, la terminal
+convierte `ColorRetrato` a la variante equivalente de
+`ratatui::style::Color`, aplica el frente y aplica el fondo solamente cuando sea
+`Some`; no añade `negrita`, no interpreta secuencias ANSI y no consulta los
+recursos de tiles. Un fondo ausente conserva el fondo que ya aportó el mapa. El
+orden de capas mantiene la transparencia y permite que los bloques parciales de
+Durdraw combinen frente y fondo dentro de una celda.
 
 Los retratos del contenido oficial inicial deberán caber completos en la región
 situada sobre las barras cuando la terminal tenga el tamaño mínimo admitido. Esta
@@ -1186,8 +1196,11 @@ Pruebas automáticas:
   25 %, incluido su redondeo hacia abajo y el mínimo de una columna;
 - cambiar de fotograma no desplaza ningún retrato;
 - un espacio de retrato conserva exactamente el glifo y el estilo previamente
-  dibujados en la celda, mientras un carácter visible del retrato se representa
-  con `destacado`, reemplaza el glifo y conserva el fondo anterior;
+  dibujados en la celda; una celda visible sin estilo usa `destacado`, y una
+  celda coloreada reemplaza glifo, frente y fondo explícito sin perder un fondo
+  heredado cuando el suyo es `None`;
+- los dos fotogramas oficiales del Príncipe conservan dimensiones y colores,
+  alternan el ojo sin mover el retrato y dejan ver el mapa a través del padding;
 - el conjunto de retratos del contenido oficial cabe completo en el tamaño
   mínimo admitido;
 - retratos modificados que exceden la región se recortan en sus bordes superior

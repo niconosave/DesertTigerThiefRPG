@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.17 |
+| Versión | 0.18 |
 | Fecha | 2026-10-15 |
 
 ## 1. Propósito y alcance
@@ -82,8 +82,9 @@ El conjunto de contenido del primer incremento aportará, como mínimo:
 - lugares, con nombre visible, características, coordenada central y una lista
   ordenada `coordenadas_rotulo`;
 - actores, con características y lugar inicial;
-- una lista ordenada de fotogramas ASCII, incorporada en el mismo archivo RON
-  del Actor, obligatoria para el jugador y para cualquier compañero inicial;
+- una lista ordenada de fotogramas de celdas, incorporada en el mismo archivo
+  RON del Actor, obligatoria para el jugador y para cualquier compañero inicial;
+  puede incluir glifos Unicode de una columna y una paleta ANSI de presentación;
   otros actores podrán declarar explícitamente que no tienen retrato;
 - un campo de política en cada Actor, con una variante sin política o un bloque
   Lua incorporado para el NPC que lo necesite.
@@ -688,8 +689,8 @@ distintas dentro del mismo Lugar. Lugares diferentes sí pueden superponer sus
 rótulos, porque esa composición es responsabilidad del diseño del contenido.
 
 El siguiente ejemplo muestra todos los campos normativos de un archivo de Actor
-mediante `principe_perdido`. El fotograma solo ilustra el formato; el retrato
-oficial se fijará en `content/base/`:
+mediante `principe_perdido`. El fotograma solo ilustra el formato; los datos
+oficiales concretos permanecen en `content/base/`:
 
 ```ron
 (
@@ -697,11 +698,21 @@ oficial se fijará en `content/base/`:
     lugar_inicial: "zona_arida",
     caracteristicas: [],
     retrato: Some((
+        paleta: {
+            '0': (frente: "amarillo", fondo: Some("gris")),
+            '1': (frente: "negro", fondo: Some("gris")),
+        },
         fotogramas: [
-            r#"
-(O)
-<|>
+            (
+                arte: r#"
+ █ 
+<o>
 "#,
+                estilos: Some(r#"
+000
+010
+"#),
+            ),
         ],
     )),
     politica: Ninguna,
@@ -714,7 +725,8 @@ canónica de `world.ron`. El esquema inicial no incluye un nombre visible de
 Actor porque ningún contrato del primer incremento lo consume; podrá añadirse
 cuando una presentación o regla aprobada lo necesite.
 
-`retrato` usa exactamente `None` o `Some((fotogramas: [...] ))`. Aunque se
+`retrato` usa exactamente `None` o
+`Some((paleta: {...}, fotogramas: [...] ))`. Aunque se
 represente como una opción RON, el campo no puede omitirse. El DTO usa
 `#[serde(deserialize_with = "deserializar_opcion_requerida")]` sobre
 `Option<RetratoDto>`; esa función delega en `Option::<RetratoDto>::deserialize`
@@ -724,13 +736,55 @@ inicial requieren `Some`; los demás Actores admiten cualquiera de los dos
 valores. `fotogramas` es una lista ordenada y no vacía, sin duración individual.
 Un solo elemento representa un retrato estático.
 
-Al validar cada fotograma, la carga convierte CRLF a LF, rechaza cualquier `CR`
-aislado y retira como máximo un LF inicial y uno final. No recorta espacios ni
-ningún otro carácter. El cuerpo restante debe contener al menos una fila y una
-columna; cada fila contiene solo ASCII visible o espacios, todas las filas son
-rectangulares y todos los fotogramas del Actor tienen idénticos ancho y alto.
-Los espacios finales cuentan para el ancho. Actores distintos pueden tener
-dimensiones distintas; su distribución pertenece al frontend.
+`paleta` relaciona claves ASCII visibles de una celda con un estilo neutral. Las
+claves no se repiten y no pueden ser espacios, controles, comillas ni barra
+invertida. `frente` es obligatorio y `fondo` usa `None` o `Some(color)`. Los
+colores admitidos son exactamente `negro`, `rojo`, `verde`, `amarillo`, `azul`,
+`magenta`, `cian`, `gris`, `grisOscuro`, `rojoClaro`, `verdeClaro`,
+`amarilloClaro`, `azulClaro`, `magentaClaro`, `cianClaro` y `blanco`. Estos
+valores son presentación neutral: `desert-tiger-app` no construye un `Style` ni
+depende de Ratatui.
+
+Cada entrada de `fotogramas` contiene `arte` y `estilos`. La carga convierte
+CRLF a LF, rechaza cualquier `CR` aislado y retira como máximo un LF inicial y
+uno final de cada bloque. No recorta espacios ni ningún otro carácter. `arte`
+debe contener al menos una fila y una columna y cada `char` debe ser imprimible y
+ocupar exactamente una columna según `UnicodeWidthChar::width(c) == Some(1)`.
+Esto admite los bloques `█`, `▐`, `▌`, `▄` y `▀`, pero rechaza controles,
+marcas combinantes, emojis anchos y glifos de ancho ambiguo que la biblioteca no
+clasifique como una columna. Todas las filas y todos los fotogramas del Actor
+tienen idénticos ancho y alto medidos en columnas, no en bytes UTF-8. Los
+espacios finales cuentan para el ancho.
+
+`estilos: None` aplica a cada celda visible el estilo predeterminado del
+frontend y permite retratos monocromos sencillos. `estilos: Some(bloque)` exige
+una matriz rectangular con las mismas dimensiones que `arte`; cada carácter de
+esa matriz debe ser una clave declarada en `paleta`. El estilo de una celda cuyo
+glifo sea un espacio se valida pero no elimina su transparencia. Una paleta
+vacía es válida cuando ningún fotograma la referencia; una clave declarada y no
+usada también es válida para facilitar iteraciones artísticas. Actores distintos
+pueden tener dimensiones y paletas distintas; su distribución pertenece al
+frontend.
+
+El formato `.dur` no se carga durante una Partida. El binario de autoría
+`importar-retrato-durdraw` de `desert-tiger-terminal` acepta archivos Durdraw de
+versión 8, comprimidos con gzip, con codificación UTF-8 y paleta de 16 colores.
+Valida dimensiones, secuencia de fotogramas, glifos, `colorMap` y demoras nulas,
+y escribe de forma determinista un fragmento RON `RetratoDto` por la salida
+estándar. La frecuencia global del archivo es informativa y no se copia porque
+la cadencia pertenece al frontend. El importador nunca modifica el Actor: el
+diseñador revisa e incorpora el fragmento al único RON canónico del elemento.
+`flate2` y `serde_json` se justifican exclusivamente por la lectura segura de
+gzip y JSON en esa herramienta de autoría.
+
+Desde la raíz del repositorio, la conversión se ejecuta así:
+
+```sh
+cargo run -p desert-tiger-terminal --bin importar-retrato-durdraw -- assets/principe.dur
+```
+
+La salida se muestra en la terminal para poder revisarla y copiarla en el campo
+`retrato` del Actor. Regenerarla no altera ningún archivo de contenido.
 
 `politica` usa exactamente `Ninguna` o `Lua(String)` y tampoco puede omitirse.
 Por ejemplo, un NPC sin solicitud activa puede contener:
@@ -814,7 +868,9 @@ cambios accidentales, permitir comentarios o documentación suficiente para
 autores y producir buenos diagnósticos. Todo texto de contenido que pueda llegar
 a la terminal —nombres, arte y mensajes incluidos en diagnósticos— rechazará
 controles C0/C1 y secuencias de escape, salvo los separadores que el esquema
-permita expresamente. Color, cursor y estilo pertenecen al frontend. Un
+permita expresamente. Los colores neutrales del retrato constituyen la única
+excepción de contenido; cursor, secuencias ANSI y composición siguen
+perteneciendo al frontend. Un
 diagnóstico sobre texto inválido lo representará de forma escapada, sin copiar
 el control directamente a la salida.
 
@@ -864,6 +920,9 @@ más amplias cuando su región de presentación las soporte.
   catálogo privado de la terminal.
 - Cada Actor y Lugar procede de un solo archivo RON; una definición no depende de
   fragmentos externos de arte o Lua.
+- Cada celda de retrato contiene un glifo de una columna y, opcionalmente, un
+  estilo neutral resuelto desde la paleta del mismo Actor; nunca contiene una
+  secuencia ANSI ni un tipo de Ratatui.
 - Los archivos fuente no se modifican durante la carga ni durante la Partida.
 - No habrá valores por defecto silenciosos que alteren el significado del
   contenido. La ausencia semántica de retrato o política se declara mediante su

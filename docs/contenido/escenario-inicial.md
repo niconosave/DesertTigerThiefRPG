@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.2 |
+| Versión | 0.3 |
 | Fecha | 2026-10-15 |
 
 ## 1. Propósito y autoridad
@@ -66,35 +66,24 @@ de facción todavía.
 
 ## 5. Método para crear el mapa ASCII
 
-La referencia aprobada es el valle del Drâa y su entorno montañoso al sur del
-Atlas, en Marruecos. Se usará como guía la imagen satelital y la descripción
-geográfica publicadas por el
-[CNES para la región de Zagora](https://cnes.fr/geoimage/maroc-vallee-draa-un-espace-profondes-mutations-entre-monde-desert-saharien).
-El juego no copiará su raster, sus poblaciones ni sus rutas: reinterpretará
-manualmente el contraste entre relieve mineral, cauce y franja cultivada.
+La referencia visual aprobada para la composición es `assets/map.png`, creada
+por la diseñadora a partir de la idea inicial del valle del Drâa. La imagen de
+trabajo no se carga durante una partida: el dato ejecutable y modificable sigue
+siendo la matriz declarada en `content/base/maps/mapa_inicial.ron`.
 
-Para el primer mapa no hace falta construir un editor ni importar datos GIS. Se
-usará este procedimiento:
+La traducción conserva las masas y accidentes reconocibles de la referencia:
 
-1. Recortar mentalmente de la referencia una composición donde la montaña árida
-   limite con un valle irrigado.
-2. Reinterpretar sus masas a mano sin copiar nombres, caminos, construcciones ni
-   coordenadas reales.
-3. Trazar primero una cuadrícula gruesa de `24 × 8` macroceldas en un editor
-   monoespaciado.
-4. Clasificar esas macroceldas con una paleta pequeña: suelo árido, ladera
-   rocosa, montaña, vegetación fértil y cauce.
-5. Expandir cada macrocélula a un bloque de `4 × 4` y suavizar manualmente los
-   bordes. Esto produce un primer boceto de `96 × 32` tiles, mayor que la región
-   visible mínima y suficiente para probar el movimiento de cámara.
-6. Usar provisionalmente un símbolo ASCII por tipo —por ejemplo `.`, `:`, `^`,
-   `,` y `~`—. La leyenda RON posterior será la autoridad sobre su significado y
-   el frontend decidirá sus glifos y colores finales.
-7. Situar los centros y reservar espacio para los rótulos después de estabilizar
-   las masas del terreno. Las letras de los nombres se colocarán carácter por
-   carácter sobre tiles existentes.
-8. Copiar el boceto aprobado a la cadena raw del Mapa RON y validarlo con el
-   mismo cargador que utilizará el juego.
+- mar exterior y cursos de agua interiores;
+- región árida occidental y sus costas arenosas;
+- cordillera central y ramal sudoriental;
+- llanura verde nororiental y bosque oriental;
+- islas menores al oeste y al norte.
+
+La imagen se reduce a una cuadrícula de `96 × 32` y después se corrigen a mano
+los bordes o cauces que pierdan legibilidad. Cada símbolo de la matriz remite a
+un tipo mediante la leyenda RON; los glifos, colores y estilos que finalmente se
+ven en la terminal se definen en `assets/terminal/tiles.ron`. Los centros y
+rótulos de los Lugares se sitúan al final, sin modificar la matriz subyacente.
 
 El mapa continúa siendo presentación. Sus montañas, cauces y zonas fértiles no
 habilitan, impiden ni conectan Lugares por sí mismos.

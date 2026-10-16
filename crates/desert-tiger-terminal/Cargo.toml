@@ -10,12 +10,18 @@ workspace = true
 [dependencies]
 crossterm.workspace = true
 desert-tiger-app = { path = "../desert-tiger-app" }
+flate2.workspace = true
 ratatui.workspace = true
 ron.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 unicode-width.workspace = true
 
 [[bin]]
 name = "desert-tiger-terminal"
 path = "src/main.rs"
+
+[[bin]]
+name = "importar-retrato-durdraw"
+path = "src/bin/importar_retrato_durdraw.rs"
 

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.10 |
-| Fecha | 2026-10-14 |
+| Versión | 0.11 |
+| Fecha | 2026-10-15 |
 
 ## 1. Propósito y autoridad
 
@@ -146,8 +146,8 @@ Todos los actores usan el mismo tipo. Cada uno tiene:
 - un conjunto de Características sin duplicados.
 
 Ser jugador o NPC no crea subtipos. `Mundo` identifica exactamente un Actor como
-jugador. Arte ASCII y política Lua se asocian externamente mediante `IdActor` y
-no forman parte del estado reglado.
+jugador. El retrato y la política Lua se asocian externamente mediante `IdActor`
+y no forman parte del estado reglado.
 
 ### `Grupo`
 

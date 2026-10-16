@@ -2,12 +2,13 @@ use std::collections::BTreeSet;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use desert_tiger_app::{
-    AccionDisponible, CausaIndisponibilidad, EntradaResumenNpc, ErrorIntencion, IdLugar,
-    IntencionFrontend, Partida, VistaDecision, VistaMundo, VistaSesion,
+    AccionDisponible, CausaIndisponibilidad, ColorRetrato, EntradaResumenNpc, ErrorIntencion,
+    EstiloCeldaRetrato, IdLugar, IntencionFrontend, Partida, VistaDecision, VistaMundo,
+    VistaSesion,
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
@@ -289,16 +290,20 @@ impl Interfaz {
             }
             let alto = u16::try_from(fotograma.alto()).unwrap_or(u16::MAX);
             let inicio_y = base_y.saturating_sub(alto);
-            for (fila, texto) in fotograma.filas().enumerate() {
-                for (columna, caracter) in texto.chars().enumerate() {
-                    if caracter == ' ' {
-                        continue;
-                    }
-                    let px = x.saturating_add(u16::try_from(columna).unwrap_or(u16::MAX));
-                    let py = inicio_y.saturating_add(u16::try_from(fila).unwrap_or(u16::MAX));
-                    if px < area.right() && py >= area.y && py < area.bottom() {
-                        poner_celda(frame, px, py, caracter, recursos.ui.destacado);
-                    }
+            for (indice, celda) in fotograma.celdas().iter().enumerate() {
+                if celda.glifo == ' ' {
+                    continue;
+                }
+                let fila = indice / fotograma.ancho();
+                let columna = indice % fotograma.ancho();
+                let px = x.saturating_add(u16::try_from(columna).unwrap_or(u16::MAX));
+                let py = inicio_y.saturating_add(u16::try_from(fila).unwrap_or(u16::MAX));
+                if px < area.right() && py >= area.y && py < area.bottom() {
+                    let estilo = celda
+                        .estilo
+                        .map(estilo_retrato)
+                        .unwrap_or(recursos.ui.destacado);
+                    poner_celda(frame, px, py, celda.glifo, estilo);
                 }
             }
             anterior = Some(fotograma.ancho());
@@ -545,11 +550,42 @@ fn poner_celda(frame: &mut Frame<'_>, x: u16, y: u16, caracter: char, estilo: St
     }
 }
 
+fn estilo_retrato(estilo: EstiloCeldaRetrato) -> Style {
+    let mut resultado = Style::default().fg(color_retrato(estilo.frente));
+    if let Some(fondo) = estilo.fondo {
+        resultado = resultado.bg(color_retrato(fondo));
+    }
+    resultado
+}
+
+fn color_retrato(color: ColorRetrato) -> Color {
+    match color {
+        ColorRetrato::Negro => Color::Black,
+        ColorRetrato::Rojo => Color::Red,
+        ColorRetrato::Verde => Color::Green,
+        ColorRetrato::Amarillo => Color::Yellow,
+        ColorRetrato::Azul => Color::Blue,
+        ColorRetrato::Magenta => Color::Magenta,
+        ColorRetrato::Cian => Color::Cyan,
+        ColorRetrato::Gris => Color::Gray,
+        ColorRetrato::GrisOscuro => Color::DarkGray,
+        ColorRetrato::RojoClaro => Color::LightRed,
+        ColorRetrato::VerdeClaro => Color::LightGreen,
+        ColorRetrato::AmarilloClaro => Color::LightYellow,
+        ColorRetrato::AzulClaro => Color::LightBlue,
+        ColorRetrato::MagentaClaro => Color::LightMagenta,
+        ColorRetrato::CianClaro => Color::LightCyan,
+        ColorRetrato::Blanco => Color::White,
+    }
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
     use crossterm::event::KeyModifiers;
     use desert_tiger_app::{ConfiguracionPartida, cargar_contenido};
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
     use std::path::PathBuf;
 
     #[test]
@@ -567,5 +603,39 @@ mod pruebas {
         interfaz.manejar_tecla(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         interfaz.avanzar_animacion(1);
         assert_eq!(interfaz.fotograma, 2);
+    }
+
+    #[test]
+    fn retrato_del_principe_conserva_transparencia_colores_y_parpadeo() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).expect("contenido valido");
+        let partida = Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) })
+            .expect("partida valida");
+        let mut interfaz = Interfaz::nueva(partida).expect("interfaz valida");
+        let recursos =
+            RecursosVisuales::cargar(&raiz.join("assets/terminal")).expect("recursos validos");
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("backend valido");
+
+        terminal
+            .draw(|frame| interfaz.dibujar(frame, &recursos))
+            .expect("primer fotograma valido");
+        let cerrado = &terminal.backend().buffer()[(14, 15)];
+        assert_eq!(cerrado.symbol(), "▀");
+        assert_eq!(cerrado.fg, Color::LightMagenta);
+        assert_eq!(cerrado.bg, Color::Gray);
+        let transparente = terminal.backend().buffer()[(0, 8)].symbol();
+        assert!(
+            ['.', ':', '^', ',', '~', '*', ';'].contains(&transparente.chars().next().unwrap()),
+            "una celda transparente debe conservar el mapa, pero contiene {transparente:?}"
+        );
+
+        interfaz.avanzar_animacion(1);
+        terminal
+            .draw(|frame| interfaz.dibujar(frame, &recursos))
+            .expect("segundo fotograma valido");
+        let abierto = &terminal.backend().buffer()[(14, 15)];
+        assert_eq!(abierto.symbol(), "o");
+        assert_eq!(abierto.fg, Color::Cyan);
+        assert_eq!(abierto.bg, Color::Gray);
     }
 }

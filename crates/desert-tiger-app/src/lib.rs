@@ -6,10 +6,10 @@ mod lua;
 mod sesion;
 
 pub use contenido::{
-    ClaseDiagnosticoContenido, ClaveTipoTile, ContenidoValidado, CoordenadaMapa,
-    DiagnosticoContenido, ElementoDiagnosticoContenido, ErrorClaveTipoTile, ErrorContenido,
-    FotogramaRetrato, OrigenDiagnosticoContenido, PosicionDiagnosticoContenido, RetratoActor,
-    TipoElementoContenido, cargar_contenido,
+    CeldaRetrato, ClaseDiagnosticoContenido, ClaveTipoTile, ColorRetrato, ContenidoValidado,
+    CoordenadaMapa, DiagnosticoContenido, ElementoDiagnosticoContenido, ErrorClaveTipoTile,
+    ErrorContenido, EstiloCeldaRetrato, FotogramaRetrato, OrigenDiagnosticoContenido,
+    PosicionDiagnosticoContenido, RetratoActor, TipoElementoContenido, cargar_contenido,
 };
 pub use desert_tiger_core::acciones::{ClaveEscena, RechazoAccion};
 pub use desert_tiger_core::{IdActor, IdLugar};

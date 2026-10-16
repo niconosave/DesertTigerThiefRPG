@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.7 |
-| Fecha | 2026-10-13 |
+| Versión | 0.8 |
+| Fecha | 2026-10-15 |
 
 ## 1. Propósito
 
@@ -57,8 +57,9 @@ a [Workspace, entorno y límites de código](./componentes/01-workspace-entorno.
   Mundo, el mapa de esa ejecución y los estados necesarios para coordinarla.
 - **definiciones de presentación:** datos inmutables cargados desde contenido,
   como la matriz codificada, su leyenda de tipos visuales, nombres, coordenadas y
-  retratos ASCII de Actor; no incluyen glifos concretos de tiles ni arte de
-  viñetas.
+  retratos de celdas de Actor; estos últimos pueden incorporar glifos de una
+  columna y colores ANSI neutrales, pero no tipos de Ratatui. No incluyen glifos
+  concretos de tiles ni arte de viñetas.
 - **estado del mapa:** copia mutable de la matriz de `ClaveTipoTile`
   perteneciente a una Partida; sus apariencias concretas pertenecen a cada
   frontend.
