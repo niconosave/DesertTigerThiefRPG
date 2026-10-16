@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.32 |
-| Fecha | 2026-10-15 |
+| Versión | 0.33 |
+| Fecha | 2026-10-16 |
 
 ## 1. Propósito
 
@@ -190,16 +190,17 @@ El estilo se declara directamente dentro de cada apariencia y no referencia
 otro nombre: `frente` es obligatorio, `fondo` es `None` o `Some(color)` y
 `modificadores` es una lista sin duplicados cuyo orden no cambia el resultado.
 
-Los únicos colores admitidos son los dieciséis colores ANSI nombrados. La
+Los únicos nombres admitidos son los diecisiete colores de la paleta inicial. La
 conversión normativa es:
 
 | Valor RON | `ratatui::style::Color` |
 |---|---|
-| `negro` | `Black` |
+| `negro` | `Rgb(0, 0, 0)` |
 | `rojo` | `Red` |
 | `verde` | `Green` |
 | `amarillo` | `Yellow` |
 | `azul` | `Blue` |
+| `azulOscuro` | `Rgb(0, 24, 64)` |
 | `magenta` | `Magenta` |
 | `cian` | `Cyan` |
 | `gris` | `Gray` |
@@ -213,17 +214,21 @@ conversión normativa es:
 | `blanco` | `White` |
 
 No se aceptan alias, traducciones alternativas ni diferencias de mayúsculas. En
-particular, `gris` representa el color ANSI base `Gray` y `blanco` el brillante
-`White`; `negrita` nunca se interpreta como una solicitud de color claro.
+particular, `negro` es negro RGB puro y `azulOscuro` es el azul marino fijo
+`#001840`; ninguno depende de los equivalentes configurables del tema de la
+terminal. `gris` representa el color ANSI base `Gray` y `blanco` el brillante
+`White`. `negrita` nunca se interpreta como una solicitud de color claro.
 
 Los únicos modificadores admitidos son `negrita`, `tenue` e `invertido`, que se
 convierten respectivamente en `BOLD`, `DIM` y `REVERSED`. `negrita` y `tenue` no
 pueden aparecer juntas porque expresan intensidades contradictorias;
 `invertido` puede combinarse con cualquiera de las dos. Cuando `fondo` es
 `None`, el estilo no sustituye el fondo de la capa existente e `invertido` usa
-ese fondo heredado. No se admiten colores RGB o indexados, `Reset`, color de
-subrayado, parpadeo, texto oculto, cursiva, subrayado ni tachado en el primer
-incremento.
+ese fondo heredado. El RON no admite valores RGB o indexados arbitrarios,
+`Reset`, color de subrayado, parpadeo, texto oculto, cursiva, subrayado ni
+tachado en el primer incremento. Los RGB fijos asociados a `negro` y
+`azulOscuro` son decisiones del frontend y no permiten declarar valores RGB
+arbitrarios en el esquema editable.
 
 Estos datos nunca contienen secuencias ANSI o de control escritas libremente. Un
 DTO privado los valida y después construye `ratatui::style::Style`; el RON no
@@ -312,7 +317,7 @@ valores aprobados:
     ),
     barra_contextual: (
         frente: "blanco",
-        fondo: Some("grisOscuro"),
+        fondo: Some("negro"),
         modificadores: [],
     ),
     barra_acciones: (
@@ -1116,9 +1121,10 @@ Pruebas automáticas:
   y cada glifo configurado ocupa exactamente una celda;
 - el catálogo admite entradas adicionales, pero rechaza duplicados, claves,
   glifos o estilos inválidos y una reserva ausente o distinta de `?`;
-- los dieciséis nombres de color se convierten a la variante exacta de Ratatui,
-  `None` no sustituye el fondo de la capa existente y se rechazan `Reset`, RGB,
-  índices, alias y nombres desconocidos;
+- los diecisiete nombres de color se convierten a la variante exacta de Ratatui,
+  incluidos `negro` como `Rgb(0, 0, 0)` y `azulOscuro` como
+  `Rgb(0, 24, 64)`; `None` no sustituye el fondo de la capa existente y se
+  rechazan `Reset`, valores RGB editables, índices, alias y nombres desconocidos;
 - los modificadores se convierten a `BOLD`, `DIM` y `REVERSED` sin depender del
   orden; se rechazan duplicados y la combinación de `negrita` con `tenue`;
 - dos fotogramas consecutivos con fondos distintos no dejan estilos residuales

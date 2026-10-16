@@ -12,7 +12,7 @@ use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 
-use crate::recursos::RecursosVisuales;
+use crate::recursos::{NEGRO_PURO, RecursosVisuales};
 
 const ANCHO_MINIMO: u16 = 80;
 const ALTO_MINIMO: u16 = 24;
@@ -560,7 +560,7 @@ fn estilo_retrato(estilo: EstiloCeldaRetrato) -> Style {
 
 fn color_retrato(color: ColorRetrato) -> Color {
     match color {
-        ColorRetrato::Negro => Color::Black,
+        ColorRetrato::Negro => NEGRO_PURO,
         ColorRetrato::Rojo => Color::Red,
         ColorRetrato::Verde => Color::Green,
         ColorRetrato::Amarillo => Color::Yellow,
@@ -607,6 +607,8 @@ mod pruebas {
 
     #[test]
     fn retrato_del_principe_conserva_transparencia_colores_y_parpadeo() {
+        assert_eq!(color_retrato(ColorRetrato::Negro), Color::Rgb(0, 0, 0));
+
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let contenido = cargar_contenido(&raiz.join("content/base")).expect("contenido valido");
         let partida = Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) })

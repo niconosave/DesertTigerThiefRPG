@@ -9,6 +9,6 @@
     atajo: (frente: "amarilloClaro", fondo: None, modificadores: ["negrita"]),
     error: (frente: "blanco", fondo: Some("rojo"), modificadores: ["negrita"]),
     deshabilitado: (frente: "gris", fondo: None, modificadores: ["tenue"]),
-    barra_contextual: (frente: "blanco", fondo: Some("grisOscuro"), modificadores: []),
+    barra_contextual: (frente: "blanco", fondo: Some("negro"), modificadores: []),
     barra_acciones: (frente: "blanco", fondo: Some("azul"), modificadores: []),
 )

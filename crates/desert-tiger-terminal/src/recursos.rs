@@ -10,6 +10,9 @@ use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 
+pub(crate) const NEGRO_PURO: Color = Color::Rgb(0, 0, 0);
+const AZUL_OSCURO: Color = Color::Rgb(0, 24, 64);
+
 #[derive(Debug)]
 pub struct ErrorRecursos(String);
 
@@ -250,11 +253,12 @@ fn convertir_estilo(dto: EstiloDto) -> Result<Style, ErrorRecursos> {
 
 fn color(texto: &str) -> Result<Color, ErrorRecursos> {
     match texto {
-        "negro" => Ok(Color::Black),
+        "negro" => Ok(NEGRO_PURO),
         "rojo" => Ok(Color::Red),
         "verde" => Ok(Color::Green),
         "amarillo" => Ok(Color::Yellow),
         "azul" => Ok(Color::Blue),
+        "azulOscuro" => Ok(AZUL_OSCURO),
         "magenta" => Ok(Color::Magenta),
         "cian" => Ok(Color::Cyan),
         "gris" => Ok(Color::Gray),
@@ -327,5 +331,11 @@ mod pruebas {
         for glifo in ['\n', '\u{0301}', '🍀'] {
             assert!(convertir_apariencia(apariencia(glifo)).is_err());
         }
+    }
+
+    #[test]
+    fn colores_rgb_fijos_no_dependen_de_la_paleta_ansi() {
+        assert_eq!(color("negro").unwrap(), Color::Rgb(0, 0, 0));
+        assert_eq!(color("azulOscuro").unwrap(), Color::Rgb(0, 24, 64));
     }
 }
