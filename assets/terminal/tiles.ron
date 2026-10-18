@@ -6,7 +6,7 @@
     apariencias: {
         "arena": (glifo: '.', estilo: (frente: "amarillo", fondo: Some("negro"), modificadores: [])),
         "sueloArido": (glifo: '-', estilo: (frente: "rojo", fondo: Some("negro"), modificadores: ["tenue"])),
-        "montana": (glifo: '▲', estilo: (frente: "gris", fondo: Some("negro"), modificadores: ["negrita"])),
+        "montana": (glifo: '▲', estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["negrita"])),
         "vegetacion": (glifo: '∸', estilo: (frente: "verdeClaro", fondo: Some("negro"), modificadores: [])),
         "bosque": (glifo: '♣', estilo: (frente: "verde", fondo: Some("negro"), modificadores: ["negrita"])),
         "agua": (glifo: '∿', estilo: (frente: "azulOscuro", fondo: Some("negro"), modificadores: [])),
