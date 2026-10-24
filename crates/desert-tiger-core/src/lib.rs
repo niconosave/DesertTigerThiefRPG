@@ -7,9 +7,11 @@ mod modelo;
 
 pub use calendario::{Duracion, ErrorCalendario, Fecha, Mes};
 pub use modelo::{
-    Actor, ActorInicial, Caracteristica, ClaveVariableGlobal, DatosInicialesMundo,
-    ErrorCaracteristica, ErrorClaveVariableGlobal, ErrorConstruirMundo,
-    ErrorConsultaVariableGlobal, ErrorIdentificador, ErrorTraslado, Grupo, IdActor, IdLugar,
-    IdMapa, Lugar, LugarInicial, MAX_BYTES_CARACTERISTICA, MAX_BYTES_CLAVE_VARIABLE_GLOBAL, Mundo,
-    TipoVariableGlobal, TrasladoConfirmado, ValorVariableGlobal, VariableGlobalInicial,
+    Actor, ActorInicial, CambioConfirmado, CambiosConfirmados, Caracteristica, ClaveVariableGlobal,
+    DatosInicialesMundo, ErrorCaracteristica, ErrorClaveVariableGlobal, ErrorConstruirMundo,
+    ErrorConsultaRelacion, ErrorConsultaVariableGlobal, ErrorIdentificador, ErrorOperacionMundo,
+    ErrorTraslado, ExtremoRelacion, Grupo, IdActor, IdLugar, IdMapa, IdRelacion, LoteOperaciones,
+    Lugar, LugarInicial, MAX_BYTES_CARACTERISTICA, MAX_BYTES_CLAVE_VARIABLE_GLOBAL, Mundo,
+    OperacionMundo, Relacion, RelacionInicial, TipoRelacion, TipoVariableGlobal,
+    TrasladoConfirmado, ValorVariableGlobal, VariableGlobalInicial,
 };

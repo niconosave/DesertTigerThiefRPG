@@ -1,0 +1,16 @@
+(
+    clave: "playa_dorada",
+    nombre: "Playa Dorada",
+    caracteristicas: ["costero", "arenoso", "resguardado", "aguaSalada"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("sierra_quebrada")),
+        (tipo: Conectado, destino: Lugar("golfo_del_siroco")),
+    ],
+    coordenada_central: (x: 35, y: 24),
+    coordenadas_rotulo: [
+        (x: 29, y: 22), (x: 30, y: 22), (x: 31, y: 22),
+        (x: 32, y: 22), (x: 33, y: 22), (x: 34, y: 23),
+        (x: 35, y: 23), (x: 36, y: 23), (x: 37, y: 23),
+        (x: 38, y: 23), (x: 39, y: 23), (x: 40, y: 23),
+    ],
+)

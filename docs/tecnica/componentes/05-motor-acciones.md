@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Implementado |
-| Versión | 0.12 |
-| Fecha | 2026-10-15 |
+| Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
+| Versión | 0.19 |
+| Fecha | 2026-10-20 |
 
 ## 1. Propósito
 
@@ -24,19 +24,30 @@ Este componente comprende:
 
 - las solicitudes semánticas para iniciar o continuar acciones;
 - el estado reanudable de una acción general;
+- los proyectos de acción y sus registros intencionales neutrales;
 - la ejecución de acciones particulares reutilizables;
-- decisiones, fragmentos narrativos, resultados y duración acumulada;
+- decisiones, registros causales ordenados, resultados y duración acumulada;
 - validación común para acciones del jugador y de los NPC;
 - acceso controlado al azar.
 
-El primer incremento necesita ejecutar `Viajar` tanto para el jugador como para
-el NPC mínimo. Sus reglas concretas pertenecen a
-[`acciones/01-viajar.md`](../acciones/01-viajar.md).
+El alcance vigente ejecuta `Viajar` tanto para el jugador como para el NPC
+mínimo. Sus reglas físicas pertenecen a
+[`acciones/02-viajar-expediciones.md`](../acciones/02-viajar-expediciones.md) y
+su lógica rectora pertenece a
+[`acciones/04-proyecto-humano-viajar.md`](../acciones/04-proyecto-humano-viajar.md).
 
-Quedan fuera el contenido y cálculo de cada acción, la representación exacta del
-tiempo, la selección visual, Lua y el dibujo de viñetas. El alcance inicial no
-admite cancelar una acción ya comenzada, deshacer ni ejecución simultánea; el
-frontend sí puede abandonar una selección antes de enviar la solicitud.
+El motor incorpora el
+[contrato de acciones particulares](../acciones/particulares/00-contrato-resolucion.md),
+las fichas terrestres, de supervivencia y de navegación, y las
+[operaciones atómicas](./11-operaciones-mundo.md).
+
+Quedan fuera el contenido y cálculo de cada acción concreta, la redacción y el
+formato visible del tiempo, la selección visual, Lua y el dibujo de viñetas. El
+alcance inicial no admite cancelar técnicamente una ejecución ya comenzada,
+deshacer ni ejecución simultánea; el frontend sí puede abandonar una selección
+antes de enviar la solicitud. Esto no impide la conclusión reglada
+`AbandonoVoluntario` de `Viajar`: elegirla es una transición de gameplay que
+conserva tiempo y consecuencias, no un rollback ni el descarte de la ejecución.
 
 ## 3. Responsabilidades y límites
 
@@ -50,6 +61,12 @@ pendiente pertenece a la Partida, según el
 [contrato de sesión](./04-sesion-aplicacion.md). Es un valor poseído formado por
 datos e IDs y nunca mantiene referencias prestadas al Mundo o a la fuente de
 azar entre llamadas.
+
+Dentro de una acción general, el núcleo conserva además su proyecto: propósito,
+propuestas realmente consideradas, compromiso, subobjetivo, interpretación y
+replanteamiento. La aplicación no deduce esas transiciones desde texto o trazas;
+las recibe como registros semánticos neutrales. Una transición del proyecto no
+finge que se ejecutó una acción particular.
 
 La aplicación construye una solicitud interna vinculada al actor jugador o a un
 NPC con política que la fase NPC haya considerado elegible. Ambas solicitudes
@@ -89,8 +106,10 @@ y el identificador de una de sus opciones. Cada solicitud de decisión producida
 por el motor contiene:
 
 - un identificador válido solamente para esa espera;
-- texto o información narrativa neutral;
-- una lista no vacía de opciones, cada una con identificador y texto neutral.
+- contexto y hechos conocidos suficientes para explicar por qué se decide;
+- la instantánea de progreso correspondiente a ese punto causal;
+- una lista no vacía de opciones, cada una con identificador, significado
+  semántico y efectos conocidos por los viajeros.
 
 Los identificadores del motor son locales a una `EjecucionAccion` y no se
 publican directamente a un frontend:
@@ -111,15 +130,17 @@ pub struct RespuestaDecision {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SolicitudDecision {
     pub id: IdDecision,
-    pub texto: String,
-    pub escena: Option<ClaveEscena>,
+    pub contexto: ContextoDecision,
+    pub situacion: Option<ReferenciaSituacion>,
+    pub progreso: ProgresoAccion,
     pub opciones: Vec<OpcionDecision>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpcionDecision {
     pub id: IdOpcionDecision,
-    pub texto: String,
+    pub contenido: OpcionSemantica,
+    pub efectos_conocidos: Vec<HechoCausalVisible>,
 }
 ```
 
@@ -137,32 +158,52 @@ antiguo: estos identificadores solo protegen la espera recibida junto con esa
 correspondencia mientras una decisión se expone; esa capa es la que impide
 colisiones entre acciones ante un frontend.
 
-Los constructores internos garantizan que el texto no esté vacío, que las
-opciones tengan IDs distintos y que la lista contenga al menos dos opciones.
+`ContextoDecision` y `OpcionSemantica` son enums cerrados por acción general; sus
+variantes concretas pertenecen a la documentación de esa acción. Expresan hechos
+y alternativas, no frases localizadas ni instrucciones de interfaz. La
+aplicación resuelve nombres visibles y redacta la decisión, pero no deduce
+efectos adicionales. Los constructores internos garantizan que las opciones
+tengan IDs distintos, que la lista contenga al menos dos y que todo hecho
+publicado sea visible para los participantes en ese punto.
 
-`ClaveEscena` es un enum semántico cerrado del núcleo. Sus primeras variantes y
-la forma del fragmento son:
+Las variantes pueden expresar propuestas de plan y medio, compromiso,
+preparación, ritmo, replanteamiento o abandono. Una opción de propuesta de viaje
+conserva una referencia tipada estable a la propuesta vigente y su proyección
+visible completa. Esa proyección contiene, como mínimo, proponente o aportante,
+estrategia, configuración prevista de medios y sus fuentes, recorrido
+provisional conocido, requisitos y fuentes de preparación conocidos,
+beneficios, costes, exposición e incertidumbres conocidos y precondiciones
+satisfechas o pendientes admitidas por el alcance. Los requisitos cualitativos
+no son todavía la categoría `Ligera`, `Suficiente` o `Cargada`, que se decide
+después de adoptar propuesta y ritmo. La aplicación puede resolver nombres y
+redactar esos campos, pero no reconstruir la propuesta mediante otra consulta.
+
+Ni la propuesta ni `efectos_conocidos` publican el resultado futuro, hechos
+ocultos o una posibilidad como si ya fuera un hecho consumado. Una respuesta
+selecciona el ID de la opción emitida; no reenvía una propuesta reconstruida por
+el llamador.
+
+Una acción general puede abrir una **situación dramática** y conservarla a través
+de varias transiciones o decisiones. La referencia estable que acompaña esos
+registros tiene esta forma conceptual:
 
 ```rust
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum ClaveEscena {
-    ViajeMarcha,
-    ViajeObstaculo,
-    ViajeRumboIncierto,
-    ViajeLlegada,
-}
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct IdSituacion(u32);
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FragmentoNarrativo {
-    pub texto: String,
-    pub escena: Option<ClaveEscena>,
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReferenciaSituacion {
+    pub id: IdSituacion,
+    pub clave: ClaveSituacionViaje,
 }
 ```
 
-Las cuatro variantes están aprobadas por las tres ramas de
-[`acciones/01-viajar.md`](../acciones/01-viajar.md). Cada variante futura se
-añadirá solamente después de aprobar su significado y uso en el documento de la
-acción que la produce.
+`ClaveSituacionViaje` es un enum cerrado de contextos concretos definidos por
+[`Viajar`](../acciones/02-viajar-expediciones.md). Identifica, por ejemplo, una
+travesía marítima favorecida por el tiempo o un ascenso por un paso abrupto; no
+clasifica la emoción mediante valores genéricos como `Peligro`, `Aventura` o
+`Suspenso`. El carácter emotivo surge del guion concreto que la aplicación
+asocia con la situación y con los hechos ocurridos.
 
 La clave no contiene una ruta, bytes de arte, dimensiones, estilos ni un
 identificador del catálogo de contenido. El núcleo tampoco conoce su nombre
@@ -170,12 +211,169 @@ externo `lowerCamelCase`, su representación RON ni la ruta de un recurso. Otro
 frontend puede asociar la misma variante con una imagen 2D, una escena 3D, arte
 ASCII o ninguna representación.
 
+El identificador distingue dos apariciones de la misma clase de situación dentro
+de un viaje. Se genera de manera determinista dentro de la ejecución general,
+sin usar `FuenteAzar`, y solo es válido junto con esa `EjecucionAccion`.
+
+La acción general conserva además un `ContextoSituacionReglado` interno con los
+hechos concretos que pueden afectar reglas. Ese contexto se entrega a cada acción
+particular pertinente antes de resolverla. Su proyección pública contiene solo
+los hechos que los participantes pueden observar; un hecho oculto puede influir
+conforme a las reglas, pero no se revela por accidente en el registro visible.
+La acción particular recibe esos hechos mecánicos, no `ClaveSituacionViaje`, y
+por ello la misma regla reutilizable sirve bajo contextos dramáticos distintos.
+
+### Cronología causal
+
+La fuente canónica del comportamiento observable de `Viajar` es
+[`03-cronologia-causal-viaje.md`](../acciones/03-cronologia-causal-viaje.md).
+Este componente garantiza su frontera neutral: no entrega una frase genérica
+por etapa, sino hechos causalmente ordenados que la aplicación puede narrar sin
+reconstruir reglas.
+
+El progreso que sale del núcleo tiene la forma equivalente a:
+
+```rust
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ProgresoAccion {
+    pub lugar_confirmado: IdLugar,
+    pub siguiente_lugar: Option<IdLugar>,
+    pub destino_final: IdLugar,
+    pub duracion_transcurrida: Duracion,
+}
+```
+
+`duracion_transcurrida` comienza en cero, solo crece mediante suma comprobada y
+representa el punto exacto de la simulación al que pertenece el registro. El
+núcleo no incluye una segunda fecha ni llama a `Mundo::avanzar_fecha`; la
+aplicación completa la instantánea con la fecha proyectada mediante el calendario
+común y la fecha capturada al iniciar la acción.
+
+Las emisiones causales usan conceptualmente esta suma tipada:
+
+```rust
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct IdMomentoCausal(u32);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RegistroProyecto {
+    Proposito { hechos: Vec<HechoCausalVisible> },
+    Propuesta { hechos: Vec<HechoCausalVisible> },
+    Compromiso { hechos: Vec<HechoCausalVisible> },
+    Subobjetivo { hechos: Vec<HechoCausalVisible> },
+    Interpretacion { hechos: Vec<HechoCausalVisible> },
+    Replanteamiento { hechos: Vec<HechoCausalVisible> },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RegistroCronologico {
+    Proyecto {
+        registro: RegistroProyecto,
+        progreso: ProgresoAccion,
+    },
+    SituacionIniciada {
+        situacion: ReferenciaSituacion,
+        hechos_contextuales: Vec<HechoCausalVisible>,
+        progreso: ProgresoAccion,
+    },
+    MomentoCausal {
+        situacion: ReferenciaSituacion,
+        momento: IdMomentoCausal,
+        traza: TrazaAccionParticular,
+        hechos_contextuales: Vec<HechoCausalVisible>,
+        progreso: ProgresoAccion,
+    },
+    SituacionConcluida {
+        situacion: ReferenciaSituacion,
+        hechos: Vec<HechoCausalVisible>,
+        progreso: ProgresoAccion,
+    },
+    ConclusionViaje {
+        conclusion: ConclusionViaje,
+        hechos: Vec<HechoCausalVisible>,
+        progreso: ProgresoAccion,
+    },
+}
+```
+
+Las variantes muestran la categoría conceptual; sus formas concretas de
+`Viajar` añaden IDs semánticos, proponente o aportante, estrategia, fuente de
+medio, subobjetivo, causa de revisión y alternativas conforme al
+[contrato del proyecto](../acciones/04-proyecto-humano-viajar.md). No contienen
+prosa. `RegistroProyecto::Proposito` es la única apertura semántica de la acción;
+no se emite además otra variante cronológica de apertura. `ConclusionViaje` es
+una variante cronológica separada que la cierra. Un `RegistroProyecto` puede
+abrir o hacer avanzar una situación, pero no
+posee `IdMomentoCausal`, tirada, duración u operaciones si ninguna acción
+particular se ejecutó.
+
+`TrazaAccionParticular`, `HechoCausalVisible` y `ConclusionViaje` son tipos
+neutrales y cerrados del núcleo. Las fichas particulares son la autoridad sobre
+las variantes concretas de una traza. Una traza conserva verbo, participantes,
+factores realmente aplicados, resoluciones aplicadas, dificultad y tirada cuando
+sean revelables, banda, duración y efectos transitorios o persistentes. Los
+factores incluyen su fuente, eje causal y ajuste firmado; el núcleo filtra la
+visibilidad antes de publicarlos. Un total que delatara un hecho oculto se
+representa como incertidumbre, no como una cifra de la que la aplicación pueda
+inferirlo.
+
+Normalmente existe una sola resolución aplicada. Si una acción grupal ejecuta
+una prueba real por participante, la traza conserva todas en orden y señala su
+sujeto; esto no divide la invocación ni crea varios momentos causales.
+
+`Viajar`, como acción general, decide cuándo comienza y termina cada situación y
+qué invocaciones particulares pertenecen a ella. Una situación contiene uno o
+más momentos causales y puede abarcar varias acciones particulares diferentes o
+repetidas. Cada invocación que realmente llega a ejecutarse aporta exactamente
+un `MomentoCausal` que posee su traza completa. Ese momento puede dar lugar a una
+o varias viñetas y una viñeta puede relatar varios momentos contiguos únicamente
+si todos continúan identificables y ordenados. Por tanto, la cobertura es uno a
+uno entre invocación ejecutada y momento causal, no entre acción particular y
+escena ni entre acción particular y viñeta.
+
+La apertura y el desenlace de una situación pertenecen a la acción general. No
+se fabrican una introducción y una consecuencia narrativas independientes para
+cada verbo particular. Dos ejecuciones iguales producen dos `MomentoCausal`
+distintos y ordenados, aunque el guion las integre en la misma situación.
+
+Consultar elegibilidad, pronosticar, comparar candidatos, escoger responsable,
+recalcular una ruta o validar antes de aceptar una solicitud no ejecuta una
+acción particular y no produce un momento. La duración tampoco multiplica
+ejecuciones: una única acción de varios días conserva un momento con su duración
+exacta completa, aunque el guion pueda necesitar varias viñetas para presentarla.
+
+Cuando el proyecto determina que los personajes realmente consideran una
+propuesta, adoptan un plan, persiguen un subobjetivo o reinterpretan un
+resultado, emite un `RegistroProyecto`. Esto vuelve observable la acción humana
+sin convertir las consultas que la prepararon en acontecimientos ni inventar una traza
+particular.
+
+Duración, consumo ordinario o extraordinario, reservas obtenidas o perdidas,
+fatiga, heridas, estado del medio y traslado se incorporan a la traza y a la
+acción que los causó. No se ocultan ni generan por obligación un fragmento
+administrativo separado. Si una carencia causa la ejecución de otra acción
+particular, esa nueva ejecución recibe su propio momento causal.
+
+Todo hecho que el guion vaya a expresar y que cambie dificultad, modificadores,
+candidaturas, consumo, duración o consecuencias debe existir primero como dato
+del contexto reglado de la situación y debe entregarse a las acciones
+particulares afectadas. La aplicación puede redactar que el viento impulsa una
+embarcación porque el núcleo entregó ese hecho y lo aplicó a `Navegar`; no puede
+inventarlo después como explicación de un cálculo que nunca lo consideró. Los
+detalles puramente literarios pueden variar entre viñetas siempre que no afirmen
+una causa o un efecto mecánico inexistente.
+
+No existe presupuesto ni máximo de situaciones, momentos o viñetas. La acción
+general no toma muestras, no suprime pasos rutinarios y no sustituye varias
+ejecuciones por un montaje que altere lo que el jugador puede aprender de las
+reglas.
+
 Cada llamada aceptada avanza hasta la próxima frontera y devuelve un tramo:
 
 ```text
 TramoAccion
 ├── emisiones ordenadas
-│   ├── Narrativa(FragmentoNarrativo)
+│   ├── Cronologia(RegistroCronologico)
 │   └── ResultadoSemantico(ResultadoSemantico)
 └── cierre
     ├── EsperandoDecision(SolicitudDecision)
@@ -184,8 +382,8 @@ TramoAccion
 
 Las emisiones pueden incluir:
 
-- **fragmentos narrativos**, con el texto y una clave de escena opcional que el
-  frontend puede convertir en una viñeta;
+- **registros cronológicos**, con situaciones, hechos, momentos causales, trazas
+  y progreso que la aplicación convierte en un guion de viñetas;
 - **resultados semánticos estructurados**, que identifican qué cambió en el
   dominio sin incluir instrucciones, coordenadas ni tiles de presentación.
 
@@ -204,7 +402,7 @@ pub struct TramoAccion {
 }
 
 pub enum EmisionAccion {
-    Narrativa(FragmentoNarrativo),
+    Cronologia(RegistroCronologico),
     ResultadoSemantico(ResultadoSemantico),
 }
 
@@ -214,9 +412,10 @@ pub enum CierreTramo {
 }
 ```
 
-El constructor interno de `FragmentoNarrativo` rechaza un texto vacío; su valor
-se convierte uno a uno en una `VistaFragmento` de la aplicación sin alterar el
-texto ni la clave. Los demás tipos públicos de salida iniciales son:
+Los constructores internos rechazan una cronología incompleta, una situación
+cerrada o referenciada fuera de orden, un `IdMomentoCausal` repetido, una
+invocación sin momento, factores duplicados por eje o un progreso incompatible
+con los cambios confirmados. Los demás tipos públicos de salida iniciales son:
 
 ```rust
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -225,6 +424,14 @@ pub enum ResultadoSemantico {
         actores: Vec<IdActor>,
         origen: IdLugar,
         destino: IdLugar,
+    },
+    CaracteristicaActorAnadida {
+        actor: IdActor,
+        caracteristica: Caracteristica,
+    },
+    CaracteristicaActorQuitada {
+        actor: IdActor,
+        caracteristica: Caracteristica,
     },
 }
 
@@ -235,21 +442,26 @@ pub struct FinalizacionAccion {
 ```
 
 `ResultadoSemantico` describe una consecuencia que el núcleo ya confirmó; nunca
-es una orden para que la aplicación la aplique otra vez. En
+es una orden para que la aplicación la aplique otra vez. Las variantes de
+Característica solo se emiten para altas o bajas efectivas; una operación
+idempotente no produce otra emisión. En
 `ActoresTrasladados`, `actores` es una secuencia no vacía y sin duplicados. Para
 un viaje del jugador contiene primero al jugador y después a los integrantes del
 Grupo en su orden canónico; para un NPC independiente contiene solamente a ese
 Actor. Todos los actores enumerados estaban en `origen` y ya se encuentran en
 `destino` cuando el motor devuelve la emisión.
 
-El motor obtiene esos tres campos directamente del `TrasladoConfirmado` devuelto
-por `Mundo::trasladar`; no vuelve a consultar ubicaciones para reconstruirlos.
+El motor obtiene esos campos directamente de `CambiosConfirmados` después de
+que `Mundo::aplicar_lote` confirma la secuencia; no vuelve a consultar el Mundo
+para reconstruirlos.
 
-Cada `Viajar` aceptado produce exactamente un `ActoresTrasladados`: el motor
-confirma primero el traslado mediante la operación semántica de `Mundo`, añade el
-resultado después del último fragmento narrativo de la rama y cierra el tramo
-con `Completada`. La aplicación puede usar el resultado para coordinar otros
-subsistemas o formar un resumen, pero no vuelve a ejecutar el traslado.
+Cada etapa que traslada al Grupo puede producir un `ActoresTrasladados`; un viaje
+con varias etapas puede contener varios en orden causal. Un ascenso costoso puede
+emitir además un alta de `fatigado`; ambos cambios pertenecen al lote confirmado
+por esa acción particular y aparecen en su consecuencia. Un ascenso fallido emite
+el alta de `herido`, no traslada y aun así cierra normalmente la acción. La
+aplicación usa los resultados para coordinar subsistemas y corroborar la traza,
+pero no vuelve a ejecutar los cambios.
 
 `FinalizacionAccion` contiene únicamente la duración total. El cierre ya expresa
 que la acción terminó y las emisiones ya describen sus consecuencias, por lo que
@@ -257,11 +469,14 @@ repetir el destino, los actores o un indicador de éxito crearía una segunda
 fuente de verdad. La representación de `Duracion` pertenece al
 [calendario](./06-calendario-duracion.md).
 
-Los fragmentos y decisiones no contienen arte, rutas, estilos, coordenadas ni
-tipos de Ratatui. En el primer incremento, el código Rust de cada acción produce
-sus propios textos y claves semánticas; Lua y el frontend no redactan ni
-sustituyen esa lógica narrativa. La aplicación conserva el orden conforme al
-contrato de sesión.
+Los registros y decisiones no contienen prosa, arte, estilos, coordenadas de
+tiles ni tipos de Ratatui. El núcleo y la acción general entregan los contextos,
+hechos, factores, trazas y resultados autoritativos; la aplicación resuelve los
+nombres visibles y redacta el texto dramático mediante guiones hardcodeados de
+cada situación concreta, sin reinterpretar las reglas. La terminal decide
+composición, marco, detalle y animación, pero no redacta ni deduce causas. La
+distribución de responsabilidades y la revelación ordenada pertenecen al
+[contrato de sesión](./04-sesion-aplicacion.md).
 
 ## 5. Ejecución y estado reanudable
 
@@ -306,7 +521,14 @@ Al comenzar una acción general, el núcleo vuelve a validar actor, acción,
 objetivos y condiciones actuales. Si son válidos, crea su estado de ejecución y
 avanza por sus transiciones. Cada transición puede consultar el Mundo, usar el
 azar inyectado, invocar acciones particulares, aplicar consecuencias y emitir
-fragmentos.
+registros cronológicos.
+
+En una acción gobernada por proyecto, las transiciones siguen fases de dominio:
+propósito, deliberación, compromiso, preparación o procura, ejecución por
+subobjetivo, interpretación, replanteamiento y conclusión. No todas suspenden la
+llamada ni producen una decisión; sí deben conservar su orden semántico. La
+máquina anterior puede reemplazarse por completo durante el refactor mientras
+mantenga esta API reanudable y sus garantías atómicas.
 
 El avance se detiene cuando la acción:
 
@@ -331,9 +553,10 @@ devuelve un fallo interno fatal y la sesión deja de continuar; nunca se lo
 degrada a rechazo recuperable.
 
 Una **acción particular** es una operación de simulación reutilizable. Recibe su
-contexto reglado, calcula y aplica un resultado, y puede aportar fragmentos y
-tiempo a la acción general. No conoce la presentación ni permite evitar la
-validación de quien la invoca.
+contexto reglado, calcula un resultado y solicita operaciones persistentes; la
+acción general las confirma mediante un lote. Toda invocación ejecutada aporta su
+traza causal y su tiempo, aunque resulte automática, imposible o desfavorable;
+no conoce la presentación ni permite evitar la validación de quien la invoca.
 
 Las acciones particulares iniciales son funciones o tipos internos estáticos
 invocados por `Viajar`. No necesitan IDs públicos ni un catálogo dinámico en
@@ -343,10 +566,11 @@ La duración comienza exactamente en `Duracion::CERO`. Cada aporte de una acció
 particular se incorpora mediante `Duracion::checked_add`; un
 `ErrorCalendario::Desbordamiento` se convierte en
 `FalloMotor::DesbordamientoDuracion`. Las acciones particulares pueden modificar
-el total durante la ejecución; el motor lo comunica al exterior únicamente como
+el total durante la ejecución; el motor comunica tanto la duración aportada por
+cada consecuencia como el acumulado de su `ProgresoAccion`, y conserva además la
 duración final de la acción completa. El motor nunca llama a
-`Mundo::avanzar_fecha`. El avance de la fecha y el tratamiento especial de la
-duración de NPC se definen en
+`Mundo::avanzar_fecha`. La proyección pura, el avance único de la fecha y el
+tratamiento especial de la duración de NPC se definen en
 [`06-calendario-duracion.md`](./06-calendario-duracion.md) y
 [`07-fase-npc.md`](./07-fase-npc.md).
 
@@ -384,10 +608,12 @@ fuentes globales. Acciones generales y particulares consumen la misma capacidad
 sin conocer su implementación concreta.
 
 La implementación de producción elegirá cada índice con distribución uniforme
-en `0..limite_exclusivo`. `Viajar` hará una extracción uniforme para seleccionar
-su grupo de fragmentos. Cada decisión automática de un NPC hará otra extracción
-uniforme sobre las opciones en el orden estable entregado por la acción. No hay
-pesos configurables en el primer incremento.
+en `0..limite_exclusivo`. Cada acción concreta define y documenta sus propias
+selecciones; cada decisión automática de un NPC hace una extracción separada y
+uniforme sobre las opciones en el orden estable entregado por la acción. La
+composición, el orden y la cantidad de candidaturas de la acción vigente
+pertenecen al [documento de `Viajar`](../acciones/02-viajar-expediciones.md); el motor común
+solo aporta y controla la fuente.
 
 En pruebas se inyectará una fuente prefijada o programada. Con igual estado,
 entradas y respuestas de azar, una transición produce el mismo resultado.
@@ -413,7 +639,33 @@ extracciones faltantes o adicionales.
 - Una decisión pertenece a una única acción pendiente y solo acepta sus opciones
   vigentes.
 - Una respuesta inválida no modifica el Mundo ni descarta la acción pendiente.
-- Cada fragmento conserva el orden en que fue emitido por la lógica.
+- Cada registro conserva el orden causal en que fue emitido por la lógica.
+- Un proyecto posee propósito antes de formular propuestas y compromiso antes
+  de ejecutar un subobjetivo de su plan.
+- Propósito, propuesta, compromiso, subobjetivo, interpretación y replanteamiento
+  se emiten como registros neutrales, nunca como momentos causales ficticios.
+- Toda acción particular ejecutada dentro de un proyecto responde al subobjetivo
+  vigente y conserva responsable e intención.
+- Interpretar o replantear no vuelve a ejecutar, tirar ni aplicar la resolución
+  que produjo el cambio.
+- Ningún medio se propone o utiliza sin la fuente que exige la acción general.
+- La acción general es la autoridad sobre las situaciones dramáticas; una
+  situación puede abarcar varias acciones particulares y varias viñetas.
+- Cada invocación particular ejecutada posee exactamente un momento causal con
+  una traza completa; ningún momento se pierde aunque se comparta una situación
+  o una viñeta con otros.
+- Las consultas puras y los candidatos no ejecutados no producen un momento
+  causal.
+- Una acción particular multidiaria sigue siendo una sola invocación y declara
+  su duración exacta completa; su presentación puede ocupar varias viñetas.
+- No existe límite, presupuesto, muestreo ni supresión de situaciones, momentos
+  o viñetas.
+- Todo hecho narrativo con efecto mecánico forma parte del contexto reglado antes
+  de resolver la acción particular afectada.
+- Ningún enum genérico de tono decide la emoción; esta surge de la situación
+  concreta y de su guion en la aplicación.
+- Ningún dato administrativo observable se oculta: permanece acoplado a la
+  resolución o consecuencia que lo causó.
 - Cada tramo termina exactamente en una decisión o en una finalización.
 - Un rechazo no aparece dentro de la secuencia de emisiones.
 - El tiempo acumulado nunca es negativo ni altera directamente la fecha.
@@ -447,11 +699,16 @@ pub enum RechazoAccion {
     DestinoEsLugarActual {
         lugar: IdLugar,
     },
-    DestinoInalcanzable {
-        destino: IdLugar,
-    },
     ViajeIndependienteDeIntegranteGrupo {
         actor: IdActor,
+    },
+    DestinoSinRutaConectada {
+        origen: IdLugar,
+        destino: IdLugar,
+    },
+    SinPropuestaViajeViable {
+        origen: IdLugar,
+        destino: IdLugar,
     },
     DecisionNoVigente {
         decision: IdDecision,
@@ -474,19 +731,32 @@ pub enum FalloMotor {
 }
 ```
 
+`DestinoSinRutaConectada` significa que el grafo no conecta origen y destino.
+`SinPropuestaViajeViable` significa que sí pertenecen al mismo componente, pero
+el preflight no puede formular ninguna propuesta válida con conocimiento,
+capacidades, medios y fuentes vigentes. Ninguna de las dos variantes se emite
+después de crear el proyecto. Durante una ejecución solo una identidad de
+decisión u opción ajena a la espera vigente es un rechazo; la falta reglada de
+continuaciones concluye como `Interrupcion` y una fuente planificada que
+desaparece sin una consecuencia causal previa es `FalloMotor::InvarianteRota`.
+
 `RechazoAccion` enumera condiciones esperables del dominio y puede mostrarse o
 traducirse sin invalidar la Partida. `FalloMotor` cubre una invariante rota, un
 fallo de `FuenteAzar` y cualquier error inesperado posterior al punto de
 confirmación; obliga a llevar la sesión a `Fatal`.
 
-Las seis primeras variantes de `RechazoAccion` corresponden a las validaciones
+Las siete primeras variantes de `RechazoAccion` corresponden a las validaciones
 aprobadas para iniciar `Viajar`. `JugadorMuerto` se usa solamente cuando el Actor
 es el jugador; el efecto general de `muerto` sobre otros NPC continúa aplazado.
-Las dos últimas protegen la reanudación directa del motor frente a una decisión
+`DestinoSinRutaConectada` contiene el origen lógico vigente y el destino
+solicitado; expresa un grafo válido sin conexión entre ambos, no un error al
+cargar Relaciones. `SinPropuestaViajeViable` distingue el caso conectado que no
+ofrece una manera válida de viajar con los hechos conocidos. Las dos últimas
+variantes protegen la reanudación directa del motor frente a una decisión
 antigua o una opción que no pertenece a la espera vigente. La fachada puede
-interceptarlas y convertirlas en sus errores homónimos, pero el núcleo conserva
-la validación. Mientras existe una acción pendiente, la fachada evita iniciar
-otra antes de llamar al motor.
+interceptarlas y convertirlas en sus errores
+homónimos, pero el núcleo conserva la validación. Mientras existe una acción
+pendiente, la fachada evita iniciar otra antes de llamar al motor.
 
 `FuenteAzar` representa un error devuelto por la capacidad inyectada;
 `IndiceAzarFueraDeRango` representa que esa capacidad devolvió `Ok` con un valor
@@ -496,17 +766,23 @@ estados internos imposibles y un fallo inesperado de una operación de Mundo
 después de haber superado sus validaciones. La aplicación no necesita tratar
 estas causas de forma distinta: todas invalidan la continuidad de la sesión.
 
-Al comenzar `Viajar`, el motor valida en orden: Actor existente, destino
-existente, jugador no `muerto`, destino distinto del Lugar actual, destino sin
-`inalcanzable` y Actor no integrante del Grupo intentando viajar solo. Cada
-condición se convierte en la variante homónima de `RechazoAccion`. Al final de
-una acción ya aceptada, cualquier `ErrorTraslado` se convierte en
+Al solicitar comenzar `Viajar`, el motor aplica un preflight puro en el orden
+aprobado por su documento: validaciones comunes de Actor y Grupo, validaciones
+de origen y destino y construcción de propuestas conocidas. La ausencia de al
+menos una propuesta válida devuelve `SinPropuestaViajeViable`, mientras la
+ausencia de conexión topológica devuelve `DestinoSinRutaConectada`, antes de
+crear `EjecucionAccion`, `ProyectoViaje` o
+emitir `Proposito`. Consultar disponibilidad o rechazar una solicitud no muta el
+Mundo ni consume azar o tiempo. A partir de la aceptación y de la emisión de
+`Proposito`, perder toda continuación concluye como `Interrupcion`; no vuelve a
+la frontera de rechazo. Al final de una acción ya aceptada, cualquier
+`ErrorTraslado` se convierte en
 `ErrorMotor::Fatal(FalloMotor::InvarianteRota)`, porque todas sus condiciones
 previsibles ya fueron validadas y la sesión no permite otra mutación intermedia.
 
-Una solicitud rechazada no crea una acción, consume azar ni tiempo. Una respuesta
-inválida conserva el punto de espera. Los diagnósticos identifican la causa sin
-provocar `panic` en caminos normales. Un fallo interno fatal se propaga a la
+Una solicitud rechazada no crea una acción ni consume azar o tiempo. Una
+respuesta inválida conserva el punto de espera. Los diagnósticos identifican la
+causa sin provocar `panic` en caminos normales. Un fallo interno fatal se propaga a la
 aplicación, que detiene la sesión y permite al frontend restaurar la terminal.
 
 ## 9. Pruebas y criterios de aceptación
@@ -516,8 +792,47 @@ controlado para comprobar:
 
 - inicio, espera, respuesta y finalización de una acción con varias transiciones;
 - distinción estructural entre emisiones, decisión, finalización y rechazo;
+- orden de propósito, propuestas, compromiso, subobjetivo, interpretación y
+  replanteamiento, seguido por su conclusión cronológica separada, sin analizar
+  prosa;
+- deliberación y compromiso visibles mediante registros de proyecto sin crear
+  momentos causales ni consumir azar por sus consultas puras;
+- preflight sin propuestas que rechaza antes de crear ejecución o proyecto y
+  antes de emitir propósito, frente a ausencia de continuación posterior que
+  produce una conclusión `Interrupcion`;
+- opción de propuesta que conserva su referencia estable, proponente,
+  estrategia, medios y fuentes, pronóstico, requisitos y fuentes cualitativas de
+  preparación, intercambios, incertidumbre y precondiciones visibles sin una
+  consulta reconstructiva de la aplicación;
+- acción particular enlazada al subobjetivo, responsable e intención vigentes;
+- interpretación que no duplica tirada, duración, operación ni momento causal;
+- replanteamiento material con cero continuaciones que finaliza como
+  `Interrupcion`, con una que emite `[continuar, abandonar]` y con varias que
+  conserva todas en orden canónico seguidas por `abandonar`;
+- filtrado de una propuesta de medio sin fuente durante el preflight y rechazo
+  `SinPropuestaViajeViable` cuando no queda ninguna; pérdida causada después de
+  aceptar que replantea o interrumpe, y desaparición sin causa que resulta fatal;
 - suma de duraciones aportadas por más de una acción particular;
-- selección reproducible de una rama azarosa;
+- correspondencia entre `N` invocaciones particulares ejecutadas y `N` momentos
+  causales con trazas completas, también cuando `N` supera seis y cuando dos
+  ejecuciones consecutivas son iguales;
+- una situación con varias acciones particulares y una acción particular
+  presentada mediante varias viñetas, sin duplicar su momento causal;
+- varias situaciones que reutilizan el mismo tipo de acción particular bajo
+  contextos dramáticos distintos, sin trasladar ese contexto a la regla
+  reutilizable;
+- ausencia de registros para consultas de elegibilidad, pronósticos, candidatos
+  descartados y validaciones previas;
+- una acción multidiaria representada por un solo momento con su duración
+  exacta, aunque el guion lo proyecte en varias viñetas;
+- contabilidad, estados, reservas y traslado dentro de la traza causal
+  correspondiente, sin omisión ni fragmento administrativo obligatorio;
+- un hecho contextual que modifica una regla presente antes de la resolución,
+  aplicado por la acción particular y conservado en su traza visible;
+- rechazo de una cronología con una invocación sin momento, un momento duplicado
+  o una referencia a una situación cerrada;
+- resolución reproducible de cada incertidumbre reglada con una fuente
+  programada y ausencia de una tabla o «suceso de viaje» genérico adicional;
 - rechazo de una opción o identificador de decisión incorrectos sin mutación;
 - rechazo esperado sin consumo de azar ni tiempo;
 - conservación de las extracciones y consecuencias de una transición aceptada;
@@ -528,32 +843,29 @@ controlado para comprobar:
 - conversión de un desbordamiento de duración en fallo fatal;
 - rechazo de una acción nueva del actor jugador con `muerto`;
 - igualdad del recorrido de validación para solicitudes de jugador y NPC;
-- conservación exacta de `ClaveEscena::ViajeMarcha` y
-  `ClaveEscena::ViajeLlegada` en sus fragmentos al atravesar el tramo y la
-  fachada de aplicación;
-- conservación exacta de `ClaveEscena::ViajeObstaculo` tanto en el fragmento
-  inicial como en `SolicitudDecision`, su cierre de tramo y la fachada de
-  aplicación;
-- conservación exacta de `ClaveEscena::ViajeRumboIncierto` tanto en el fragmento
-  inicial como en `SolicitudDecision`, su cierre de tramo y la fachada de
-  aplicación;
-- igualdad de reglas, azar, duración y consecuencias con una `ClaveEscena`
-  presente o ausente;
-- ausencia de rutas, arte, nombres RON y tipos de terminal en
-  `FragmentoNarrativo` y `ClaveEscena`;
-- emisión de exactamente un `ActoresTrasladados` por viaje aceptado, después de
-  confirmar el traslado, con origen, destino y actores exactos en orden canónico;
+- conservación sin alteraciones de las referencias de situación y registros
+  causales emitidos por la acción concreta al atravesar el tramo;
+- emisión de la situación de rumbo incierto únicamente ante una interrupción
+  efectiva por orientación fallida;
+- igualdad de reglas, azar, duración y consecuencias al cambiar solamente la
+  redacción de una misma situación;
+- ausencia de arte, nombres visibles del contenido y tipos de terminal en
+  `RegistroCronologico` y `ClaveSituacionViaje`;
+- una emisión `ActoresTrasladados` por cada etapa realmente confirmada y ausencia
+  de esa variante ante una escalada fallida;
+- emisión de cambios efectivos de Característica después de confirmar el lote;
 - secuencia no vacía y sin duplicados para `actores`, con jugador y Grupo o el
   único NPC según corresponda;
 - imposibilidad de usar un resultado semántico como orden para aplicar por
   segunda vez la consecuencia;
-- finalización que contiene solamente la duración total aprobada de dos, tres o
-  cuatro días, sin duplicar destino, actores ni éxito;
+- finalización que contiene solamente la duración total calculada por la acción,
+  sin duplicar destino, actores ni éxito;
 - cobertura individual de todas las variantes de `RechazoAccion`, conservando
   Mundo, ejecución, duración y azar en cada rechazo.
 
 Una prueba de integración sin frontend completará una acción mediante la fachada
-de aplicación y verificará sus fragmentos ordenados, consecuencias y duración.
+de aplicación y verificará sus situaciones, momentos y viñetas ordenadas,
+factores visibles, consecuencias, progreso y duración.
 El componente será aceptable cuando ninguna dependencia o tipo de terminal sea
 necesario para realizar ese recorrido y el frontend no deba recalcular ninguna
 regla para presentarlo.
@@ -568,7 +880,7 @@ Ninguna en este componente.
 - ejecución simultánea y deshacer;
 - proyección de resultados semánticos sobre regiones o tiles;
 - acciones generales distintas de `Viajar`;
-- representación genérica de resultados desfavorables no requerida por las
-  ramas aprobadas de `Viajar`;
+- taxonomía compartida de conclusiones desfavorables para futuras acciones
+  generales; `Viajar` conserva por ahora sus conclusiones tipadas propias;
 - efecto general de `muerto` sobre NPC distintos del actor jugador.
 

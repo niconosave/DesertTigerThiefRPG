@@ -6,8 +6,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use desert_tiger_core::{
-    ActorInicial, Caracteristica, ClaveVariableGlobal, DatosInicialesMundo, Fecha, IdActor,
-    IdLugar, IdMapa, LugarInicial, Mes, Mundo, ValorVariableGlobal, VariableGlobalInicial,
+    ActorInicial, Caracteristica, ClaveVariableGlobal, DatosInicialesMundo, ExtremoRelacion, Fecha,
+    IdActor, IdLugar, IdMapa, LugarInicial, Mes, Mundo, RelacionInicial, TipoRelacion,
+    ValorVariableGlobal, VariableGlobalInicial,
 };
 use serde::de::{DeserializeOwned, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -458,12 +459,23 @@ pub(crate) struct CatalogoClaves {
     claves_por_lugar: BTreeMap<IdLugar, String>,
 }
 
-impl ResolucionClavesLua for CatalogoClaves {
-    fn clave_actor(&self, actor: IdActor) -> Option<&str> {
+impl CatalogoClaves {
+    pub(crate) fn clave_actor(&self, actor: IdActor) -> Option<&str> {
         self.claves_por_actor.get(&actor).map(String::as_str)
     }
-    fn clave_lugar(&self, lugar: IdLugar) -> Option<&str> {
+
+    pub(crate) fn clave_lugar(&self, lugar: IdLugar) -> Option<&str> {
         self.claves_por_lugar.get(&lugar).map(String::as_str)
+    }
+}
+
+impl ResolucionClavesLua for CatalogoClaves {
+    fn clave_actor(&self, actor: IdActor) -> Option<&str> {
+        self.clave_actor(actor)
+    }
+
+    fn clave_lugar(&self, lugar: IdLugar) -> Option<&str> {
+        self.clave_lugar(lugar)
     }
     fn lugar_por_clave(&self, clave: &str) -> Option<IdLugar> {
         self.lugares_por_clave.get(clave).copied()
@@ -555,6 +567,7 @@ struct LugarDto {
     clave: String,
     nombre: String,
     caracteristicas: Vec<String>,
+    relaciones: Vec<DeclaracionRelacionDto>,
     coordenada_central: CoordenadaDto,
     coordenadas_rotulo: Vec<CoordenadaDto>,
 }
@@ -572,6 +585,7 @@ struct ActorDto {
     clave: String,
     lugar_inicial: String,
     caracteristicas: Vec<String>,
+    relaciones: Vec<DeclaracionRelacionDto>,
     #[serde(deserialize_with = "deserializar_opcion_requerida")]
     retrato: Option<RetratoDto>,
     politica: PoliticaDto,
@@ -636,17 +650,46 @@ enum PoliticaDto {
     Lua(String),
 }
 
+#[derive(Deserialize)]
+enum TipoRelacionDto {
+    Conectado,
+    Conoce,
+}
+
+#[derive(Deserialize)]
+enum DestinoRelacionDto {
+    Lugar(String),
+    Actor(String),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeclaracionRelacionDto {
+    tipo: TipoRelacionDto,
+    destino: DestinoRelacionDto,
+}
+
 struct MapaValidado {
     plantilla: PlantillaMapa,
 }
 struct LugarValidado {
     inicial: LugarInicial,
     presentacion: PresentacionLugar,
+    relaciones: Vec<RelacionDeclarada>,
 }
 struct ActorValidado {
     inicial: ActorInicial,
     presentacion: PresentacionActor,
     politica: Option<PoliticaLuaValidada>,
+    relaciones: Vec<RelacionDeclarada>,
+}
+
+struct RelacionDeclarada {
+    inicial: RelacionInicial,
+    ruta: PathBuf,
+    tipo_elemento: TipoElementoContenido,
+    clave_elemento: String,
+    posicion: usize,
 }
 
 pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido> {
@@ -745,6 +788,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
             IdLugar::desde_posicion(posicion).expect("la posición ya se validó"),
             mapa.plantilla.ancho,
             mapa.plantilla.alto,
+            &claves,
             &ruta,
         )?);
     }
@@ -799,6 +843,12 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
 
     let fecha = validar_fecha(mundo.fecha_inicial)?;
     let variables_globales = validar_globales(mundo.variables_globales)?;
+    let relaciones = normalizar_relaciones(
+        lugares
+            .iter()
+            .flat_map(|lugar| lugar.relaciones.iter())
+            .chain(actores.iter().flat_map(|actor| actor.relaciones.iter())),
+    )?;
     let datos = DatosInicialesMundo {
         mapa: id_mapa,
         fecha,
@@ -807,6 +857,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         actor_jugador: jugador,
         companeros: companeros.clone(),
         variables_globales,
+        relaciones,
     };
     Mundo::nuevo(datos.clone()).map_err(|error| {
         error_mundo(
@@ -1085,6 +1136,7 @@ fn validar_lugar(
     id: IdLugar,
     ancho: usize,
     alto: usize,
+    claves: &CatalogoClaves,
     ruta: &Path,
 ) -> Result<LugarValidado, ErrorContenido> {
     validar_clave_y_archivo(&dto.clave, esperada, ruta, TipoElementoContenido::Lugar)?;
@@ -1161,6 +1213,14 @@ fn validar_lugar(
         TipoElementoContenido::Lugar,
         esperada,
     )?;
+    let relaciones = validar_relaciones(
+        dto.relaciones,
+        ExtremoRelacion::Lugar(id),
+        claves,
+        ruta,
+        TipoElementoContenido::Lugar,
+        esperada,
+    )?;
     Ok(LugarValidado {
         inicial: LugarInicial {
             id,
@@ -1172,6 +1232,7 @@ fn validar_lugar(
             coordenada_central: central,
             coordenadas_rotulo: rotulo,
         },
+        relaciones,
     })
 }
 
@@ -1200,6 +1261,14 @@ fn validar_actor(
         })?;
     let caracteristicas = validar_caracteristicas(
         dto.caracteristicas,
+        ruta,
+        TipoElementoContenido::Actor,
+        esperada,
+    )?;
+    let relaciones = validar_relaciones(
+        dto.relaciones,
+        ExtremoRelacion::Actor(id),
+        claves,
         ruta,
         TipoElementoContenido::Actor,
         esperada,
@@ -1243,7 +1312,170 @@ fn validar_actor(
         },
         presentacion: PresentacionActor { id, retrato },
         politica,
+        relaciones,
     })
+}
+
+fn validar_relaciones(
+    declaraciones: Vec<DeclaracionRelacionDto>,
+    origen: ExtremoRelacion,
+    claves: &CatalogoClaves,
+    ruta: &Path,
+    tipo_elemento: TipoElementoContenido,
+    clave_elemento: &str,
+) -> Result<Vec<RelacionDeclarada>, ErrorContenido> {
+    let mut resultado = Vec::with_capacity(declaraciones.len());
+    for (posicion, declaracion) in declaraciones.into_iter().enumerate() {
+        let tipo = match declaracion.tipo {
+            TipoRelacionDto::Conectado => TipoRelacion::Conectado,
+            TipoRelacionDto::Conoce => TipoRelacion::Conoce,
+        };
+        let destino = match declaracion.destino {
+            DestinoRelacionDto::Lugar(clave) => {
+                validar_clave_externa(&clave).map_err(|detalle| {
+                    error_archivo(
+                        ruta,
+                        tipo_elemento,
+                        Some(clave_elemento),
+                        ClaseDiagnosticoContenido::ClaveInvalida,
+                        None,
+                        format!("relaciones[{posicion}].destino: {detalle}"),
+                    )
+                })?;
+                ExtremoRelacion::Lugar(claves.lugares_por_clave.get(&clave).copied().ok_or_else(
+                    || {
+                        error_archivo(
+                            ruta,
+                            tipo_elemento,
+                            Some(clave_elemento),
+                            ClaseDiagnosticoContenido::ReferenciaInvalida,
+                            None,
+                            format!(
+                                "relaciones[{posicion}].destino: Lugar desconocido: {}",
+                                sanear(&clave)
+                            ),
+                        )
+                    },
+                )?)
+            }
+            DestinoRelacionDto::Actor(clave) => {
+                validar_clave_externa(&clave).map_err(|detalle| {
+                    error_archivo(
+                        ruta,
+                        tipo_elemento,
+                        Some(clave_elemento),
+                        ClaseDiagnosticoContenido::ClaveInvalida,
+                        None,
+                        format!("relaciones[{posicion}].destino: {detalle}"),
+                    )
+                })?;
+                ExtremoRelacion::Actor(claves.actores_por_clave.get(&clave).copied().ok_or_else(
+                    || {
+                        error_archivo(
+                            ruta,
+                            tipo_elemento,
+                            Some(clave_elemento),
+                            ClaseDiagnosticoContenido::ReferenciaInvalida,
+                            None,
+                            format!(
+                                "relaciones[{posicion}].destino: Actor desconocido: {}",
+                                sanear(&clave)
+                            ),
+                        )
+                    },
+                )?)
+            }
+        };
+        let extremos_validos = matches!(
+            (tipo, origen, destino),
+            (
+                TipoRelacion::Conectado,
+                ExtremoRelacion::Lugar(_),
+                ExtremoRelacion::Lugar(_)
+            ) | (
+                TipoRelacion::Conoce,
+                ExtremoRelacion::Actor(_),
+                ExtremoRelacion::Lugar(_)
+            )
+        );
+        if !extremos_validos {
+            let requisito = match tipo {
+                TipoRelacion::Conectado => "Conectado exige dos Lugares",
+                TipoRelacion::Conoce => "Conoce exige un Actor de origen y un Lugar de destino",
+            };
+            return Err(error_archivo(
+                ruta,
+                tipo_elemento,
+                Some(clave_elemento),
+                ClaseDiagnosticoContenido::ValorInvalido,
+                None,
+                format!("relaciones[{posicion}]: {requisito}"),
+            ));
+        }
+        if origen == destino {
+            return Err(error_archivo(
+                ruta,
+                tipo_elemento,
+                Some(clave_elemento),
+                ClaseDiagnosticoContenido::ValorInvalido,
+                None,
+                format!("relaciones[{posicion}]: una Relación no puede ser reflexiva"),
+            ));
+        }
+        resultado.push(RelacionDeclarada {
+            inicial: RelacionInicial {
+                tipo,
+                origen,
+                destino,
+            },
+            ruta: ruta.to_path_buf(),
+            tipo_elemento,
+            clave_elemento: clave_elemento.to_owned(),
+            posicion,
+        });
+    }
+    Ok(resultado)
+}
+
+fn normalizar_relaciones<'a>(
+    declaraciones: impl Iterator<Item = &'a RelacionDeclarada>,
+) -> Result<Vec<RelacionInicial>, ErrorContenido> {
+    let mut vistas: BTreeMap<(TipoRelacion, ExtremoRelacion, ExtremoRelacion), (PathBuf, usize)> =
+        BTreeMap::new();
+    let mut resultado = Vec::new();
+    for declaracion in declaraciones {
+        let par = match (
+            declaracion.inicial.tipo,
+            declaracion.inicial.origen,
+            declaracion.inicial.destino,
+        ) {
+            (TipoRelacion::Conectado, origen, destino) if origen < destino => {
+                (declaracion.inicial.tipo, origen, destino)
+            }
+            (TipoRelacion::Conectado, origen, destino) => {
+                (declaracion.inicial.tipo, destino, origen)
+            }
+            (TipoRelacion::Conoce, origen, destino) => (declaracion.inicial.tipo, origen, destino),
+        };
+        if let Some((ruta_primera, posicion_primera)) = vistas.get(&par) {
+            return Err(error_archivo(
+                &declaracion.ruta,
+                declaracion.tipo_elemento,
+                Some(&declaracion.clave_elemento),
+                ClaseDiagnosticoContenido::Duplicado,
+                None,
+                format!(
+                    "relaciones[{}] duplica la declaración {} de {}",
+                    declaracion.posicion,
+                    posicion_primera,
+                    ruta_primera.display()
+                ),
+            ));
+        }
+        vistas.insert(par, (declaracion.ruta.clone(), declaracion.posicion));
+        resultado.push(declaracion.inicial.clone());
+    }
+    Ok(resultado)
 }
 
 fn validar_retrato(
@@ -1758,13 +1990,72 @@ mod pruebas {
         assert_eq!(mundo.fecha().mes(), Mes::Enero);
         assert_eq!(mundo.fecha().dia(), 31);
         assert_eq!(mundo.grupo().integrantes().len(), 1);
-        assert_eq!(contenido.presentacion().lugares().len(), 2);
-        assert_eq!(contenido.presentacion().actores().len(), 3);
-        assert_eq!(contenido.politicas().len(), 1);
-        assert_eq!(contenido.presentacion().lugares()[0].nombre(), "Zona Árida");
+        assert_eq!(mundo.relaciones().len(), 42);
         assert_eq!(
-            contenido.presentacion().lugares()[1].nombre(),
-            "Valle Fértil"
+            mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
+            Some(
+                [
+                    IdLugar::desde_posicion(6).expect("ID válido"),
+                    IdLugar::desde_posicion(9).expect("ID válido"),
+                    IdLugar::desde_posicion(13).expect("ID válido"),
+                    IdLugar::desde_posicion(20).expect("ID válido"),
+                    IdLugar::desde_posicion(21).expect("ID válido"),
+                ]
+                .as_slice()
+            )
+        );
+        assert_eq!(contenido.presentacion().lugares().len(), 26);
+        for (origen, intermedio, destino) in [
+            (0, 20, 1),
+            (1, 21, 2),
+            (2, 22, 10),
+            (10, 23, 11),
+            (11, 24, 14),
+            (14, 25, 17),
+        ] {
+            let origen = IdLugar::desde_posicion(origen).expect("ID válido");
+            let intermedio = IdLugar::desde_posicion(intermedio).expect("ID válido");
+            let destino = IdLugar::desde_posicion(destino).expect("ID válido");
+            assert!(
+                mundo
+                    .lugares_conectados(origen)
+                    .expect("Lugar válido")
+                    .contains(&intermedio)
+            );
+            assert!(
+                mundo
+                    .lugares_conectados(intermedio)
+                    .expect("Lugar válido")
+                    .contains(&destino)
+            );
+            assert!(
+                !mundo
+                    .lugares_conectados(origen)
+                    .expect("Lugar válido")
+                    .contains(&destino)
+            );
+        }
+        assert_eq!(contenido.presentacion().actores().len(), 3);
+        let bandido = IdActor::desde_posicion(1).expect("ID válido");
+        let cazador = IdActor::desde_posicion(2).expect("ID válido");
+        let id_lugar = |posicion| IdLugar::desde_posicion(posicion).expect("ID válido");
+        assert_eq!(
+            mundo.lugares_conocidos(bandido),
+            Some([id_lugar(0), id_lugar(1), id_lugar(20), id_lugar(21)].as_slice())
+        );
+        assert!(
+            mundo
+                .actor_conoce_lugar(cazador, id_lugar(10))
+                .expect("consulta válida")
+        );
+        assert_eq!(contenido.politicas().len(), 1);
+        assert_eq!(
+            contenido.presentacion().lugares()[0].nombre(),
+            "Hamada Roja"
+        );
+        assert_eq!(
+            contenido.presentacion().lugares()[2].nombre(),
+            "Valle del Drâa"
         );
         let retrato = contenido.presentacion().actores()[0]
             .retrato()
@@ -1897,7 +2188,7 @@ mod pruebas {
         assert_eq!(mundo.fecha().mes(), Mes::Febrero);
         assert_eq!(
             mundo.ubicacion_actor(IdActor::desde_posicion(2).expect("ID válido")),
-            Some(IdLugar::desde_posicion(1).expect("ID válido"))
+            Some(IdLugar::desde_posicion(2).expect("ID válido"))
         );
     }
 
@@ -1910,5 +2201,88 @@ mod pruebas {
         let desconocido = ClaveTipoTile::nueva("nieve".to_owned()).expect("clave válida");
         assert!(mapa.cambiar_tipo(coordenada, desconocido).is_err());
         assert_eq!(mapa.tipo_en(coordenada), Some(&antes));
+    }
+
+    #[test]
+    fn relaciones_de_contenido_rechazan_referencias_tipos_y_duplicados() {
+        let lugar_cero = IdLugar::desde_posicion(0).expect("ID válido");
+        let lugar_uno = IdLugar::desde_posicion(1).expect("ID válido");
+        let actor_cero = IdActor::desde_posicion(0).expect("ID válido");
+        let claves = CatalogoClaves {
+            actores_por_clave: BTreeMap::from([("actor".to_owned(), actor_cero)]),
+            claves_por_actor: BTreeMap::from([(actor_cero, "actor".to_owned())]),
+            lugares_por_clave: BTreeMap::from([
+                ("origen".to_owned(), lugar_cero),
+                ("destino".to_owned(), lugar_uno),
+            ]),
+            claves_por_lugar: BTreeMap::from([
+                (lugar_cero, "origen".to_owned()),
+                (lugar_uno, "destino".to_owned()),
+            ]),
+        };
+        let declaracion = || DeclaracionRelacionDto {
+            tipo: TipoRelacionDto::Conectado,
+            destino: DestinoRelacionDto::Lugar("destino".to_owned()),
+        };
+        let primera = validar_relaciones(
+            vec![declaracion()],
+            ExtremoRelacion::Lugar(lugar_cero),
+            &claves,
+            Path::new("places/origen.ron"),
+            TipoElementoContenido::Lugar,
+            "origen",
+        )
+        .unwrap_or_else(|_| panic!("Relación válida"));
+        let inversa = validar_relaciones(
+            vec![DeclaracionRelacionDto {
+                tipo: TipoRelacionDto::Conectado,
+                destino: DestinoRelacionDto::Lugar("origen".to_owned()),
+            }],
+            ExtremoRelacion::Lugar(lugar_uno),
+            &claves,
+            Path::new("places/destino.ron"),
+            TipoElementoContenido::Lugar,
+            "destino",
+        )
+        .unwrap_or_else(|_| panic!("Relación inversa aislada válida"));
+        let duplicada = normalizar_relaciones(primera.iter().chain(inversa.iter()))
+            .expect_err("la orientación inversa también duplica");
+        assert_eq!(
+            duplicada.diagnosticos()[0].clase(),
+            ClaseDiagnosticoContenido::Duplicado
+        );
+
+        let actor = validar_relaciones(
+            vec![declaracion()],
+            ExtremoRelacion::Actor(actor_cero),
+            &claves,
+            Path::new("actors/actor.ron"),
+            TipoElementoContenido::Actor,
+            "actor",
+        )
+        .err()
+        .expect("Conectado no admite Actores");
+        assert_eq!(
+            actor.diagnosticos()[0].clase(),
+            ClaseDiagnosticoContenido::ValorInvalido
+        );
+
+        let desconocida = validar_relaciones(
+            vec![DeclaracionRelacionDto {
+                tipo: TipoRelacionDto::Conectado,
+                destino: DestinoRelacionDto::Lugar("ausente".to_owned()),
+            }],
+            ExtremoRelacion::Lugar(lugar_cero),
+            &claves,
+            Path::new("places/origen.ron"),
+            TipoElementoContenido::Lugar,
+            "origen",
+        )
+        .err()
+        .expect("una referencia inexistente se rechaza");
+        assert_eq!(
+            desconocida.diagnosticos()[0].clase(),
+            ClaseDiagnosticoContenido::ReferenciaInvalida
+        );
     }
 }

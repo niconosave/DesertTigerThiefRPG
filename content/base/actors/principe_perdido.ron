@@ -2,6 +2,7 @@
     clave: "principe_perdido",
     lugar_inicial: "zona_arida",
     caracteristicas: [],
+    relaciones: [],
     retrato: Some((
         paleta: {
             '0': (frente: "gris", fondo: None),

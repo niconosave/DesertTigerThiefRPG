@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.11 |
-| Fecha | 2026-10-15 |
+| Versión | 0.13 |
+| Fecha | 2026-10-18 |
 
 ## 1. Propósito y autoridad
 
@@ -17,9 +17,10 @@ La composición de `Partida` pertenece al
 conversión desde datos externos pertenecen al
 [documento de contenido](./03-contenido.md).
 
-El alcance inicial incluye Mundo, Lugar, Actor, Grupo, Característica, fecha,
-variables globales y la identidad opaca del mapa. Las Relaciones se incorporarán
-en un incremento posterior y no forman parte del modelo implementable inicial.
+El alcance incluye Mundo, Lugar, Actor, Grupo, Característica, fecha, variables
+globales, la identidad opaca del mapa y la incorporación de Relaciones. El
+modelo, los índices y las consultas específicos de estas últimas tienen su única
+fuente normativa en [`10-relaciones.md`](./10-relaciones.md).
 
 ## 2. Ubicación del tipo y de la instancia
 
@@ -41,7 +42,9 @@ semántica del núcleo.
 Actores y Lugares se almacenan en secuencias privadas que preservan el orden
 explícito recibido durante la construcción. Las consultas que los enumeran usan
 ese orden y nunca el de una tabla hash. Como cada ID canónico corresponde a su
-posición, la resolución comprobada no necesita un índice auxiliar.
+posición, resolver un Actor o Lugar no necesita un índice auxiliar. Esto no
+impide los índices de adyacencia derivados que permiten consultar las Relaciones
+de un elemento sin recorrer la colección completa.
 
 ## 3. Identificadores internos
 
@@ -50,7 +53,9 @@ mínimo existirán conceptos equivalentes a:
 
 - `IdActor`;
 - `IdLugar`;
-- `IdMapa`.
+- `IdMapa`;
+- `IdRelacion`, conforme al
+  [contrato de Relaciones](./10-relaciones.md#31-tipos-y-extremos).
 
 Un identificador de una clase no podrá usarse como otro. Los identificadores:
 
@@ -149,6 +154,15 @@ Ser jugador o NPC no crea subtipos. `Mundo` identifica exactamente un Actor como
 jugador. El retrato y la política Lua se asocian externamente mediante `IdActor`
 y no forman parte del estado reglado.
 
+### `Relación`
+
+Es un vínculo reglado almacenado una sola vez dentro del Mundo y consultable
+desde índices derivados. En este incremento sus extremos pueden identificar
+Actores o Lugares, aunque el único tipo admitido, `Conectado`, une exclusivamente
+dos Lugares. Su representación, semántica, orden, consultas y validaciones se
+definen en [`10-relaciones.md`](./10-relaciones.md#3-modelo-reglado) y no se
+duplican dentro de `Lugar` o `Actor`.
+
 ### `Grupo`
 
 Registra únicamente a los compañeros del actor jugador, sin duplicados. El actor
@@ -164,9 +178,9 @@ ninguno.
 ### `Característica`
 
 Es una etiqueta tipada asociada a un Actor o Lugar y consultada por presencia.
-El núcleo permite comprobar su presencia sin exponer la colección mutable. Las
-operaciones para agregarla o retirarla se incorporarán cuando una acción
-aprobada del incremento las necesite.
+El núcleo permite comprobar su presencia sin exponer la colección mutable y
+agregarla o retirarla únicamente mediante los lotes atómicos definidos en
+[`11-operaciones-mundo.md`](./11-operaciones-mundo.md).
 
 ```rust
 pub const MAX_BYTES_CARACTERISTICA: usize = 64;
@@ -203,8 +217,9 @@ reservados para el texto visible al jugador.
 
 Este modelo solo almacena y consulta las etiquetas; no define su significado.
 El bloqueo común del actor jugador por `muerto` pertenece al
-[motor de acciones](./05-motor-acciones.md), y `inalcanzable` pertenece a las
-reglas de [`Viajar`](../acciones/01-viajar.md).
+[motor de acciones](./05-motor-acciones.md). La viabilidad de un recorrido
+pertenece a las reglas de [`Viajar`](../acciones/02-viajar-expediciones.md) y se
+deduce de causas concretas, no de una etiqueta genérica del modelo.
 
 ### Fecha
 
@@ -392,6 +407,7 @@ pub struct DatosInicialesMundo {
     pub actor_jugador: IdActor,
     pub companeros: Vec<IdActor>,
     pub variables_globales: Vec<VariableGlobalInicial>,
+    pub relaciones: Vec<RelacionInicial>,
 }
 
 pub struct Lugar {
@@ -418,6 +434,7 @@ pub struct Mundo {
     grupo: Grupo,
     variables_globales:
         BTreeMap<ClaveVariableGlobal, ValorVariableGlobal>,
+    // Colección e índices privados definidos en 10-relaciones.md.
 }
 ```
 
@@ -500,13 +517,25 @@ ubicación del jugador.
 Las consultas de fecha y variables globales son las definidas en sus secciones
 canónicas anteriores; no hay getters mutables para ninguna colección.
 
+Las consultas `relaciones`, `relacion`, `relaciones_de` y
+`lugares_conectados` forman parte de `Mundo`, pero su contrato y complejidad se
+definen exclusivamente en
+[`10-relaciones.md`](./10-relaciones.md#34-consultas-de-mundo).
+
 La clausura que implemente el filtro de `actores_en_lugar` captura el `IdLugar`
 copiable por valor (`move`), de manera que el iterador devuelto no tome prestada
 una variable local.
 
-### Traslado semántico
+### Operaciones semánticas
 
-La única mutación de ubicación del incremento es:
+La mutación reglada del Mundo se realiza mediante lotes atómicos de
+`OperacionMundo`. El vocabulario, la precedencia de errores y la estrategia de
+confirmación tienen su fuente normativa única en
+[`11-operaciones-mundo.md`](./11-operaciones-mundo.md). Ese contrato incluye el
+traslado y la incorporación o eliminación idempotentes de Características de
+Actor.
+
+La fachada de compatibilidad para un traslado aislado permanece disponible:
 
 ```rust
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -530,17 +559,12 @@ integrantes del Grupo en su orden canónico. Si es un Actor independiente, mueve
 solo a ese Actor. Un integrante no puede trasladarse separadamente del jugador.
 El resultado poseído describe el cambio ya realizado y puede convertirse uno a
 uno en `ResultadoSemantico::ActoresTrasladados`; no es una orden para repetirlo.
+`trasladar` construye internamente un lote de una sola operación, delega en
+`Mundo::aplicar_lote` y proyecta su cambio o error al contrato histórico de
+`TrasladoConfirmado` y `ErrorTraslado`. No existe una segunda ruta de mutación.
 
-La implementación primero valida actor, destino, origen y Grupo y construye por
-completo tanto la lista poseída y ordenada de `IdActor` que devolverá como la
-lista de índices `usize` que modificará. Solo después cambia las ubicaciones
-mediante pasos infalibles; no vuelve a resolver Actores ni conserva un préstamo
-del Grupo durante esa escritura. No existe un `?`, una conversión ni otra salida
-fallable después del primer cambio. Por ello, todo rechazo conserva exactamente
-el Mundo anterior sin necesitar clonar el Mundo ni ejecutar un rollback.
-
-`trasladar` no interpreta `muerto`, `inalcanzable` ni ninguna otra
-Característica: esas son reglas del motor y de `Viajar`. La operación protege
+`trasladar` no interpreta `muerto` ni ninguna otra Característica: esas son
+reglas del motor y de las acciones. La operación protege
 únicamente existencia, ausencia de un traslado vacío y las invariantes de
 ubicación y Grupo. El avance de fecha permanece en la operación separada
 aprobada por el calendario.
@@ -558,6 +582,8 @@ Un Mundo válido cumple siempre que:
 - existe exactamente un `IdMapa` opaco;
 - toda variable global tiene una clave válida, un único valor y un único tipo;
 - ninguna clave de variable global aparece más de una vez;
+- toda Relación e índice satisface las invariantes de
+  [`10-relaciones.md`](./10-relaciones.md#7-contratos-e-invariantes);
 - tiles y coordenadas no intervienen en consultas ni mutaciones regladas;
 - una operación aceptada conserva todas las invariantes;
 - una operación rechazada no altera el estado observable.
@@ -623,6 +649,7 @@ pub enum ErrorConstruirMundo {
     VariableGlobalDuplicada {
         clave: ClaveVariableGlobal,
     },
+    // Variantes de construcción de Relaciones definidas en 10-relaciones.md.
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -658,13 +685,18 @@ solo debe comprobar que ese ID exista.
 4. existencia del jugador;
 5. Grupo no vacío y luego cada integrante en el orden recibido: jugador
    incluido, duplicado, desconocido o separado;
-6. claves de variables globales repetidas en el orden recibido.
+6. claves de variables globales repetidas en el orden recibido;
+7. Relaciones e índices, en el orden y con la precedencia definidos en
+   [`10-relaciones.md`](./10-relaciones.md#5-carga-normalización-y-validaciones).
 
-`trasladar` valida, también en orden: existencia del Actor; existencia del
-destino; existencia del Lugar de origen almacenado por el Actor; destino distinto
-del origen; prohibición de mover a un integrante solo; y consistencia interna del
-Grupo cuando se mueve al jugador. Un origen inexistente o una ruptura del Grupo
-produce `EstadoInconsistente`. Un error no produce ninguna escritura.
+`trasladar` conserva la precedencia observable de su contrato histórico:
+existencia del Actor; existencia del destino; existencia del Lugar de origen
+almacenado por el Actor; destino distinto del origen; prohibición de mover a un
+integrante solo; y consistencia interna del Grupo cuando se mueve al jugador.
+Un origen inexistente o una ruptura del Grupo produce `EstadoInconsistente`. La
+validación y atomicidad reales se delegan al lote de una operación descrito en
+[`11-operaciones-mundo.md`](./11-operaciones-mundo.md); un error no produce
+ninguna escritura.
 
 El motor usa consultas de solo lectura para convertir condiciones previsibles en
 los rechazos de `Viajar`. Cuando la acción ya fue aceptada y alcanzó su punto de
@@ -713,12 +745,20 @@ Las pruebas unitarias del núcleo cubrirán:
 - `EstadoInconsistente` ante una ruptura interna detectada en una prueba del
   módulo;
 - ausencia de cualquier cambio después de cada traslado rechazado;
-- inexistencia de un chequeo de `muerto` o `inalcanzable` dentro de `trasladar`;
+- aplicación atómica de lotes mixtos de traslado y Características, incluso si
+  falla su última operación;
+- idempotencia de añadir una Característica ya presente y quitar una ausente;
+- inexistencia de un chequeo de reglas de acción como `muerto` dentro de `trasladar`;
 - imposibilidad estructural de consultar mapa, Lua o frontend.
 
-Una prueba de integración del núcleo ejecutará `Viajar`, convertirá el
-`TrasladoConfirmado` en un único `ResultadoSemantico::ActoresTrasladados` y
-comprobará que el Mundo ya contiene las ubicaciones resultantes.
+Las pruebas de colección, índices, extremos, consultas y errores de Relaciones
+pertenecen a
+[`10-relaciones.md`](./10-relaciones.md#81-núcleo); este documento exige su
+integración con el mismo constructor atómico de Mundo.
+
+Una prueba de integración del núcleo ejecutará `Viajar`, convertirá los cambios
+confirmados del lote en resultados semánticos y comprobará que el Mundo ya
+contiene las ubicaciones y Características resultantes.
 
 ## 10. Preguntas bloqueantes
 
@@ -728,7 +768,8 @@ Ninguna para el alcance inicial.
 
 No bloquean el primer incremento:
 
-- Relaciones entre elementos;
+- tipos de Relación distintos de `Conectado` y mutación de Relaciones durante
+  una Partida;
 - creación o eliminación dinámica de actores y lugares;
 - facciones y pertenencia;
 - proyección automática de cambios semánticos sobre el mapa;

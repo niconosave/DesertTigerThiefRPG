@@ -16,6 +16,9 @@ Todos desarrollan el
 | [`07-fase-npc.md`](./07-fase-npc.md) | Orden, ejecución y resúmenes de NPC. |
 | [`08-integracion-lua.md`](./08-integracion-lua.md) | Contrato y límites de las decisiones escritas en Lua. |
 | [`09-frontend-terminal.md`](./09-frontend-terminal.md) | Entrada, modos, animación y presentación con Ratatui. |
+| [`10-relaciones.md`](./10-relaciones.md) | Relaciones entre elementos, índices de consulta y grafo `Conectado`. |
+| [`11-operaciones-mundo.md`](./11-operaciones-mundo.md) | Consecuencias persistentes y lotes de aplicación atómica. |
+| [`12-conocimiento-lugares.md`](./12-conocimiento-lugares.md) | Relación dirigida `Conoce`, índices y proyección de hechos conocidos. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen

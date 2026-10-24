@@ -1,0 +1,17 @@
+(
+    clave: "mar_de_poniente",
+    nombre: "Mar de Poniente",
+    caracteristicas: ["acuatico", "maritimo", "marAbierto", "aguaSalada"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("mar_boreal")),
+        (tipo: Conectado, destino: Lugar("isla_del_exilio")),
+    ],
+    coordenada_central: (x: 7, y: 4),
+    coordenadas_rotulo: [
+        (x: 1, y: 2), (x: 2, y: 2), (x: 3, y: 2),
+        (x: 4, y: 2), (x: 5, y: 2), (x: 6, y: 2),
+        (x: 7, y: 2), (x: 8, y: 2), (x: 9, y: 2),
+        (x: 10, y: 2), (x: 11, y: 2), (x: 12, y: 2),
+        (x: 13, y: 2), (x: 14, y: 2), (x: 15, y: 2),
+    ],
+)

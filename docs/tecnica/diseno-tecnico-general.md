@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
-| Versión | 0.8 |
-| Fecha | 2026-10-15 |
+| Estado | Implementado parcialmente; arquitectura de proyecto aprobada para implementar |
+| Versión | 0.14 |
+| Fecha | 2026-10-19 |
 
 ## 1. Propósito
 
@@ -33,8 +33,8 @@ entre procesos.
 
 | Crate | Responsabilidad transversal |
 |---|---|
-| `desert-tiger-core` | Define `Mundo` y las reglas. Es la única autoridad que valida y modifica el estado reglado. No conoce terminal, tiles, filesystem ni Lua. |
-| `desert-tiger-app` | Define y posee la `Partida`, coordina los componentes y ofrece una fachada independiente del frontend. Contiene la única instancia concreta de `Mundo` y el estado actual del mapa. |
+| `desert-tiger-core` | Define `Mundo`, las reglas y el proyecto semántico transitorio de cada acción general. Es la única autoridad que valida y modifica el estado reglado. No conoce terminal, prosa visible, tiles, filesystem ni Lua. |
+| `desert-tiger-app` | Define y posee la `Partida`, coordina los componentes, redacta vistas narrativas desde registros semánticos neutrales y ofrece una fachada independiente del frontend. Contiene la única instancia concreta de `Mundo` y el estado actual del mapa. |
 | `desert-tiger-terminal` | Es el ejecutable inicial. Traduce entrada física a intenciones semánticas, posee el arte concreto de viñetas y representa vistas y resultados. No ejecuta reglas. |
 
 `desert-tiger-terminal` dependerá de la fachada pública de
@@ -53,6 +53,10 @@ a [Workspace, entorno y límites de código](./componentes/01-workspace-entorno.
 
 - **Mundo:** único valor que contiene el estado sujeto a reglas. Su tipo y sus
   operaciones se definen en `desert-tiger-core`.
+- **Relación:** vínculo reglado entre dos elementos identificados del Mundo. El
+  contenido la declara junto a su origen; el núcleo conserva una sola instancia
+  y permite recorrerla mediante índices, sin convertir el archivo `world.ron`
+  en una lista central de vínculos.
 - **Partida o sesión:** agregado poseído por `desert-tiger-app` que contiene el
   Mundo, el mapa de esa ejecución y los estados necesarios para coordinarla.
 - **definiciones de presentación:** datos inmutables cargados desde contenido,
@@ -68,13 +72,35 @@ a [Workspace, entorno y límites de código](./componentes/01-workspace-entorno.
 - **backend:** cuando aparezca en el diseño general, significa el conjunto
   formado por `desert-tiger-app` y `desert-tiger-core`. Los documentos técnicos
   preferirán nombrar el crate responsable.
+- **situación o escena dramática:** unidad narrativa contextual organizada por
+  una acción general. Puede contener varias acciones particulares y varias
+  viñetas; no es otra regla mecánica ni corresponde a un verbo reutilizable.
+- **proyecto de acción:** estructura semántica transitoria mediante la que una
+  acción general conserva qué quieren conseguir sus participantes, qué
+  posibilidades consideran, con cuál se comprometen, qué subobjetivo persiguen
+  y cómo interpretan los resultados antes de continuar, replantear o concluir.
+  No es un elemento persistente del Mundo ni una simulación general de la mente.
+- **registro de proyecto:** hecho neutral y ordenado de propósito, propuesta,
+  compromiso, subobjetivo, interpretación o replanteo emitido por el núcleo.
+  Puede sustentar una viñeta, pero no afirma que se haya ejecutado una acción
+  particular y por ello no crea un momento causal ficticio. La conclusión es un
+  registro cronológico separado que cierra el proyecto; el propósito es su única
+  apertura semántica.
+- **momento causal:** vínculo ordenado entre una parte de la escena y una
+  ejecución particular, con los hechos necesarios para reconocer qué se
+  intentó, por qué se resolvió así y qué consecuencias produjo.
+- **viñeta:** fragmento de presentación de una escena. Contiene texto y datos
+  neutrales, nunca widgets; no tiene cardinalidad fija respecto de acciones
+  particulares.
 
 Definir el vocabulario aquí no traslada los contratos detallados de sus
 documentos canónicos.
 
-El backend puede producir una clave semántica opcional para una escena
-narrativa. La fachada la reenvía sin convertirla en una ruta o en arte. Cada
-frontend decide si la ignora o la asocia con un recurso propio.
+El núcleo puede producir registros de proyecto y claves semánticas para
+situaciones y momentos. La aplicación los convierte en texto contextual y
+conserva sus referencias semánticas en la vista. Cada frontend decide si las
+ignora o las asocia con una clave visual y un recurso propios; la fachada nunca
+entrega rutas, bytes de arte ni una clave perteneciente a un frontend concreto.
 
 ## 4. Contratos transversales
 
@@ -96,6 +122,38 @@ frontend decide si la ignora o la asocia con un recurso propio.
 - Los archivos editables se validan antes de crear una Partida. Las definiciones
   validadas permanecen inmutables y dos Partidas evolucionan de forma
   independiente.
+- Las Relaciones se resuelven a IDs internos durante la carga y se consultan
+  mediante el índice del Mundo. Ninguna regla descubre conexiones recorriendo
+  tiles, coordenadas o todos los archivos en tiempo de ejecución.
+- Las acciones generales coordinan objetivos y decisiones; las acciones
+  particulares resuelven intentos concretos mediante reglas reutilizables. Una
+  dificultad se deriva del contexto y no se serializa como conclusión del
+  contenido.
+- Toda acción general que represente una empresa humana se organiza mediante un
+  proyecto de acción dentro del núcleo. Su estado y sus registros son
+  semánticos: la aplicación redacta y el frontend presenta, sin que ninguna de
+  esas capas reconstruya propósitos, planes o reglas a partir de prosa.
+- En el primer alcance de `Viajar`, el propósito es alcanzar el destino elegido,
+  el dirigente adopta las decisiones del proyecto y solo se consideran medios
+  cuya procedencia o disponibilidad ya esté establecida en el estado reglado.
+  Conseguir un medio ausente y los conflictos internos del Grupo quedan
+  aplazados. En el contenido inicial un puerto o muelle puede declarar un
+  servicio local rutinario como fuente; una mera conexión, costa o terreno
+  compatible no crea por sí solo una embarcación, montura u otro recurso.
+- Propósito, propuesta, compromiso, subobjetivo, interpretación y replanteo se
+  registran sin prosa visible; una `ConclusionViaje` cronológica separada cierra
+  la secuencia. Ninguno cuenta como ejecución particular ni autoriza a fabricar
+  una tirada, una consecuencia o un `MomentoCausal`.
+- Las escenas pertenecen a la acción general, no a las acciones particulares.
+  Toda traza particular ejecutada se enlaza con exactamente un momento causal
+  ordenado, pero una escena puede contener varios momentos y cada momento puede
+  desarrollarse en varias viñetas. Ninguna capa impone un límite narrativo que
+  omita ejecución.
+- Un hecho de escena que afecte una resolución debe estar incluido en el
+  contexto reglado antes de resolverla. La aplicación redacta desde hechos
+  recibidos y el frontend terminal no inventa causas ni contexto mecánico.
+- Una secuencia de consecuencias persistentes se valida y aplica como lote
+  atómico. El frontend solo observa cambios ya confirmados.
 - El azar, el reloj real y otras entradas variables se proporcionan de manera
   controlable para permitir pruebas reproducibles.
 - Una decisión se define normativamente en un solo documento. Los demás pueden
@@ -114,7 +172,13 @@ frontend decide si la ignora o la asocia con un recurso propio.
 | Orden, límites, ejecución y resúmenes de NPC | [`07-fase-npc.md`](./componentes/07-fase-npc.md) |
 | Runtime, API, capacidades y errores Lua | [`08-integracion-lua.md`](./componentes/08-integracion-lua.md) |
 | Modos, entrada, layout, Ratatui y renderizado | [`09-frontend-terminal.md`](./componentes/09-frontend-terminal.md) |
-| Reglas, narrativa, consecuencias y duración de `Viajar` | [`acciones/01-viajar.md`](./acciones/01-viajar.md) |
+| Relaciones, extremos, índices, consultas y semántica de `conectado` | [`10-relaciones.md`](./componentes/10-relaciones.md) |
+| Operaciones persistentes y lotes atómicos | [`11-operaciones-mundo.md`](./componentes/11-operaciones-mundo.md) |
+| Relación `Conoce` y proyección de hechos conocidos | [`12-conocimiento-lugares.md`](./componentes/12-conocimiento-lugares.md) |
+| Contrato histórico obsoleto de la primera versión de `Viajar` | [`acciones/01-viajar.md`](./acciones/01-viajar.md) |
+| Contrato implementado de `Viajar` por expediciones | [`acciones/02-viajar-expediciones.md`](./acciones/02-viajar-expediciones.md) |
+| Situaciones dramáticas, momentos causales y viñetas de `Viajar` | [`acciones/03-cronologia-causal-viaje.md`](./acciones/03-cronologia-causal-viaje.md) |
+| Proyecto humano de `Viajar`, deliberación, plan y replanteo | [`acciones/04-proyecto-humano-viajar.md`](./acciones/04-proyecto-humano-viajar.md) |
 | Reglas reutilizables de cada acción particular | [`acciones/particulares/`](./acciones/particulares/README.md) |
 
 Una decisión limitada a uno de estos sistemas se registra exclusivamente en su
@@ -132,9 +196,21 @@ La arquitectura se considerará respetada cuando:
 - el grafo interno mantenga únicamente `terminal → app → core`;
 - el núcleo pueda compilarse y probarse sin filesystem, Lua ni terminal;
 - ninguna regla reciba tiles, coordenadas, teclas o tipos gráficos;
+- la alcanzabilidad y las rutas entre Lugares procedan exclusivamente de
+  Relaciones resueltas e indexadas dentro del Mundo;
 - una prueba sin frontend pueda recorrer una acción, el avance temporal y la
   fase NPC mediante la fachada de la aplicación;
 - jugador y NPC utilicen el mismo motor;
+- jugador y NPC recorran la misma estructura de proyecto de acción; en el
+  alcance inicial solo cambia que la fase NPC elige al azar entre las opciones
+  semánticas vigentes;
+- una prueba pueda reconstruir, sin analizar prosa, el propósito, las propuestas,
+  el compromiso, los subobjetivos, las interpretaciones y los replanteos, y
+  distinguir la conclusión cronológica que cierra el viaje;
+- una prueba pueda asociar todas las trazas particulares de una acción general
+  con momentos causales sin exigir una escena por traza ni perder su orden;
+- ningún registro de proyecto sin ejecución particular produzca un momento
+  causal artificial;
 - dos Partidas creadas desde el mismo contenido puedan evolucionar de manera
   independiente sin modificar sus definiciones fuente.
 

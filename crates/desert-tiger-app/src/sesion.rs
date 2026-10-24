@@ -5,14 +5,18 @@ use std::num::NonZeroUsize;
 
 use desert_tiger_core::acciones::{
     self, CierreTramo, ClaveEscena, EjecucionAccion, EmisionAccion, ErrorMotor, FinalizacionAccion,
-    FragmentoNarrativo, RechazoAccion, RespuestaDecision, SolicitudAccion, SolicitudDecision,
-    TramoAccion,
+    FragmentoNarrativo, RechazoAccion, RegistroProyecto, RespuestaDecision, RolPresentacion,
+    SolicitudAccion, SolicitudDecision, TramoAccion, TrazaAccionParticular,
+};
+use desert_tiger_core::acciones::{
+    FuenteMedio, MedioAcuaticoProyecto, MedioTerrestreProyecto, PropuestaViaje,
 };
 use desert_tiger_core::azar::{ErrorFuenteAzar, FuenteAzar};
-use desert_tiger_core::{Caracteristica, IdActor, IdLugar, Mundo};
+use desert_tiger_core::{Caracteristica, Duracion, Fecha, IdActor, IdLugar, Mundo};
 use rand::rngs::SysRng;
 use rand::{RngExt, SeedableRng, TryRng};
 use rand_chacha::ChaCha12Rng;
+use unicode_width::UnicodeWidthStr;
 
 use crate::contenido::{
     ClaveTipoTile, ContenidoValidado, CoordenadaMapa, EstadoMapa, RetratoActor,
@@ -43,6 +47,29 @@ impl Display for ErrorCrearPartida {
 }
 
 impl Error for ErrorCrearPartida {}
+
+fn nombre_desde_clave(clave: &str) -> String {
+    let mut resultado = String::new();
+    for (indice, palabra) in clave.split('_').enumerate() {
+        if indice > 0 {
+            resultado.push(' ');
+        }
+        let mut caracteres = palabra.chars();
+        if let Some(inicial) = caracteres.next() {
+            resultado.extend(inicial.to_uppercase());
+            resultado.extend(caracteres);
+        }
+    }
+    resultado
+}
+
+fn nombre_medio_acuatico(medio: MedioAcuaticoProyecto) -> &'static str {
+    match medio {
+        MedioAcuaticoProyecto::Ninguno => "medio acuático",
+        MedioAcuaticoProyecto::Bote => "bote",
+        MedioAcuaticoProyecto::Barco => "barco",
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct IdFragmento(u64);
@@ -90,8 +117,18 @@ pub struct VistaMundo {
     pub jugador: VistaActor,
     pub companeros: Vec<VistaActor>,
     pub acciones: Vec<AccionDisponible>,
+    pub pronosticos_viaje: Vec<VistaPronosticoViaje>,
     pub causa_indisponibilidad: Option<CausaIndisponibilidad>,
     pub resumen_npc_reciente: Option<ResumenNpc>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VistaPronosticoViaje {
+    pub destino: IdLugar,
+    pub dias_minimos: u32,
+    pub dias_maximos: u32,
+    pub exposicion_conocida: u32,
+    pub hay_incertidumbre: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -129,15 +166,36 @@ pub enum CausaIndisponibilidad {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaFragmento {
     pub id: IdFragmento,
+    pub titulo: String,
     pub texto: String,
     pub escena: Option<ClaveEscena>,
+    pub rol: RolPresentacion,
+    pub proyecto: Option<RegistroProyecto>,
+    pub progreso: VistaProgresoViaje,
+    pub detalle: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaProgresoViaje {
+    pub lugar_confirmado: IdLugar,
+    pub nombre_lugar_confirmado: String,
+    pub siguiente_lugar: Option<IdLugar>,
+    pub nombre_siguiente_lugar: Option<String>,
+    pub destino_final: IdLugar,
+    pub nombre_destino_final: String,
+    pub duracion_transcurrida: Duracion,
+    pub fecha_proyectada: Fecha,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaDecision {
     pub id: IdDecisionVista,
+    pub titulo: String,
     pub texto: String,
     pub escena: Option<ClaveEscena>,
+    pub rol: RolPresentacion,
+    pub proyecto: Option<RegistroProyecto>,
+    pub progreso: VistaProgresoViaje,
     pub opciones: Vec<VistaOpcionDecision>,
 }
 
@@ -145,6 +203,7 @@ pub struct VistaDecision {
 pub struct VistaOpcionDecision {
     pub id: IdOpcionVista,
     pub texto: String,
+    pub detalle: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -189,7 +248,7 @@ struct PresentacionPendiente {
 
 enum CierrePendiente {
     Decision {
-        ejecucion: EjecucionAccion,
+        ejecucion: Box<EjecucionAccion>,
         decision: SolicitudDecision,
     },
     Completada(FinalizacionAccion),
@@ -410,7 +469,7 @@ impl Partida {
         let cierre = match tramo.cierre {
             CierreTramo::EsperandoDecision(decision) => match ejecucion {
                 Some(ejecucion) => CierrePendiente::Decision {
-                    ejecucion,
+                    ejecucion: Box::new(ejecucion),
                     decision,
                 },
                 None => {
@@ -451,7 +510,7 @@ impl Partida {
             } => match self.vista_decision(&decision) {
                 Ok((vista, opciones)) => {
                     self.estado = EstadoSesion::EsperandoDecision(DecisionPendiente {
-                        ejecucion,
+                        ejecucion: *ejecucion,
                         decision_interna: decision.id,
                         vista,
                         opciones,
@@ -494,8 +553,34 @@ impl Partida {
         self.siguiente_fragmento = self.siguiente_fragmento.checked_add(1).ok_or(())?;
         Ok(VistaFragmento {
             id,
+            titulo: fragmento.titulo,
             texto: fragmento.texto,
             escena: fragmento.escena,
+            rol: fragmento.rol,
+            proyecto: fragmento.proyecto,
+            progreso: VistaProgresoViaje {
+                lugar_confirmado: fragmento.progreso.lugar_confirmado,
+                nombre_lugar_confirmado: self
+                    .nombre_lugar(fragmento.progreso.lugar_confirmado)
+                    .ok_or(())?,
+                siguiente_lugar: fragmento.progreso.siguiente_lugar,
+                nombre_siguiente_lugar: fragmento
+                    .progreso
+                    .siguiente_lugar
+                    .map(|id| self.nombre_lugar(id).ok_or(()))
+                    .transpose()?,
+                destino_final: fragmento.progreso.destino_final,
+                nombre_destino_final: self
+                    .nombre_lugar(fragmento.progreso.destino_final)
+                    .ok_or(())?,
+                duracion_transcurrida: fragmento.progreso.duracion_transcurrida,
+                fecha_proyectada: fragmento.progreso.fecha_proyectada,
+            },
+            detalle: fragmento
+                .momentos
+                .into_iter()
+                .map(|momento| formatear_traza(momento.id, momento.subobjetivo, &momento.traza))
+                .collect(),
         })
     }
 
@@ -514,22 +599,132 @@ impl Partida {
         let mut opciones_vista = Vec::with_capacity(decision.opciones.len());
         let mut correspondencia = Vec::with_capacity(decision.opciones.len());
         for (posicion, opcion) in decision.opciones.iter().enumerate() {
+            if opcion.texto.is_empty() || opcion.texto.width() > 40 {
+                return Err(());
+            }
             let visible = IdOpcionVista(u32::try_from(posicion).map_err(|_| ())?);
             opciones_vista.push(VistaOpcionDecision {
                 id: visible,
                 texto: opcion.texto.clone(),
+                detalle: opcion
+                    .propuesta_viaje
+                    .as_ref()
+                    .map(|propuesta| self.detalle_propuesta(propuesta))
+                    .or_else(|| opcion.detalle.clone()),
             });
             correspondencia.push((visible, opcion.id));
         }
         Ok((
             VistaDecision {
                 id,
+                titulo: "Decisión del viaje".to_owned(),
                 texto: decision.texto.clone(),
                 escena: decision.escena,
+                rol: decision.rol,
+                proyecto: decision.proyecto,
+                progreso: VistaProgresoViaje {
+                    lugar_confirmado: decision.progreso.lugar_confirmado,
+                    nombre_lugar_confirmado: self
+                        .nombre_lugar(decision.progreso.lugar_confirmado)
+                        .ok_or(())?,
+                    siguiente_lugar: decision.progreso.siguiente_lugar,
+                    nombre_siguiente_lugar: decision
+                        .progreso
+                        .siguiente_lugar
+                        .map(|id| self.nombre_lugar(id).ok_or(()))
+                        .transpose()?,
+                    destino_final: decision.progreso.destino_final,
+                    nombre_destino_final: self
+                        .nombre_lugar(decision.progreso.destino_final)
+                        .ok_or(())?,
+                    duracion_transcurrida: decision.progreso.duracion_transcurrida,
+                    fecha_proyectada: decision.progreso.fecha_proyectada,
+                },
                 opciones: opciones_vista,
             },
             correspondencia,
         ))
+    }
+
+    fn nombre_lugar(&self, id: IdLugar) -> Option<String> {
+        self.contenido
+            .presentacion()
+            .lugar(id)
+            .map(|lugar| lugar.nombre().to_owned())
+    }
+
+    fn detalle_propuesta(&self, propuesta: &PropuestaViaje) -> String {
+        let nombre_actor = |id| {
+            self.contenido
+                .claves()
+                .clave_actor(id)
+                .map(nombre_desde_clave)
+                .unwrap_or_else(|| "un viajero".to_owned())
+        };
+        let nombre_lugar = |id| {
+            self.nombre_lugar(id)
+                .or_else(|| {
+                    self.contenido
+                        .claves()
+                        .clave_lugar(id)
+                        .map(nombre_desde_clave)
+                })
+                .unwrap_or_else(|| "un lugar conocido".to_owned())
+        };
+        let terrestre = match propuesta.medio_terrestre {
+            MedioTerrestreProyecto::APie => {
+                "La marcha a pie depende del esfuerzo ordinario del grupo".to_owned()
+            }
+            MedioTerrestreProyecto::Camellos => match propuesta.fuente_terrestre {
+                FuenteMedio::Actor(actor) => {
+                    format!("{} aporta los camellos", nombre_actor(actor))
+                }
+                FuenteMedio::Lugar(lugar) => {
+                    format!("{} ofrece los camellos", nombre_lugar(lugar))
+                }
+                FuenteMedio::EmbarcacionActual(lugar) => {
+                    format!("el grupo conserva su medio desde {}", nombre_lugar(lugar))
+                }
+                FuenteMedio::CapacidadHumana => "El grupo dispone de camellos".to_owned(),
+            },
+        };
+        let acuatico = match (propuesta.medio_acuatico, propuesta.fuente_acuatica) {
+            (MedioAcuaticoProyecto::Ninguno, _) => None,
+            (medio, Some(FuenteMedio::Actor(actor))) => Some(format!(
+                "{} aporta el {}",
+                nombre_actor(actor),
+                nombre_medio_acuatico(medio)
+            )),
+            (medio, Some(FuenteMedio::Lugar(lugar))) => Some(format!(
+                "{} ofrece servicio de {}",
+                nombre_lugar(lugar),
+                nombre_medio_acuatico(medio)
+            )),
+            (medio, Some(FuenteMedio::EmbarcacionActual(lugar))) => Some(format!(
+                "El grupo continúa en el {} con el que alcanzó {}",
+                nombre_medio_acuatico(medio),
+                nombre_lugar(lugar)
+            )),
+            (medio, _) => Some(format!(
+                "El grupo dispone de un {}",
+                nombre_medio_acuatico(medio)
+            )),
+        };
+        let pronostico = if propuesta.hay_incertidumbre {
+            "quedan tramos inciertos"
+        } else {
+            "no hay incertidumbre geográfica conocida"
+        };
+        match acuatico {
+            Some(acuatico) => format!(
+                "{terrestre}. {acuatico}. {} días previstos; {pronostico}.",
+                propuesta.dias_previstos
+            ),
+            None => format!(
+                "{terrestre}. {} días previstos; {pronostico}.",
+                propuesta.dias_previstos
+            ),
+        }
     }
 
     fn proyectar_mundo(&self, resumen: Option<ResumenNpc>) -> Result<VistaMundo, String> {
@@ -560,13 +755,33 @@ impl Partida {
             .mundo
             .actor(jugador_id)
             .ok_or_else(|| "el jugador no existe".to_owned())?;
-        let (acciones, causa_indisponibilidad) = if actor.tiene_caracteristica(&muerto) {
-            (Vec::new(), Some(CausaIndisponibilidad::JugadorMuerto))
-        } else {
-            let destinos = acciones::destinos_disponibles(&self.mundo, jugador_id)
-                .map_err(|error| error.to_string())?;
-            (vec![AccionDisponible::Viajar { destinos }], None)
-        };
+        let (acciones, pronosticos_viaje, causa_indisponibilidad) =
+            if actor.tiene_caracteristica(&muerto) {
+                (
+                    Vec::new(),
+                    Vec::new(),
+                    Some(CausaIndisponibilidad::JugadorMuerto),
+                )
+            } else {
+                let destinos = acciones::destinos_disponibles(&self.mundo, jugador_id)
+                    .map_err(|error| error.to_string())?;
+                let pronosticos_viaje = acciones::pronosticos_viaje(&self.mundo, jugador_id)
+                    .map_err(|error| error.to_string())?
+                    .into_iter()
+                    .map(|pronostico| VistaPronosticoViaje {
+                        destino: pronostico.destino,
+                        dias_minimos: pronostico.dias_minimos,
+                        dias_maximos: pronostico.dias_maximos,
+                        exposicion_conocida: pronostico.exposicion_conocida,
+                        hay_incertidumbre: pronostico.hay_incertidumbre,
+                    })
+                    .collect();
+                (
+                    vec![AccionDisponible::Viajar { destinos }],
+                    pronosticos_viaje,
+                    None,
+                )
+            };
         Ok(VistaMundo {
             mapa: VistaMapa {
                 ancho: self.mapa.ancho(),
@@ -579,6 +794,7 @@ impl Partida {
             jugador,
             companeros,
             acciones,
+            pronosticos_viaje,
             causa_indisponibilidad,
             resumen_npc_reciente: resumen,
         })
@@ -592,6 +808,31 @@ impl Partida {
             },
         };
     }
+}
+
+fn formatear_traza(
+    id: acciones::IdMomentoCausal,
+    subobjetivo: Option<acciones::SubobjetivoViaje>,
+    traza: &TrazaAccionParticular,
+) -> String {
+    let factores = traza
+        .factores_visibles()
+        .map(|factor| format!("{} ({:+})", factor.explicacion_publica, factor.ajuste))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let factores = if factores.is_empty() {
+        "sin factores públicos".to_owned()
+    } else {
+        factores
+    };
+    format!(
+        "Momento {id:?}: {:?}\nSubobjetivo: {subobjetivo:?}\nFactores: {factores}\nResolución: {:?}; resultado: {}; duración: {} meses y {} días.",
+        traza.accion,
+        traza.resoluciones,
+        traza.desenlace,
+        traza.duracion.meses(),
+        traza.duracion.dias(),
+    )
 }
 
 fn proyectar_actor(
@@ -682,10 +923,13 @@ mod pruebas {
     impl FuenteAzar for AzarProgramado {
         fn elegir_indice(
             &mut self,
-            _limite_exclusivo: NonZeroUsize,
+            limite_exclusivo: NonZeroUsize,
         ) -> Result<usize, ErrorFuenteAzar> {
             self.llamadas += 1;
-            self.valores.pop_front().ok_or(ErrorFuenteAzar)
+            self.valores
+                .pop_front()
+                .map(|valor| valor % limite_exclusivo.get())
+                .ok_or(ErrorFuenteAzar)
         }
     }
 
@@ -698,11 +942,42 @@ mod pruebas {
         IdLugar::desde_posicion(posicion).expect("ID válido")
     }
 
+    fn completar_viaje(
+        partida: &mut Partida,
+        destino: IdLugar,
+        opcion_preferida: usize,
+    ) -> VistaMundo {
+        let mut vista = partida
+            .procesar(IntencionFrontend::ComenzarViaje { destino })
+            .expect("viaje aceptado");
+        for _ in 0..256 {
+            vista = match vista {
+                VistaSesion::PresentandoAccion(fragmento) => partida
+                    .procesar(IntencionFrontend::ContinuarPresentacion {
+                        fragmento: fragmento.id,
+                    })
+                    .expect("continuación aceptada"),
+                VistaSesion::EsperandoDecision(decision) => partida
+                    .procesar(IntencionFrontend::ResponderDecision {
+                        decision: decision.id,
+                        opcion: decision.opciones[opcion_preferida].id,
+                    })
+                    .expect("decisión aceptada"),
+                VistaSesion::Disponible(mundo) => return mundo,
+                VistaSesion::Fatal(fatal) => panic!("sesión fatal: {}", fatal.mensaje),
+            };
+        }
+        panic!("el viaje excedió el límite de prueba")
+    }
+
     #[test]
     fn recorre_el_fixture_completo_y_avanza_solo_por_el_jugador() {
         let contenido = contenido();
-        let mut partida = Partida::con_azar(&contenido, Box::new(AzarProgramado::nuevo([0, 0])))
-            .expect("partida válida");
+        let mut partida = Partida::con_azar(
+            &contenido,
+            Box::new(AzarProgramado::nuevo(std::iter::repeat_n(19, 64))),
+        )
+        .expect("partida válida");
         let vista_inicial = partida.vista();
         let VistaSesion::Disponible(inicial) = vista_inicial else {
             panic!("se esperaba el mundo inicial")
@@ -711,39 +986,14 @@ mod pruebas {
         assert_eq!(
             inicial.acciones,
             vec![AccionDisponible::Viajar {
-                destinos: vec![id_lugar(1)]
+                destinos: (1..26).map(id_lugar).collect()
             }]
         );
+        let finalizada = completar_viaje(&mut partida, id_lugar(2), 1);
 
-        let primera = partida
-            .procesar(IntencionFrontend::ComenzarViaje {
-                destino: id_lugar(1),
-            })
-            .expect("viaje aceptado");
-        let VistaSesion::PresentandoAccion(primera) = primera else {
-            panic!("se esperaba primera viñeta")
-        };
-        let segunda = partida
-            .procesar(IntencionFrontend::ContinuarPresentacion {
-                fragmento: primera.id,
-            })
-            .expect("continuación aceptada");
-        let VistaSesion::PresentandoAccion(segunda) = segunda else {
-            panic!("se esperaba viñeta de llegada")
-        };
-        assert_eq!(partida.mundo.fecha().dia(), 31);
-        let finalizada = partida
-            .procesar(IntencionFrontend::ContinuarPresentacion {
-                fragmento: segunda.id,
-            })
-            .expect("cierre aceptado");
-        let VistaSesion::Disponible(finalizada) = finalizada else {
-            panic!("se esperaba volver al mundo")
-        };
-
-        assert_eq!(finalizada.lugar_jugador, id_lugar(1));
+        assert_eq!(finalizada.lugar_jugador, id_lugar(2));
         assert_eq!(partida.mundo.fecha().mes().numero(), 2);
-        assert_eq!(partida.mundo.fecha().dia(), 2);
+        assert_eq!(partida.mundo.fecha().dia(), 5);
         assert_eq!(
             partida
                 .mundo
@@ -757,8 +1007,54 @@ mod pruebas {
             resumen.entradas(),
             &[EntradaResumenNpc::ViajeCompletado {
                 actor: IdActor::desde_posicion(2).expect("ID válido"),
-                origen: id_lugar(1),
+                origen: id_lugar(2),
                 destino: id_lugar(0),
+            }]
+        );
+        let cronologia = resumen
+            .cronologias()
+            .first()
+            .expect("la fase NPC conserva su cronología completa");
+        assert!(cronologia.registros.len() > 6);
+        let momentos = cronologia
+            .registros
+            .iter()
+            .flat_map(|registro| registro.momentos.iter().map(|momento| momento.id))
+            .collect::<Vec<_>>();
+        assert!(!momentos.is_empty());
+        assert_eq!(
+            momentos
+                .iter()
+                .copied()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            momentos.len()
+        );
+        assert!(cronologia.decisiones_automaticas > 0);
+    }
+
+    #[test]
+    fn fase_npc_resume_un_viaje_interrumpido_sin_convertirlo_en_fallo_tecnico() {
+        let contenido = contenido();
+        let mut partida = Partida::con_azar(
+            &contenido,
+            Box::new(AzarProgramado::nuevo(
+                std::iter::repeat_n(19, 3).chain(std::iter::repeat_n(0, 61)),
+            )),
+        )
+        .expect("partida válida");
+        let disponible = completar_viaje(&mut partida, id_lugar(2), 1);
+
+        let actor_npc = IdActor::desde_posicion(2).expect("ID válido");
+        assert_eq!(partida.mundo.ubicacion_actor(actor_npc), Some(id_lugar(2)));
+        assert_eq!(
+            disponible
+                .resumen_npc_reciente
+                .expect("el intento NPC produce resumen")
+                .entradas(),
+            &[EntradaResumenNpc::ViajeInterrumpido {
+                actor: actor_npc,
+                lugar: id_lugar(2),
             }]
         );
     }
@@ -766,23 +1062,22 @@ mod pruebas {
     #[test]
     fn decision_visible_se_corresponde_con_la_opcion_interna() {
         let contenido = contenido();
-        let mut partida = Partida::con_azar(&contenido, Box::new(AzarProgramado::nuevo([1, 0])))
+        let mut partida = Partida::con_azar(&contenido, Box::new(AzarProgramado::nuevo([19])))
             .expect("partida válida");
-        let vista = partida
+        let mut vista = partida
             .procesar(IntencionFrontend::ComenzarViaje {
                 destino: id_lugar(1),
             })
             .expect("viaje aceptado");
-        let VistaSesion::PresentandoAccion(fragmento) = vista else {
-            panic!("se esperaba obstáculo")
-        };
-        let vista = partida
-            .procesar(IntencionFrontend::ContinuarPresentacion {
-                fragmento: fragmento.id,
-            })
-            .expect("continuación aceptada");
+        while let VistaSesion::PresentandoAccion(fragmento) = vista {
+            vista = partida
+                .procesar(IntencionFrontend::ContinuarPresentacion {
+                    fragmento: fragmento.id,
+                })
+                .expect("presentación aceptada");
+        }
         let VistaSesion::EsperandoDecision(decision) = vista else {
-            panic!("se esperaba decisión")
+            panic!("se esperaba deliberación")
         };
         assert_eq!(decision.opciones.len(), 2);
         assert_eq!(
@@ -792,13 +1087,20 @@ mod pruebas {
             }),
             Err(ErrorIntencion::DecisionNoVigente)
         );
-        let vista = partida
+        let mut vista = partida
             .procesar(IntencionFrontend::ResponderDecision {
                 decision: decision.id,
                 opcion: decision.opciones[0].id,
             })
             .expect("opción vigente");
-        assert!(matches!(vista, VistaSesion::PresentandoAccion(_)));
+        while let VistaSesion::PresentandoAccion(fragmento) = vista {
+            vista = partida
+                .procesar(IntencionFrontend::ContinuarPresentacion {
+                    fragmento: fragmento.id,
+                })
+                .expect("presentación aceptada");
+        }
+        assert!(matches!(vista, VistaSesion::EsperandoDecision(_)));
     }
 
     #[test]
@@ -807,5 +1109,118 @@ mod pruebas {
         let partida = Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) })
             .expect("partida válida");
         assert_eq!(partida.vista(), partida.vista());
+    }
+
+    #[test]
+    fn viaje_largo_presenta_toda_la_cronologia_sin_presupuesto_de_vinetas() {
+        let contenido = contenido();
+        let mut partida = Partida::con_azar(
+            &contenido,
+            Box::new(AzarProgramado::nuevo(std::iter::repeat_n(19, 512))),
+        )
+        .expect("partida válida");
+        let mut vista = partida
+            .procesar(IntencionFrontend::ComenzarViaje {
+                destino: id_lugar(22),
+            })
+            .expect("viaje aceptado");
+        let mut fragmentos = 0;
+        let mut roles = Vec::new();
+        let mut detalles = 0;
+        for _ in 0..512 {
+            vista = match vista {
+                VistaSesion::PresentandoAccion(fragmento) => {
+                    fragmentos += 1;
+                    roles.push(fragmento.rol);
+                    detalles += fragmento.detalle.len();
+                    partida
+                        .procesar(IntencionFrontend::ContinuarPresentacion {
+                            fragmento: fragmento.id,
+                        })
+                        .expect("fragmento vigente")
+                }
+                VistaSesion::EsperandoDecision(decision) => {
+                    let opcion = decision.opciones.get(1).unwrap_or(&decision.opciones[0]);
+                    partida
+                        .procesar(IntencionFrontend::ResponderDecision {
+                            decision: decision.id,
+                            opcion: opcion.id,
+                        })
+                        .expect("decisión vigente")
+                }
+                VistaSesion::Disponible(mundo) => {
+                    assert_eq!(mundo.lugar_jugador, id_lugar(22));
+                    assert!(fragmentos > 6);
+                    assert!(detalles > 1);
+                    assert!(roles.contains(&RolPresentacion::Apertura));
+                    assert!(roles.contains(&RolPresentacion::PlanteamientoSituacion));
+                    assert!(roles.contains(&RolPresentacion::DesenlaceSituacion));
+                    assert!(roles.contains(&RolPresentacion::Conclusion));
+                    return;
+                }
+                VistaSesion::Fatal(fatal) => panic!("sesión fatal: {}", fatal.mensaje),
+            };
+        }
+        panic!("la cronología no concluyó")
+    }
+
+    #[test]
+    fn integra_supervivencia_en_el_valle_y_navegacion_desde_nahal() {
+        let contenido = contenido();
+        let mut partida = Partida::con_azar(
+            &contenido,
+            Box::new(AzarProgramado::nuevo(std::iter::repeat_n(19, 256))),
+        )
+        .expect("partida válida");
+        partida
+            .mundo
+            .trasladar(partida.mundo.actor_jugador(), id_lugar(2))
+            .expect("traslado de preparación válido");
+        let valle = completar_viaje(&mut partida, id_lugar(22), 1);
+        assert_eq!(valle.lugar_jugador, id_lugar(22));
+        assert!(
+            !partida
+                .mundo
+                .actor(partida.mundo.actor_jugador())
+                .expect("jugador existente")
+                .tiene_caracteristica(
+                    &desert_tiger_core::Caracteristica::nueva("hambriento".to_owned())
+                        .expect("rasgo válido")
+                )
+        );
+
+        partida
+            .mundo
+            .trasladar(partida.mundo.actor_jugador(), id_lugar(14))
+            .expect("traslado al puerto válido");
+        let estuario = completar_viaje(&mut partida, id_lugar(25), 0);
+        assert_eq!(estuario.lugar_jugador, id_lugar(25));
+        let regreso_a_nahal = completar_viaje(&mut partida, id_lugar(14), 0);
+        assert_eq!(regreso_a_nahal.lugar_jugador, id_lugar(14));
+        let mar = completar_viaje(&mut partida, id_lugar(17), 1);
+        assert_eq!(mar.lugar_jugador, id_lugar(17));
+    }
+
+    #[test]
+    fn todos_los_destinos_del_atlas_terminan_en_un_estado_valido() {
+        let contenido = contenido();
+        for posicion in 1..26 {
+            let mut partida = Partida::con_azar(
+                &contenido,
+                Box::new(AzarProgramado::nuevo(std::iter::repeat_n(19, 512))),
+            )
+            .expect("partida válida");
+            let vista = completar_viaje(&mut partida, id_lugar(posicion), 1);
+            assert_eq!(
+                vista.lugar_jugador,
+                id_lugar(posicion),
+                "el recorrido de matriz no alcanzó el destino {posicion}"
+            );
+            assert_eq!(
+                partida.mundo.ubicacion_actor(partida.mundo.actor_jugador()),
+                Some(vista.lugar_jugador),
+                "destino de matriz {posicion}"
+            );
+        }
     }
 }

@@ -1,7 +1,13 @@
 (
     clave: "cazador",
     lugar_inicial: "valle_fertil",
-    caracteristicas: [],
+    caracteristicas: ["cazador", "rastreador", "superviviente"],
+    relaciones: [
+        (tipo: Conoce, destino: Lugar("valle_fertil")),
+        (tipo: Conoce, destino: Lugar("senda_de_tamrut")),
+        (tipo: Conoce, destino: Lugar("bosque_de_tamrut")),
+        (tipo: Conoce, destino: Lugar("vado_de_tamrut")),
+    ],
     retrato: None,
     politica: Lua(r#"
 if actor.lugar == "valle_fertil"

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Vigente |
-| Versión | 0.4 |
-| Fecha | 2026-10-15 |
+| Versión | 0.5 |
+| Fecha | 2026-10-17 |
 
 ## 1. Propósito
 
@@ -128,6 +128,13 @@ y pueda comprobarse jugando.
 intermedia. Un incremento es jugable cuando el programa puede iniciarse, permite
 alcanzar y usar la capacidad disponible y continúa en un estado válido sin fallos
 críticos.
+
+Durante un incremento se agrupan las tareas relacionadas y se confía en pruebas
+automáticas reproducibles para sus variantes pequeñas. No se detiene el trabajo
+para pedir una comprobación manual después de cada detalle. La revisión manual se
+realiza al final del lote sobre uno o más recorridos representativos; solo se
+adelanta si aparece un riesgo visual o de jugabilidad que impida continuar con
+seguridad.
 
 Si la implementación descubre un problema de diseño, se corrige primero o junto
 con el documento correspondiente y después se ajusta el plan. No se oculta una

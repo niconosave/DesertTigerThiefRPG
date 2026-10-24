@@ -7,7 +7,10 @@ cada acción.
 
 | Documento | Alcance |
 |---|---|
-| [`01-viajar.md`](./01-viajar.md) | Selección de destino, viñetas, traslado y duración de `Viajar`. |
+| [`01-viajar.md`](./01-viajar.md) | Contrato histórico obsoleto de la primera versión. |
+| [`02-viajar-expediciones.md`](./02-viajar-expediciones.md) | Contrato de la expedición física: etapas, preparación, supervivencia y medios. |
+| [`03-cronologia-causal-viaje.md`](./03-cronologia-causal-viaje.md) | Contrato aprobado para componer situaciones dramáticas de viaje, preservar cada momento causal y presentar el progreso. |
+| [`04-proyecto-humano-viajar.md`](./04-proyecto-humano-viajar.md) | Fuente canónica de propósito, deliberación, plan, subobjetivos, procedencia de medios, interpretación y replanteamiento. |
 | [`particulares/`](./particulares/README.md) | Fuente normativa de operaciones de simulación reutilizables. |
 
 Una acción nueva requiere su diseño aprobado antes de incorporarse a un plan de

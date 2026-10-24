@@ -1,11 +1,11 @@
 use std::num::NonZeroUsize;
 
 use desert_tiger_core::acciones::{
-    CierreTramo, EmisionAccion, ErrorMotor, FalloMotor, RechazoAccion, RespuestaDecision,
-    ResultadoSemantico, SolicitudAccion, iniciar, responder,
+    CierreTramo, EmisionAccion, ErrorMotor, FalloMotor, FragmentoNarrativo, RechazoAccion,
+    RespuestaDecision, ResultadoSemantico, SolicitudAccion, iniciar, responder,
 };
 use desert_tiger_core::azar::{ErrorFuenteAzar, FuenteAzar};
-use desert_tiger_core::{IdActor, IdLugar, Mundo};
+use desert_tiger_core::{Duracion, IdActor, IdLugar, Mundo};
 
 use crate::contenido::CatalogoClaves;
 use crate::lua::{
@@ -16,6 +16,7 @@ use crate::lua::{
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResumenNpc {
     entradas: Vec<EntradaResumenNpc>,
+    cronologias: Vec<CronologiaNpc>,
 }
 
 impl ResumenNpc {
@@ -23,11 +24,31 @@ impl ResumenNpc {
         &self.entradas
     }
 
+    pub fn cronologias(&self) -> &[CronologiaNpc] {
+        &self.cronologias
+    }
+
     fn uno(entrada: EntradaResumenNpc) -> Self {
         Self {
             entradas: vec![entrada],
+            cronologias: Vec::new(),
         }
     }
+
+    fn con_cronologia(entrada: EntradaResumenNpc, cronologia: CronologiaNpc) -> Self {
+        Self {
+            entradas: vec![entrada],
+            cronologias: vec![cronologia],
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CronologiaNpc {
+    pub actor: IdActor,
+    pub registros: Vec<FragmentoNarrativo>,
+    pub decisiones_automaticas: usize,
+    pub duracion: Duracion,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -36,6 +57,10 @@ pub enum EntradaResumenNpc {
         actor: IdActor,
         origen: IdLugar,
         destino: IdLugar,
+    },
+    ViajeInterrumpido {
+        actor: IdActor,
+        lugar: IdLugar,
     },
     SolicitudViajeRechazada {
         actor: IdActor,
@@ -122,6 +147,9 @@ pub(crate) fn ejecutar_fase_npc(
     let (actor_solicitud, destino_solicitud) = match solicitud {
         SolicitudAccion::Viajar { actor, destino } => (actor, destino),
     };
+    let origen_solicitud = mundo
+        .ubicacion_actor(actor_solicitud)
+        .ok_or(FalloFaseNpc::InvarianteRota)?;
     let inicio = match iniciar(mundo, solicitud, azar) {
         Ok(inicio) => inicio,
         Err(ErrorMotor::Rechazo(causa)) => {
@@ -137,73 +165,111 @@ pub(crate) fn ejecutar_fase_npc(
     };
 
     let mut ejecucion = inicio.ejecucion;
-    let mut resultados = extraer_resultados(inicio.tramo.emisiones);
-    match inicio.tramo.cierre {
-        CierreTramo::Completada(_) => {}
-        CierreTramo::EsperandoDecision(decision) => {
-            let limite =
-                NonZeroUsize::new(decision.opciones.len()).ok_or(FalloFaseNpc::InvarianteRota)?;
-            let indice = azar
-                .elegir_indice(limite)
-                .map_err(FalloFaseNpc::FuenteAzar)?;
-            let opcion =
-                decision
-                    .opciones
-                    .get(indice)
-                    .ok_or(FalloFaseNpc::IndiceAzarFueraDeRango {
-                        indice,
-                        limite_exclusivo: limite,
-                    })?;
-            let tramo = responder(
-                mundo,
-                &mut ejecucion,
-                RespuestaDecision {
-                    decision: decision.id,
-                    opcion: opcion.id,
-                },
-                azar,
-            )
-            .map_err(|error| match error {
-                ErrorMotor::Rechazo(rechazo) => FalloFaseNpc::RespuestaAutomaticaRechazada(rechazo),
-                ErrorMotor::Fatal(fallo) => FalloFaseNpc::Motor(fallo),
+    let mut resultados = Vec::new();
+    let mut registros = Vec::new();
+    incorporar_emisiones(inicio.tramo.emisiones, &mut resultados, &mut registros);
+    let mut cierre = inicio.tramo.cierre;
+    let mut decisiones_automaticas = 0;
+    while let CierreTramo::EsperandoDecision(decision) = cierre {
+        decisiones_automaticas += 1;
+        let limite =
+            NonZeroUsize::new(decision.opciones.len()).ok_or(FalloFaseNpc::InvarianteRota)?;
+        let indice = azar
+            .elegir_indice(limite)
+            .map_err(FalloFaseNpc::FuenteAzar)?;
+        let opcion = decision
+            .opciones
+            .get(indice)
+            .ok_or(FalloFaseNpc::IndiceAzarFueraDeRango {
+                indice,
+                limite_exclusivo: limite,
             })?;
-            resultados.extend(extraer_resultados(tramo.emisiones));
-            if !matches!(tramo.cierre, CierreTramo::Completada(_)) {
-                return Err(FalloFaseNpc::InvarianteRota);
-            }
-        }
+        let tramo = responder(
+            mundo,
+            &mut ejecucion,
+            RespuestaDecision {
+                decision: decision.id,
+                opcion: opcion.id,
+            },
+            azar,
+        )
+        .map_err(|error| match error {
+            ErrorMotor::Rechazo(rechazo) => FalloFaseNpc::RespuestaAutomaticaRechazada(rechazo),
+            ErrorMotor::Fatal(fallo) => FalloFaseNpc::Motor(fallo),
+        })?;
+        incorporar_emisiones(tramo.emisiones, &mut resultados, &mut registros);
+        cierre = tramo.cierre;
     }
+    let CierreTramo::Completada(finalizacion) = cierre else {
+        return Err(FalloFaseNpc::InvarianteRota);
+    };
     if mundo.fecha() != fecha_antes {
         return Err(FalloFaseNpc::InvarianteRota);
     }
-    let [
-        ResultadoSemantico::ActoresTrasladados {
-            actores,
-            origen,
-            destino,
-        },
-    ] = resultados.as_slice()
-    else {
-        return Err(FalloFaseNpc::InvarianteRota);
-    };
-    if actores.as_slice() != [politica.actor()] {
-        return Err(FalloFaseNpc::InvarianteRota);
+    let mut lugar_confirmado = origen_solicitud;
+    for resultado in resultados {
+        match resultado {
+            ResultadoSemantico::ActoresTrasladados {
+                actores,
+                origen,
+                destino,
+            } => {
+                if actores.as_slice() != [politica.actor()] || origen != lugar_confirmado {
+                    return Err(FalloFaseNpc::InvarianteRota);
+                }
+                lugar_confirmado = destino;
+            }
+            ResultadoSemantico::CaracteristicaActorAnadida { actor, .. }
+            | ResultadoSemantico::CaracteristicaActorQuitada { actor, .. } => {
+                if actor != politica.actor() {
+                    return Err(FalloFaseNpc::InvarianteRota);
+                }
+            }
+        }
     }
-    Ok(Some(ResumenNpc::uno(EntradaResumenNpc::ViajeCompletado {
-        actor: politica.actor(),
-        origen: *origen,
-        destino: *destino,
-    })))
+    match lugar_confirmado {
+        lugar if lugar == destino_solicitud => Ok(Some(ResumenNpc::con_cronologia(
+            EntradaResumenNpc::ViajeCompletado {
+                actor: politica.actor(),
+                origen: origen_solicitud,
+                destino: destino_solicitud,
+            },
+            CronologiaNpc {
+                actor: politica.actor(),
+                registros,
+                decisiones_automaticas,
+                duracion: finalizacion.duracion,
+            },
+        ))),
+        lugar if mundo.ubicacion_actor(politica.actor()) == Some(lugar) => {
+            Ok(Some(ResumenNpc::con_cronologia(
+                EntradaResumenNpc::ViajeInterrumpido {
+                    actor: politica.actor(),
+                    lugar,
+                },
+                CronologiaNpc {
+                    actor: politica.actor(),
+                    registros,
+                    decisiones_automaticas,
+                    duracion: finalizacion.duracion,
+                },
+            )))
+        }
+        _ => Err(FalloFaseNpc::InvarianteRota),
+    }
 }
 
-fn extraer_resultados(emisiones: Vec<EmisionAccion>) -> Vec<ResultadoSemantico> {
-    emisiones
-        .into_iter()
-        .filter_map(|emision| match emision {
-            EmisionAccion::Narrativa(_) => None,
-            EmisionAccion::ResultadoSemantico(resultado) => Some(resultado),
-        })
-        .collect()
+fn incorporar_emisiones(
+    emisiones: Vec<EmisionAccion>,
+    resultados: &mut Vec<ResultadoSemantico>,
+    registros: &mut Vec<FragmentoNarrativo>,
+) {
+    for emision in emisiones {
+        match emision {
+            EmisionAccion::Narrativa(fragmento) => registros.push(fragmento),
+            EmisionAccion::ResultadoSemantico(resultado) => resultados.push(resultado),
+        }
+    }
 }
 
 fn es_recuperable(error: &ErrorPoliticaLua) -> bool {

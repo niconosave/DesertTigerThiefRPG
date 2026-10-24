@@ -1,0 +1,17 @@
+(
+    clave: "descenso_del_draa",
+    nombre: "Descenso del Drâa",
+    caracteristicas: ["montanoso", "empinado", "estrecho", "rocoso"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("paso_escarpado")),
+        (tipo: Conectado, destino: Lugar("valle_fertil")),
+    ],
+    coordenada_central: (x: 58, y: 11),
+    coordenadas_rotulo: [
+        (x: 52, y: 9), (x: 53, y: 9), (x: 54, y: 9), (x: 55, y: 9),
+        (x: 56, y: 9), (x: 57, y: 9), (x: 58, y: 9), (x: 59, y: 9),
+        (x: 60, y: 9), (x: 61, y: 9), (x: 62, y: 9), (x: 63, y: 9),
+        (x: 64, y: 9), (x: 65, y: 9), (x: 66, y: 9), (x: 67, y: 9),
+        (x: 68, y: 9),
+    ],
+)

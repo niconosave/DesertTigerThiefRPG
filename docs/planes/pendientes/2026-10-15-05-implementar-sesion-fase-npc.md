@@ -5,7 +5,7 @@
 | ID | PLAN-2026-005 |
 | Estado | Pendiente |
 | Creado | 2026-10-15 |
-| Actualizado | 2026-10-15 |
+| Actualizado | 2026-10-20 |
 
 ## Resultado buscado
 
@@ -21,8 +21,19 @@ su resumen, todo sin una terminal real.
 - [Vistas y salidas](../../tecnica/componentes/04-sesion-aplicacion.md#7-vistas-y-salidas).
 - [Categorías de error](../../tecnica/componentes/04-sesion-aplicacion.md#8-categorías-de-error).
 - [Secuencia de la fase NPC](../../tecnica/componentes/07-fase-npc.md#3-secuencia-normativa).
-- [Resumen público](../../tecnica/componentes/07-fase-npc.md#4-resumen-público).
+- [Registro interno y proyección breve](../../tecnica/componentes/07-fase-npc.md#4-registro-interno-y-proyección-breve).
 - Plan previo: [PLAN-2026-004](./2026-10-15-04-implementar-contenido-lua.md).
+
+### Corte histórico y propietario del trabajo nuevo
+
+Este plan conserva el corte de la fachada y fase NPC original. Sus casillas
+pendientes cubren solamente la matriz histórica de IDs, semillas, contadores,
+calendario, disponibilidad y resultados NPC simples. La cronología exhaustiva
+del proyecto humano, `ResumenNpc` ampliado, su duración y su nueva proyección
+pertenecen exclusivamente a
+[PLAN-2026-023](./2026-10-19-23-emitir-cronologia-humana-viaje.md). Los enlaces a
+documentos vivos aportan contexto actual, pero no amplían retroactivamente este
+plan ni duplican aquel trabajo.
 
 ## Alcance
 
@@ -63,16 +74,16 @@ su resumen, todo sin una terminal real.
        común, elección automática, descarte narrativo y control de consecuencia.
 7. [x] Implementar resúmenes y mapeos exactos de creación, intención,
        incidencia recuperable y estado fatal.
-8. [ ] Añadir pruebas de vistas, IDs antiguos, semillas, contador, jugador
-       muerto, ausencia de destinos, calendario y todos los resultados NPC.
+8. [ ] Completar la matriz histórica de vistas, IDs antiguos, semillas,
+       contador, jugador muerto, ausencia de destinos, calendario y resultados
+       NPC simples, excluyendo la ampliación asignada a PLAN-2026-023.
 9. [x] Recorrer mediante la fachada el fixture completo sin terminal y ejecutar
        los controles de app y workspace.
 
 ## Verificación
 
-- [ ] Se cumplen las
-      [pruebas de sesión](../../tecnica/componentes/04-sesion-aplicacion.md#10-pruebas-y-aceptación)
-      y las de [fase NPC](../../tecnica/componentes/07-fase-npc.md#7-pruebas-y-aceptación).
+- [ ] La matriz histórica indicada en el paso 8 está completa; los criterios
+      añadidos por el proyecto humano se verifican en PLAN-2026-023, no aquí.
 - [ ] El recorrido del fixture termina con jugador y Grupo trasladados, fecha
       avanzada una vez, NPC trasladado y fecha sin segundo avance.
 - [ ] Consultar vistas o rechazar IDs antiguos no consume azar ni cambia la
@@ -105,4 +116,6 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
   controles completos de workspace.
 - Desviaciones respecto del plan: falta completar la matriz exhaustiva de fallos
   sintéticos y desbordamientos de contadores antes de cerrar el plan.
-- Trabajo posterior: [PLAN-2026-006](./2026-10-15-06-implementar-frontend-terminal.md).
+- Trabajo posterior histórico: [PLAN-2026-006](./2026-10-15-06-implementar-frontend-terminal.md).
+- Ampliación vigente de esta capa:
+  [PLAN-2026-023](./2026-10-19-23-emitir-cronologia-humana-viaje.md).

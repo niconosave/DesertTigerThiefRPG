@@ -11,15 +11,18 @@ pub use contenido::{
     ErrorContenido, EstiloCeldaRetrato, FotogramaRetrato, OrigenDiagnosticoContenido,
     PosicionDiagnosticoContenido, RetratoActor, TipoElementoContenido, cargar_contenido,
 };
-pub use desert_tiger_core::acciones::{ClaveEscena, RechazoAccion};
-pub use desert_tiger_core::{IdActor, IdLugar};
+pub use desert_tiger_core::acciones::{
+    ClaveEscena, RechazoAccion, RegistroProyecto, RolPresentacion,
+};
+pub use desert_tiger_core::{Duracion, Fecha, IdActor, IdLugar, Mes};
 pub use fase_npc::{
-    CodigoFalloPoliticaNpc, DiagnosticoPoliticaNpc, EntradaResumenNpc, EtapaFalloPoliticaNpc,
-    ResumenNpc,
+    CodigoFalloPoliticaNpc, CronologiaNpc, DiagnosticoPoliticaNpc, EntradaResumenNpc,
+    EtapaFalloPoliticaNpc, ResumenNpc,
 };
 pub use sesion::{
     AccionDisponible, CausaIndisponibilidad, CodigoErrorCrearPartida, CodigoFatalSesion,
     ConfiguracionPartida, ErrorCrearPartida, ErrorIntencion, IdDecisionVista, IdFragmento,
     IdOpcionVista, IntencionFrontend, Partida, VistaActor, VistaDecision, VistaFatal,
-    VistaFragmento, VistaLugar, VistaMapa, VistaMundo, VistaOpcionDecision, VistaSesion,
+    VistaFragmento, VistaLugar, VistaMapa, VistaMundo, VistaOpcionDecision, VistaProgresoViaje,
+    VistaSesion,
 };

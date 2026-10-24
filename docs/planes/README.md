@@ -5,7 +5,9 @@ pequeños, ordenados y verificables.
 
 ## Flujo
 
-1. Copiar [`PLANTILLA.md`](./PLANTILLA.md) a `pendientes/AAAA-MM-DD-nombre.md`.
+1. Copiar [`PLANTILLA.md`](./PLANTILLA.md) a
+   `pendientes/AAAA-MM-DD-NN-nombre.md`, usando el siguiente ID y ordinal
+   disponibles.
 2. Enlazar las secciones aplicables de la documentación técnica.
 3. Definir alcance, exclusiones, pasos y verificaciones antes de implementar.
 4. Mantener el plan actualizado si la ejecución se desvía de forma relevante.

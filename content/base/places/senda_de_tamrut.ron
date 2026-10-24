@@ -1,0 +1,16 @@
+(
+    clave: "senda_de_tamrut",
+    nombre: "Senda de Tamrut",
+    caracteristicas: ["sendero", "boscoso", "fluvial", "sombreado"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("valle_fertil")),
+        (tipo: Conectado, destino: Lugar("bosque_de_tamrut")),
+    ],
+    coordenada_central: (x: 70, y: 11),
+    coordenadas_rotulo: [
+        (x: 68, y: 9), (x: 69, y: 9), (x: 70, y: 9), (x: 71, y: 9),
+        (x: 72, y: 9), (x: 73, y: 10), (x: 74, y: 10), (x: 75, y: 10),
+        (x: 76, y: 10), (x: 77, y: 11), (x: 78, y: 11), (x: 79, y: 11),
+        (x: 80, y: 11), (x: 81, y: 11), (x: 82, y: 11),
+    ],
+)

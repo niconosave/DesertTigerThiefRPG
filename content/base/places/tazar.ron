@@ -1,0 +1,11 @@
+(
+    clave: "tazar",
+    nombre: "Tazar",
+    caracteristicas: ["poblado", "posada", "aguaDulce"],
+    relaciones: [],
+    coordenada_central: (x: 71, y: 10),
+    coordenadas_rotulo: [
+        (x: 69, y: 9), (x: 70, y: 9), (x: 71, y: 9),
+        (x: 72, y: 9), (x: 73, y: 9),
+    ],
+)

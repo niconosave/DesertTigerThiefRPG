@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
-| Versión | 0.7 |
-| Fecha | 2026-10-15 |
+| Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
+| Versión | 0.14 |
+| Fecha | 2026-10-20 |
 
 ## 1. Propósito y alcance
 
@@ -18,6 +18,15 @@ un NPC independiente, la evalúa una vez y procesa como máximo una solicitud. L
 políticas asociadas al jugador o a integrantes actuales del Grupo se conservan
 validadas, pero no son evaluables. El contenido que contenga cero o más de una
 política independiente no satisface el alcance inicial y se rechaza al cargar.
+
+La [ampliación aprobada de `Viajar`](../acciones/02-viajar-expediciones.md#13-viajes-de-npc)
+puede responder una secuencia finita de decisiones dentro de esa única
+solicitud. Cada transición usa la misma ejecución reanudable y cada acción
+particular conserva su traza, aunque el frontend no abra viñetas para los NPC.
+El NPC recorre además el mismo
+[proyecto humano](../acciones/04-proyecto-humano-viajar.md): formula las mismas
+propuestas válidas, adopta un plan y conserva subobjetivos e interpretaciones;
+solo cambia que esta fase responde al azar por ahora.
 
 Quedan fuera varias políticas independientes, prioridades, acciones simultáneas,
 memoria de IA y redacción visual. La API interna de la política pertenece a
@@ -71,78 +80,149 @@ La secuencia exacta es:
 4. si devuelve Ninguna, terminar sin resumen;
 5. si devuelve una solicitud, llamar a acciones::iniciar con el Mundo y la
    única FuenteAzar de la Partida;
-6. consumir internamente las emisiones del tramo, descartando sus fragmentos
-   narrativos y conservando sus resultados semánticos;
-7. si el cierre espera una decisión, elegir una opción y llamar una vez a
-   acciones::responder;
-8. consumir el segundo tramo de la misma forma y exigir que termine en
-   Completada;
-9. no aplicar la Duracion recibida a la fecha;
-10. comprobar la consecuencia confirmada y construir el resumen;
-11. volver a Disponible.
+6. consumir internamente las emisiones del tramo en orden, añadir cada
+   `RegistroCronologico` a la `CronologiaNpc` transitoria y corroborar sus
+   resultados semánticos;
+7. si el cierre espera una decisión, elegir una opción, llamar a
+   acciones::responder y volver al paso 6 con la misma ejecución;
+8. repetir hasta obtener `Completada`, sin publicar viñetas interactivas;
+9. no aplicar la `Duracion` recibida a la fecha;
+10. comprobar la consecuencia confirmada y, desde la cronología cerrada,
+    construir el `ResumenNpc` estructurado y su proyección breve;
+11. volver a `Disponible`.
 
-Las viñetas de la acción NPC no se publican ni se convierten en vistas. Descartar
-su narrativa no autoriza otra implementación de la acción: el NPC atraviesa las
-mismas funciones y reglas que el jugador.
+Las situaciones dramáticas y sus viñetas no se publican para un NPC ni se
+convierten en ventanas interactivas. La fase consume y conserva hasta el cierre
+la misma cronología neutral que produciría el jugador, incluida toda transición
+de proyecto, situación, momento y conclusión. La posterior presentación
+compacta no autoriza otra simulación ni omite pasos de ejecución: el NPC
+atraviesa las mismas funciones, acciones particulares, hechos contextuales
+reglados y consecuencias que el jugador. Solo cambia la forma de comunicarlos.
+
+El registro conserva también qué propósito perseguía, qué plan adoptó y todo
+replanteamiento que cambió materialmente el curso. La vista breve puede agrupar
+acciones rutinarias, pero debe nombrar un cambio de curso o consecuencia
+persistente; tampoco puede inventar una motivación distinta.
 
 ### Decisión automática
 
-El Viajar inicial produce cero o una decisión. Si aparece, la fase exige que la
-lista de opciones sea no vacía, llama una vez a FuenteAzar::elegir_indice con su
-longitud como límite exclusivo y selecciona el IdOpcionDecision situado en ese
-índice. Construye una RespuestaDecision con el IdDecision vigente y reanuda la
-misma EjecucionAccion.
+`Viajar` puede producir cero o varias decisiones sucesivas. La llamada que llega
+a cada frontera consume primero las extracciones que pertenecen a la propia
+acción. Si el tramo espera una decisión, la fase exige que la lista de opciones
+sea no vacía, llama una vez a `FuenteAzar::elegir_indice` con su longitud como
+límite exclusivo y selecciona el `IdOpcionDecision` situado en ese índice.
+Construye una `RespuestaDecision` con el `IdDecision` vigente y reanuda la misma
+`EjecucionAccion`; el procedimiento se repite ante otra espera.
 
-Un fallo de la fuente, un índice exterior, un rechazo de esa respuesta construida
-por la propia aplicación o una segunda decisión después de responder indican una
-inconsistencia fatal. No se elige por texto, posición visual ni clave de teclado.
+Un fallo de la fuente, un índice exterior o un rechazo de una respuesta
+construida por la propia aplicación indican una inconsistencia fatal. También
+es fatal exceder el resguardo técnico de transiciones sin alcanzar otra
+frontera válida. Ese resguardo detecta un posible bucle: no limita escenas ni
+convierte una ejecución válida en éxito parcial. No se elige por texto, posición
+visual ni clave de teclado.
 
-La selección automática consume una extracción distinta de las que la propia
-acción pueda realizar. Su orden observable está fijado en la especificación de
-[Viajar](../acciones/01-viajar.md).
+La selección automática consume una extracción distinta y posterior a las que
+realiza la propia acción. Si no aparece una decisión, la fase no realiza esa
+extracción. El orden observable completo y las opciones vigentes están fijados
+en la especificación de [Viajar](../acciones/02-viajar-expediciones.md); este componente no
+duplica la composición de sus candidaturas ni las reglas de sus resultados.
+`Abandonar` solo participa cuando el proyecto abrió una frontera segura de
+replanteamiento; en ese caso es una opción semántica ordinaria de la lista
+completa y puede ser elegida por la misma política aleatoria.
 
-### Consecuencia exitosa
+### Consecuencia confirmada
 
-Durante todos los tramos de la acción se debe recibir exactamente un:
+Cada etapa completada puede contener exactamente un:
 
 ~~~rust
 ResultadoSemantico::ActoresTrasladados {
     actores: vec![actor_vinculado],
-    origen,
-    destino,
+    origen: origen_de_la_etapa,
+    destino: destino_de_la_etapa,
 }
 ~~~
 
-El resultado ya describe un traslado confirmado. La fase no llama a
-Mundo::trasladar ni reconstruye la consecuencia comparando instantáneas. Una
-lista vacía, más de un Actor, un Actor distinto, cero resultados o más de un
-ActoresTrasladados hacen fatal la sesión.
+Cada resultado ya describe un traslado confirmado. La fase no llama a
+`Mundo::trasladar` ni reconstruye la consecuencia comparando instantáneas. En un
+viaje de varias etapas acepta varios traslados en orden: el origen del primero es
+el Lugar inicial y cada origen siguiente coincide con el destino anterior. Todos
+contienen únicamente al Actor vinculado. Los resultados de alta o baja de
+Característica se aceptan cuando pertenecen al mismo NPC. Un Actor distinto, una
+ruptura de continuidad o una ubicación final incoherente hacen fatal la sesión.
 
-La Duracion final demuestra que el recorrido terminó, pero se descarta después
-de comprobar el cierre y nunca se aplica a la fecha. La fecha anterior y posterior
-a toda la fase NPC debe ser idéntica.
+Una llegada exige al menos un traslado y que el último termine en el destino
+solicitado. Una interrupción puede ocurrir antes del primer traslado o después de
+varias etapas; el NPC permanece entonces en el último Lugar confirmado y la fase
+produce `ViajeInterrumpido`. Esto es un desenlace reglado, no una solicitud
+rechazada ni un fallo de coordinación.
 
-## 4. Resumen público
+La `Duracion` final demuestra que el recorrido terminó y se contrasta mediante
+suma comprobada con las duraciones de sus momentos causales. Se conserva como
+`duracion_simulada` del resumen estructurado y se vuelve visible como información
+del viaje, pero nunca se aplica a la fecha. Una discrepancia de duración es una
+invariante rota. La fecha anterior y posterior a toda la fase NPC debe ser
+idéntica.
 
-El frontend recibe hechos poseídos y neutrales, nunca objetos mlua, fragmentos
-descartados ni texto ya redactado:
+## 4. Registro interno y proyección breve
+
+La coordinación de la fase mantiene primero una cronología poseída, neutral y
+exhaustiva, nunca objetos mlua ni fragmentos interactivos:
+
+~~~rust
+pub(crate) struct CronologiaNpc {
+    registros: Vec<RegistroCronologico>,
+}
+~~~
+
+Cada emisión cronológica del motor se añade una sola vez y en el orden recibido.
+`CronologiaNpc` existe hasta validar el cierre; permite probar paridad completa
+de propósito, propuestas, compromiso, subobjetivos, situaciones, momentos,
+interpretaciones, replanteamientos y conclusión. No se publica al frontend y se
+descarta después de derivar el resumen estructurado:
 
 ~~~rust
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ResumenNpc {
+pub(crate) struct ResumenNpc {
     entradas: Vec<EntradaResumenNpc>,
+    duracion_simulada: Option<Duracion>,
 }
 
 impl ResumenNpc {
-    pub fn entradas(&self) -> &[EntradaResumenNpc];
+    pub(crate) fn entradas(&self) -> &[EntradaResumenNpc];
+    pub(crate) fn duracion_simulada(&self) -> Option<Duracion>;
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub enum EntradaResumenNpc {
+pub(crate) enum EntradaResumenNpc {
+    PropositoViaje {
+        actor: IdActor,
+        destino: IdLugar,
+    },
+    PlanViajeAdoptado {
+        actor: IdActor,
+        plan: ResumenPlanViajeNpc,
+    },
+    ViajeReplanteado {
+        actor: IdActor,
+        lugar: IdLugar,
+        causa: CausaReplanteamientoNpc,
+    },
+    AccionParticular {
+        actor: IdActor,
+        resumen: ResumenAccionParticular,
+    },
     ViajeCompletado {
         actor: IdActor,
         origen: IdLugar,
         destino: IdLugar,
+    },
+    ViajeAbandonado {
+        actor: IdActor,
+        lugar: IdLugar,
+    },
+    ViajeInterrumpido {
+        actor: IdActor,
+        lugar: IdLugar,
     },
     SolicitudViajeRechazada {
         actor: IdActor,
@@ -154,15 +234,70 @@ pub enum EntradaResumenNpc {
     },
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ResumenPlanViajeNpc {
+    pub estrategia: EstrategiaViajeNpc,
+    pub medios: Vec<ResumenMedioViajeNpc>,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum EtapaFalloPoliticaNpc {
+pub(crate) enum EstrategiaViajeNpc {
+    Directo,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ResumenMedioViajeNpc {
+    pub medio: TipoMedioViajeNpc,
+    pub fuente: Option<FuenteMedioViajeNpc>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum TipoMedioViajeNpc {
+    APie,
+    Camellos,
+    Bote,
+    Barco,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) enum FuenteMedioViajeNpc {
+    AportadoPorActor {
+        actor: IdActor,
+        caracteristica: Caracteristica,
+    },
+    ServicioLocal {
+        lugar: IdLugar,
+        servicio: Caracteristica,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum CausaReplanteamientoNpc {
+    MedioNoDisponible,
+    EtapaImposible,
+    HechoDescubierto,
+    ConsecuenciaMaterial,
+    Crisis,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ResumenAccionParticular {
+    pub accion: TipoAccionParticular,
+    pub lugar: IdLugar,
+    pub desenlace: DesenlaceParticularVisible,
+    pub duracion: Duracion,
+    pub consecuencias: Vec<ConsecuenciaVisibleNpc>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum EtapaFalloPoliticaNpc {
     Preparacion,
     Ejecucion,
     ConversionRespuesta,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CodigoFalloPoliticaNpc {
+pub(crate) enum CodigoFalloPoliticaNpc {
     LimiteInstrucciones,
     LimiteMemoria,
     ArgumentoInvalido,
@@ -177,7 +312,7 @@ pub enum CodigoFalloPoliticaNpc {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DiagnosticoPoliticaNpc {
+pub(crate) struct DiagnosticoPoliticaNpc {
     pub actor: IdActor,
     pub clave_actor: String,
     pub archivo_relativo: String,
@@ -188,9 +323,56 @@ pub struct DiagnosticoPoliticaNpc {
 }
 ~~~
 
-ResumenNpc solo se construye dentro de la aplicación con una lista no vacía. En
-el primer incremento siempre contiene exactamente una entrada. Si Lua no
-solicita nada, VistaMundo.resumen_npc_reciente es None, no un resumen vacío.
+`ResumenAccionParticular`, `DesenlaceParticularVisible` y
+`ConsecuenciaVisibleNpc` son proyecciones neutrales cerradas de la traza del
+motor. Conservan verbo, Lugar confirmado, desenlace, duración y consecuencias
+principales; no conservan situación dramática, prosa, widgets ni un cálculo
+nuevo. Cada `MomentoCausal` del motor produce exactamente una entrada
+`AccionParticular`, incluso si es automático, repetido o dura cero días.
+
+`PropositoViaje`, `PlanViajeAdoptado` y `ViajeReplanteado` son la proyección
+compacta de registros de proyecto, no acciones particulares. `medios` conserva
+el orden estable del plan; caminar usa `fuente: None`, mientras camellos, bote y
+barco exigen `Some` con el Actor aportante o el servicio local que los hace
+posibles. El plan adoptado después de un replanteamiento produce otra entrada
+`PlanViajeAdoptado`; así la causa y la nueva decisión permanecen ordenadas sin
+campos opcionales ambiguos.
+
+`ResumenNpc` solo se construye dentro de la aplicación con una lista no vacía.
+Un viaje que comenzó contiene primero `PropositoViaje`, luego cada plan y
+replanteamiento material en su punto causal, todas sus entradas
+`AccionParticular` y, al final, exactamente una de `ViajeCompletado`,
+`ViajeAbandonado` o `ViajeInterrumpido`; posee además
+`duracion_simulada: Some(...)`, igual a la suma comprobada de sus acciones y a
+la duración final del motor. Una solicitud rechazada o una política fallida
+produce una única entrada de su tipo y `duracion_simulada: None`, porque no
+inició el proyecto ni ejecutó acciones particulares. Si Lua no solicita nada,
+`VistaMundo.resumen_npc_reciente` es `None`, no un resumen vacío.
+
+Antes de construir `VistaMundo`, la fachada transforma este resumen estructurado
+en el [`VistaResumenNpc`](./04-sesion-aplicacion.md#7-vistas-y-salidas) breve que
+recibe el frontend. La proyección:
+
+- para un viaje iniciado, comienza por Actor, conclusión, propósito
+  `AlcanzarDestino`, último Lugar y duración simulada total, sin presentarla como
+  avance adicional de la fecha del Mundo;
+- para una solicitud rechazada, comienza por Actor, destino solicitado y causa,
+  sin inventar conclusión, último Lugar ni duración;
+- para un error de política anterior a una solicitud, comienza por clave de
+  Actor y código estable, sin exigir destino, Lugar ni duración inexistentes;
+- indica las cantidades totales de acciones particulares y replanteamientos;
+- si hubo replanteamientos, nombra solamente la causa del último y conserva la
+  cantidad de los anteriores;
+- si hubo consecuencias persistentes, nombra solamente la última en orden
+  causal e indica cuántas adicionales quedaron confirmadas;
+- agrega el desenlace dominante de las acciones rutinarias sin enumerarlas;
+- nunca intenta expandir una lista de longitud proporcional al viaje.
+
+`CronologiaNpc` y `ResumenNpc` siguen siendo la autoridad para pruebas y
+auditoría. La frase visible es deliberadamente acotada y no pretende sustituir
+un historial consultable, que queda aplazado.
+La proyección breve no vuelve a ejecutar reglas, no cambia el orden causal y no
+convierte una acción omitida del texto en una acción omitida de la simulación.
 
 DiagnosticoPoliticaNpc es una proyección segura y estable del error interno de
 integración. Su ruta procede del patrón ASCII validado
@@ -198,11 +380,17 @@ actors/<clave-actor>.ron; no expone PathBuf, mlua::Error, código fuente, trazas
 ni tipos del runtime. detalle ya tiene escapados los controles conforme al
 contrato de integración. La terminal decide cuánto mostrar.
 
-Una entrada exitosa se construye exclusivamente desde el ActoresTrasladados
-confirmado. Una solicitud rechazada conserva la causa devuelta por
-acciones::iniciar. En ninguno de los tres casos se añade duración, fecha,
-estilos, texto narrativo, nombre visible de Actor ni un booleano redundante de
-éxito.
+`ViajeCompletado` se construye desde la cadena confirmada de traslados y conserva
+su origen inicial y destino final. `ViajeAbandonado` y `ViajeInterrumpido`
+conservan el último Lugar confirmado, exista o no alguna etapa previa; el primero
+representa una decisión reglada y el segundo la ausencia de continuación válida.
+Una solicitud rechazada conserva la causa devuelta por
+acciones::iniciar, incluido `DestinoSinRutaConectada` cuando el grafo válido no
+conecta origen y destino, o `SinPropuestaViajeViable` cuando existe conexión pero
+ninguna propuesta válida. Las entradas de conclusión no duplican duración,
+fecha, estilos, texto narrativo, nombre visible de Actor ni un booleano
+redundante de éxito: la duración total pertenece a `ResumenNpc`, los demás datos
+a las entradas particulares previas o al catálogo de presentación.
 
 ## 5. Política de errores
 
@@ -241,7 +429,7 @@ También vuelven fatal la sesión:
 - un fallo o índice inválido de la fuente durante la elección automática;
 - cualquier ErrorMotor::Rechazo al responder la decisión vigente construida por
   la aplicación;
-- una segunda decisión o una consecuencia semántica que incumpla este contrato;
+- una frontera, traza o consecuencia semántica que incumpla este contrato;
 - la ausencia o multiplicidad inesperada de políticas elegibles en contenido ya
   validado.
 
@@ -279,7 +467,18 @@ opciones y nunca indexa con un valor sin validar.
 - Toda solicitud atraviesa el motor común.
 - Una decisión se resuelve únicamente con la fuente de la Partida.
 - La fase no expone viñetas NPC.
-- Una acción NPC completada produce exactamente un traslado del Actor vinculado.
+- Cada acción particular ejecutada aporta una entrada de resumen en el mismo
+  orden; no hay límite, muestreo ni fusión de entradas.
+- Todo viaje iniciado conserva primero su propósito y cada plan o
+  replanteamiento material en el orden en que ocurrió, sin atribuirles una
+  acción particular ficticia.
+- Camellos, bote y barco conservan una fuente en el resumen; caminar no recibe
+  una procedencia artificial.
+- La presentación compacta no sustituye la ejecución de una acción particular,
+  el contexto reglado de una situación ni una consecuencia del motor.
+- Cada etapa confirmada produce un traslado del Actor vinculado; una llegada
+  termina en el destino solicitado y un abandono o interrupción conserva la
+  última ubicación alcanzada.
 - La fase nunca adelanta la fecha.
 - Un fallo fatal no se degrada a resumen recuperable.
 
@@ -302,21 +501,53 @@ Las pruebas sin terminal real cubrirán:
 - regreso a Disponible y posibilidad de evaluar de nuevo en una fase futura;
 - conversión de infraestructura o sintaxis reaparecida en fallo fatal;
 - selección automática reproducible por índice, con el ID de decisión vigente;
-- orden exacto de las extracciones de azar de cada rama;
+- orden exacto de las extracciones definido por la acción: las de
+  `acciones::iniciar` y, solo si el cierre espera, la selección automática de
+  una opción;
+- ejecución NPC de un recorrido sin decisión, sin extracción automática de
+  opción;
+- ejecución NPC de un recorrido con decisión, con la extracción de opción
+  posterior a las de la acción y reanudación mediante el ID vigente;
+- rechazos recuperables `DestinoSinRutaConectada` y
+  `SinPropuestaViajeViable` sin mutación ni resumen de éxito;
 - tratamiento fatal de fuente fallida, índice exterior, respuesta rechazada y
-  segunda decisión;
-- descarte de narrativa sin publicarla;
-- recepción de exactamente un traslado con el NPC, origen y destino correctos;
-- tratamiento fatal de un resultado ausente, duplicado o con Actor discordante;
+  ciclo de transiciones inválido;
+- cronología NPC exhaustiva con toda transición del proyecto y una entrada
+  estructurada por cada momento causal, sin abrir presentación interactiva;
+- mismo propósito, propuestas y plan que recibiría el jugador ante igual Mundo
+  y azar, con selección automática únicamente en las fronteras de decisión;
+- resumen que conserva propósito, compromiso y replanteamientos materiales sin
+  fabricar momentos particulares para esas transiciones;
+- recepción de una cadena de uno o varios traslados con el NPC, continuidad de
+  etapas y destino final correctos al llegar;
+- ascenso fallido en la primera etapa con `herido` y sin traslado, y fallo
+  posterior que conserva todos los traslados previos antes del resumen de
+  interrupción;
+- abandono automático elegido en una frontera segura de replanteamiento, con
+  resumen distinto de una interrupción y sin revertir tiempo ni traslados, y
+  ausencia de esa opción durante una acción particular pendiente;
+- tratamiento fatal de una etapa duplicada, una ruptura de continuidad o un
+  resultado con Actor discordante;
 - ausencia de una segunda aplicación del traslado;
-- cálculo de duración por el motor sin un segundo avance temporal;
+- suma comprobada de duración coincidente con el cierre, presencia del total en
+  el resumen visible y ausencia de un segundo avance temporal;
 - igualdad de Mundo::fecha() antes y después de la fase completa;
-- resumen no vacío con una única entrada del tipo correspondiente;
-- ausencia de tipos mlua y de texto redactado en el resumen público.
+- viaje con más de seis acciones particulares que conserva cronología y entradas
+  internas en orden y añade una única conclusión, mientras su vista breve nombra
+  propósito/destino y duración, cuenta acciones y replanteamientos, conserva
+  solo los últimos datos materiales y no crece proporcionalmente al recorrido;
+- una situación NPC con varias acciones particulares que conserva una entrada
+  por cada traza, aunque omita por completo la puesta en escena dramática;
+- solicitud rechazada o política fallida con una única entrada y ninguna entrada
+  particular ficticia, sin conclusión, Lugar, duración o propósito inventados
+  cuando sus datos no existen;
+- ausencia de tipos mlua en el registro y de inferencias regladas nuevas en la
+  vista breve redactada.
 
-El componente será aceptable cuando las tres salidas recuperables —sin solicitud,
-viaje rechazado y error de política— y el viaje exitoso vuelvan de forma
-determinista al jugador, mientras toda inconsistencia interna detenga la sesión.
+El componente será aceptable cuando las salidas recuperables —sin solicitud,
+viaje rechazado, viaje interrumpido y error de política— y el viaje exitoso
+vuelvan de forma determinista al jugador, mientras toda inconsistencia interna
+detenga la sesión.
 
 ## 8. Preguntas bloqueantes
 

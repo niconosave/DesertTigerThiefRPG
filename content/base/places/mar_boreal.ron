@@ -1,0 +1,15 @@
+(
+    clave: "mar_boreal",
+    nombre: "Mar Boreal",
+    caracteristicas: ["acuatico", "maritimo", "marAbierto", "aguaSalada"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("mar_de_levante")),
+    ],
+    coordenada_central: (x: 55, y: 1),
+    coordenadas_rotulo: [
+        (x: 51, y: 0), (x: 52, y: 0), (x: 53, y: 0),
+        (x: 54, y: 0), (x: 55, y: 0), (x: 56, y: 0),
+        (x: 57, y: 0), (x: 58, y: 0), (x: 59, y: 0),
+        (x: 60, y: 0),
+    ],
+)
