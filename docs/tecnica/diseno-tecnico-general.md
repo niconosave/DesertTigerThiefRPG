@@ -2,9 +2,13 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Implementado parcialmente; arquitectura de proyecto aprobada para implementar |
-| Versión | 0.14 |
-| Fecha | 2026-10-19 |
+| Estado | Implementado; detalles históricos señalados en sus componentes |
+| Versión | 0.16 |
+| Fecha | 2026-10-24 |
+
+> El [contrato implementado de Viajar](./acciones/06-implementacion-viajar.md)
+> sustituye sus contratos anteriores. Las cabeceras de los componentes delimitan
+> los apartados históricos. La revisión estética con el usuario sigue pendiente.
 
 ## 1. Propósito
 
@@ -75,18 +79,18 @@ a [Workspace, entorno y límites de código](./componentes/01-workspace-entorno.
 - **situación o escena dramática:** unidad narrativa contextual organizada por
   una acción general. Puede contener varias acciones particulares y varias
   viñetas; no es otra regla mecánica ni corresponde a un verbo reutilizable.
-- **proyecto de acción:** estructura semántica transitoria mediante la que una
+- **proyecto de acción (vocabulario histórico de Viajar 04):** estructura semántica transitoria mediante la que una
   acción general conserva qué quieren conseguir sus participantes, qué
   posibilidades consideran, con cuál se comprometen, qué subobjetivo persiguen
   y cómo interpretan los resultados antes de continuar, replantear o concluir.
   No es un elemento persistente del Mundo ni una simulación general de la mente.
-- **registro de proyecto:** hecho neutral y ordenado de propósito, propuesta,
+- **registro de proyecto (histórico):** hecho neutral y ordenado de propósito, propuesta,
   compromiso, subobjetivo, interpretación o replanteo emitido por el núcleo.
   Puede sustentar una viñeta, pero no afirma que se haya ejecutado una acción
   particular y por ello no crea un momento causal ficticio. La conclusión es un
   registro cronológico separado que cierra el proyecto; el propósito es su única
   apertura semántica.
-- **momento causal:** vínculo ordenado entre una parte de la escena y una
+- **momento causal (histórico):** vínculo ordenado entre una parte de la escena y una
   ejecución particular, con los hechos necesarios para reconocer qué se
   intentó, por qué se resolvió así y qué consecuencias produjo.
 - **viñeta:** fragmento de presentación de una escena. Contiene texto y datos
@@ -114,6 +118,11 @@ entrega rutas, bytes de arte ni una clave perteneciente a un frontend concreto.
 - Un cambio reglado puede causar después una actualización visual. El mapa nunca
   causa por sí mismo un cambio de gameplay ni es el único registro de una
   condición que las reglas deban observar.
+  El rediseño de `Viajar` introduce una excepción provisional explícita: la
+  aplicación deriva el rumbo de una conexión desde los centros visuales de
+  sus Lugares y entrega solo ese rumbo al núcleo. El contrato técnico `06`,
+  sección 6.4, define el adaptador. No se usan tiles ni distancias visuales
+  para deducir conexiones o duración base.
 - Frontend y aplicación se comunican mediante intenciones, vistas y resultados
   con significado del juego, nunca mediante widgets o teclas.
 - Jugador y NPC atraviesan el mismo motor y las mismas validaciones de acciones.
@@ -133,22 +142,21 @@ entrega rutas, bytes de arte ni una clave perteneciente a un frontend concreto.
   proyecto de acción dentro del núcleo. Su estado y sus registros son
   semánticos: la aplicación redacta y el frontend presenta, sin que ninguna de
   esas capas reconstruya propósitos, planes o reglas a partir de prosa.
-- En el primer alcance de `Viajar`, el propósito es alcanzar el destino elegido,
-  el dirigente adopta las decisiones del proyecto y solo se consideran medios
-  cuya procedencia o disponibilidad ya esté establecida en el estado reglado.
-  Conseguir un medio ausente y los conflictos internos del Grupo quedan
-  aplazados. En el contenido inicial un puerto o muelle puede declarar un
-  servicio local rutinario como fuente; una mera conexión, costa o terreno
-  compatible no crea por sí solo una embarcación, montura u otro recurso.
-- Propósito, propuesta, compromiso, subobjetivo, interpretación y replanteo se
-  registran sin prosa visible; una `ConclusionViaje` cronológica separada cierra
-  la secuencia. Ninguno cuenta como ejecución particular ni autoriza a fabricar
-  una tirada, una consecuencia o un `MomentoCausal`.
-- Las escenas pertenecen a la acción general, no a las acciones particulares.
-  Toda traza particular ejecutada se enlaza con exactamente un momento causal
-  ordenado, pero una escena puede contener varios momentos y cada momento puede
-  desarrollarse en varias viñetas. Ninguna capa impone un límite narrativo que
-  omita ejecución.
+- `Viajar` conserva su estado transitorio en una ejecución reanudable de
+  tarjetas. Cada desplazamiento confirma dos chequeos, consecuencias, consumo
+  y tiempo; la aplicación redacta desde el registro semántico confirmado.
+- Las acciones particulares reciben responsable y dificultad del contexto;
+  calculan un d20 y modificadores. Las tarjetas poseen duración y consecuencias.
+  Caballo y camello comparten `Cabalgar` y mantienen viñetas independientes.
+- La disponibilidad provisional de monturas y barcos sigue el reglamento de
+  `Viajar`. No exige puertos ni inventario persistente. Obtener medios mediante
+  economía y mercados queda aplazado.
+- Una escena puede contener varios chequeos y páginas; avanzar páginas no
+  ejecuta nuevas reglas. No existe un presupuesto de escenas ni se omiten
+  conexiones de la ruta adoptada.
+- El viaje acumula horas exactas. La aplicación proyecta y confirma una sola
+  fecha final mediante el puente de fracción de día, conservando el resto para
+  la acción siguiente. Las acciones NPC no confirman avance mundial.
 - Un hecho de escena que afecte una resolución debe estar incluido en el
   contexto reglado antes de resolverla. La aplicación redacta desde hechos
   recibidos y el frontend terminal no inventa causas ni contexto mecánico.
@@ -176,9 +184,10 @@ entrega rutas, bytes de arte ni una clave perteneciente a un frontend concreto.
 | Operaciones persistentes y lotes atómicos | [`11-operaciones-mundo.md`](./componentes/11-operaciones-mundo.md) |
 | Relación `Conoce` y proyección de hechos conocidos | [`12-conocimiento-lugares.md`](./componentes/12-conocimiento-lugares.md) |
 | Contrato histórico obsoleto de la primera versión de `Viajar` | [`acciones/01-viajar.md`](./acciones/01-viajar.md) |
-| Contrato implementado de `Viajar` por expediciones | [`acciones/02-viajar-expediciones.md`](./acciones/02-viajar-expediciones.md) |
-| Situaciones dramáticas, momentos causales y viñetas de `Viajar` | [`acciones/03-cronologia-causal-viaje.md`](./acciones/03-cronologia-causal-viaje.md) |
-| Proyecto humano de `Viajar`, deliberación, plan y replanteo | [`acciones/04-proyecto-humano-viajar.md`](./acciones/04-proyecto-humano-viajar.md) |
+| Antecedente obsoleto de `Viajar` por expediciones | [`acciones/02-viajar-expediciones.md`](./acciones/02-viajar-expediciones.md) |
+| Antecedente de cronología causal de `Viajar` | [`acciones/03-cronologia-causal-viaje.md`](./acciones/03-cronologia-causal-viaje.md) |
+| Antecedente de proyecto humano de `Viajar` | [`acciones/04-proyecto-humano-viajar.md`](./acciones/04-proyecto-humano-viajar.md) |
+| Contrato implementado de `Viajar` por tarjetas | [`acciones/06-implementacion-viajar.md`](./acciones/06-implementacion-viajar.md) |
 | Reglas reutilizables de cada acción particular | [`acciones/particulares/`](./acciones/particulares/README.md) |
 
 Una decisión limitada a uno de estos sistemas se registra exclusivamente en su

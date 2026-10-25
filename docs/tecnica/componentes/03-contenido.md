@@ -6,6 +6,17 @@
 | Versión | 0.23 |
 | Fecha | 2026-10-19 |
 
+## Revisión implementada el 2026-10-24: Validación de contenido para Viajar
+
+La carga admite cero o más políticas de NPC independientes. Conserva los formatos RON y Lua; valida tamaños incompatibles, existencia de costa y centros de conexiones navegables. Las claves nuevas están en la sección 12 del contrato 06.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito y alcance
 
 Este documento diseña la frontera entre los archivos editables del juego y una

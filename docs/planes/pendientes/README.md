@@ -4,6 +4,14 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Refactor del reglamento de Viajar terminado
+
+PLAN-2026-025 a PLAN-2026-031 están implementados, verificados y archivados en
+[completados](../completados/README.md#refactor-del-reglamento-de-viajar).
+El [informe de verificación](../../tecnica/acciones/verificacion-viajar-reglamento.md)
+distingue el cierre funcional realizado de la valoración de jugabilidad que
+hará el usuario al probarlo. No quedan tareas de desarrollo de esta secuencia.
+
 ## Pendientes de cierre del primer incremento jugable
 
 Los siete planes forman juntos un único incremento jugable. Su implementación
@@ -46,31 +54,21 @@ PLAN-2026-009 no pertenece a la secuencia activa ni bloquea los planes nuevos.
 Solo podrá implementarse después de resolver las precondiciones que registra y
 sin convertir el propio plan en fuente de decisiones técnicas.
 
-## Secuencia activa: Viajar por expediciones
+## Antecedentes sustituidos: Viajar por expediciones y proyecto humano
 
-Esta serie profundiza únicamente `Viajar`. Los planes 016 a 019 ya están
-archivados en `../completados/`. La primera revisión manual confirmó que las
-reglas terrestres y marítimas funcionan, pero reveló que la implementación
-carece de un proyecto humano observable que ordene la simulación. Los planes 021
-a 024 conservan primero las trazas mecánicas, refactorizan `Viajar` alrededor de
-propósito, deliberación, plan y subobjetivos, producen después su cronología
-humana y causal y finalmente la presentan sin reinterpretarla. La implementación
-automática de 022 a 024 está terminada; 024 y el cierre integral de
-PLAN-2026-020 esperan ahora un único recorrido manual terrestre y marítimo. Los cierres documentales antiguos
-que permanecen pendientes no duplican ni bloquean esta secuencia.
+Los planes 016 a 019 y 021 están archivados en `../completados/`. La versión
+posterior quedó conservada en los commits locales `2ad4e54` y `b4cc2e4` antes
+de abrir `refactor/viajar-reglamento`. La prueba manual detectó diferencias de
+tiempo y dificultades de navegación, y se decidió reemplazar ese diseño.
 
-| Orden | Plan | Dependencia directa | Resultado principal |
-|---:|---|---|---|
-| 1 | [PLAN-2026-022](./2026-10-19-22-refactorizar-viajar-proyecto-humano.md) | Implementado; cierre agrupado | Orquestación reanudable como proyecto humano con medios de procedencia visible. |
-| 2 | [PLAN-2026-023](./2026-10-19-23-emitir-cronologia-humana-viaje.md) | Implementado; cierre agrupado | Cronología humana, causal y dramática sin omisiones. |
-| 3 | [PLAN-2026-024](./2026-10-19-24-presentar-proyecto-viaje-terminal.md) | Pendiente de prueba manual | Proyecto, escenas y seguimiento legibles en terminal. |
-| 4 | [PLAN-2026-020](./2026-10-17-20-equilibrar-viajar-expediciones.md) | Pendiente de la misma prueba manual | Revisión manual final y cierre del atlas consolidado. |
+| Plan | Estado operativo | Tratamiento |
+|---|---|---|
+| [PLAN-2026-022](./2026-10-19-22-refactorizar-viajar-proyecto-humano.md) | Sustituido; implementación anterior conservada | Historial, sin nuevas tareas de corrección. |
+| [PLAN-2026-023](./2026-10-19-23-emitir-cronologia-humana-viaje.md) | Sustituido; implementación anterior conservada | Historial, sin nuevas tareas de corrección. |
+| [PLAN-2026-024](./2026-10-19-24-presentar-proyecto-viaje-terminal.md) | Sustituido; cierre manual anterior incompleto | No se declara completado por el refactor nuevo. |
+| [PLAN-2026-020](./2026-10-17-20-equilibrar-viajar-expediciones.md) | Sustituido; cierre anterior incompleto | No bloquea la secuencia 025–031. |
 
-La prueba manual se realiza al final de cada lote, no después de cada detalle.
-Las variantes pequeñas y el azar se cubren con pruebas reproducibles. No existe
-un límite de escenas o viñetas en la acción del jugador: la prueba controla que
-toda acción particular ejecutada quede reconocible en su orden causal. Una
-escena puede reunir varias acciones y una acción puede desarrollarse en varias
-viñetas; ningún plan supone una correspondencia uno a uno. Para NPC, la misma
-cronología se conserva internamente y solo su proyección breve ocupa la barra
-contextual.
+Estos archivos permanecen aquí para conservar su implementación y verificaciones
+reales. No se trasladan a `completados/` ni se completan sus casillas por haber
+desarrollado el reglamento nuevo. Las tareas actuales pertenecen exclusivamente
+a PLAN-2026-025 a PLAN-2026-031.

@@ -3,9 +3,14 @@
 | Campo | Valor |
 |---|---|
 | ID | PLAN-2026-022 |
-| Estado | Implementado; cierre agrupado en PLAN-2026-020 |
+| Estado | Sustituido; implementación anterior conservada |
 | Creado | 2026-10-19 |
-| Actualizado | 2026-10-20 |
+| Actualizado | 2026-10-24 |
+
+> Sustituido por la secuencia PLAN-2026-025 a PLAN-2026-031 del
+> [refactor implementado](../completados/README.md#refactor-del-reglamento-de-viajar).
+> Sus resultados y casillas conservan el historial; no se ejecutan nuevas tareas
+> de este plan ni se lo declara completado por implementar el diseño nuevo.
 
 ## Resultado buscado
 

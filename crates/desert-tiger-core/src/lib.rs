@@ -5,7 +5,10 @@ pub mod azar;
 mod calendario;
 mod modelo;
 
-pub use calendario::{Duracion, ErrorCalendario, Fecha, Mes};
+pub use calendario::{
+    Duracion, ErrorCalendario, Fecha, FraccionDia, InstanteAccion, Mes, TiempoAccion,
+    proyectar_tiempo,
+};
 pub use modelo::{
     Actor, ActorInicial, CambioConfirmado, CambiosConfirmados, Caracteristica, ClaveVariableGlobal,
     DatosInicialesMundo, ErrorCaracteristica, ErrorClaveVariableGlobal, ErrorConstruirMundo,

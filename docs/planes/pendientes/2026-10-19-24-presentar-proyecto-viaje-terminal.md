@@ -3,9 +3,14 @@
 | Campo | Valor |
 |---|---|
 | ID | PLAN-2026-024 |
-| Estado | Implementado; pendiente de recorrido manual final |
+| Estado | Sustituido; cierre manual anterior incompleto |
 | Creado | 2026-10-19 |
-| Actualizado | 2026-10-20 |
+| Actualizado | 2026-10-24 |
+
+> Sustituido por la secuencia PLAN-2026-025 a PLAN-2026-031 del
+> [refactor implementado](../completados/README.md#refactor-del-reglamento-de-viajar).
+> Conserva las verificaciones efectivamente realizadas y el cierre manual que
+> quedó pendiente; el desarrollo nuevo no completa retrospectivamente este plan.
 
 ## Resultado buscado
 

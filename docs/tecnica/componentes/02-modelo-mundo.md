@@ -6,6 +6,17 @@
 | Versión | 0.13 |
 | Fecha | 2026-10-18 |
 
+## Revisión implementada el 2026-10-24: Grupo y conocimiento dinámico
+
+Las operaciones atómicas pueden separar compañeros y crear Conoce durante una partida. El Grupo inicial sigue siendo no vacío; después de una separación puede quedar vacío. Mundo conserva los índices de Relaciones como única fuente.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito y autoridad
 
 Este documento es la fuente canónica para el tipo `Mundo`, sus elementos

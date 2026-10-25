@@ -2,9 +2,13 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
+| Estado | Obsoleto; sustituido por el reglamento y contrato 06 |
 | Versión | 1.2 |
 | Fecha | 2026-10-20 |
+
+> Antecedente histórico. Sus reglas y APIs fueron retiradas del motor activo.
+> La fuente vigente es el [contrato de Viajar](./06-implementacion-viajar.md),
+> en particular su sección 8 para las cinco acciones particulares actuales.
 
 ## 1. Propósito y autoridad
 

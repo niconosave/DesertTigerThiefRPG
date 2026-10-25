@@ -6,6 +6,17 @@
 | Versión | 0.21 |
 | Fecha | 2026-10-20 |
 
+## Revisión implementada el 2026-10-24: Sesión y vistas del viaje activo
+
+Partida retiene EjecucionAccion e IdPaso en escenas y decisiones. La vista transmite tiempo_transcurrido como texto, fecha proyectada y participantes congelados. No publica pronosticos_viaje. Al finalizar confirma fecha y resto una vez y ejecuta una fase NPC.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito y autoridad
 
 Este documento es la fuente canónica para la sesión activa y la fachada que

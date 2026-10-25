@@ -1,10 +1,23 @@
 # Traspaso de contexto: rediseño de `Viajar`
 
+> Archivo de traspaso histórico, sustituido el 2026-10-24. Las instrucciones de
+> este cuerpo corresponden a una fase anterior. El motor está implementado:
+> consultar el [contrato vigente](../06-implementacion-viajar.md), el reglamento
+> 05 y el [informe de verificación](../verificacion-viajar-reglamento.md).
+
+
 | Campo | Valor |
 |---|---|
-| Estado | Trabajo de diseño en curso |
+| Estado | Traspaso histórico; actualizado por la etapa técnica |
 | Fecha del traspaso | 2026-10-21 |
 | Documento activo | [`05-viajar-redisenio.md`](./05-viajar-redisenio.md) |
+
+> Actualización 2026-10-24: ya se inició, por indicación de la persona usuaria,
+> el [diseño técnico del refactor](../06-implementacion-viajar.md). Los límites y
+> el mensaje inicial de este traspaso corresponden a la etapa anterior de diseño
+> del reglamento. Para continuar ahora deben leerse el reglamento y ese contrato
+> técnico. No constituyen una prohibición vigente de escribir documentación
+> técnica. La implementación y los planes todavía no se iniciaron.
 
 ## 1. Objetivo activo
 
@@ -78,7 +91,7 @@ sus reglas.
 - El medio determina la acción particular:
   - a pie: `Andar`;
   - a caballo: `Cabalgar`;
-  - en camello: `CabalgarEnCamello`;
+  - en camello: `Cabalgar`, compartida con caballo, con tarjeta propia;
   - por mar: `NavegarEnBarco`.
 - Para la tarjeta de desplazamiento de `Viajar`, todo el Grupo se mueve junto y
   `Viajar` elige como líder al integrante con mejor capacidad aplicable.

@@ -3,6 +3,11 @@
 Los planes convierten documentación técnica ya discutida en pasos de desarrollo
 pequeños, ordenados y verificables.
 
+La secuencia de refactor de `Viajar`, PLAN-2026-025 a PLAN-2026-031, está
+[completada](./completados/README.md#refactor-del-reglamento-de-viajar).
+El índice de [pendientes](./pendientes/README.md) conserva otros alcances y
+antecedentes sustituidos sin atribuirles verificaciones del refactor nuevo.
+
 ## Flujo
 
 1. Copiar [`PLANTILLA.md`](./PLANTILLA.md) a

@@ -6,6 +6,17 @@
 | Versión | 0.14 |
 | Fecha | 2026-10-20 |
 
+## Revisión implementada el 2026-10-24: Cero o más NPC con el mismo motor
+
+Se recorren políticas por ID, excluyendo al jugador, compañeros actuales y muertos. Se confirman escenas automáticamente y decisiones válidas al azar. Los resúmenes se acumulan sin confirmar fecha ni fracción mundial. Sustituye las restricciones antiguas de un solo elegible y los protocolos anteriores de ejecución.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito y alcance
 
 Este documento define la fase síncrona que ocurre después de aplicar a la fecha

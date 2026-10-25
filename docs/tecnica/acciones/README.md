@@ -8,12 +8,20 @@ cada acción.
 | Documento | Alcance |
 |---|---|
 | [`01-viajar.md`](./01-viajar.md) | Contrato histórico obsoleto de la primera versión. |
-| [`02-viajar-expediciones.md`](./02-viajar-expediciones.md) | Contrato de la expedición física: etapas, preparación, supervivencia y medios. |
-| [`03-cronologia-causal-viaje.md`](./03-cronologia-causal-viaje.md) | Contrato aprobado para componer situaciones dramáticas de viaje, preservar cada momento causal y presentar el progreso. |
-| [`04-proyecto-humano-viajar.md`](./04-proyecto-humano-viajar.md) | Fuente canónica de propósito, deliberación, plan, subobjetivos, procedencia de medios, interpretación y replanteamiento. |
-| [`borradores/05-viajar-redisenio.md`](./borradores/05-viajar-redisenio.md) | Borrador no normativo del nuevo diseño de `Viajar`, en elaboración conjunta. |
+| [`02-viajar-expediciones.md`](./02-viajar-expediciones.md) | Antecedente obsoleto de expedición física: etapas, preparación, supervivencia y medios. |
+| [`03-cronologia-causal-viaje.md`](./03-cronologia-causal-viaje.md) | Antecedente obsoleto para componer situaciones dramáticas de viaje, preservar cada momento causal y presentar el progreso. |
+| [`04-proyecto-humano-viajar.md`](./04-proyecto-humano-viajar.md) | Antecedente obsoleto de propósito, deliberación, plan, subobjetivos, procedencia de medios, interpretación y replanteamiento. |
+| [`06-implementacion-viajar.md`](./06-implementacion-viajar.md) | Contrato implementado del refactor: módulos, cálculos, ejecución por escenas e integración. |
+| [`borradores/05-viajar-redisenio.md`](./borradores/05-viajar-redisenio.md) | Reglamento aprobado de `Viajar`, conservado en su ruta para mantener referencias. |
 | [`borradores/CONTEXTO-viajar-redisenio.md`](./borradores/CONTEXTO-viajar-redisenio.md) | Traspaso breve para continuar el rediseño en otra conversación. |
-| [`particulares/`](./particulares/README.md) | Fuente normativa de operaciones de simulación reutilizables. |
+| [`particulares/`](./particulares/README.md) | Índice vigente de las cinco pruebas y archivos históricos sustituidos. |
+
+Para el motor implementado, las mecánicas pertenecen al reglamento de
+`borradores/05-viajar-redisenio.md` y su traducción a código al contrato `06`.
+Los documentos `01` a `04` describen alcances anteriores: no deben utilizarse
+para completar reglas del refactor. La sección 16 del contrato `06` delimita los
+cambios sobre componentes compartidos. Ambos documentos describen el motor actual; el informe de
+[verificación](./verificacion-viajar-reglamento.md) registra el cierre técnico. El nombre histórico de la carpeta `borradores` no cambia su estado.
 
 Una acción nueva requiere su diseño aprobado antes de incorporarse a un plan de
 implementación. Los documentos no repiten los contratos del motor, el Mundo o la

@@ -1,9 +1,12 @@
 //! Composición de partidas y fachada independiente del frontend.
 
 mod contenido;
+mod contexto_viaje;
 mod fase_npc;
 mod lua;
+mod narracion_viaje;
 mod sesion;
+mod tiempo;
 
 pub use contenido::{
     CeldaRetrato, ClaseDiagnosticoContenido, ClaveTipoTile, ColorRetrato, ContenidoValidado,

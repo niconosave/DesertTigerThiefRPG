@@ -1,7 +1,15 @@
 # Reglamento de la acción general `Viajar`
 
-> Estado: borrador en elaboración conjunta. Las decisiones abiertas figuran en
-> [Pendientes](#pendientes); no deben completarse por analogía con versiones anteriores.
+> Estado: implementado; revisión estética conjunta pendiente.
+> Versión: 1.1. Fecha: 2026-10-24.
+> [Pendientes](#pendientes) indica el cierre actual; no deben añadirse reglas
+> por analogía con versiones anteriores.
+
+> La implementación se diseña en
+> [06-implementacion-viajar.md](../06-implementacion-viajar.md).
+> Aclaraciones de alcance incorporadas el 2026-10-24: alternativa de ruta con
+> retorno a la rápida, rumbo provisional desde centros y aplazamiento de
+> Relaciones nuevas. `Conectado` y `Conoce` se mantienen.
 
 ## Índice
 
@@ -96,6 +104,13 @@ Lugares de la ruta larga = C + E
 
 Cualquier técnica puede construirla si produce una ruta válida con esos extremos
 y ese intervalo. Su duración se calcula con las mismas reglas que la rápida.
+
+Si el procedimiento no consigue una alternativa dentro del intervalo, se
+acepta una ruta con una cantidad de Lugares más parecida a la rápida, o incluso
+la propia ruta rápida. La falta de una alternativa larga no impide emprender el
+viaje. Si no existe ninguna ruta conectada hasta el destino, no se puede iniciar
+`Viajar`. La técnica inicial construye rutas sin repetir Lugares y se especifica
+en el contrato técnico; no introduce vueltas para alcanzar el intervalo.
 
 Puede proponer la ruta rápida cualquier Actor que cumpla al menos una condición:
 
@@ -199,6 +214,11 @@ equivale a 0 horas. Todo tiempo avanza el calendario y, desde que existen
 reservas, el contador de consumo, incluso si después se cancela el viaje.
 El plan no corrige ni limita la duración real y las demoras de ejecución no
 reinician el aprovisionamiento inicial.
+
+`Viajar` conserva internamente sus horas y fracciones. Su traducción al calendario
+general muestra la fecha proyectada durante la acción y confirma el avance al
+terminarla. Todo resto inferior a un día se conserva entre acciones; convertir
+horas a días no autoriza a descartar el sobrante.
 
 <a id="reservas"></a>
 ### 4.2. Reservas y materialización
@@ -458,8 +478,7 @@ Este sorteo no reemplaza la selección del responsable ni la del proponente.
 | Acción | Capacidad evaluada | Modificadores propios | Uso en `Viajar` |
 |---|---|---|---|
 | `Andar` | Orientarse, leer terreno, elegir paso y abrir camino a pie. | `Vagabundo` +2. | `VIA-DES-AND`, dificultad 5. |
-| `Cabalgar` | Guiar y dominar un caballo. | `Jinete` +2. | `VIA-DES-CAB`, dificultad 6. |
-| `CabalgarEnCamello` | Guiar y dominar un camello. | `Jinete` +2. | `VIA-DES-CAM`, dificultad 6. |
+| `Cabalgar` | Guiar y dominar una montura, caballo o camello. | `Jinete` +2. | `VIA-DES-CAB` y `VIA-DES-CAM`, dificultad 6 en ambas. |
 | `NavegarEnBarco` | Interpretar viento y clima, gobernar velas y conservar rumbo útil. | `Navegante` +4. | `VIA-DES-NAV`, dificultad 14. |
 | `CalcularProvisiones` | Calcular y reunir alimento, agua y suministros. | `Administrador` +2 y `Expedicionario` +2; ambas, +4. | `VIA-APR-01`, dificultad 10. |
 | `Forajear` | Buscar alimento y avituallamiento en entorno salvaje. | `Expedicionario` +2 y `Herbalista` +2; ambas, +4. | `VIA-APR-02`, dificultad 14; actúan todos. |
@@ -471,6 +490,14 @@ las reglas o duraciones de la viñeta, sin modificar estas tiradas.
 
 La acción particular no elige responsable ni dificultad ni conoce Lugares o ruta.
 Tiempo, consumo, Relaciones e incidentes pertenecen a la tarjeta y a `Viajar`.
+
+Las Características expresan capacidades del Actor que pueden ayudar en varias
+acciones particulares; no existen niveles de habilidad independientes por
+acción. La acción particular define una regla de intento reutilizable, no cada
+variante narrativa. Por eso caballo y camello usan la misma prueba `Cabalgar`.
+Sus tarjetas permanecen independientes: cada una expresa la experiencia del
+viaje mediante su propio dramatismo, relato, incidentes, duración y circunstancias.
+Compartir la prueba no obliga a fusionarlas ni a que evolucionen juntas.
 
 Dos sorteos de 1d20 quedan fuera de las acciones particulares:
 
@@ -618,11 +645,22 @@ jugador nunca puede desaparecer. La desaparición se aplica antes de continuar:
 - **Buscarlo:** cancela `Viajar` en el Lugar del incidente. La búsqueda y una
   posible reincorporación quedan fuera de esta acción.
 - **Continuar:** el separado deja de intervenir en el Grupo y el Actor del
-  jugador obtiene la Relación dirigida `Abandono` hacia él. Si ya existe,
-  se conserva sin duplicarla ni modificarla.
+  jugador continúa con los demás. La Relación `Abandono` queda aplazada;
+  este alcance no crea ese vínculo ni otros tipos nuevos de Relación.
 
 Los dos intentos mantienen al responsable originalmente elegido. La composición
 para la escena se trata según la regla común de pérdida de Actores.
+
+Si se elige buscarlo, se conserva el tiempo de **toda la conexión**, incluidas
+ambas mitades y sus demoras, aunque el incidente ocurra en origen. Ese tiempo
+también determina el consumo completo de la escena. El Grupo queda en el Lugar
+del incidente; contabilizar la conexión completa no confirma una llegada ni
+añade tiempo para la búsqueda posterior.
+
+Se conservan los dos resultados y todo conocimiento que concedan según sus
+umbrales, sin repetir tiradas ni retirar conocimientos al cancelar. En las
+reglas actuales no puede coincidir separación con Conoce: la separación exige
+ambos resultados menores que 8 y el conocimiento exige al menos 17.
 
 **Presentación y cierre.** Relata la marcha en segunda persona siguiendo las
 mitades y situando descubrimientos e incidente donde ocurrieron, con los datos
@@ -680,7 +718,7 @@ no cambia. Relata las mitades e incidente en orden y completa la conexión;
 #### 8.2.3. VIA-DES-CAM — Cabalgar en camello
 
 **Resolución del recorrido.** El Actor más apto realiza dos chequeos de
-`CabalgarEnCamello`, dificultad 6: origen y destino, con el mismo responsable.
+`Cabalgar`, dificultad 6: origen y destino, con el mismo responsable.
 Usa la base de 5 días, las mitades por tamaño y las restricciones de 4.1;
 puede atravesar `Desierto` `Vasto`.
 Cada ajustado ≥17 concede a todos los integrantes `Conoce` con el Lugar de
@@ -703,7 +741,7 @@ independientemente y puede narrarse que cabalgaba ese camello.
 Una muerte reduce inmediatamente el contador. Si aún alcanza un camello por
 Actor, una reserva lo sustituye sin cambiar medio ni velocidad. Si no alcanza:
 
-- En origen, conserva el segundo chequeo de `CabalgarEnCamello` y el incidente
+- En origen, conserva el segundo chequeo de `Cabalgar` y el incidente
   único; solo la duración del destino usa la base de `Andar` con su tamaño,
   sin `Esguince`, `Cansado` ni otros modificadores personales de andar.
 - En destino, conserva la duración montada de esa mitad.
@@ -752,7 +790,14 @@ cruce de mes:
 | Septiembre, octubre | Norte |
 | Abril, mayo, agosto, noviembre, diciembre | Azar uniforme entre norte, noreste, este, sureste, sur, suroeste, oeste y noroeste. |
 
-Barco y viento usan esos ocho puntos. La comparación cubre todos los casos:
+Barco y viento usan esos ocho puntos.
+
+El rumbo del barco se deriva provisionalmente del ángulo dirigido entre el
+centro del Lugar de origen y el del Lugar de destino en el mapa, aproximado a
+uno de los ocho puntos. Cambiar esos centros puede cambiar el rumbo calculado.
+Esta abstracción se sustituirá cuando exista una geografía más detallada.
+
+La comparación cubre todos los casos:
 
 | Relación | Criterio | Tiempo sobre la conexión completa |
 |---|---|---:|
@@ -979,10 +1024,10 @@ Después de mostrar el remanente, termina `Viajar` y descarta sus cuentas tempor
 <a id="pendientes"></a>
 ## 9. Decisiones pendientes
 
-Falta decidir qué ocurre cuando no existe una ruta válida, existe una sola o
-no puede construirse una ruta larga dentro del intervalo exigido, y si una ruta
-puede repetir un Lugar. No se completan estos casos por analogía. Cada decisión
-confirmada debe incorporarse a su regla y retirarse de esta lista.
+No quedan decisiones de juego abiertas registradas. El 2026-10-24 se confirmó
+que cancelar para buscar a un compañero conserva el tiempo completo de la
+conexión y ambos resultados de chequeo, según VIA-DES-AND. Los casos sin ruta
+alternativa están resueltos en la sección 3.1.
 
 <a id="material-retirado"></a>
 ## 10. Material retirado para revisión — excluido del cuerpo principal

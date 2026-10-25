@@ -198,6 +198,7 @@ impl Interfaz {
     }
 
     fn actualizar_mundo(&mut self) {
+        self.ultima_vista_mundo = self.partida.mundo_visible();
         if let VistaSesion::Disponible(mundo) = &self.vista {
             self.ultima_vista_mundo = mundo.clone();
             self.modo = ModoLocal::Normal;
@@ -418,25 +419,7 @@ impl Interfaz {
                 .find(|lugar| lugar.id == destinos[*foco])
                 .map(|lugar| lugar.nombre.as_str())
                 .unwrap_or("destino");
-            let pronostico = self
-                .ultima_vista_mundo
-                .pronosticos_viaje
-                .iter()
-                .find(|pronostico| pronostico.destino == destinos[*foco]);
-            return match pronostico {
-                Some(pronostico) => {
-                    let riesgo = if pronostico.hay_incertidumbre {
-                        "con incertidumbre"
-                    } else {
-                        "sin riesgos conocidos"
-                    };
-                    format!(
-                        "> Destino: {nombre}. {}–{} días, {riesgo}.",
-                        pronostico.dias_minimos, pronostico.dias_maximos
-                    )
-                }
-                None => format!("> Destino: {nombre}. Elige adónde viajar."),
-            };
+            return format!("> Destino: {nombre}. Elige adónde viajar.");
         }
         match &self.vista {
             VistaSesion::PresentandoAccion(fragmento) => texto_progreso(&fragmento.progreso),
@@ -750,15 +733,9 @@ fn contexto_mundo(mundo: &VistaMundo) -> String {
             .cronologias()
             .first()
             .map(|cronologia| {
-                let momentos = cronologia
-                    .registros
-                    .iter()
-                    .map(|registro| registro.momentos.len())
-                    .sum::<usize>();
                 format!(
-                    " {momentos} acciones particulares, {} meses y {} días simulados.",
-                    cronologia.duracion.meses(),
-                    cronologia.duracion.dias()
+                    " {} escenas; {} simulados.",
+                    cronologia.escenas, cronologia.tiempo_visible
                 )
             })
             .unwrap_or_default();
@@ -791,13 +768,12 @@ fn texto_progreso(progreso: &desert_tiger_app::VistaProgresoViaje) -> String {
         .map(|nombre| format!(" · siguiente: {nombre}"))
         .unwrap_or_default();
     format!(
-        "{} · Día {} de {:?} de {} · transcurrido: {} meses y {} días{siguiente}",
+        "{} · {:02}/{:02}/{} · {}{siguiente}",
         progreso.nombre_lugar_confirmado,
         progreso.fecha_proyectada.dia(),
-        progreso.fecha_proyectada.mes(),
+        progreso.fecha_proyectada.mes().numero(),
         progreso.fecha_proyectada.anio(),
-        progreso.duracion_transcurrida.meses(),
-        progreso.duracion_transcurrida.dias(),
+        progreso.tiempo_transcurrido,
     )
 }
 
@@ -917,6 +893,14 @@ mod pruebas {
         let mut interfaz = Interfaz::nueva(partida).expect("interfaz válida");
         interfaz.manejar_tecla(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
         interfaz.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        // La primera vista puede ser una decisión de ruta o carga. Avanzamos
+        // por la fachada hasta una escena automática, sin suponer su número.
+        while let VistaSesion::EsperandoDecision(decision) = interfaz.vista.clone() {
+            interfaz.enviar(IntencionFrontend::ResponderDecision {
+                decision: decision.id,
+                opcion: decision.opciones[0].id,
+            });
+        }
         let id = match &mut interfaz.vista {
             VistaSesion::PresentandoAccion(fragmento) => {
                 fragmento.texto = "El grupo considera el propósito del viaje. ".repeat(20);
@@ -957,6 +941,56 @@ mod pruebas {
                     .any(|pagina| pagina.contains(&format!("línea causal {indice}:")))
             );
         }
+    }
+
+    #[test]
+    fn viaje_completo_renderiza_cada_paso_y_redimensiona_sin_avanzar() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        let mut interfaz = Interfaz::nueva(partida).unwrap();
+        let destino = interfaz
+            .ultima_vista_mundo
+            .lugares
+            .iter()
+            .find(|l| l.nombre == "Mar de Levante")
+            .unwrap()
+            .id;
+        interfaz.enviar(IntencionFrontend::ComenzarViaje { destino });
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let mut pasos = 0;
+        loop {
+            terminal
+                .draw(|frame| interfaz.dibujar(frame, &recursos))
+                .unwrap();
+            pasos += 1;
+            assert!(pasos < 500);
+            match interfaz.vista.clone() {
+                VistaSesion::PresentandoAccion(r) => {
+                    let anterior = interfaz.vista.clone();
+                    terminal.backend_mut().resize(79, 24);
+                    terminal.resize(Rect::new(0, 0, 79, 24)).unwrap();
+                    terminal
+                        .draw(|frame| interfaz.dibujar(frame, &recursos))
+                        .unwrap();
+                    assert_eq!(interfaz.vista, anterior);
+                    terminal.backend_mut().resize(80, 24);
+                    terminal.resize(Rect::new(0, 0, 80, 24)).unwrap();
+                    interfaz.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: r.id });
+                }
+                VistaSesion::EsperandoDecision(d) => {
+                    interfaz.enviar(IntencionFrontend::ResponderDecision {
+                        decision: d.id,
+                        opcion: d.opciones[0].id,
+                    })
+                }
+                VistaSesion::Disponible(_) => break,
+                VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
+            }
+        }
+        assert!(pasos > 4);
     }
 
     #[test]

@@ -870,20 +870,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         .iter_mut()
         .filter_map(|actor| actor.politica.take())
         .collect();
-    let politicas_independientes = politicas
-        .iter()
-        .filter(|politica| politica.actor() != jugador && !companeros.contains(&politica.actor()))
-        .count();
-    if politicas_independientes != 1 {
-        return Err(error_mundo(
-            ClaseDiagnosticoContenido::ValorInvalido,
-            format!(
-                "se esperaba una política Lua de NPC independiente; se encontraron {politicas_independientes}"
-            ),
-        ));
-    }
-
-    Ok(ContenidoValidado {
+    let contenido = ContenidoValidado {
         interno: Arc::new(ContenidoValidadoInterno {
             plantilla_mundo: datos,
             presentacion: CatalogoPresentacion {
@@ -900,7 +887,13 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
             claves,
             politicas,
         }),
-    })
+    };
+    let (mundo, _) = contenido
+        .instanciar_estado()
+        .map_err(|e| error_mundo(ClaseDiagnosticoContenido::InvarianteDominio, e.to_string()))?;
+    crate::contexto_viaje::construir(&mundo, contenido.presentacion())
+        .map_err(|e| error_mundo(ClaseDiagnosticoContenido::ValorInvalido, e))?;
+    Ok(contenido)
 }
 
 fn leer_ron<T: DeserializeOwned>(

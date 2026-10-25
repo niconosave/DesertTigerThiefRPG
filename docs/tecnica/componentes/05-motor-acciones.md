@@ -6,6 +6,17 @@
 | Versión | 0.19 |
 | Fecha | 2026-10-20 |
 
+## Revisión implementada el 2026-10-24: Motor reanudable vigente
+
+Las firmas activas son iniciar, avanzar y responder del contrato 06, sección 9. PasoAccion contiene Escena, Decision o Finalizada. Las particulares solo hacen el chequeo de la sección 8; las tarjetas resuelven sus consecuencias. Los estados, pronósticos y trazas del cuerpo histórico no son APIs activas.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito
 
 Este documento es la fuente canónica del motor de `desert-tiger-core` que ejecuta

@@ -6,6 +6,11 @@
 | Versión | 1.3 |
 | Fecha | 2026-10-20 |
 
+> Las intenciones geográficas de este brief se conservan. Sus ejemplos de
+> reglas anteriores quedaron sustituidos por el
+> [reglamento vigente de Viajar](../tecnica/acciones/borradores/05-viajar-redisenio.md).
+> No se añaden etiquetas abstractas de dificultad a Lugares ni a Relaciones.
+
 ## 1. Propósito y autoridad
 
 Este documento define la intención creativa del primer lote de Lugares que

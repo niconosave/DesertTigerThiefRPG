@@ -6,6 +6,17 @@
 | Versión | 1.0 |
 | Fecha | 2026-10-17 |
 
+## Revisión implementada el 2026-10-24: Conocimiento nuevo y privacidad
+
+Los umbrales de las tarjetas crean Conoce para sus participantes mediante RegistrarConocimiento. Los antiguos pronósticos y tablas de hechos conocidos no se usan en Viajar. El plan visible y la proyección de la sección 11 de 06 gobiernan qué información llega al jugador.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito y alcance
 
 Este documento define el primer conocimiento concreto de un Actor sobre el

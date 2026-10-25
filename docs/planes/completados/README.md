@@ -27,3 +27,21 @@ implementación cambia una decisión o un contrato.
 | Fecha | Plan | Resultado |
 |---|---|---|
 | 2026-10-20 | [PLAN-2026-021](./2026-10-19-21-conservar-trazas-causales.md) | Trazas regladas completas para todas las acciones particulares vigentes. |
+
+## Refactor del reglamento de Viajar
+
+Cierre técnico: 2026-10-24. La serie se integró como un incremento jugable;
+los controles automáticos, recorridos manuales y ajustes están en el
+[informe de verificación](../../tecnica/acciones/verificacion-viajar-reglamento.md).
+El usuario todavía no ha valorado el tono y ritmo del conjunto; no se atribuye
+esa aprobación al cierre funcional realizado por el agente.
+
+| Plan | Resultado |
+|---|---|
+| [PLAN-2026-025](./2026-10-24-25-preparar-tiempo-chequeos-reservas.md) | Preparar tiempo exacto, chequeos y reservas de Viajar. |
+| [PLAN-2026-026](./2026-10-24-26-preparar-rutas-rumbos.md) | Preparar rutas y rumbo provisional de Viajar. |
+| [PLAN-2026-027](./2026-10-24-27-preparar-carga-provisiones.md) | Preparar configuraciones de carga y provisiones de Viajar. |
+| [PLAN-2026-028](./2026-10-24-28-ampliar-consecuencias-grupo-npc.md) | Preparar consecuencias del viaje y varios NPC independientes. |
+| [PLAN-2026-029](./2026-10-24-29-construir-motor-viajar-tarjetas.md) | Construir el nuevo motor de Viajar y sus tarjetas. |
+| [PLAN-2026-030](./2026-10-24-30-integrar-viajar-narracion-terminal.md) | Activar el nuevo Viajar y presentar sus escenas. |
+| [PLAN-2026-031](./2026-10-24-31-validar-contenido-cerrar-refactor-viajar.md) | Validar contenido y cerrar el refactor de Viajar. |

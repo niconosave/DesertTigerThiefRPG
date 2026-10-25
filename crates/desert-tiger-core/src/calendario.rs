@@ -4,6 +4,56 @@ use std::fmt::{self, Display, Formatter};
 const ANIO_MINIMO: u16 = 1;
 const ANIO_MAXIMO: u16 = 9999;
 
+pub const PARTES_POR_HORA: u128 = 100_000_000;
+pub const PARTES_POR_DIA: u128 = 24 * PARTES_POR_HORA;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FraccionDia(u32);
+
+impl FraccionDia {
+    pub const CERO: Self = Self(0);
+    pub fn nueva(partes: u32) -> Result<Self, ErrorCalendario> {
+        if u128::from(partes) >= PARTES_POR_DIA {
+            return Err(ErrorCalendario::Desbordamiento);
+        }
+        Ok(Self(partes))
+    }
+    pub fn partes(self) -> u32 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TiempoAccion {
+    pub duracion: Duracion,
+    pub fraccion: FraccionDia,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InstanteAccion {
+    pub fecha: Fecha,
+    pub fraccion: FraccionDia,
+}
+
+pub fn proyectar_tiempo(
+    inicio: InstanteAccion,
+    tiempo: TiempoAccion,
+) -> Result<InstanteAccion, ErrorCalendario> {
+    let partes = u64::from(inicio.fraccion.partes()) + u64::from(tiempo.fraccion.partes());
+    let dias = u32::try_from(u128::from(partes) / PARTES_POR_DIA)
+        .map_err(|_| ErrorCalendario::Desbordamiento)?;
+    let fecha = inicio
+        .fecha
+        .sumar(tiempo.duracion)?
+        .sumar(Duracion::desde_dias(dias))?;
+    let resto = u32::try_from(u128::from(partes) % PARTES_POR_DIA)
+        .map_err(|_| ErrorCalendario::Desbordamiento)?;
+    Ok(InstanteAccion {
+        fecha,
+        fraccion: FraccionDia::nueva(resto)?,
+    })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Mes {
     Enero,

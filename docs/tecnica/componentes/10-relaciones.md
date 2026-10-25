@@ -6,6 +6,17 @@
 | Versión | 0.2 |
 | Fecha | 2026-10-16 |
 
+## Revisión implementada el 2026-10-24: Conoce adquirido durante el viaje
+
+Se conserva Conectado y el grafo indexado. RegistrarConocimiento incorpora una Relación Conoce idempotente junto a todos sus índices. No se añade Abandono ni atributos a Conectado. La sección 10 de 06 y las operaciones del Mundo fijan la confirmación atómica.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito y alcance
 
 Este documento es la fuente canónica para representar, cargar, almacenar y

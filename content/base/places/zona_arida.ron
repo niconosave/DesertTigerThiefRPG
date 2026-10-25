@@ -1,7 +1,7 @@
 (
     clave: "zona_arida",
     nombre: "Hamada Roja",
-    caracteristicas: ["arido", "desertico", "rocoso", "abierto"],
+    caracteristicas: ["arido", "desierto", "rocoso", "abierto"],
     relaciones: [
         (
             tipo: Conectado,

@@ -1,7 +1,7 @@
 (
     clave: "bandido",
     lugar_inicial: "zona_arida",
-    caracteristicas: ["fuerte", "guia", "camellero", "conoceDesiertos", "conCamellos"],
+    caracteristicas: ["fuerte", "guia", "camellero", "jinete", "conoceDesiertos", "conCamellos"],
     relaciones: [
         (tipo: Conoce, destino: Lugar("zona_arida")),
         (tipo: Conoce, destino: Lugar("camino_de_los_mojones")),

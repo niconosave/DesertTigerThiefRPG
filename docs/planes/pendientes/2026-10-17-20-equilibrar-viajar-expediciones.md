@@ -3,9 +3,14 @@
 | Campo | Valor |
 |---|---|
 | ID | PLAN-2026-020 |
-| Estado | En corrección |
+| Estado | Sustituido; cierre anterior incompleto |
 | Creado | 2026-10-17 |
-| Actualizado | 2026-10-20 |
+| Actualizado | 2026-10-24 |
+
+> Sustituido por la secuencia PLAN-2026-025 a PLAN-2026-031 del
+> [refactor implementado](../completados/README.md#refactor-del-reglamento-de-viajar).
+> Conserva el historial anterior; no es una dependencia ni una autorización de
+> trabajo adicional y sus verificaciones pendientes no se declaran completadas.
 
 ## Resultado buscado
 

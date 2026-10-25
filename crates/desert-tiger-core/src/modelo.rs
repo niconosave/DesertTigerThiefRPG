@@ -358,7 +358,7 @@ impl Actor {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Grupo {
     integrantes: Vec<IdActor>,
 }
@@ -825,6 +825,11 @@ impl Mundo {
         lote: LoteOperaciones,
     ) -> Result<CambiosConfirmados, ErrorOperacionMundo> {
         let mut actores_virtuales = self.actores.clone();
+        let mut grupo_virtual = self.grupo.clone();
+        let mut relaciones_virtuales = self.relaciones.clone();
+        let mut por_actor = self.relaciones_por_actor.clone();
+        let mut por_lugar = self.relaciones_por_lugar.clone();
+        let mut conocidos = self.lugares_conocidos_por_actor.clone();
         let mut cambios = Vec::with_capacity(lote.operaciones.len());
 
         for operacion in lote.operaciones {
@@ -834,7 +839,7 @@ impl Mundo {
                         &mut actores_virtuales,
                         &self.lugares,
                         self.actor_jugador,
-                        &self.grupo,
+                        &grupo_virtual,
                         actor,
                         destino,
                     )?;
@@ -870,10 +875,53 @@ impl Mundo {
                         });
                     }
                 }
+                OperacionMundo::SepararCompanero { actor, lugar } => {
+                    if actor == self.actor_jugador || !grupo_virtual.contiene(actor) {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    if resolver_lugar(&self.lugares, lugar).is_none() {
+                        return Err(ErrorOperacionMundo::DestinoDesconocido { destino: lugar });
+                    }
+                    let actual = resolver_actor_mut(&mut actores_virtuales, actor)
+                        .ok_or(ErrorOperacionMundo::ActorDesconocido { actor })?;
+                    actual.lugar = lugar;
+                    grupo_virtual.integrantes.retain(|&id| id != actor);
+                    cambios.push(CambioConfirmado::CompaneroSeparado { actor, lugar });
+                }
+                OperacionMundo::RegistrarConocimiento { actor, lugar } => {
+                    let ai = actor
+                        .indice()
+                        .filter(|&i| actores_virtuales.get(i).is_some_and(|a| a.id == actor))
+                        .ok_or(ErrorOperacionMundo::ActorDesconocido { actor })?;
+                    let li = lugar
+                        .indice()
+                        .filter(|&i| self.lugares.get(i).is_some_and(|l| l.id == lugar))
+                        .ok_or(ErrorOperacionMundo::DestinoDesconocido { destino: lugar })?;
+                    if conocidos[ai].binary_search(&lugar).is_err() {
+                        let id = IdRelacion::desde_posicion(relaciones_virtuales.len())
+                            .map_err(|_| ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                        relaciones_virtuales.push(Relacion {
+                            id,
+                            tipo: TipoRelacion::Conoce,
+                            origen: ExtremoRelacion::Actor(actor),
+                            destino: ExtremoRelacion::Lugar(lugar),
+                        });
+                        por_actor[ai].push(id);
+                        por_lugar[li].push(id);
+                        conocidos[ai].push(lugar);
+                        conocidos[ai].sort_unstable();
+                        cambios.push(CambioConfirmado::ConocimientoRegistrado { actor, lugar });
+                    }
+                }
             }
         }
 
         self.actores = actores_virtuales;
+        self.grupo = grupo_virtual;
+        self.relaciones = relaciones_virtuales;
+        self.relaciones_por_actor = por_actor;
+        self.relaciones_por_lugar = por_lugar;
+        self.lugares_conocidos_por_actor = conocidos;
         Ok(CambiosConfirmados { cambios })
     }
 }
@@ -887,6 +935,14 @@ pub struct TrasladoConfirmado {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OperacionMundo {
+    SepararCompanero {
+        actor: IdActor,
+        lugar: IdLugar,
+    },
+    RegistrarConocimiento {
+        actor: IdActor,
+        lugar: IdLugar,
+    },
     Trasladar {
         actor: IdActor,
         destino: IdLugar,
@@ -942,6 +998,14 @@ impl CambiosConfirmados {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CambioConfirmado {
+    CompaneroSeparado {
+        actor: IdActor,
+        lugar: IdLugar,
+    },
+    ConocimientoRegistrado {
+        actor: IdActor,
+        lugar: IdLugar,
+    },
     ActoresTrasladados {
         actores: Vec<IdActor>,
         origen: IdLugar,

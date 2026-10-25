@@ -6,6 +6,17 @@
 | Versión | 0.42 |
 | Fecha | 2026-10-20 |
 
+## Revisión implementada el 2026-10-24: Presentación por pasos
+
+El layout, arte, controles, transparencia y animación se conservan. La terminal recibe la proyección pública del paso actual; mundo_visible conserva sus participantes. Paginar, consultar detalle y redimensionar no ejecuta reglas. Se retiraron pronósticos previos al plan; el progreso usa el mismo tiempo exacto de la fecha final.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito
 
 Este documento es la fuente canónica del frontend inicial que presentará el

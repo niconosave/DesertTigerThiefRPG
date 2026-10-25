@@ -6,6 +6,17 @@
 | Versión | 1.1 |
 | Fecha | 2026-10-18 |
 
+## Revisión implementada el 2026-10-24: Separación y conocimiento atómicos
+
+OperacionMundo y CambioConfirmado incluyen SepararCompanero y RegistrarConocimiento. aplicar_lote prepara Actores, Grupo, Relaciones e índices, y publica todo junto. La tarjeta omite Trasladar cuando no cambia la ubicación; la primitiva conserva su validación anterior.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito y alcance
 
 Este documento define el único mecanismo por el que una acción aplica un lote de
