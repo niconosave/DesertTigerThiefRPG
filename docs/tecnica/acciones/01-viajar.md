@@ -2,37 +2,109 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Implementado |
-| Versión | 0.11 |
-| Fecha | 2026-10-14 |
+| Estado | Obsoleto; sustituido por `02-viajar-expediciones.md` |
+| Versión | 0.15 |
+| Fecha | 2026-10-18 |
 
-## 1. Propósito y alcance
+## 1. Propósito y autoridad
 
-Este documento es la fuente canónica para las reglas, ramas narrativas,
-consecuencias y duración de `Viajar`. Es la única acción general disponible para
-el jugador en el primer incremento jugable.
+Este documento conserva el contrato histórico de la primera versión de
+`Viajar`. La fuente canónica vigente es
+[`02-viajar-expediciones.md`](./02-viajar-expediciones.md); ninguna regla
+provisional de este archivo, incluida `inalcanzable`, debe implementarse de
+nuevo.
 
-Utiliza el [modelo de Mundo](../componentes/02-modelo-mundo.md), se ejecuta en el
+La acción utiliza el [modelo de Mundo](../componentes/02-modelo-mundo.md) y las
+[Relaciones](../componentes/10-relaciones.md), se ejecuta mediante el
 [motor común](../componentes/05-motor-acciones.md) y entrega sus salidas a la
-[fachada de aplicación](../componentes/04-sesion-aplicacion.md).
+[fachada de aplicación](../componentes/04-sesion-aplicacion.md). Las Relaciones
+`conectado` constituyen su red geográfica reglada; el mapa, sus tiles y sus
+coordenadas siguen siendo exclusivamente visuales.
 
-El alcance inicial no utiliza Relaciones, distancias de tiles, rutas,
-inventarios, facciones ni simulación geográfica. Sus sucesos serán sencillos,
-genéricos y codificados en Rust; incrementos posteriores podrán reemplazarlos o
-ampliarlos con reglas que utilicen más elementos del Mundo.
+Esta versión incorpora:
 
-## 2. Solicitud y disponibilidad
+- destinos alcanzables mediante el grafo de Relaciones `conectado`;
+- elección de un destino final, sin elección manual de cada tramo;
+- una ruta automática con la menor cantidad de conexiones;
+- un día base por conexión recorrida;
+- selección azarosa de un único suceso entre un trayecto tranquilo y las
+  complicaciones permitidas por la ruta;
+- resolución de `Ascender directamente` mediante la acción particular
+  `Escalar`;
+- llegada con traslado atómico o interrupción por una escalada fallida.
 
-Una solicitud identifica:
+Medio de transporte, preparación, conocimiento y equipo todavía no son sistemas
+independientes del modelo. `Escalar` puede leer hechos cualitativos existentes,
+como `equipoMontana`, pero esta versión no introduce Objetos, inventario,
+provisiones, monturas, orientación ni recursos consumibles.
 
-- el Actor que viaja, vinculado por la aplicación o la fase NPC;
-- un `IdLugar` de destino.
+## 2. Conceptos propios de la acción
 
-Nunca contiene coordenadas. Para ofrecer destinos, el núcleo considera los
-Lugares del Mundo y aplica exactamente las condiciones aprobadas aquí. El
-frontend solo presenta esa lista y el núcleo vuelve a validarla al confirmar.
+### Ruta de viaje
 
-El módulo de `Viajar` expone una consulta de solo lectura equivalente a:
+Una ruta es una secuencia ordenada de `IdLugar` que, para una solicitud válida:
+
+- comienza en el Lugar actual del Actor;
+- termina en el destino elegido;
+- contiene al menos dos Lugares;
+- no repite Lugares;
+- conecta cada par consecutivo mediante `conectado`;
+- no contiene un Lugar `inalcanzable`, salvo que ese Lugar sea el origen actual.
+
+La cantidad de conexiones de la ruta es `lugares.len() - 1`. La ruta es contexto
+transitorio de la ejecución: no es un elemento persistente, no se serializa y no
+se proyecta sobre el mapa.
+
+El origen forma parte de la ruta para expresar y comprobar sus extremos, pero no
+se considera un Lugar atravesado. Para reglas contextuales, los Lugares
+atravesados son, en orden, todos los elementos posteriores al origen, incluido
+el destino.
+
+### Viajeros
+
+La secuencia de viajeros es:
+
+- cuando actúa el jugador, el propio jugador seguido por los integrantes de su
+  Grupo en orden canónico;
+- cuando actúa un NPC independiente, únicamente ese Actor.
+
+La secuencia se determina al aceptar la solicitud y se conserva durante la
+ejecución. Otros Actores presentes en los Lugares de la ruta no son viajeros y
+no participan en sus reglas.
+
+### Lugares marítimos
+
+Una ruta puede contener Lugares cuya Característica editorial sea `maritimo`.
+El núcleo no crea ni busca una embarcación: cuando un Actor entra en uno de esos
+Lugares, el juego presupone que viaja en un barco apropiado; cuando sale hacia
+tierra, presupone el desembarco. Mientras permanece allí, su ubicación lógica es
+el propio Lugar marítimo, no un tile de agua.
+
+`maritimo` no modifica por ahora disponibilidad, ruta, duración, candidaturas o
+resultado. Una Relación `conectado` válida basta para atravesar el tramo, igual
+que entre dos Lugares terrestres. Esta convención permite contenido navegable
+sin introducir Objetos, inventario ni un sistema de medios de transporte.
+
+### Características interpretadas
+
+Esta versión interpreta exactamente tres Características:
+
+| Característica | Elemento | Efecto en `Viajar` |
+|---|---|---|
+| `inalcanzable` | Lugar | Impide usar el Lugar como destino o atravesarlo; el origen actual es la única excepción y permite salir de él. |
+| `empinado` | Lugar | Aporta una candidatura contextual de Paso empinado si el Lugar es atravesado. |
+| `fuerte` | Actor | Mejora un resultado de Paso empinado si la posee al menos un viajero. |
+
+Ninguna otra Característica modifica disponibilidad, ruta, duración o resultado
+en esta versión. En particular, la ruta no intenta evitar `empinado`: primero se
+elige la ruta canónica más corta y después se construyen sus candidaturas.
+También puede elegir una ruta marítima más corta; el contenido debe diseñar sus
+conexiones teniendo presente que el jugador todavía no elige entre rutas
+alternativas.
+
+## 3. Disponibilidad y cálculo de ruta
+
+El módulo `acciones` de `desert-tiger-core` conserva la consulta pública:
 
 ```rust
 pub fn destinos_disponibles(
@@ -41,437 +113,464 @@ pub fn destinos_disponibles(
 ) -> Result<Vec<IdLugar>, RechazoAccion>;
 ```
 
-El vector conserva el orden estable de Lugares definido por el contenido. Un
-Lugar `inalcanzable` permanece visible en el mapa, pero no aparece en este vector
-y por ello no puede recibir foco ni confirmarse como destino. La consulta no
-consume azar y su resultado no evita la validación posterior.
+La consulta resuelve el Lugar actual del Actor y recorre el grafo normalizado de
+`conectado` mediante `Mundo::lugares_conectados`. Una sola declaración válida de
+esa Relación habilita el recorrido en ambos sentidos. El orden de sus extremos y
+el orden en que fueron declaradas las Relaciones no cambian el resultado.
 
-Condiciones confirmadas:
+Un destino está disponible si y solo si:
 
-- Actor y destino deben existir;
-- el destino debe ser distinto del Lugar actual del Actor;
-- un Lugar con la Característica `inalcanzable` no puede elegirse;
-- la acción no consulta Relaciones en esta versión;
-- el mapa y la distancia visual no afectan disponibilidad ni duración;
-- si actúa el jugador, el traslado incluye al propio jugador y a todo su Grupo;
-- un integrante del Grupo no puede iniciar un viaje independiente.
+- es distinto del Lugar actual;
+- no posee `inalcanzable`;
+- existe desde el origen una ruta formada por `conectado` que no atraviesa
+  Lugares `inalcanzable`.
 
-La validación de una solicitud concreta sigue este orden normativo: Actor
-existente, destino existente, jugador no `muerto`, destino distinto del Lugar
-actual, destino sin `inalcanzable` y Actor no integrante del Grupo intentando
-viajar solo. Se devuelve solamente el primer rechazo. El estado `muerto` de un
-NPC independiente sigue fuera del alcance inicial.
+El origen puede poseer `inalcanzable`: se utiliza como raíz de la búsqueda y se
+permite salir de él. Ningún otro Lugar con esa Característica se encola ni puede
+aparecer en una ruta.
 
-`destinos_disponibles` ignora siempre el Lugar actual. La validación de la
-solicitud repite esta comprobación: aunque un frontend o un script Lua envíe
-manualmente ese identificador, el motor rechaza la solicitud antes de seleccionar
-una rama, consumir azar, emitir fragmentos, acumular duración o mutar el Mundo.
+El vector de destinos usa el orden canónico global de Lugares del Mundo, no el
+orden de descubrimiento del grafo. Una red aislada o completamente bloqueada
+produce `Ok(vec![])`; no es un error.
 
-Antes de enumerar Lugares, `destinos_disponibles` comprueba que el Actor exista,
-que un jugador no tenga `muerto` y que el Actor no sea un integrante del Grupo
-intentando viajar solo. Después conserva únicamente los Lugares distintos del
-actual y sin `inalcanzable`, en su orden canónico.
+La consulta no usa coordenadas, distancia visual, tiles ni azar. Tampoco evita
+la validación al confirmar una solicitud.
 
-El actor usado por la fase NPC del contenido oficial estará vivo y será ajeno al
-Grupo. La fase no evalúa políticas Lua de compañeros y el motor rechaza cualquier
-solicitud que intentara trasladar a uno de ellos por separado.
+### Ruta canónica más corta
 
-## 3. Ejecución inicial
+Al confirmar un destino, `Viajar` calcula la ruta mediante búsqueda en anchura
+(BFS) sobre las conexiones transitables:
 
-La acción general organiza una secuencia reanudable:
+1. encola el origen y lo marca como descubierto;
+2. toma cada Lugar de la cola;
+3. examina los vecinos entregados por `Mundo::lugares_conectados`, ya ordenados
+   según el orden canónico global de Lugares;
+4. omite vecinos ya descubiertos y Lugares `inalcanzable`;
+5. registra como predecesor al Lugar desde el cual descubre cada vecino;
+6. al descubrir el destino, reconstruye la secuencia desde el origen.
+
+Esto minimiza exclusivamente la cantidad de conexiones. Si varias rutas tienen
+esa longitud mínima, el orden de exploración elige de forma determinista la
+secuencia lexicográficamente menor según el orden canónico de Lugares. No se
+usan Características, duración estimada, cantidad de candidaturas ni orden de
+los archivos para romper el empate.
+
+La implementación puede obtener todos los alcanzables con una sola BFS para la
+consulta y detenerse al descubrir el destino para una solicitud concreta, pero
+ambos caminos deben respetar exactamente las mismas reglas de transitabilidad y
+orden.
+
+## 4. Solicitud y validación
+
+Una solicitud contiene el `IdActor` que viaja y el `IdLugar` del destino final.
+No contiene ruta, Relaciones ni coordenadas. El jugador y los NPC usan la misma
+variante `SolicitudAccion::Viajar`.
+
+El núcleo vuelve a validar la solicitud y calcula la ruta contra el Mundo real
+al comenzar. El orden de validación es normativo:
+
+1. el Actor existe;
+2. el destino existe;
+3. si el Actor es el jugador, no posee `muerto`;
+4. el destino es distinto del Lugar actual;
+5. el destino no posee `inalcanzable`;
+6. el Actor no es un integrante del Grupo intentando viajar por separado;
+7. existe una ruta conectada y transitable hasta el destino.
+
+La última condición añade el rechazo específico:
+
+```rust
+RechazoAccion::DestinoSinRutaConectada {
+    origen: IdLugar,
+    destino: IdLugar,
+}
+```
+
+Las demás condiciones conservan sus variantes existentes. Se devuelve solo el
+primer rechazo según el orden anterior. El tratamiento general de `muerto` para
+un NPC independiente continúa fuera de alcance.
+
+Todo rechazo sucede antes de crear una ejecución, consumir azar, acumular
+duración, emitir narrativa o modificar el Mundo. La ruta aceptada, los viajeros
+y el contexto del suceso seleccionado se guardan como estado privado de
+`EjecucionAccion`; la aplicación y el frontend no pueden sustituirlos.
+
+## 5. Candidaturas y selección del suceso
+
+Una solicitud válida construye una lista no vacía y ordenada de candidaturas:
+
+1. `Trayecto tranquilo`, siempre en el índice `0`;
+2. una candidatura `Paso empinado` por cada Lugar atravesado con `empinado`, en
+   el mismo orden en que esos Lugares aparecen en la ruta.
+
+El origen nunca aporta una candidatura, aunque tenga `empinado`. El destino sí
+puede aportarla. Dos Lugares `empinado` distintos producen dos candidaturas
+distintas aunque ambas ejecuten las mismas reglas y textos.
+
+Después de validar, la acción hace exactamente una llamada a
+`FuenteAzar::elegir_indice`, cuyo límite exclusivo es la cantidad de
+candidaturas. El índice devuelto selecciona el único suceso del viaje. Todas las
+candidaturas tienen la misma probabilidad; no se realizan extracciones
+separadas para decidir primero si hay una complicación y después cuál.
+
+Consecuencias de esta regla:
+
+- sin un Lugar `empinado`, existe una sola candidatura y la llamada usa límite
+  `1`;
+- con un Lugar `empinado`, `Trayecto tranquilo` y Paso empinado tienen
+  probabilidad `1/2` cada uno;
+- con dos Lugares `empinado`, cada una de las tres candidaturas tiene
+  probabilidad `1/3`;
+- nunca se ejecuta más de un Paso empinado en el mismo viaje.
+
+Con el mismo Mundo, solicitud, decisiones y secuencia de azar, la ruta, el suceso
+y el resultado son reproducibles. Reordenar declaraciones de Relaciones no
+reordena candidaturas porque estas dependen de la ruta canónica.
+
+## 6. Ejecución común
+
+La secuencia conceptual es:
 
 ```text
 validar Actor y destino
-→ seleccionar al azar un grupo de viñetas de viaje
-→ recorrer la máquina de estados de la rama elegida
-  ├── emitir un fragmento narrativo
-  ├── solicitar y recibir una decisión, solamente si la rama la contiene
-  ├── ejecutar una acción particular
-  └── acumular duración
-→ trasladar al Actor independiente o al jugador junto con su Grupo
-→ finalizar
+→ calcular y conservar la ruta canónica
+→ determinar viajeros y duración base
+→ construir candidaturas y seleccionar exactamente un suceso
+  ├── Trayecto tranquilo: narrar la marcha
+  └── Paso empinado: presentar y resolver una decisión
+→ narrar la llegada
+→ trasladar atómicamente a los viajeros del origen al destino
+→ emitir el resultado semántico del traslado
+→ finalizar con la duración total
 ```
 
-Una rama puede intercalar esas operaciones en el orden que defina su diseño; el
-diagrama no obliga a emitir toda la narrativa antes de simular. Las subsecciones
-siguientes fijan ese orden para las tres ramas iniciales.
+La acción general invoca una vez por conexión la acción particular interna
+`RecorrerConexion`, que añade exactamente un día mediante suma comprobada. No
+mueve Actores, no modifica el Mundo, no emite narrativa y no consume azar.
 
-Una vez aceptada la solicitud, las tres ramas iniciales terminan llegando al
-destino. Ninguna opción puede cancelar el viaje, dejar al Actor en el origen o
-enviarlo a un Lugar diferente. Las ramas solo varían los fragmentos, las
-decisiones recorridas y la duración acumulada.
+La ruta no causa traslados intermedios. Mientras la ejecución espera una
+decisión, todos los viajeros continúan lógicamente en el origen. La sesión no
+permite otra acción simultánea ni una mutación externa del Mundo; al reanudar se
+utiliza el contexto guardado al aceptar el viaje.
 
-La selección aleatoria utiliza exclusivamente la fuente de azar proporcionada
-por el motor. Con igual Mundo, solicitud, decisiones y secuencia de azar, el
-resultado debe repetirse.
+Una solicitud aceptada termina en llegada o en interrupción por una escalada
+fallida. No existe una opción que cancele voluntariamente el viaje, cambie el
+destino o divida al Grupo.
 
-El contenido mínimo tiene exactamente tres grupos, todos con la misma
-probabilidad de ser elegidos:
+## 7. Suceso `Trayecto tranquilo`
 
-1. **Trayecto tranquilo:** presenta un viaje sin una complicación relevante.
-2. **Obstáculo:** presenta una dificultad incidental y una decisión entre dos
-   formas de continuar.
-3. **Rumbo incierto:** presenta una duda de orientación y una elección entre
-   riesgo y demora segura, sin consultar una red de rutas real.
+El índice `0` selecciona una ejecución sin decisión ni complicación. Emite antes
+de la llegada este fragmento exacto:
 
-Estos nombres describen ramas internas y no son IDs de contenido. El obstáculo y
-la incertidumbre de rumbo no se derivan de tiles, distancia, Relaciones, terreno,
-clima ni del Lugar de origen o destino: son sucesos narrativos propios de la
-implementación inicial de `Viajar`. La selección consume exactamente una llamada a
-`FuenteAzar::elegir_indice` con límite exclusivo `3`, antes de emitir el primer
-fragmento. El orden estable para interpretar los índices es el de la lista
-anterior.
+| Texto | `ClaveEscena` |
+|---|---|
+| `El viaje avanza por la ruta prevista sin contratiempos.` | `Some(ClaveEscena::ViajeMarcha)` |
 
-### Rama `Trayecto tranquilo`
+No añade duración aparte del día base de cada conexión y no realiza otra
+extracción de azar.
 
-El índice `0` selecciona una rama determinista que se completa durante la misma
-llamada de inicio, porque no contiene una decisión. Su secuencia reglada es:
+## 8. Suceso contextual `Paso empinado`
 
-1. ejecutar la acción particular `RecorrerTramo`, que añade exactamente un día;
-2. emitir una viñeta breve de marcha sin incidentes;
-3. ejecutar nuevamente `RecorrerTramo`, añadiendo otro día;
-4. emitir una viñeta breve de llegada;
-5. trasladar una sola vez al Actor independiente o al jugador con su Grupo;
-6. finalizar el viaje con una duración total de dos días.
+Un índice mayor que cero selecciona el Lugar `empinado` asociado a esa
+candidatura. Su identidad se conserva en el contexto interno para mantener el
+vínculo con el elemento que originó el suceso y permitir su verificación, pero
+esta versión no la interpola ni aplica diferencias entre Lugares.
 
-`RecorrerTramo` no consulta ni modifica el Mundo, no consume azar y no emite por
-sí misma una viñeta: solamente aporta un día a la duración acumulada. La lógica
-de la rama decide cuándo invocarla y qué fragmento narrativo sigue a cada
-invocación. Esta rama no solicita decisiones ni realiza otra extracción después
-de la selección inicial del grupo.
-
-Los dos fragmentos usan estas cadenas exactas, sin interpolar nombres ni otros
-datos del Mundo:
-
-| Orden | Texto | `ClaveEscena` |
-|---:|---|---|
-| 1 | `El viaje avanza sin contratiempos. La marcha mantiene un ritmo constante.` | `Some(ClaveEscena::ViajeMarcha)` |
-| 2 | `Tras una marcha tranquila, el destino aparece al final del camino.` | `Some(ClaveEscena::ViajeLlegada)` |
-
-Cada texto consta exactamente de los caracteres mostrados en la tabla, sin salto
-de línea inicial o final. Este documento es la autoridad de esos literales y de
-su asociación con una variante; la declaración del enum pertenece al motor y el
-nombre usado por el catálogo visual pertenece al frontend.
-
-### Rama `Obstáculo`
-
-El índice `1` selecciona una rama con una decisión. Su primer tramo ejecuta esta
-secuencia:
-
-1. ejecutar `RecorrerTramo` y añadir un día;
-2. emitir una viñeta que presenta un derrumbe incidental bloqueando el paso;
-3. solicitar una decisión con las opciones, en este orden, `Abrirse paso` y
-   `Rodear el obstáculo`.
-
-La viñeta y la solicitud de decisión usan estas cadenas exactas:
+La presentación y la solicitud usan estos valores exactos:
 
 | Salida | Texto | `ClaveEscena` |
 |---|---|---|
-| Viñeta inicial | `Un derrumbe bloquea el paso. Los restos impiden continuar por el trayecto más directo.` | `Some(ClaveEscena::ViajeObstaculo)` |
-| Solicitud de decisión | `El derrumbe cierra el paso directo. ¿Cómo debe continuar el viaje?` | `Some(ClaveEscena::ViajeObstaculo)` |
+| Fragmento inicial | `El camino atraviesa una pendiente empinada. El terreno vuelve difícil mantener el ritmo.` | `Some(ClaveEscena::ViajeObstaculo)` |
+| Solicitud de decisión | `La pendiente exige elegir cómo continuar el viaje.` | `Some(ClaveEscena::ViajeObstaculo)` |
 
-La solicitud conserva exactamente dos opciones en este orden: `Abrirse paso` y
-`Rodear el obstáculo`.
+La decisión ofrece exactamente dos opciones en este orden:
 
-Al responder, la rama ejecuta la acción particular `ResolverObstaculo`:
+1. `Ascender directamente`;
+2. `Buscar un paso menos empinado`.
 
-- **Abrirse paso:** consulta si al menos uno de los viajeros posee la
-  Característica `fuerte`. Si existe, añade un día; si no existe, añade tres.
-- **Rodear el obstáculo:** no consulta Características y añade dos días.
+`Ascender directamente` invoca la ficha compartida de `Escalar`. El dirigente
+es responsable; para el jugador, el primer compañero es ayudante. La acción
+particular evalúa los dos Lugares de la etapa, los viajeros, la capacidad, el
+equipo, la carga y los estados documentados en su
+[ficha](./particulares/01-movimiento-terrestre.md#5-escalar). Un intento
+incierto consume exactamente una extracción con límite `20`; una resolución
+automática no consume azar.
 
-Para esta regla, los viajeros son el jugador seguido de los integrantes del
-Grupo en su orden canónico cuando actúa el jugador, o únicamente el Actor cuando
-actúa un NPC independiente. La presencia de `fuerte` es suficiente: no importa
-cuántos viajeros la posean ni cuál sea el primero, y la Característica no se
-consume ni se modifica. No cuentan otros actores presentes, el origen, el
-destino ni ninguna Característica diferente.
+Los resultados visibles son:
 
-Después de resolver la opción, la rama emite una única viñeta que combina el
-resultado con la llegada, traslada una sola vez a los viajeros y finaliza. Los
-tres recorridos posibles son:
-
-| Opción | Condición | Incremento posterior | Duración total |
-|---|---|---:|---:|
-| `Abrirse paso` | algún viajero tiene `fuerte` | 1 día | 2 días |
-| `Abrirse paso` | ningún viajero tiene `fuerte` | 3 días | 4 días |
-| `Rodear el obstáculo` | no aplica | 2 días | 3 días |
-
-La viñeta final correspondiente usa uno de estos literales:
-
-| Resultado | Texto | `ClaveEscena` |
+| Resultado | Texto | Consecuencia persistente |
 |---|---|---|
-| `Abrirse paso` con algún viajero `fuerte` | `El esfuerzo abre un paso entre los restos. El viaje continúa sin una gran demora hasta su destino.` | `Some(ClaveEscena::ViajeLlegada)` |
-| `Abrirse paso` sin viajeros `fuerte` | `Abrir un paso entre los restos exige mucho más tiempo de lo previsto, pero el viaje finalmente alcanza su destino.` | `Some(ClaveEscena::ViajeLlegada)` |
-| `Rodear el obstáculo` | `Un rodeo evita el derrumbe a costa de una marcha más larga. El viaje finalmente alcanza su destino.` | `Some(ClaveEscena::ViajeLlegada)` |
+| holgada | `Los viajeros superan la pendiente con seguridad y sin perder el ritmo.` | llegada |
+| lograda | `Los viajeros completan el ascenso y continúan la marcha.` | llegada |
+| costosa | `Los viajeros completan el ascenso, pero el esfuerzo deja fatigado al responsable.` | `fatigado` y llegada en el mismo lote |
+| fallida | `El ascenso fracasa. Un viajero resulta herido y el viaje queda interrumpido.` | `herido`, sin traslado |
+| paso menos empinado | `Los viajeros encuentran un paso menos empinado a costa de una demora.` | llegada con un día adicional |
 
-Todos los textos y opciones de esta rama constan exactamente de los caracteres
-mostrados, sin interpolaciones ni saltos de línea iniciales o finales.
+Todos usan `Some(ClaveEscena::ViajeObstaculo)`. Buscar un paso menos empinado
+continúa siendo determinista y no invoca `Escalar`.
 
-La rama no realiza una extracción para resolver el resultado. Cuando actúa el
-jugador, su respuesta determina directamente la opción. Cuando actúa un NPC, la
-fase correspondiente puede consumir la extracción común para elegir una opción,
-pero `ResolverObstaculo` sigue siendo determinista una vez recibida esa respuesta.
+Cuando actúa un NPC, la fase NPC primero elige una de las dos opciones con una
+extracción de límite `2`. Si elige ascender, consume después el mismo d20 que el
+jugador necesitaría en igual contexto. Una interrupción produce un resumen NPC
+válido y no se convierte en fallo técnico.
 
-### Rama `Rumbo incierto`
+## 9. Llegada y presentación
 
-El índice `2` selecciona la segunda rama con una decisión. Su primer tramo sigue
-esta secuencia:
+Todo viaje que alcanza su destino emite después de Trayecto tranquilo o del
+resultado de Paso empinado una única viñeta de llegada:
 
-1. ejecutar `RecorrerTramo` y añadir un día;
-2. emitir una viñeta que presenta señales ambiguas y un rumbo difícil de
-   reconocer;
-3. solicitar una decisión con las opciones, en este orden,
-   `Confiar en la intuición` y `Revisar el rumbo`.
+| Texto | `ClaveEscena` |
+|---|---|
+| `El viaje finalmente alcanza su destino.` | `Some(ClaveEscena::ViajeLlegada)` |
 
-La viñeta y la solicitud de decisión usan estas cadenas exactas:
+Los literales de esta acción no interpolan nombres de Lugares o Actores y no
+contienen saltos de línea iniciales o finales. El núcleo entrega los fragmentos
+en el orden definido y el frontend decide cómo dibujar sus viñetas, pero no
+puede omitir una decisión ni reordenar resultados.
 
-| Salida | Texto | `ClaveEscena` |
-|---|---|---|
-| Viñeta inicial | `Las señales del camino se vuelven confusas. No resulta claro cuál es el rumbo correcto.` | `Some(ClaveEscena::ViajeRumboIncierto)` |
-| Solicitud de decisión | `El rumbo es incierto. ¿Cómo debe continuar el viaje?` | `Some(ClaveEscena::ViajeRumboIncierto)` |
+`ClaveEscena` es solamente una indicación semántica de presentación. No contiene
+arte, rutas de archivos, coordenadas ni datos de gameplay. Esta versión deja de
+producir `ClaveEscena::ViajeRumboIncierto`; conservar temporalmente esa variante
+para compatibilidad de código o recursos no la convierte en un suceso vigente
+de `Viajar`.
 
-La solicitud conserva exactamente dos opciones en este orden: `Confiar en la
-intuición` y `Revisar el rumbo`.
+El frontend continúa mostrando únicamente tiles y nombres de Lugares. La ruta
+calculada no se dibuja y el jugador elige solo el destino final.
 
-Ese orden también fija los índices usados por la elección automática de un NPC:
-`0` corresponde a `Confiar en la intuición` y `1` a `Revisar el rumbo`.
+## 10. Duración
 
-Al responder, la acción particular `ResolverRumbo` aplica una de estas reglas:
+La duración total es:
 
-- **Confiar en la intuición:** realiza una llamada a
-  `FuenteAzar::elegir_indice` con límite exclusivo `2`. El índice `0` representa
-  un avance directo y añade un día; el índice `1` representa una demora y añade
-  tres días.
-- **Revisar el rumbo:** no consume azar y añade dos días.
+```text
+un día × cantidad de conexiones de la ruta
++ un día adicional si se busca un paso menos empinado
+```
 
-Después del resultado, la rama emite una única viñeta que combina lo sucedido
-con la llegada, realiza un único traslado y finaliza:
+Por tanto, una ruta válida siempre aporta al menos un día. Ejemplos:
 
-| Opción | Resultado | Incremento posterior | Duración total |
-|---|---|---:|---:|
-| `Confiar en la intuición` | índice `0`: avance directo | 1 día | 2 días |
-| `Confiar en la intuición` | índice `1`: demora | 3 días | 4 días |
-| `Revisar el rumbo` | comprobación segura | 2 días | 3 días |
+| Conexiones | Suceso y resultado | Duración total |
+|---:|---|---:|
+| 1 | Trayecto tranquilo | 1 día |
+| 2 | Trayecto tranquilo | 2 días |
+| 2 | ascenso holgado, logrado o costoso | 2 días |
+| 2 | paso menos empinado | 3 días |
+| 2, pendiente en la primera conexión | ascenso fallido | 1 día |
 
-La viñeta final correspondiente usa uno de estos literales:
+El día aportado por `Escalar` sustituye el día base de esa conexión; no se
+suma dos veces. Ante un fallo se cuentan las etapas previas a la pendiente y el
+día del intento, pero no las posteriores. Hasta PLAN-2026-014, `Viajar` solo
+confirma el traslado final: si la escalada falla, el Grupo permanece
+lógicamente en el Lugar donde comenzó la acción. La Expedición por etapas
+reemplazará esta limitación transitoria.
 
-| Resultado | Texto | `ClaveEscena` |
-|---|---|---|
-| Intuición, índice `0` | `La intuición resulta acertada y permite retomar el rumbo sin una gran demora. El viaje finalmente alcanza su destino.` | `Some(ClaveEscena::ViajeLlegada)` |
-| Intuición, índice `1` | `La intuición conduce por un desvío equivocado. Corregir el rumbo demora la marcha, pero el viaje finalmente alcanza su destino.` | `Some(ClaveEscena::ViajeLlegada)` |
-| `Revisar el rumbo` | `Una comprobación cuidadosa permite confirmar el rumbo. La marcha continúa por un trayecto seguro hasta su destino.` | `Some(ClaveEscena::ViajeLlegada)` |
+Todos los aportes usan `Duracion::checked_add`. Un desbordamiento es un fallo
+fatal del motor, no una duración truncada ni un rechazo de gameplay.
 
-Todos los textos y opciones de esta rama constan exactamente de los caracteres
-mostrados, sin interpolaciones ni saltos de línea iniciales o finales.
+`Viajar` entrega el total al motor y nunca modifica directamente la fecha. La
+sesión aplica una sola vez la duración final cuando el jugador termina de cerrar
+la acción. La duración calculada para un NPC describe su acción dentro de la
+franja ya transcurrida y no vuelve a adelantar la fecha.
 
-Esta rama no consulta tiles, coordenadas, Relaciones, Lugares intermedios ni
-Características. Sus señales y posibles desvíos existen solo dentro del suceso
-narrativo y nunca crean una ruta persistente. Después de la validación común de
-Actor y destino, `ResolverRumbo` recibe únicamente la opción, la fuente de azar y
-la duración acumulada; no lee otra parte del Mundo.
+## 11. Consecuencia reglada y atomicidad
 
-El orden de azar observable es estricto. Para el jugador es selección de rama y,
-solo si elige `Confiar en la intuición`, resolución del resultado. Para un NPC es
-selección de rama, elección automática de opción y, solo si esa opción es
-`Confiar en la intuición`, resolución del resultado. `Revisar el rumbo` nunca
-añade una extracción posterior a la elección de opción.
+Después de emitir la viñeta de llegada y antes de cerrar el tramo como
+`Completada`, la acción incluye el traslado en un `LoteOperaciones`:
 
-Los grupos de viñetas, sus textos y cualquier decisión intermedia estarán
-codificados inicialmente en Rust. Lua no define la acción ni redacta sus
-resultados.
+- para el jugador, mueve en una operación al jugador y a todos sus compañeros;
+- para un NPC independiente, mueve únicamente a ese Actor;
+- usa el origen y el destino final, nunca cada Lugar recorrido antes del
+  destino.
 
-## 4. Consecuencia reglada
+El lote cambia todas sus consecuencias o ninguna. Un ascenso costoso incluye el
+alta de `fatigado` antes del traslado; una operación idempotente no emite un
+resultado duplicado. Una vez confirmado, el motor emite exactamente un
+`ResultadoSemantico::ActoresTrasladados { actores, origen, destino }` con los
+datos de `CambiosConfirmados`, además de cualquier cambio efectivo de
+Característica. Esas emisiones informan consecuencias ya aplicadas; la
+aplicación no debe ejecutarlas otra vez.
 
-La finalización de toda solicitud aceptada cambia la ubicación lógica:
+Un ascenso fallido confirma solamente `herido` y no incluye traslado. `Viajar`
+no altera Relaciones, variables globales, Lugares, mapa ni Grupo. Las rutas y
+sucesos tampoco crean Objetos implícitos.
 
-- si quien actúa es el jugador, el propio jugador y todos los integrantes del
-  Grupo pasan atómicamente al destino;
-- cuando quien actúa es un NPC vivo y ajeno al Grupo, solamente ese Actor pasa
-  al destino mediante la misma operación reglada de traslado;
-- ninguna consecuencia escribe coordenadas ni mueve representaciones dibujadas.
+Como todas las causas previsibles se validaron antes de iniciar, un
+`ErrorTraslado` al finalizar representa una invariante rota y se convierte en un
+fallo fatal. Nunca se degrada a una llegada parcial.
 
-En este incremento, toda acción aceptada alcanza esa finalización y aplica un
-único traslado. Los sucesos de viaje no agregan ni retiran Características, no
-crean ni eliminan elementos del Mundo y no producen otra mutación persistente.
-Un resultado narrativamente desfavorable puede costar más tiempo, pero no hiere,
-mata ni impide llegar al Actor o a su Grupo.
+## 12. Errores y rechazos
 
-El cambio de ubicación se confirma mediante una operación de `Mundo`. Un fallo
-de validación previo no mueve a nadie. En las tres ramas, el motor lo confirma
-después de emitir el último fragmento de la rama y antes de finalizar. Una vez
-confirmado, añade exactamente una emisión
-`ResultadoSemantico::ActoresTrasladados` con el origen, el destino y la secuencia
-completa de actores trasladados. Esa emisión describe el cambio ya realizado y
-no solicita que la aplicación lo repita.
+Las causas esperables al iniciar `Viajar` son exhaustivamente:
 
-La operación devuelve un `TrasladoConfirmado` con esos mismos tres datos. La
-acción lo convierte directamente en `ActoresTrasladados`. Como todas las causas
-previsibles fueron comprobadas antes de comenzar, cualquier `ErrorTraslado` en
-este punto es un fallo fatal de invariante y no un rechazo tardío de gameplay.
+- Actor desconocido;
+- destino desconocido;
+- jugador con `muerto`;
+- destino igual al Lugar actual;
+- destino con `inalcanzable`;
+- viaje independiente de un integrante del Grupo;
+- destino sin ruta conectada y transitable desde el origen.
 
-## 5. Narrativa, decisiones y presentación
+La consulta `destinos_disponibles` puede devolver los rechazos que dependen solo
+del Actor: Actor desconocido, jugador con `muerto` o viaje independiente de un
+integrante del Grupo. No tener destinos produce un vector vacío.
 
-`desert-tiger-core` produce fragmentos narrativos neutrales en un orden definido.
-La terminal decide su composición visual, pero no puede omitir una decisión ni
-reordenar consecuencias.
+Una decisión inexistente o una opción ajena a Paso empinado usa los rechazos
+comunes del motor y conserva sin cambios la ejecución pendiente, el Mundo, la
+duración y el azar. Un fallo o índice fuera de rango de la fuente durante la
+selección del suceso o la decisión automática de un NPC es fatal según el
+contrato común.
 
-Cada fragmento y cada solicitud de decisión podrán asociar una `ClaveEscena`
-semántica opcional. No es una ruta, un identificador de contenido ni arte ASCII:
-describe el contexto narrativo para que cada frontend pueda representarlo o
-ignorarlo. Su presencia no modifica reglas, azar ni consecuencias.
+Las referencias de una Relación inexistentes, los tipos inválidos y las
+inconsistencias de normalización se rechazan al cargar el contenido; no se
+convierten en ramas de gameplay. Un grafo válido puede estar desconectado y eso
+no constituye un error de contenido.
 
-Las variantes Rust se declaran en el
-[motor de acciones](../componentes/05-motor-acciones.md) y su conversión a nombres
-del catálogo pertenece al
-[frontend de terminal](../componentes/09-frontend-terminal.md). Aprobar una
-variante no obliga a que `scenes.ron` contenga una ilustración: todo fragmento o
-decisión asociado sigue siendo válido como viñeta de solo texto.
+## 13. Contratos e invariantes
 
-Para el primer incremento deberá existir al menos un conjunto mínimo de ramas
-que permita comprobar:
+- La conectividad reglada procede exclusivamente de Relaciones `conectado`.
+- Una Relación `conectado` se recorre en ambos sentidos.
+- La disponibilidad y la confirmación usan las mismas reglas de
+  transitabilidad.
+- `inalcanzable` no aparece como destino ni en un Lugar atravesado; solo se
+  tolera en el origen actual para permitir salir.
+- La BFS minimiza conexiones y resuelve empates mediante orden canónico.
+- La ruta no depende del mapa, sus tiles, coordenadas ni distancias visuales.
+- Los Lugares marítimos usan el mismo grafo y presuponen una embarcación sin
+  crear estado adicional.
+- El jugador selecciona un destino final y no administra los tramos.
+- Cada conexión aporta exactamente un día base.
+- Trayecto tranquilo siempre es candidato y cada Lugar `empinado` atravesado
+  aporta una candidatura en orden de ruta.
+- Exactamente una candidatura se selecciona y como máximo se ejecuta una
+  complicación.
+- Jugador y NPC usan las mismas reglas y acciones particulares.
+- Un viaje llegado produce exactamente un traslado atómico final; una escalada
+  fallida produce una interrupción sin traslado.
+- Ningún viajero ocupa lógicamente los Lugares atravesados antes del destino
+  durante la ejecución.
+- La acción no introduce sistemas de inventario, transporte, preparación,
+  conocimiento o equipo.
+- Todo azar que afecta al viaje usa la fuente inyectada y es reproducible.
 
-- selección reproducible de una rama azarosa;
-- presentación de varias viñetas en orden;
-- al menos una decisión intermedia;
-- una finalización con traslado y duración.
+## 14. Pruebas y criterios de aceptación
 
-La cantidad, el propósito general y el límite de consecuencias de las ramas
-quedan aprobados en las secciones 3 y 4. También quedan aprobadas la secuencia y
-las salidas narrativas completas de las tres ramas.
+### Grafo, disponibilidad y ruta
 
-## 6. Duración
+Las pruebas automáticas cubrirán:
 
-Cada acción particular de la rama puede agregar días o meses codificados en Rust
-a la duración total. `Viajar` entrega el total al motor; no modifica directamente
-la fecha.
+- una única declaración `conectado` recorrible en ambos sentidos;
+- destinos alcanzables de forma directa y transitiva;
+- exclusión del origen y de componentes desconectados;
+- vector vacío válido para un Actor aislado;
+- orden global canónico de `destinos_disponibles`, independiente del orden de
+  descubrimiento y declaración de Relaciones;
+- ruta con la menor cantidad de conexiones;
+- empate entre dos rutas mínimas resuelto mediante vecinos en orden canónico;
+- mismo resultado al invertir extremos o reordenar las declaraciones;
+- destino `inalcanzable` excluido y rechazado;
+- Lugar de la ruta con `inalcanzable` no atravesado, usando una alternativa válida
+  cuando exista y dejando el destino sin ruta cuando no exista;
+- salida permitida desde un origen actual `inalcanzable`;
+- independencia completa de tiles, coordenadas y distancia visual;
+- nueva validación y cálculo de ruta al confirmar el destino;
+- rechazo `DestinoSinRutaConectada` con origen y destino exactos, sin azar,
+  duración, narrativa ni mutaciones.
 
-La [sesión](../componentes/04-sesion-aplicacion.md) aplica una sola vez la
-duración final después de que el jugador cierre la última viñeta. En una acción
-NPC, la duración se calcula pero no adelanta la fecha.
+Un caso de empate mínimo utilizará, en orden canónico, `origen`, `paso_a`,
+`paso_b`, `destino`, con rutas `origen → paso_a → destino` y
+`origen → paso_b → destino`; deberá elegir la primera.
 
-La rama `Trayecto tranquilo` acumula dos incrementos de un día y termina con una
-duración de dos días. `Obstáculo` termina con dos, tres o cuatro días conforme a
-la opción y condición descritas en la sección 3. `Rumbo incierto` termina también
-con dos, tres o cuatro días conforme a su opción y, cuando corresponde, al índice
-azaroso descrito allí.
-
-## 7. Resultados y rechazos
-
-La acción distingue:
-
-- **rechazo previo:** la solicitud no puede comenzar y no consume azar, tiempo
-  ni mutaciones;
-- **resultado de una rama:** la acción comenzó y puede producir una narración o
-  una duración desfavorable, pero en este incremento no modifica
-  Características ni evita el traslado;
-- **resultado semántico:** informa el traslado ya confirmado mediante
-  `ActoresTrasladados`;
-- **finalización:** informa únicamente la duración total.
-
-Las causas de rechazo propias de `Viajar` son exhaustivamente: Actor desconocido,
-destino desconocido, destino igual al Lugar actual, destino con la
-Característica `inalcanzable` e intento de viaje independiente por un integrante
-del Grupo. Las validaciones comunes —como un jugador con `muerto`, una fase
-incompatible o una respuesta de decisión inválida— pertenecen al motor o a la
-fachada y no agregan causas específicas a esta acción.
-
-## 8. Pruebas y aceptación
+### Candidaturas, complicación, duración y azar
 
 Las pruebas cubrirán:
 
-- lista de destinos y nueva validación al confirmar;
-- rechazo de Actor o destino desconocidos sin consumo de azar ni cambios;
-- exclusión y rechazo del Lugar actual sin consumo de azar ni cambios;
-- exclusión de `inalcanzable`;
-- independencia respecto de tiles, coordenadas y Relaciones;
-- selección reproducible y uniforme de los tres grupos mediante exactamente una
-  extracción inicial con límite `3`;
-- correspondencia estable de los índices `0`, `1` y `2` con, respectivamente,
-  `Trayecto tranquilo`, `Obstáculo` y `Rumbo incierto`;
-- orden de fragmentos y decisiones;
-- acumulación de duración;
-- selección de `Trayecto tranquilo` con índice `0`, dos invocaciones de
-  `RecorrerTramo`, dos fragmentos en el orden aprobado, duración final de dos
-  días y ninguna extracción de azar adicional;
-- ausencia de `SolicitudDecision` en `Trayecto tranquilo` y traslado único
-  después del fragmento de llegada, inmediatamente antes de la finalización;
-- textos exactos de marcha y llegada, en ese orden y sin interpolaciones, con
-  `Some(ClaveEscena::ViajeMarcha)` y `Some(ClaveEscena::ViajeLlegada)`;
-- igualdad de esos textos y claves cuando la misma rama es ejecutada por el
-  jugador o por un NPC;
-- selección de `Obstáculo` con índice `1`, un primer incremento de un día, una
-  viñeta de derrumbe y una decisión cuyos textos exactos usan
-  `Some(ClaveEscena::ViajeObstaculo)` y cuyas dos opciones conservan el orden y
-  texto aprobados;
-- resultado de `Abrirse paso` en dos días cuando `fuerte` pertenece al jugador o
-  a cualquier compañero, y en cuatro días cuando no pertenece a ningún viajero;
-- resultado de `Rodear el obstáculo` en tres días con independencia de todas las
-  Características;
-- consulta exclusiva del propio Actor para un NPC independiente, sin considerar
-  a otros actores presentes en su Lugar;
-- ninguna Característica distinta de `fuerte`, ni una Característica del origen,
-  destino u otro actor presente, cambia el resultado;
-- después de seleccionar la rama, ausencia de nuevas extracciones para el
-  jugador y exactamente una para que un NPC elija su opción; en ambos casos,
-  `ResolverObstaculo` no consume azar;
-- resultado de dos días para un NPC con `fuerte` y de cuatro para uno sin ella
-  cuando su elección automática sea `Abrirse paso`;
-- una única viñeta de resultado y llegada para cada una de las tres condiciones,
-  con el literal exacto aprobado y `Some(ClaveEscena::ViajeLlegada)`, seguida de
-  un único traslado y una finalización con la duración exacta;
-- ausencia de interpolaciones y saltos iniciales o finales en todos los textos y
-  opciones de `Obstáculo`, con los mismos valores al ejecutarla para el jugador
-  o para un NPC;
-- selección de `Rumbo incierto` con índice `2`, un primer incremento de un día,
-  una viñeta de señales ambiguas y una decisión cuyos textos exactos usan
-  `Some(ClaveEscena::ViajeRumboIncierto)`, con `Confiar en la intuición` y
-  `Revisar el rumbo` en ese orden;
-- resultados de intuición con índices `0` y `1`, duraciones respectivas de dos y
-  cuatro días, y una única extracción de resultado con límite `2`;
-- resultado de `Revisar el rumbo` en tres días y sin extracción de resultado;
-- usando la notación `límite exclusivo → índice devuelto`, secuencia de jugador
-  con intuición: selección de rama `3 → 2` y resolución de rumbo `2 → 0/1`; con
-  revisión: únicamente selección `3 → 2`;
-- con la misma notación, secuencia de NPC con intuición: selección `3 → 2`,
-  elección de opción `2 → 0` y resolución `2 → 0/1`; con revisión: selección
-  `3 → 2` y elección `2 → 1`, sin una tercera extracción;
-- una respuesta de decisión inválida no consume la extracción de resultado ni
-  cambia la duración acumulada;
-- independencia completa de `Rumbo incierto` respecto de tiles, coordenadas,
-  Relaciones, Lugares intermedios y Características;
-- una única viñeta de resultado y llegada para cada resultado de rumbo, con el
-  literal exacto y `Some(ClaveEscena::ViajeLlegada)`, seguida de un único
-  traslado y una finalización con la duración exacta;
-- ausencia de interpolaciones y saltos iniciales o finales en todos los textos y
-  opciones de `Rumbo incierto`, con los mismos valores al ejecutarla para el
-  jugador o para un NPC;
-- traslado atómico del jugador y de todos sus compañeros;
-- un único `ActoresTrasladados` por recorrido, con origen y destino correctos y
-  la secuencia no vacía y sin duplicados del jugador seguido por sus compañeros;
-- rechazo sin mutación de un viaje independiente solicitado para un compañero;
-- traslado correcto del NPC mínimo y un `ActoresTrasladados` que contiene
-  solamente su identificador;
-- llegada al destino desde cada rama y cada opción válida, con exactamente un
-  traslado y sin una finalización alternativa;
-- conservación exacta de todas las Características y ausencia de cualquier
-  elemento persistente nuevo después de cada recorrido;
-- rechazo sin consumo de azar ni cambios;
-- misma lógica para solicitudes de jugador y NPC;
-- ninguna rama crea un Actor, Lugar, objeto o Relación persistente;
-- integración visible completa definida para el primer incremento.
+- un día base por conexión para rutas de una y varias conexiones;
+- lista con solo Trayecto tranquilo y extracción de límite `1` cuando la ruta
+  carece de `empinado`;
+- candidatura de Paso empinado por un Lugar atravesado y por el destino;
+- ausencia de candidatura por `empinado` en el origen;
+- con varios Lugares `empinado`, candidaturas en orden de ruta y selección
+  individual de cada una;
+- selección uniforme con una sola extracción de límite
+  `1 + cantidad de Lugares atravesados con empinado`;
+- índices estables: `0` para Trayecto tranquilo y `1..` para cada Paso empinado;
+- elección de ruta sin preferencia por evitar `empinado`;
+- aceptación de un Lugar `maritimo` conectado sin exigir inventario, barco u
+  otro estado adicional;
+- textos, opciones, claves de escena y orden exactos;
+- evaluación imposible, automática e incierta de `Escalar`;
+- cuatro bandas del d20, con un único factor por eje causal;
+- ayuda de un compañero competente sin acumular varios bonos iguales;
+- un día adicional al buscar un paso menos empinado, con independencia de las
+  Características de los viajeros;
+- exclusión de otros Actores presentes y de Características no mencionadas;
+- alta de `fatigado` solo en banda costosa y de `herido` solo en fallida;
+- ninguna extracción posterior para Trayecto tranquilo o para buscar un paso;
+- para un NPC con Paso empinado, selección de suceso, extracción `2 → 0/1`
+  para la opción y, si asciende de forma incierta, exactamente un d20;
+- respuesta inválida sin cambios ni una extracción adicional;
+- error o índice inválido de la fuente convertido en fallo fatal;
+- desbordamiento de duración convertido en fallo fatal.
 
-## 9. Preguntas bloqueantes
+### Llegada y consecuencias
+
+Las pruebas cubrirán:
+
+- llegada desde Trayecto tranquilo, rodeo y cada banda exitosa de `Escalar`;
+- una única viñeta de llegada después de cada resultado exitoso y ninguna tras
+  una escalada fallida;
+- ubicación sin cambios mientras la acción espera una decisión;
+- exactamente un traslado al final, sin traslados por cada Lugar recorrido;
+- traslado atómico del jugador seguido por todos sus compañeros;
+- traslado del único NPC independiente;
+- un único `ActoresTrasladados` con actores, origen y destino exactos al llegar;
+- lote costoso con fatiga y traslado, y lote fallido con herida sin traslado;
+- duración final correcta sin una segunda modificación de fecha por acciones
+  NPC;
+- ausencia de mutaciones persistentes aparte de ubicación, `fatigado` o
+  `herido` conforme al resultado;
+- fallo de traslado posterior a la aceptación convertido en invariante fatal;
+- misma lógica reglada para jugador y NPC.
+
+La prueba de integración mínima usará una red que permita viajar desde la zona
+inicial hasta el valle a través de un Paso Escarpado con `empinado`. Forzará por
+separado los índices `0` y `1` para verificar las dos candidaturas equiprobables,
+la selección del destino final, la ruta automática, la ayuda de un compañero,
+el d20, la llegada o interrupción, la atomicidad y el regreso de la sesión al
+turno del jugador.
+
+La prueba manual comprobará que el frontend ofrece solamente destinos
+alcanzables, centra el destino seleccionado sin dibujar una ruta, presenta la
+complicación como una secuencia coherente de viñetas y vuelve al mapa en el
+destino final.
+
+## 15. Preguntas bloqueantes
 
 Ninguna en este componente.
 
-## 10. Decisiones aplazadas
+## 16. Decisiones aplazadas
 
-- uso de Relaciones `conectado`;
-- rutas y encuentros derivados de lugares o actores;
-- distancias, terreno o clima;
-- facciones, permisos de entrada y fronteras;
-- proyección del trayecto sobre el mapa;
-- tratamiento general de un Actor NPC con `muerto`;
+Quedan fuera de este alcance hasta que una mecánica aprobada las necesite:
+
+- sucesos adicionales derivados de `arido` u otras Características;
+- pesos diferentes para las candidaturas;
+- elección manual, descubrimiento, ocultamiento o presentación gráfica de
+  rutas alternativas;
+- rutas ponderadas por dificultad, duración, terreno o clima, así como pesos,
+  distancias u otros datos adicionales dentro de `Conectado`;
+- interrupción, fracaso, cambio de destino o permanencia en un Lugar anterior
+  al destino;
+- más de una complicación contextual por viaje;
+- heridas o consecuencias persistentes distintas del traslado final, incluidas
+  modificaciones de Lugares, Relaciones o mapa;
+- permisos de facción, fronteras, conocimientos de viaje y Relaciones que
+  involucren Actores;
+- objetos, inventario, provisiones, monturas, barcos explícitos, sistemas de
+  medios de transporte, equipo o recursos consumibles;
 - separación temporal, abandono o expulsión de integrantes del Grupo;
-- viajes que puedan fallar, interrumpirse, cambiar el destino o modificar
-  Características.
+- tratamiento general de un NPC independiente con `muerto`;
+- proyección visual de una ruta sobre el mapa;
+- configuración de sucesos, textos o reglas de `Viajar` desde contenido o Lua.
+
+Incorporar una de estas capacidades requiere primero definir su efecto de juego
+y actualizar el documento canónico correspondiente. Ninguna se infiere de los
+nombres de Características o Relaciones que un mod pudiera añadir.

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Base inicial aprobada |
-| Versión | 0.9 |
-| Fecha | 2026-10-15 |
+| Versión | 0.17 |
+| Fecha | 2026-10-19 |
 
 ## 1. Propósito
 
@@ -110,6 +110,28 @@ terminal, de modo que nunca desplace o rompa el tileado.
 Estas coordenadas no tienen consecuencias de gameplay. Solo relacionan al lugar
 con su representación visual.
 
+Un Lugar puede representar una región terrestre, un asentamiento, una isla, un
+camino, un paso, otro accidente geográfico o una región marítima. Cuando un Actor
+se encuentra en un Lugar marítimo se entiende que está navegando; las reglas de
+la acción determinan qué medio le permitió llegar. El medio puede expresarse de
+forma cualitativa sin convertir todavía cada embarcación en un Objeto.
+
+Esas posibilidades no son subtipos: todos usan el mismo elemento Lugar. Su
+naturaleza concreta procede de su contenido y de sus Características.
+
+Un camino, paso, vado o accidente semejante se convierte en Lugar cuando puede
+ser destino o parada, contener Actores, servir como escenario o conservar la
+posición del Grupo si una acción se interrumpe. Si el diseñador lo agrega para
+representar lo que existe entre dos Lugares, retira la conexión directa y crea
+dos conexiones ordinarias: la ruta debe entrar realmente en el tercer Lugar.
+No se guarda en las Relaciones ningún dato que lo identifique como tal. Sus
+Características describen hechos físicos como `empinado`, `rocoso` o `inundado`;
+no conclusiones como `dificil` o `jornadaLarga`.
+
+Las coordenadas del rótulo pueden formar una línea horizontal, vertical,
+diagonal o curva. Cada letra conserva su orientación normal; lo que cambia es la
+disposición de las celdas que forman el recorrido del nombre.
+
 ### Actor
 
 Todos los actores usan el mismo modelo conceptual. Su representación concreta
@@ -153,7 +175,6 @@ Ejemplos iniciales:
 - `rapido`;
 - `empinado`;
 - `fortificado`;
-- `inalcanzable`;
 - `cargaTesoro`;
 - `herido`;
 - `muerto`.
@@ -163,30 +184,131 @@ principio no habrá otro sistema de estadísticas para los actores.
 
 ### Relación
 
-Es un objeto sencillo que conecta dos elementos del mundo. Por ejemplo, una
-relación `conectado` entre dos lugares indicará que están conectados
-geográficamente.
+Es un objeto sencillo que conecta dos elementos del mundo. Conserva un origen,
+un tipo y un destino; no se convierte por ello en otro Actor, Lugar u objeto con
+identidad narrativa propia. Actores y Lugares podrán declarar Relaciones dentro
+de sus respectivos archivos de contenido para que cada elemento y sus vínculos
+resulten fáciles de encontrar y modificar.
 
-El sistema de relaciones se desarrollará más adelante. La primera versión de la
-acción `Viajar` todavía no dependerá de él.
+Una relación `conectado` entre dos Lugares indica que existe una conexión
+geográfica entre ellos; las reglas todavía deben determinar si un Actor puede
+recorrerla en sus circunstancias actuales. Para el primer uso del sistema,
+`conectado` será simétrica: una única declaración permite considerarla en ambos
+sentidos. Las conexiones forman un grafo independiente del Mapa visual. Ni la
+cercanía entre tiles ni la posición de los rótulos crea una conexión implícita.
+
+Una conexión entre tierra y mar puede representar embarcar o desembarcar, y una
+conexión entre dos Lugares marítimos permite plantear navegación. La Relación no
+almacena el barco ni garantiza que los viajeros dispongan del medio necesario:
+las acciones particulares aplicables deducen esa posibilidad.
+
+Las Relaciones no producen efectos por sí solas. Cada acción o regla decide qué
+tipos interpreta y cómo los combina con los elementos y sus Características. El
+primer tipo con significado reglado es `conectado`, utilizado por `Viajar`.
+
+Una Relación dirigida `Conoce` entre un Actor y un Lugar expresa experiencia
+específica de ese Actor con el Lugar. Las acciones particulares pueden usarla
+para orientar, estimar o reconocer hechos sin ocultar necesariamente el nombre
+y las conexiones del atlas. Para el Grupo, el conocimiento disponible reúne el
+del actor jugador y sus compañeros, sin convertirlo en una cualidad universal
+del Grupo.
+
+Medios de transporte, preparativos, conocimientos y equipo son inicialmente
+ideas con las que diseñar situaciones y decisiones, no categorías obligatorias
+del juego. Un hecho cualitativo puede expresarse mediante una Característica; un
+vínculo entre elementos, mediante una Relación; y una elección que solo importa
+durante una acción puede permanecer en el estado temporal de esa acción. Solo se
+creará una nueva categoría de elemento cuando algo necesite identidad propia,
+persistencia y capacidad de ser relacionado o elegido como objetivo. Esta regla
+evita convertir las partidas breves en administración de un inventario extenso.
 
 ### Acción general
 
-Representa una actividad completa elegida por un actor, como viajar o atacar.
-Su código organiza el contexto, las decisiones, las acciones particulares, las
-viñetas y el tiempo consumido.
+Representa un proyecto humano completo elegido o emprendido por uno o más
+Actores, como viajar o atacar. No se limita a encadenar operaciones: conserva
+quién quiere conseguir algo, por qué lo intenta, qué cree saber, qué plan adopta
+y cómo interpreta las consecuencias para continuar, cambiar de plan o abandonar.
+
+El código de una acción general contiene un repertorio autoral y finito de
+maneras plausibles de concebir y llevar adelante ese proyecto. No simula una
+mente humana completa. Organiza propósito, deliberación, decisiones, medios,
+subobjetivos, acciones particulares, situaciones dramáticas, viñetas y tiempo
+consumido.
+
+La lógica rectora es:
+
+```text
+querer algo
+→ comprender la situación desde el conocimiento de los Actores
+→ imaginar y elegir un plan
+→ procurar y emplear medios reales
+→ actuar
+→ recibir la respuesta del Mundo
+→ interpretar lo ocurrido
+→ continuar, reformular el plan o abandonar
+```
+
+El plan humano propone qué se intentará; las acciones particulares resuelven los
+esfuerzos concretos; el Mundo determina qué ocurre; la acción general comprende
+qué cambia para el proyecto y decide cuál es su próxima situación. El frontend
+presenta esta estructura, pero no la inventa ni la reconstruye.
 
 ### Acción particular
 
 Es una operación reutilizable con su propia lógica de simulación. Puede ser
 ejecutada desde distintas partes del código y desde distintas acciones generales.
-Calcula y aplica un resultado sobre los elementos de la partida.
+Calcula un resultado y solicita las consecuencias regladas sobre los elementos
+de la partida; el backend las valida antes de aplicarlas.
+
+Cada tipo funciona como una entrada de reglas de un juego de rol de mesa: explica
+cuándo corresponde resolverlo, qué hechos del Actor y del contexto importan,
+cuándo es imposible o rutinario y, si existe incertidumbre, cómo se determina
+su dificultad y sus resultados. La dificultad se deduce para el intento
+concreto; no es una cualidad universal del Actor ni una conclusión precargada en
+el Lugar.
+
+### Situación o escena dramática
+
+Es una unidad narrativa contextual organizada por una acción general. Explica
+qué está ocurriendo, por qué importa en ese momento y qué carácter emocional
+tiene la experiencia. La emoción surge de la situación y de su escritura —puede
+ser peligro, aventura, libertad, alivio, asombro o cualquier otra apropiada— y no
+requiere una categoría universal de `tono` almacenada en el Mundo.
+
+Una escena también puede mostrar a los participantes comprendiendo su situación,
+proponiendo cursos de acción, adoptando un plan, procurando un medio o
+replanteándose lo que harán. Esas transiciones humanas pueden ser observables sin
+inventar una acción particular: deliberar o comprometerse con un plan no finge
+que ya se haya ejecutado ninguno de sus verbos. Cuando sí se realiza un esfuerzo
+reglado para concretarlo, cada acción particular conserva su momento causal.
+
+Una escena no corresponde a un tipo de acción particular. La misma acción
+`Derribar` puede participar en el asalto a una fortaleza o en la huida de un
+edificio incendiado; conserva sus reglas, pero la escena, los participantes, el
+objetivo y el texto son diferentes. De igual forma, una escena puede contener
+varias acciones particulares relacionadas por la misma situación.
+
+En una acción presentada al jugador, cada ejecución particular debe quedar
+reconocible dentro de exactamente un momento causal de alguna escena y conservar
+su orden, resultado, duración y consecuencias. Una escena puede dedicarle varias
+viñetas. Esta libertad narrativa no autoriza a omitir una intervención ejecutada
+ni a sustituir varias resoluciones por un resultado que la simulación no produjo.
+La fase NPC conserva esos momentos internamente, pero los comunica después
+mediante el resumen breve establecido para ella.
+
+La acción general solo puede atribuir efecto mecánico a un hecho narrativo si
+ese hecho también forma parte del contexto reglado entregado a las acciones
+particulares. La prosa puede aportar detalles sensoriales sin efecto, pero nunca
+contradecir el estado o inventar retrospectivamente la causa de un resultado.
 
 ### Viñeta
 
-Es una pantalla breve que presenta una parte de una acción. Puede mostrar una
-descripción, pedir una decisión o comunicar el resultado de una acción
-particular. Una acción general puede producir varias viñetas sucesivas.
+Es una pantalla breve que presenta una parte de una escena dramática. Puede
+establecer su contexto, desarrollar un momento, pedir una decisión, explicar
+una acción particular o comunicar las consecuencias de varias intervenciones
+relacionadas. Una escena y una acción general pueden producir tantas viñetas
+sucesivas como exija lo realmente simulado; la viñeta no es la unidad de las
+reglas.
 
 ## 4. Relaciones entre mundo, mapa, lugares y actores
 
@@ -195,8 +317,10 @@ Mundo
 ├── Mapa visual: matriz de tiles
 ├── Lugares
 │   └── coordenadas usadas solamente para presentación
-└── Actores
-    └── cada actor está lógicamente en un lugar
+├── Actores
+│   └── cada actor está lógicamente en un lugar
+└── Relaciones
+    └── conectan elementos sin derivarse del Mapa
 ```
 
 Las reglas fundamentales son:
@@ -210,6 +334,8 @@ Las reglas fundamentales son:
   visual;
 - modificar por sí solo un tile no cambia el estado reglado ni habilita o
   impide acciones;
+- la conexión entre Lugares procede de Relaciones explícitas y nunca de la
+  distancia o continuidad aparente de sus tiles;
 - viajar modifica el lugar del actor jugador y de los integrantes del grupo, no
   sus coordenadas de tiles.
 
@@ -222,6 +348,7 @@ Los archivos de contenido definirán al menos:
 - los lugares;
 - los actores;
 - las características asociadas;
+- las relaciones declaradas junto a los elementos que funcionan como origen;
 - el arte ASCII de los actores;
 - las partes de Lua utilizadas por los NPC.
 
@@ -269,34 +396,154 @@ la sección 9.
 La lógica inicial de las acciones estará escrita directamente en el backend:
 
 1. Un actor solicita una acción general.
-2. La acción establece su contexto y puede pedir una decisión.
-3. El frontend presenta la decisión cuando quien actúa es el jugador.
-4. La acción general ejecuta una o más acciones particulares.
-5. Cada acción particular calcula y aplica su resultado.
-6. El backend entrega al frontend el texto y los resultados correspondientes.
-7. El frontend decide cómo presentarlos mediante viñetas.
-8. La acción general continúa hasta terminar.
+2. La acción establece quién impulsa el proyecto, su propósito y el conocimiento
+   con el que los participantes interpretan la situación.
+3. La acción presenta cursos de acción que esas personas pueden concebir,
+   incluidas sus premisas, medios y consecuencias conocidas.
+4. El actor dirigente adopta un plan y la acción establece su siguiente
+   subobjetivo. En el alcance inicial los compañeros pueden aportar conocimiento,
+   medios y capacidades, pero no se simulan desacuerdos internos.
+5. Si el plan requiere algo todavía no disponible, los participantes deben
+   procurarlo mediante acciones reales antes de poder usarlo.
+6. El backend entrega las viñetas de presentación o decisión que correspondan.
+7. El frontend las presenta y devuelve la elección cuando quien actúa es el
+   jugador.
+8. La acción general ejecuta una o más acciones particulares dentro de esa
+   situación.
+9. Cada acción particular calcula su resultado y solicita las consecuencias
+   regladas que correspondan.
+10. El backend valida y aplica esas consecuencias, las enlaza con momentos
+    causales de la escena y redacta las siguientes viñetas contextuales.
+11. La acción general interpreta qué significan para el plan: puede conservarlo,
+    cambiar su próximo subobjetivo, volver a deliberar o terminar.
+12. La acción general continúa con la misma escena o abre otra hasta llegar,
+    abandonar o quedar imposibilitada.
+
+El primer incremento no incluye todavía acciones capaces de procurar un medio
+ausente. Por eso, aunque esta gramática reserva su lugar, una propuesta que
+dependa de conseguir algo inexistente no se ofrece hasta que ese episodio tenga
+reglas propias.
 
 Una acción general puede quedar a la espera de una elección del jugador y
 continuar después. Si un NPC debe tomar una decisión intermedia, la primera
 versión elegirá al azar. Esa selección podrá volverse más compleja posteriormente
 sin cambiar la lógica compartida de las acciones.
 
-La participación de los compañeros se decide dentro del código de la acción
-general. La acción puede consultar sus características e incluirlos en cálculos,
-viñetas y consecuencias.
+La acción general decide qué compañeros son responsables o ayudantes y los
+incluye en el contexto, las viñetas y la interpretación del resultado. Cuando
+una intervención requiere calcular su capacidad o sus consecuencias, ese
+cálculo pertenece a la acción particular correspondiente.
 
-### Viajar en la primera versión
+Las acciones particulares constituyen reglas reutilizables, no pasos escritos de
+nuevo dentro de cada acción general. Una misma acción particular conserva su
+lógica, requisitos y forma de evaluar al Actor sin importar si fue invocada por
+`Viajar`, `Acampar`, `Rescatar` u otra acción. Por ejemplo, la capacidad de un
+Actor para `Cazar` u `Orientarse` debe acompañarlo en todos esos contextos.
 
-Al elegir `Viajar`, el frontend entra en un modo para seleccionar un lugar. Un
-lugar con la característica `inalcanzable` no puede ser elegido como destino.
+La acción general decide por qué se realiza el intento, quién participa, cuándo
+se invoca y cómo su resultado afecta al objetivo general. La acción particular
+decide cómo se resuelve la intervención concreta, qué duración aporta y qué
+consecuencias regladas produce. Las propiedades del Actor, el blanco y el entorno
+se vuelven a evaluar en cada contexto; los archivos de contenido no guardan
+conclusiones como `viajeFacil` o `buenLugarParaCazar`.
 
-La lógica inicial de viaje tendrá una lista pequeña de grupos de viñetas y
-seleccionará uno al azar. Más adelante podrá usar lugares, actores, relaciones y
-reglas RPG para realizar una simulación más compleja.
+### Viajar
 
-Cuando el viaje se completa, el actor jugador y todos los integrantes de su grupo
-pasan al lugar de destino.
+Al elegir `Viajar`, el frontend entra en un modo para seleccionar el destino
+final. El Lugar actual se ignora. Los destinos y recorridos proceden de
+Relaciones `conectado`; tiles y coordenadas nunca participan.
+
+`Viajar` representa el proyecto mediante el cual unas personas, movidas por una
+razón y guiadas por lo que conocen, conciben una manera de alcanzar un destino,
+procuran y emplean medios reales y ponen su esfuerzo en abrirse camino frente a
+las dificultades del Mundo. La geografía y las reglas responden a sus intentos;
+el Grupo interpreta lo ocurrido y conserva, modifica o abandona su plan.
+
+El destino indica adónde quieren llegar, pero no constituye por sí solo el plan.
+El plan reúne la razón disponible, la ruta imaginada, los medios, la preparación,
+las aportaciones de los viajeros, los subobjetivos y las expectativas conocidas.
+Es una narración prospectiva de lo que creen que harán, no una garantía de que
+el Mundo permita realizarlo.
+
+El jugador elige el destino final, no cada conexión. La acción selecciona una
+ruta automáticamente a partir de lo que conocen los viajeros y del curso de
+acción que hayan adoptado, y vuelve a evaluarla cuando cambia materialmente el
+proyecto o alcanza una etapa. El cálculo de rutas propone posibilidades y
+pronósticos; no reemplaza la voluntad de quienes viajan. Una ruta desconocida
+puede ser incierta: el juego no revela por adelantado hechos que los Actores
+todavía no conocen.
+
+Antes de partir, el Grupo delibera cuando existen cursos de acción materialmente
+distintos. Las opciones se formulan como planes humanos —por ejemplo, partir a
+pie o usar los camellos que aporta un compañero para cruzar una región árida— y
+no como bonificaciones aisladas. Una versión futura podrá proponer conseguir un
+medio ausente cuando existan acciones que resuelvan realmente esa procura.
+Inicialmente el actor dirigente decide y los demás lo siguen; los conflictos
+internos quedan aplazados.
+
+La expedición posee durante la acción agua, alimento, ritmo, preparación, medio,
+duración y estados temporales. Esas reservas no forman un inventario persistente
+ni obligan a administrar objetos individuales. Una abundancia excepcional puede
+representarse con `bienAprovisionado` en el Actor dirigente y consumirse en un
+viaje posterior.
+
+La ruta atraviesa Lugares reales. Un camino, paso, vado, estuario o mar puede
+ser destino y también el último Lugar alcanzado si la expedición se interrumpe.
+La acción confirma el traslado del Grupo unido al completar cada etapa; mientras
+se resuelve una intervención, todos permanecen en el último Lugar confirmado.
+
+`Viajar` coordina acciones particulares como `Orientarse`, `Marchar`, `Escalar`,
+`BuscarAgua`, `MontarCampamento`, `Cabalgar` o `Navegar`. Por ejemplo, un Lugar
+`empinado` no es difícil por definición: `Escalar` o `GuiarCaravana` interpretan
+esa pendiente de manera diferente según Actor, Grupo, carga, medio, estado y
+conocimiento.
+
+Los medios se representan inicialmente de forma cualitativa, como acceso a
+camellos, un bote o un barco suficientes para el Grupo. Toda opción debe poseer
+una procedencia explicable: un viajero ya dispone del medio, una persona o
+servicio real lo proporciona, o el Grupo intenta conseguirlo mediante un
+episodio preparatorio. Elegir un medio nunca lo hace aparecer. Si obtenerlo
+requiere esfuerzo, riesgo o un coste distinguido por las reglas, esa obtención
+forma parte del viaje y puede necesitar varias acciones particulares, fracasar y
+obligar a reformular el plan.
+
+No se modela todavía cada animal, pieza de equipo o embarcación como Objeto. La
+abstracción se detiene en la relevancia causal: un medio que cambia las opciones,
+costes o consecuencias debe existir o ser procurado; sus componentes incidentales
+pueden permanecer incluidos en las reglas que lo utilizan.
+
+`Viajar` organiza el recorrido en situaciones dramáticas surgidas de su contexto
+real. No todas representan peligro: una navegación favorable puede transmitir
+la libertad y la velocidad de avanzar sobre el mar, un descanso seguro puede
+producir alivio y un paisaje desconocido puede comunicar aventura o asombro. La
+explicación de los factores y resultados forma parte de esa experiencia, en vez
+de aparecer como un informe separado de la ficción.
+
+La narración acompaña tres partes inseparables: el proyecto que los viajeros
+imaginan, la historia efectiva producida por sus intentos y la interpretación de
+lo que esos resultados cambian. No hace falta almacenar esperanza, sufrimiento o
+asombro como estadísticas para mostrar el esfuerzo acumulado, la contribución de
+un compañero, la cercanía del destino, un paisaje abierto, una pérdida o el
+alivio de haber dejado atrás una dificultad. Esos hechos permiten que el jugador
+experimente el carácter humano del viaje sin fingir una simulación completa del
+pensamiento.
+
+No existe un límite de escenas o viñetas en el viaje presentado al jugador y no
+se omiten pasos de su simulación para acelerar la presentación. Una escena puede
+abarcar varias intervenciones relacionadas, pero cada acción particular que el
+motor ejecutó permanece identificable en sus momentos causales. Una única acción
+multidiaria puede narrar todo su intervalo sin inventar resoluciones diarias; si
+el motor ejecutó varias acciones, la narración del jugador no puede convertirlas
+en una sola. El resumen NPC continúa siendo deliberadamente compacto y no abre
+estas escenas.
+
+En el primer alcance la acción termina al llegar, al abandonar voluntariamente
+el propósito o al quedar interrumpida en el último Lugar alcanzado. Regresar o
+convertir un desvío en otro destino requerirá un plan posterior y conexiones
+reales; nunca sucede como teletransporte de cierre. El Grupo nunca se separa.
+Los problemas progresan mediante causas comprensibles como sed, fatiga o heridas;
+una prueba rutinaria aislada no mata sin una cadena previa o una opción
+claramente letal.
 
 ## 7. Tiempo y fase de NPC
 
@@ -373,6 +620,12 @@ muestra la fase NPC antes de que el jugador cierre la última viñeta de su acci
 La documentación técnica decidirá si algún cálculo interno puede prepararse con
 anticipación sin alterar decisiones ni revelar resultados futuros.
 
+Los incrementos siguientes amplían este recorrido sin añadir otra acción
+general: incorporan nuevos Lugares —como caminos, pasos y vados—, resolución
+contextual, conocimiento, preparación, supervivencia y distintos medios. Cada
+uno conserva el mismo bucle completo en estado jugable antes de profundizar la
+etapa siguiente.
+
 ## 10. Frontend de terminal
 
 La pantalla principal utiliza las dimensiones de la ventana de la terminal y
@@ -414,10 +667,11 @@ permitan presentarlo con claridad. Se centra dentro del espacio situado sobre
 las barras y adapta su tamaño al contenido y a la terminal, dejando visible parte
 del fondo alrededor siempre que exista espacio suficiente.
 
-El backend puede acompañar el texto con una clave semántica opcional que describa
-la escena, pero no entrega arte concreto. El frontend decide si representa esa
-clave y qué ilustración utiliza. El arte incorporado en los archivos de Actor es
-la excepción: sus retratos sí se cargan desde el contenido del mundo.
+El backend puede acompañar el texto con claves semánticas opcionales que
+describan la situación o el momento de la escena, pero no entrega arte concreto.
+El frontend decide si las representa y qué ilustración utiliza. El arte
+incorporado en los archivos de Actor es la excepción: sus retratos sí se cargan
+desde el contenido del mundo.
 
 Cuando existe una ilustración, ocupa la parte superior de la ventana y el texto
 aparece debajo. Si no existe, el texto aprovecha todo el espacio interior. Las
@@ -426,10 +680,12 @@ barra de acciones. En el primer incremento, las ilustraciones de viñeta son
 estáticas; el arte animado se reserva para los retratos del jugador y del grupo.
 
 Una decisión utiliza la misma ventana superpuesta y la barra de acciones permite
-elegir una opción. El fondo conserva la última vista del mundo mostrada antes de
-iniciar la acción; no revela cambios todavía ocultos. Al terminar la acción y la
-fase de NPC, se dibuja la vista actualizada del mundo. El resumen NPC solo cambia
-la barra contextual y no abre una viñeta.
+elegir una opción. El mapa y los retratos proceden de la última vista confirmada,
+pero cada viñeta puede aportar una instantánea histórica de progreso para mover
+la cámara, el marcador y la fecha visible hasta su propio punto causal. Esa
+instantánea no revela cambios posteriores. Al terminar la acción y la fase de
+NPC, se dibuja la vista actualizada del mundo. El resumen NPC solo cambia la
+barra contextual y no abre una viñeta.
 
 Al activar `Viajar`:
 
@@ -460,11 +716,17 @@ recorrido vertical. Permanecen fuera de ese alcance:
 
 - las reglas de las acciones generales posteriores y sus nuevas acciones
   particulares;
-- el funcionamiento detallado de relaciones y facciones;
+- tipos de Relación con significado reglado distintos de `conectado`, así como
+  facciones y relaciones que puedan cambiar durante una Partida;
+- inventarios extensos, economía detallada y sistemas independientes de
+  transporte, preparativos o conocimiento; esto no permite que un medio relevante
+  aparezca sin una procedencia causal dentro de la abstracción vigente;
 - sistemas de estadísticas distintos de las características;
 - guardado y reanudación;
 - victoria, derrota y presentación del final de una partida;
 - comportamiento avanzado de NPC y varias políticas independientes;
+- conflictos internos, opiniones persistentes y estados emocionales simulados
+  de los integrantes del Grupo;
 - creación o modificación de variables globales durante la Partida;
 - transformación automática de consecuencias del mundo en regiones del mapa;
 - la ampliación del setting más allá del

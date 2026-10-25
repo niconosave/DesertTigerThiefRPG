@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.3 |
-| Fecha | 2026-10-15 |
+| Versión | 0.5 |
+| Fecha | 2026-10-17 |
 
 ## 1. Propósito y autoridad
 
@@ -21,9 +21,10 @@ solamente su propósito narrativo y visual.
 ## 2. Objetivo creativo
 
 El escenario inicial será una región ficticia pequeña donde el terreno cambie
-claramente entre dos ambientes:
+claramente entre dos ambientes enlazados por un paso reconocible:
 
 - una zona árida y montañosa, hostil y expuesta;
+- un paso escarpado que haga perceptible el cruce de la cordillera;
 - un valle fértil que transmita protección, agua y posibilidad de descanso.
 
 El contraste debe comprenderse al mirar el mapa ASCII, incluso antes de mejorar
@@ -38,21 +39,22 @@ pero la acción `Acampar` o `Descansar` todavía no forma parte del incremento.
 
 | Nombre inicial | Función inicial | Presencias al comenzar |
 |---|---|---|
-| Zona Árida | Punto de inicio del jugador; entorno difícil desde el que se desea partir. | Príncipe Perdido y Bandido. |
-| Valle Fértil | Primer destino; refugio visual y lugar apropiado para descansar en el futuro. | Cazador. |
+| Hamada Roja | Punto de inicio del jugador; entorno difícil desde el que se desea partir. | Príncipe Perdido y Bandido. |
+| Paso Escarpado | Paso geográfico entre ambos ambientes; introduce la primera complicación contextual de `Viajar`. | Ninguna. |
+| Valle del Drâa | Primer destino; refugio visual y lugar apropiado para descansar en el futuro. | Cazador. |
 
-Estos nombres descriptivos son los nombres visibles iniciales. Un refinamiento
-posterior podrá sustituirlos mediante otro plan de contenido. La proximidad
-dibujada entre ambos Lugares no crea una conexión reglada ni modifica la
-duración de `Viajar`.
+Los dos nombres descriptivos provisionales fueron sustituidos por los nombres
+aprobados en el atlas regional. La proximidad
+dibujada entre los Lugares no crea una conexión reglada ni modifica la duración
+de `Viajar`: el recorrido existe por sus Relaciones declaradas.
 
 ## 4. Actores
 
 | Actor de trabajo | Papel inicial | Lugar inicial |
 |---|---|---|
-| Príncipe Perdido | Actor jugador. | Zona Árida. |
-| Bandido | Único compañero inicial del príncipe e integrante del Grupo. | Zona Árida. |
-| Cazador | NPC independiente y amistoso que contiene la única política Lua evaluable. | Valle Fértil. |
+| Príncipe Perdido | Actor jugador. | Hamada Roja. |
+| Bandido | Único compañero inicial del príncipe e integrante del Grupo. | Hamada Roja. |
+| Cazador | NPC independiente y amistoso que contiene la única política Lua evaluable. | Valle del Drâa. |
 
 El Grupo inicial contiene solamente al Bandido. El Príncipe Perdido, como actor
 jugador, no pertenece a esa colección, y el Cazador permanece independiente.
@@ -90,21 +92,28 @@ habilitan, impiden ni conectan Lugares por sí mismos.
 
 ## 6. Recorrido de contenido inicial
 
-El Príncipe Perdido y el Bandido comienzan en la Zona Árida y viajan juntos al
-Valle Fértil. Al cerrarse el viaje y avanzar la fecha, la política del Cazador
-solicita que viaje desde el valle hacia la Zona Árida. Narrativamente realiza
-una salida de exploración; técnicamente permite comprobar la fase NPC mediante
-la misma acción `Viajar`. La política comprueba además que todavía se encuentre
-en el valle, por lo que no vuelve a solicitar el mismo viaje una vez trasladado.
+El Príncipe Perdido y el Bandido comienzan en la Hamada Roja y viajan juntos al
+Valle del Drâa atravesando el Paso Escarpado. El paso proporciona el contexto de
+la primera decisión de viaje y el Bandido permite que una cualidad de un
+compañero altere uno de sus resultados.
+
+Al cerrarse el viaje y avanzar la fecha, la política del Cazador solicita que
+viaje desde el valle hacia la Hamada Roja por el mismo recorrido. Narrativamente
+realiza una salida de exploración; técnicamente permite comprobar la fase NPC
+mediante la misma acción `Viajar`. La política comprueba además que todavía se
+encuentre en el valle, por lo que no vuelve a solicitar el mismo viaje una vez
+trasladado.
 
 La fecha, las claves externas, la condición Lua y la secuencia de azar exactas
 pertenecen al fixture del documento técnico, no se duplican aquí.
 
 ## 7. Criterios de aceptación creativa
 
-- El mapa permite distinguir a simple vista la Zona Árida del Valle Fértil.
-- Los centros de ambos Lugares están suficientemente separados para que el
-  cambio de foco desplace la cámara en el mapa de `96 × 32`.
+- El mapa permite distinguir a simple vista la Hamada Roja del Valle del Drâa.
+- El Paso Escarpado se sitúa visualmente entre ambos y su rótulo no impide
+  reconocer la cordillera que representa.
+- Los centros de los dos Lugares extremos están suficientemente separados para
+  que el cambio de foco desplace la cámara en el mapa de `96 × 32`.
 - El Príncipe Perdido y el Bandido tienen retratos provisionales distinguibles y
   compatibles con el solapamiento del frontend.
 - La única conducta inicial del Cazador es una salida de exploración y no

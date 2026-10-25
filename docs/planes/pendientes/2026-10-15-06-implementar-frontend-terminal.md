@@ -5,7 +5,7 @@
 | ID | PLAN-2026-006 |
 | Estado | Pendiente |
 | Creado | 2026-10-15 |
-| Actualizado | 2026-10-15 |
+| Actualizado | 2026-10-20 |
 
 ## Resultado buscado
 
@@ -29,6 +29,16 @@ completa mediante un backend de Ratatui sin depender de una terminal real.
 - [Entrada y accesibilidad](../../tecnica/componentes/09-frontend-terminal.md#9-entrada-y-accesibilidad-básica).
 - [Errores y validaciones](../../tecnica/componentes/09-frontend-terminal.md#10-errores-y-validaciones).
 - Plan previo: [PLAN-2026-005](./2026-10-15-05-implementar-sesion-fase-npc.md).
+
+### Corte histórico y propietario del trabajo nuevo
+
+Este plan conserva el corte de la interfaz terminal original: recursos, ciclo de
+vida, mapa, retratos, barras, ventana básica, entrada y restauración. La
+paginación completa del proyecto humano, el detalle común y por opción, los
+bloques de alternativas y el seguimiento cronológico pertenecen exclusivamente a
+[PLAN-2026-024](./2026-10-19-24-presentar-proyecto-viaje-terminal.md). Los
+enlaces al documento vivo del frontend no trasladan esos criterios nuevos a este
+plan.
 
 ## Alcance
 
@@ -63,24 +73,27 @@ completa mediante un backend de Ratatui sin depender de una terminal real.
        mundo, selección, presentación, decisión, salida y terminal insuficiente.
 4. [x] Implementar layout, cámara y capas de mapa, rótulos y retratos con recorte
        seguro, transparencia y solapamiento aprobados.
-5. [ ] Implementar ventanas, ajuste y paginación de texto, arte opcional y las
-       dos barras con prioridades, estilos y estados deshabilitados.
+5. [x] Implementar la ventana básica, ajuste de texto mediante Ratatui, arte
+       opcional y las dos barras con prioridades, estilos y estados
+       deshabilitados. La paginación local ampliada se transfirió a
+       PLAN-2026-024.
 6. [x] Implementar el adaptador de teclado y atajos por modo, incluida la
        confirmación local de salida sin enviar intenciones extra.
 7. [x] Implementar reloj monotónico de animación, redimensionado y guardián de
        restauración de Crossterm para salidas y fallos.
 8. [x] Implementar la presentación segura de errores iniciales, rechazos,
        incidencias NPC y vistas fatales.
-9. [ ] Añadir pruebas con eventos sintéticos, reloj falso y `TestBackend` para
-       los tamaños, modos, recursos y composiciones exigidos.
+9. [ ] Completar las pruebas históricas con eventos sintéticos, reloj falso y
+       `TestBackend` para tamaños, modos, recursos y composición base, sin
+       incorporar las pruebas nuevas asignadas a PLAN-2026-024.
 10. [x] Ejecutar los controles del crate y la workspace y registrar resultados o
         correcciones documentales.
 
 ## Verificación
 
-- [ ] Se cumplen los
-      [criterios automáticos del frontend](../../tecnica/componentes/09-frontend-terminal.md#11-pruebas-y-criterios-de-aceptación)
-      que no requieren una terminal física.
+- [ ] Están cubiertos los criterios históricos de recursos, ciclo de vida,
+      modos, layout mínimo, mapa, retratos, barras, entrada y restauración; los
+      criterios del proyecto humano se verifican en PLAN-2026-024.
 - [ ] `desert-tiger-terminal` depende públicamente solo de la fachada de app y no
       ejecuta reglas ni inspecciona Características.
 - [ ] Los recursos inválidos impiden entrar en modo raw y todo camino posterior
@@ -113,6 +126,9 @@ el plan solo registra el enlace y el efecto sobre el trabajo.
 - Verificaciones ejecutadas: `TestBackend` en 80 × 24 y 79 × 24, recursos
   oficiales, recorrido reproducible y prueba PTY de inicio/salida/restauración.
 - Desviaciones respecto del plan: la primera versión ajusta texto con el widget
-  de Ratatui pero aún no implementa la paginación local normativa ni toda la
-  matriz de composición; por ello el plan permanece abierto.
-- Trabajo posterior: [PLAN-2026-007](./2026-10-15-07-integrar-recorrido-jugable.md).
+  de Ratatui; la paginación local normativa posterior fue transferida a
+  PLAN-2026-024. Falta la matriz histórica de composición, por lo que este plan
+  permanece abierto.
+- Trabajo posterior histórico: [PLAN-2026-007](./2026-10-15-07-integrar-recorrido-jugable.md).
+- Ampliación vigente de esta capa:
+  [PLAN-2026-024](./2026-10-19-24-presentar-proyecto-viaje-terminal.md).

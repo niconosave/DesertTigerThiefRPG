@@ -1,0 +1,13 @@
+(
+    clave: "alcazar_gris",
+    nombre: "Alcázar Gris",
+    caracteristicas: ["poblado", "fortificado", "elevado"],
+    relaciones: [],
+    coordenada_central: (x: 59, y: 19),
+    coordenadas_rotulo: [
+        (x: 54, y: 17), (x: 55, y: 17), (x: 56, y: 17),
+        (x: 57, y: 17), (x: 58, y: 17), (x: 59, y: 17),
+        (x: 60, y: 18), (x: 61, y: 18), (x: 62, y: 18),
+        (x: 63, y: 18), (x: 64, y: 18), (x: 65, y: 18),
+    ],
+)

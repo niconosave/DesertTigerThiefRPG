@@ -2,9 +2,20 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
-| Versión | 0.20 |
-| Fecha | 2026-10-16 |
+| Estado | Implementado; ampliación causal aprobada para implementar |
+| Versión | 0.23 |
+| Fecha | 2026-10-19 |
+
+## Revisión implementada el 2026-10-24: Validación de contenido para Viajar
+
+La carga admite cero o más políticas de NPC independientes. Conserva los formatos RON y Lua; valida tamaños incompatibles, existencia de costa y centros de conexiones navegables. Las claves nuevas están en la sección 12 del contrato 06.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
 
 ## 1. Propósito y alcance
 
@@ -18,6 +29,7 @@ Su alcance comprende:
 - leer el contenido necesario para un Mundo inicial;
 - representar los datos externos sin acoplarlos a los tipos del núcleo;
 - validar identificadores, referencias y datos de presentación;
+- resolver y validar las Relaciones declaradas junto a sus elementos;
 - producir catálogos validados para reglas, presentación y políticas de NPC;
 - crear estados mutables nuevos, iguales al contenido inicial e independientes
   entre sí.
@@ -31,9 +43,9 @@ ejecución de scripts se define en
 [`08-integracion-lua.md`](./08-integracion-lua.md); aquí solo se carga, asocia y
 valida su presencia.
 
-El contenido mínimo del primer incremento deberá incluir al menos un Mundo, un
-mapa, un Lugar de origen y los destinos distintos necesarios para que tanto el
-viaje oficial del jugador como el del NPC sean válidos, el actor jugador, al
+El contenido mínimo deberá incluir al menos un Mundo, un mapa y los Lugares
+necesarios para que tanto el viaje oficial del jugador como el del NPC sean
+válidos, incluidos el origen y el destino; además incluirá el actor jugador, al
 menos un compañero inicial y otro NPC ajeno al Grupo con una política Lua.
 Después del viaje del jugador, las condiciones declaradas de esa política
 deberán cumplirse y producir una solicitud válida de `Viajar`, de modo que el
@@ -81,7 +93,9 @@ El conjunto de contenido del primer incremento aportará, como mínimo:
   que relaciona cada símbolo con una clave de tipo visual;
 - lugares, con nombre visible, características, coordenada central y una lista
   ordenada `coordenadas_rotulo`;
-- actores, con características y lugar inicial;
+- actores, con nombre visible, características y lugar inicial;
+- una lista obligatoria de Relaciones dentro de cada archivo de Lugar y Actor,
+  vacía cuando el elemento no declara ninguna;
 - una lista ordenada de fotogramas de celdas, incorporada en el mismo archivo
   RON del Actor, obligatoria para el jugador y para cualquier compañero inicial;
   puede incluir glifos Unicode de una columna y una paleta ANSI de presentación;
@@ -89,9 +103,10 @@ El conjunto de contenido del primer incremento aportará, como mínimo:
 - un campo de política en cada Actor, con una variante sin política o un bloque
   Lua incorporado para el NPC que lo necesite.
 
-La existencia de relaciones como `conectado` está prevista por el diseño general,
-pero su esquema y carga se incorporarán cuando se diseñe ese sistema. No se
-deducirán relaciones a partir de coordenadas del mapa.
+El esquema, la normalización y las restricciones de esas declaraciones se
+definen en [`10-relaciones.md`](./10-relaciones.md#4-formato-ron-y-autoría). En
+este incremento el único tipo admitido es `Conectado` entre dos Lugares. No se
+deducen Relaciones a partir de coordenadas, tiles o proximidad del mapa.
 
 Cada elemento referenciable tendrá una clave externa estable distinta del nombre
 visible. Su sintaxis será ASCII minúscula con palabras separadas por guion bajo:
@@ -173,6 +188,7 @@ La validación incluirá, según corresponda:
   una sola vez;
 - todos los símbolos usados por la matriz están declarados en la leyenda;
 - ubicación inicial válida para cada actor;
+- nombre visible obligatorio y válido para cada Actor;
 - coordenada central y coordenadas de rótulo distintas entre sí y dentro de los
   límites del mapa;
 - correspondencia posicional uno a uno entre los caracteres presentables del
@@ -187,6 +203,10 @@ La validación incluirá, según corresponda:
 - exactamente un Actor con `politica: Lua(...)` que no sea el jugador ni un
   compañero inicial; las políticas presentes en esos roles se validan, pero no
   cuentan para este límite;
+- campos `relaciones` presentes en todos los Actores y Lugares, destinos
+  tipados existentes, extremos compatibles y ausencia de conexiones reflexivas
+  o duplicadas en cualquier orientación, conforme al
+  [contrato de Relaciones](./10-relaciones.md#5-carga-normalización-y-validaciones);
 - invariantes del grupo cuando el contenido defina integrantes iniciales.
 
 Los diagnósticos señalarán al menos archivo, elemento o identificador y causa;
@@ -208,10 +228,12 @@ conserva al construir el núcleo y al ofrecer destinos al frontend.
 Después de validar, la aplicación conservará por separado:
 
 - las definiciones regladas que necesita el núcleo;
+- las Relaciones resueltas en el orden canónico requerido por el constructor
+  de Mundo;
 - un catálogo inmutable de presentación con la matriz inicial ya resuelta a
   tipos visuales, el conjunto declarado por la leyenda, nombres y coordenadas de
-  Lugares y retratos animados de Actores, indexado por los identificadores
-  correspondientes;
+  Lugares, y nombres y retratos animados de Actores, indexado por los
+  identificadores correspondientes;
 - un catálogo que vincula cada política Lua con su actor.
 
 Al instanciar, la aplicación creará tanto el Mundo reglado como un `EstadoMapa`
@@ -407,6 +429,7 @@ pub(crate) struct PresentacionLugar {
 
 pub(crate) struct PresentacionActor {
     id: IdActor,
+    nombre: String,
     retrato: Option<RetratoActor>,
 }
 
@@ -436,13 +459,17 @@ impl PresentacionLugar {
 
 impl PresentacionActor {
     pub(crate) fn id(&self) -> IdActor;
+    pub(crate) fn nombre(&self) -> &str;
     pub(crate) fn retrato(&self) -> Option<&RetratoActor>;
 }
 ```
 
 Los vectores conservan el orden canónico. Las búsquedas por ID son lineales en
 el primer incremento; no se mantiene un segundo índice sin una necesidad
-medida. `PresentacionActor` no inventa un nombre visible ausente del esquema.
+medida. `PresentacionActor` conserva el nombre validado del mismo archivo RON que
+define al Actor. Ese nombre permite que la aplicación resuelva los participantes
+de una traza causal sin exponer la clave técnica ni pedirle al frontend que la
+transforme.
 
 Cada Partida posee este estado:
 
@@ -558,6 +585,7 @@ El esquema completo y normativo de `world.ron` es:
 
     lugares: [
         "zona_arida",
+        "paso_escarpado",
         "valle_fertil",
     ],
     actores: [
@@ -591,6 +619,9 @@ referencia exactamente un archivo; `lugares`, `actores` y
 `companeros_iniciales` son listas no vacías y sin repeticiones. Las dos primeras
 establecen el orden canónico y la tercera conserva exactamente el orden de los
 compañeros. Cada una de las tres listas de variables puede estar vacía.
+`world.ron` no reúne las Relaciones: cada declaración permanece en el archivo
+del Lugar o Actor que funciona como origen de autoría y la carga las organiza al
+instanciar el Mundo.
 
 Cuando se necesiten valores, cada entrada usa exactamente una de estas tres
 formas; este ejemplo aislado no añade esas claves al contenido oficial:
@@ -661,6 +692,12 @@ coordenadas oficiales se fijarán en `content/base/` después de dibujar el mapa
     clave: "zona_arida",
     nombre: "Zona Árida",
     caracteristicas: [],
+    relaciones: [
+        (
+            tipo: Conectado,
+            destino: Lugar("paso_escarpado"),
+        ),
+    ],
     coordenada_central: (
         x: 14,
         y: 16,
@@ -681,8 +718,10 @@ coordenadas oficiales se fijarán en `content/base/` después de dibujar el mapa
 ```
 
 Todos sus campos son obligatorios. `nombre` no puede estar vacío.
-`caracteristicas` es una lista obligatoria que puede estar vacía y no admite
-duplicados. Los DTO de `x` e `y` usan `u64`; la carga los convierte de manera
+`caracteristicas` y `relaciones` son listas obligatorias que pueden estar vacías;
+las primeras no admiten duplicados y las segundas siguen el esquema y la
+normalización de [`10-relaciones.md`](./10-relaciones.md#41-esquema-normativo).
+Los DTO de `x` e `y` usan `u64`; la carga los convierte de manera
 comprobada a `usize` y después valida cada coordenada contra las dimensiones del
 Mapa. La coordenada central y todas las coordenadas del rótulo son mutuamente
 distintas dentro del mismo Lugar. Lugares diferentes sí pueden superponer sus
@@ -695,8 +734,10 @@ oficiales concretos permanecen en `content/base/`:
 ```ron
 (
     clave: "principe_perdido",
+    nombre: "Príncipe Perdido",
     lugar_inicial: "zona_arida",
     caracteristicas: [],
+    relaciones: [],
     retrato: Some((
         paleta: {
             '0': (frente: "amarillo", fondo: Some("gris")),
@@ -719,11 +760,16 @@ oficiales concretos permanecen en `content/base/`:
 )
 ```
 
-Todos sus campos son obligatorios. `caracteristicas` puede estar vacía y no
-admite duplicados. `lugar_inicial` es una clave de Lugar incluida en la lista
-canónica de `world.ron`. El esquema inicial no incluye un nombre visible de
-Actor porque ningún contrato del primer incremento lo consume; podrá añadirse
-cuando una presentación o regla aprobada lo necesite.
+Todos sus campos son obligatorios. `nombre` es presentación y no puede estar
+vacío; admite texto Unicode, pero rechaza controles C0/C1 y secuencias de escape
+conforme a la regla general de texto visible. No exige caracteres de una sola
+columna porque no se escribe sobre una matriz de tiles. La carga no lo normaliza,
+no lo usa para resolver referencias y no exige que sea único: la identidad estable
+sigue siendo `clave`. `caracteristicas` y `relaciones` pueden estar vacías; las
+primeras no admiten duplicados. Durante este incremento la lista de Relaciones de
+todo Actor debe estar vacía porque `Conectado` solo admite Lugares.
+`lugar_inicial` es una clave de Lugar incluida en la lista canónica de
+`world.ron`.
 
 `retrato` usa exactamente `None` o
 `Some((paleta: {...}, fotogramas: [...] ))`. Aunque se
@@ -907,6 +953,8 @@ más amplias cuando su región de presentación las soporte.
 - Toda referencia se resuelve explícitamente; no se enlaza por nombre visible,
   posición en una lista ni orden de archivos.
 - El nombre visible de un elemento no sustituye a su identificador estable.
+- Cada Actor posee un nombre visible validado que el catálogo conserva junto a
+  su ID; una presentación nunca necesita mostrar su clave externa como nombre.
 - Cada actor empieza en un lugar existente y nunca en un tile.
 - El mapa y sus coordenadas son datos de presentación y no habilitan acciones.
 - Cada celda del `EstadoMapa` contiene exactamente una clave de tipo visual
@@ -930,6 +978,9 @@ más amplias cuando su región de presentación las soporte.
   catálogo privado de la terminal.
 - Cada Actor y Lugar procede de un solo archivo RON; una definición no depende de
   fragmentos externos de arte o Lua.
+- Cada Relación se declara una sola vez junto a su origen de autoría y se
+  resuelve a los IDs del mismo Mundo; `world.ron` y el mapa no mantienen copias
+  paralelas del vínculo.
 - Cada celda de retrato contiene un glifo de una columna y, opcionalmente, un
   estilo neutral resuelto desde la paleta del mismo Actor; nunca contiene una
   secuencia ANSI ni un tipo de Ratatui.
@@ -1048,11 +1099,12 @@ Las categorías se asignan así:
   o datos residuales usan `FormatoRonInvalido`;
 - una clave con sintaxis inválida o distinta del nombre de archivo usa
   `ClaveInvalida`;
-- una repetición en listas, referencias, Características, variables, leyenda o
-  coordenadas usa `Duplicado`;
+- una repetición en listas, referencias, Características, Relaciones, variables,
+  leyenda o coordenadas usa `Duplicado`;
 - una referencia ausente o de otra categoría usa `ReferenciaInvalida`;
-- fechas, rangos, dimensiones, Unicode, matrices, retratos y la cantidad inicial
-  de políticas independientes usan `ValorInvalido`;
+- fechas, rangos, dimensiones, Unicode, matrices, retratos, extremos de Relación
+  incompatibles y la cantidad inicial de políticas independientes usan
+  `ValorInvalido`;
 - un error producido por `validar_politica` usa
   `PoliticaLuaInvalida`;
 - un rechazo de la construcción final de comprobación del Mundo usa
@@ -1069,35 +1121,42 @@ una validación dependiente cuando su requisito falló para no producir errores 
 cascada.
 
 El orden final siempre es: `world.ron`, Mapa, Lugares en su orden declarado,
-Actores en su orden declarado y validaciones cruzadas. El orden del filesystem
-nunca interviene.
+Actores en su orden declarado, Relaciones en el orden definido por su documento
+y validaciones cruzadas. El orden del filesystem nunca interviene.
 
 ### Fixture vertical oficial
 
-El conjunto técnico mínimo es la fuente canónica del recorrido de humo y
-materializa el [brief del escenario](../../contenido/escenario-inicial.md). Para
-este incremento usa las siguientes claves técnicas estables y cumple exactamente
-estas precondiciones:
+El recorrido técnico mínimo dentro del contenido oficial es la fuente canónica
+de la prueba de humo y materializa el
+[brief del escenario](../../contenido/escenario-inicial.md). El contenido reúne
+los veintiséis Lugares del [atlas regional](../../contenido/atlas-regional.md) y
+conserva estas claves técnicas estables y precondiciones del recorrido:
 
 - `principe_perdido` y `bandido` comienzan en `zona_arida`, y `bandido` es el
   único integrante inicial del Grupo;
 - `cazador` comienza en `valle_fertil`, no pertenece al Grupo y contiene la
   política canónica de
   [`08-integracion-lua.md`](./08-integracion-lua.md#43-solicitud-de-acción);
-- `zona_arida` y `valle_fertil` existen y ninguno posee `inalcanzable`;
-- la fecha inicial es `2025-01-31`;
-- la fuente de azar programada entrega los índices `0, 0`: el primero selecciona
-  `Trayecto tranquilo` para el jugador y el segundo selecciona la misma rama
-  para el NPC.
+- `zona_arida`, `paso_escarpado` y `valle_fertil` conservan los IDs canónicos
+  `0`, `1` y `2`;
+- la ruta física entre `zona_arida` y `valle_fertil` atraviesa
+  `camino_de_los_mojones`, `paso_escarpado` y `descenso_del_draa`; las lecturas
+  inversas de `Conectado` no se duplican en los archivos;
+- `paso_escarpado` posee `empinado` y `bandido` posee `fuerte`; la viabilidad
+  se deriva de los hechos físicos y no de una etiqueta genérica;
+- la fecha inicial es `2025-01-31`.
 
 El recorrido envía primero
 `SolicitudAccion::Viajar { actor: principe_perdido, destino: valle_fertil }`.
-Príncipe Perdido y Bandido llegan a `valle_fertil` después de dos días y la
-fecha queda exactamente en `2025-02-02`. La fase NPC evalúa entonces a
+La ruta automática atraviesa `paso_escarpado`; el jugador elige
+`Ascender directamente` y `fuerte` en el Bandido evita una demora adicional.
+Con la fuente alta del humo reproducible, Príncipe Perdido y Bandido llegan a
+`valle_fertil` y la fecha queda exactamente en `2025-02-05`. La fase NPC evalúa
+entonces a
 `cazador`; la condición temporal ya es verdadera y produce
 `SolicitudAccion::Viajar { actor: cazador, destino: zona_arida }`. Ese viaje
-mueve solo al NPC, calcula dos días que no se aplican a la fecha y deja el Mundo
-todavía en `2025-02-02`.
+mueve solo al NPC por la misma red, pero su duración no vuelve a aplicarse a la
+fecha y deja el Mundo todavía en `2025-02-05`.
 
 Evaluada contra la instantánea inicial, la misma política devuelve `nil`. Una vez
 que el Cazador se encuentra en `zona_arida`, también devuelve `nil` aunque la
@@ -1114,21 +1173,25 @@ campo produce `FormatoRonInvalido`:
 ```ron
 (
     clave: "cazador",
+    nombre: "Cazador",
     lugar_inicial: "valle_fertil",
     caracteristicas: [],
+    relaciones: [],
     politica: Ninguna,
 )
 ```
 
-Este Actor incluye un campo que el esquema no conoce y también produce
+Este Actor incluye el campo desconocido `titulo` y también produce
 `FormatoRonInvalido`:
 
 ```ron
 (
     clave: "cazador",
     nombre: "Cazador",
+    titulo: "Guardián del valle",
     lugar_inicial: "valle_fertil",
     caracteristicas: [],
+    relaciones: [],
     retrato: None,
     politica: Ninguna,
 )
@@ -1155,8 +1218,10 @@ Finalmente, este archivo es RON válido pero su referencia no resuelve y produce
 ```ron
 (
     clave: "cazador",
+    nombre: "Cazador",
     lugar_inicial: "lugar_que_no_existe",
     caracteristicas: [],
+    relaciones: [],
     retrato: None,
     politica: Ninguna,
 )
@@ -1164,16 +1229,19 @@ Finalmente, este archivo es RON válido pero su referencia no resuelve y produce
 
 Los errores esperables se devolverán como datos, no mediante `panic`. Todos los
 archivos y campos del esquema inicial son obligatorios; la ausencia explícita de
-retrato o política se expresa con los valores `None` y `Ninguna`, no omitiendo el
-campo. Sintaxis inválida, identificador duplicado, referencia rota, campo
-desconocido, matriz o leyenda inválida, coordenada fuera del mapa, variable
-global inválida, retrato inválido o bloque Lua inválido impedirá crear la Partida
-completa. Un error de matriz indicará, cuando corresponda, archivo, fila, columna
-y símbolo.
+retrato o política se expresa con los valores `None` y `Ninguna`, y la ausencia
+de Relaciones con `relaciones: []`, no omitiendo esos campos. Sintaxis inválida,
+identificador duplicado, referencia rota, campo
+desconocido, nombre visible inválido, matriz o leyenda inválida, coordenada fuera del mapa, variable
+global inválida, Relación inválida, retrato inválido o bloque Lua inválido
+impedirá crear la Partida completa. Un error de matriz indicará, cuando
+corresponda, archivo, fila, columna y símbolo.
 
 Las pruebas automáticas cubrirán:
 
 - un conjunto mínimo válido y cada clase de error anterior;
+- carga y resolución de Relaciones, junto con todos los casos de contenido
+  enumerados en [`10-relaciones.md`](./10-relaciones.md#82-contenido);
 - clonación barata de `ContenidoValidado` con catálogos compartidos y estados
   de Partida independientes;
 - construcción de `ClaveTipoTile` válida y rechazo exacto de sintaxis o longitud
@@ -1188,6 +1256,10 @@ Las pruebas automáticas cubrirán:
 - independencia respecto del orden del filesystem;
 - rechazo de campos desconocidos, repetidos u obligatorios ausentes en cada tipo
   de archivo;
+- exigencia de `nombre` en cada Actor, conservación exacta de un nombre Unicode
+  visible y rechazo de texto vacío, controles C0/C1 o secuencias de escape;
+- proyección conjunta de ID, nombre y retrato de Actor mediante el catálogo de
+  presentación, sin usar el nombre para resolver referencias;
 - rechazo de cualquier `#![enable(...)]`, incluido `implicit_some`, y de datos
   residuales después del único valor raíz;
 - omisión deliberada de archivos físicos que no estén enumerados en `world.ron`;
@@ -1275,9 +1347,9 @@ catálogo ni otra instancia.
 
 ## 9. Decisiones aplazadas
 
-- historia detallada, nombres propios y presentación definitiva de los Actores;
+- historia detallada y presentación definitiva de los Actores;
 - cambios posteriores en la composición del Grupo;
-- Relaciones y facciones;
+- tipos de Relación distintos de `Conectado`, Relaciones mutables y facciones;
 - transformación visual de zonas y tiles;
 - evolución entre versiones del esquema;
 - combinación, prioridad y compatibilidad de paquetes de mods;

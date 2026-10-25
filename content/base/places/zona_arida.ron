@@ -1,7 +1,17 @@
 (
     clave: "zona_arida",
-    nombre: "Zona Árida",
-    caracteristicas: ["arido"],
+    nombre: "Hamada Roja",
+    caracteristicas: ["arido", "desierto", "rocoso", "abierto"],
+    relaciones: [
+        (
+            tipo: Conectado,
+            destino: Lugar("costa_ambar"),
+        ),
+        (
+            tipo: Conectado,
+            destino: Lugar("cabo_errante"),
+        ),
+    ],
     coordenada_central: (x: 24, y: 16),
     coordenadas_rotulo: [
         (x: 19, y: 14),
@@ -14,5 +24,6 @@
         (x: 26, y: 14),
         (x: 27, y: 14),
         (x: 28, y: 14),
+        (x: 29, y: 14),
     ],
 )

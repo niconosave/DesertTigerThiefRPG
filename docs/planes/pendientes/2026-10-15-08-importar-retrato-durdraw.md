@@ -15,9 +15,9 @@ Actor continúa siendo la única fuente cargada durante una Partida.
 
 ## Referencias
 
-- [Esquema de Actor y retrato](../../tecnica/componentes/03-contenido.md#5-esquema-normativo-y-validación).
-- [Vista neutral de Actor](../../tecnica/componentes/04-sesion-aplicacion.md#7-vistas-públicas).
-- [Composición de retratos](../../tecnica/componentes/09-frontend-terminal.md#7-composición-y-comportamiento-visible).
+- [Esquema de Actor y retrato](../../tecnica/componentes/03-contenido.md#5-formato-y-organización).
+- [Vista neutral de Actor](../../tecnica/componentes/04-sesion-aplicacion.md#7-vistas-y-salidas).
+- [Composición de retratos](../../tecnica/componentes/09-frontend-terminal.md#7-composición-de-la-pantalla).
 - [Bucle y animación](../../tecnica/componentes/09-frontend-terminal.md#8-bucle-animación-y-restauración).
 - [Definición de terminado](../../metodologia-desarrollo.md#8-definición-de-terminado).
 

@@ -5,7 +5,7 @@
 | ID | PLAN-2026-003 |
 | Estado | Pendiente |
 | Creado | 2026-10-15 |
-| Actualizado | 2026-10-15 |
+| Actualizado | 2026-10-20 |
 
 ## Resultado buscado
 
@@ -19,10 +19,19 @@ duración y traslado semántico verificables sin frontend.
 - [Ejecución y estado reanudable](../../tecnica/componentes/05-motor-acciones.md#5-ejecución-y-estado-reanudable).
 - [Azar compartido](../../tecnica/componentes/05-motor-acciones.md#6-azar-compartido-y-reproducible).
 - [Errores del motor](../../tecnica/componentes/05-motor-acciones.md#8-errores-y-validaciones).
-- [Solicitud y disponibilidad de Viajar](../../tecnica/acciones/01-viajar.md#2-solicitud-y-disponibilidad).
-- [Ejecución de Viajar](../../tecnica/acciones/01-viajar.md#3-ejecución-inicial).
-- [Pruebas de Viajar](../../tecnica/acciones/01-viajar.md#8-pruebas-y-aceptación).
+- [Disponibilidad y ruta del contrato histórico ejecutado](../../tecnica/acciones/01-viajar.md#3-disponibilidad-y-cálculo-de-ruta).
+- [Ejecución común del contrato histórico ejecutado](../../tecnica/acciones/01-viajar.md#6-ejecución-común).
+- [Pruebas del contrato histórico ejecutado](../../tecnica/acciones/01-viajar.md#14-pruebas-y-criterios-de-aceptación).
+- [Contrato físico actual de Viajar](../../tecnica/acciones/02-viajar-expediciones.md).
+- [Proyecto humano actual de Viajar](../../tecnica/acciones/04-proyecto-humano-viajar.md).
 - Plan previo: [PLAN-2026-002](./2026-10-15-02-implementar-modelo-mundo-calendario.md).
+
+Este plan conserva el alcance histórico de la primera versión ya implementada.
+`01-viajar.md` es ahora un documento obsoleto conservado como evidencia y no una
+fuente normativa vigente. Los contratos actuales son `02` y `04`; sus sucesores
+completados y la secuencia activa PLAN-2026-021 a PLAN-2026-024 son responsables
+de migrar el código. Las casillas completadas de este archivo no afirman que esa
+especificación posterior ya esté implementada.
 
 ## Alcance
 
@@ -71,9 +80,10 @@ duración y traslado semántico verificables sin frontend.
 
 ## Verificación
 
-- [x] Se cumplen los criterios del
-      [motor](../../tecnica/componentes/05-motor-acciones.md#9-pruebas-y-criterios-de-aceptación)
-      y de [`Viajar`](../../tecnica/acciones/01-viajar.md#8-pruebas-y-aceptación).
+- [x] Se cumplieron los criterios del motor y de `Viajar` vigentes al ejecutar
+      este alcance histórico. La verificación de la especificación actual
+      pertenece a los planes sucesores y, para el refactor vigente, a
+      [PLAN-2026-022](./2026-10-19-22-refactorizar-viajar-proyecto-humano.md).
 - [x] La misma secuencia de azar y respuestas produce las mismas emisiones,
       duración y consecuencia.
 - [x] El motor nunca adelanta la fecha ni conoce Lua, RON, terminal o tiles.

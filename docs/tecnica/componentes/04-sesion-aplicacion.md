@@ -2,9 +2,20 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
-| Versión | 0.13 |
-| Fecha | 2026-10-16 |
+| Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
+| Versión | 0.21 |
+| Fecha | 2026-10-20 |
+
+## Revisión implementada el 2026-10-24: Sesión y vistas del viaje activo
+
+Partida retiene EjecucionAccion e IdPaso en escenas y decisiones. La vista transmite tiempo_transcurrido como texto, fecha proyectada y participantes congelados. No publica pronosticos_viaje. Al finalizar confirma fecha y resto una vez y ejecuta una fase NPC.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
 
 ## 1. Propósito y autoridad
 
@@ -30,6 +41,7 @@ La primera fachada implementable cubrirá el recorrido confirmado en el
 crear Partida desde contenido validado
 → consultar la vista del mundo
 → comenzar Viajar y seleccionar destino
+→ presentar propósito, deliberación y compromiso con un plan
 → presentar sus viñetas y resolver decisiones
 → cerrar la última viñeta
 → avanzar la fecha una vez
@@ -111,11 +123,13 @@ EstadoSesion
 ├── Presentando {
 │     vista_actual: VistaFragmento,
 │     fragmentos_restantes,
+│     fecha_inicio_accion,
 │     cierre_pendiente
 │   }
 ├── EsperandoDecision {
 │     ejecucion,
 │     vista: VistaDecision,
+│     fecha_inicio_accion,
 │     correspondencia_opciones
 │   }
 └── Fatal { vista: VistaFatal }
@@ -131,6 +145,11 @@ cierre `Decision` oculto detrás de fragmentos narrativos todavía no confirmado
 Una finalización nunca conserva una ejecución. El resumen NPC reciente permanece
 dentro de la `VistaMundo` disponible hasta que la aplicación acepta la siguiente
 acción del jugador.
+
+`fecha_inicio_accion` es una copia inmutable de `Mundo::fecha()` tomada al aceptar
+la acción. Acompaña una sola vez al estado de sesión vigente durante todas sus
+fases pendientes y solo sirve para proyectar la fecha de cada registro; no
+constituye otra fecha vigente ni se modifica al presentar una viñeta.
 
 Toda consulta, correspondencia o conversión que pueda impedir construir la
 próxima vista se resuelve durante la transición hacia el estado, nunca dentro de
@@ -167,8 +186,9 @@ secuencia:
 recibir tramo
 → conservar la ejecución solo si el cierre espera una decisión
 → recorrer sus emisiones en orden:
-  resultado semántico → procesarlo internamente
-  emisión narrativa → guardarla como fragmento pendiente
+  registro de proyecto → resolver nombres y construir su presentación
+  otro registro cronológico → resolver nombres, proyectar fecha y construir vista
+  resultado semántico → procesarlo internamente y corroborar su consecuencia
 → guardar su cierre: decisión o finalización
 → exponer el primer fragmento
 → cada continuación consume solamente un fragmento confirmado
@@ -178,23 +198,65 @@ recibir tramo
   → ejecutar fase NPC → volver a Disponible con resumen
 ```
 
-Si un tramo no contiene fragmentos, su frontera se procesa inmediatamente. El
-contenido inicial de `Viajar` tendrá varios fragmentos que el frontend presentará
-como viñetas y dos de sus ramas tendrán una decisión; el orden concreto ya está
-aprobado en la [especificación de esa acción](../acciones/01-viajar.md).
+Si un tramo no contiene fragmentos, su frontera se procesa inmediatamente. Esto
+es válido para una decisión general que todavía no ejecutó una acción particular,
+pero no permite omitir una ejecución ya realizada. La aplicación conserva las
+situaciones, los momentos causales y las trazas recibidas en su orden. Por cada
+momento construye una o varias viñetas del guion correspondiente; también puede
+integrar momentos contiguos en una misma viñeta cuando todos siguen explícitos y
+ordenados. No impone un límite de situaciones o viñetas, no toma muestras y no
+descarta ejecuciones automáticas, repetidas o rutinarias. La secuencia canónica
+se define en
+[`03-cronologia-causal-viaje.md`](../acciones/03-cronologia-causal-viaje.md).
+
+Propósito, propuesta, compromiso, subobjetivo, interpretación y replanteamiento
+se redactan desde los registros neutrales del núcleo. Pueden usar las mismas
+fases `PresentandoAccion` y `EsperandoDecision`: no requieren otra pantalla ni
+permiten que la aplicación invente un plan a partir de la ruta o de la prosa.
+
+La aplicación contiene el narrador hardcodeado de `Viajar`. Elige la redacción
+dramática concreta a partir de los registros de proyecto,
+`ClaveSituacionViaje`, los hechos contextuales y las trazas ya filtradas por el
+motor; puede expresar aventura, alivio, libertad,
+esfuerzo o peligro sin convertir esos matices en un enum genérico de tonos.
+Resuelve `IdActor` e `IdLugar` contra el catálogo de presentación para usar
+nombres visibles, pero no vuelve a calcular dificultad, modificadores, banda,
+duración, consumo, reservas ni consecuencias. Una referencia que no resuelva en
+un contenido validado es `EstadoInconsistente`, no una licencia para mostrar la
+clave técnica o inventar una frase genérica.
+
+El narrador puede añadir detalles literarios que no alteren la simulación. Si una
+afirmación explica o modifica una regla —por ejemplo, que un viento favorable
+redujo la dificultad de navegar— el hecho debe haber llegado en el contexto
+reglado y en la traza; la aplicación solo lo verbaliza. Nunca crea después una
+causa mecánica para embellecer un resultado.
+
+Para cada progreso recibido calcula de forma pura y comprobada:
+
+```text
+fecha_proyectada = fecha_inicio_accion + duracion_transcurrida
+```
+
+Construir todas las instantáneas de una cola no las vuelve observables: solo se
+publica `vista_actual`. La aplicación nunca consulta el `Mundo` ya mutado para
+completar una vista anterior, pues una misma llamada del motor puede haber
+confirmado consecuencias posteriores.
 
 El avance se realiza una sola vez y únicamente al liberar una finalización de
 la acción del jugador. La aplicación entrega la `Duracion` completa al Mundo;
 no suma por separado sus meses o días. Si `avanzar_fecha` devuelve
 `ErrorCalendario`, la sesión pasa a `Fatal` y la fase NPC no comienza. Como la
 operación del Mundo es atómica, la fecha anterior permanece intacta.
+La fecha resultante debe coincidir con la última fecha proyectada de la acción;
+una discrepancia indica `EstadoInconsistente` y no se corrige en el frontend.
 
-En el primer incremento, el único resultado semántico es
-`ActoresTrasladados { actores, origen, destino }`. La aplicación lo recibe como
-descripción de una mutación que el núcleo ya confirmó y nunca vuelve a trasladar
-esos actores. Durante una acción del jugador no produce por sí solo una pantalla
-ni una modificación del mapa. Durante la fase NPC se conserva para construir la
-entrada estructurada de resumen definida por ese componente.
+Los resultados semánticos vigentes describen traslados y altas o bajas de
+Características de Actor. La aplicación los recibe como descripción de mutaciones
+que el núcleo ya confirmó y nunca vuelve a aplicarlas. No producen por sí solos
+otra pantalla: todo dato administrativo observable queda asociado a la traza del
+momento que lo causó y aparece en alguna de las viñetas de su situación. Durante
+la fase NPC se conserva además para validar la llegada o interrupción y construir
+su resumen estructurado.
 
 Contratos confirmados:
 
@@ -204,6 +266,8 @@ Contratos confirmados:
 - el frontend debe confirmar que terminó de presentar el último fragmento antes
   del avance de fecha;
 - una acción completada del jugador causa un único avance de fecha;
+- la fecha proyectada puede cambiar entre vistas, pero no activa reglas, Lua ni
+  NPC y no sustituye a `Mundo::fecha()` mientras la acción siga abierta;
 - la fase NPC se procesa después y sus acciones no vuelven a adelantarla;
 - terminado el procesamiento NPC, el control vuelve al jugador;
 - confirmar un fragmento nunca llama al motor ni consume azar por sí mismo; si
@@ -378,12 +442,25 @@ Todos los valores son instantáneas poseídas:
 pub struct VistaMundo {
     pub mapa: VistaMapa,
     pub lugares: Vec<VistaLugar>,
+    pub fecha: Fecha,
     pub lugar_jugador: IdLugar,
     pub jugador: VistaActor,
     pub companeros: Vec<VistaActor>,
     pub acciones: Vec<AccionDisponible>,
     pub causa_indisponibilidad: Option<CausaIndisponibilidad>,
-    pub resumen_npc_reciente: Option<ResumenNpc>,
+    pub resumen_npc_reciente: Option<VistaResumenNpc>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ClaseVistaResumenNpc {
+    Normal,
+    Incidencia,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaResumenNpc {
+    pub clase: ClaseVistaResumenNpc,
+    pub texto: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -405,6 +482,7 @@ pub struct VistaLugar {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaActor {
     pub id: IdActor,
+    pub nombre: String,
     pub retrato: RetratoActor,
 }
 
@@ -421,12 +499,14 @@ pub enum CausaIndisponibilidad {
 }
 ```
 
-`lugares` conserva el orden canónico y contiene todos los Lugares. Cada
+`fecha` es la fecha vigente y ya confirmada del Mundo cuando el jugador puede
+elegir una acción. `lugares` conserva el orden canónico y contiene todos los Lugares. Cada
 `coordenadas_rotulo` mantiene su correspondencia posicional con los caracteres
 de `nombre`. `jugador` está separado de `companeros`, y estos últimos
 conservan el orden del Grupo. Solo esos Actores se proyectan porque son los
 únicos retratos que usa el frontend inicial; la ilustración de NPC independientes
-sigue aplazada. El contenido garantiza que todos tienen retrato.
+sigue aplazada. El contenido garantiza que todos tienen nombre visible y
+retrato; la clave externa del Actor nunca se usa como reemplazo de su nombre.
 
 `RetratoActor` es un valor inmutable y neutral que contiene fotogramas de
 idénticas dimensiones. Cada `FotogramaRetrato` publica su ancho, alto y una
@@ -444,8 +524,9 @@ RON, glifos, estilos ni acceso al `EstadoMapa`.
 
 Si el jugador no tiene `muerto`, `acciones` contiene exactamente una variante
 `Viajar` y sus destinos son el resultado, posiblemente vacío, de
-`destinos_disponibles` en orden canónico; el Lugar actual y los
-`inalcanzable` ya están excluidos. Una lista vacía permite mostrar el control
+`destinos_disponibles` en orden canónico. El Lugar actual, los Lugares
+sin ruta `Conectado` viable con los medios actuales ya están excluidos por el
+núcleo. Una lista vacía permite mostrar el control
 deshabilitado, pero no confirmar un destino. En ese caso
 `causa_indisponibilidad` es `None`.
 
@@ -455,38 +536,121 @@ la consulta de disponibilidad contradice una Partida validada y lleva a
 `Fatal`; el frontend no interpreta Características para producir estas
 decisiones.
 
-`ResumenNpc` y sus entradas son los tipos neutrales definidos únicamente por
-la [fase NPC](./07-fase-npc.md#4-resumen-público). La fachada no los convierte
-en texto ni expone el error interno de Lua.
+La `CronologiaNpc` exhaustiva, el `ResumenNpc` estructurado, su ciclo de fase y
+sus errores siguen
+definidos por la [fase NPC](./07-fase-npc.md#4-registro-interno-y-proyección-breve).
+Antes de construir `VistaMundo`, la fachada la proyecta a un solo
+`VistaResumenNpc`. Para un viaje iniciado, `texto` comienza por Actor, desenlace,
+propósito/destino, último Lugar y duración simulada total, y luego comunica
+cantidades y los últimos cambios materiales mediante agregación acotada; esa
+duración es informativa y no modifica la fecha del Mundo. Un rechazo inicial
+nombra Actor, destino solicitado y causa sin inventar conclusión, ubicación
+final o duración. Una política fallida antes de solicitar usa la clave de Actor
+y su código estable sin exigir datos de viaje inexistentes. `clase` permite al
+frontend distinguir una incidencia sin analizar la frase. La fachada no expone
+el error interno de Lua. Conforme al
+[contrato de cronología](../acciones/03-cronologia-causal-viaje.md#9-viajes-de-npc),
+la cronología conserva todos los registros del proyecto y el resumen interno
+conserva una entrada ordenada por cada acción particular
+realmente ejecutada, además del propósito, el plan y los replanteamientos
+materialmente relevantes. La vista breve puede contar intentos rutinarios, pero
+no puede ocultar que existieron consecuencias persistentes o cambios de curso:
+nombra el último de cada clase y cuenta los anteriores. Esto no cambia
+cuándo corre la fase NPC ni abre viñetas interactivas.
 
 `desert-tiger-app` reexporta los tipos de dominio que aparecen en esta API
-pública —incluidos `IdActor`, `IdLugar`, `ClaveEscena` y `RechazoAccion`—, además
-de sus propios tipos de contenido y sesión. Un frontend importa toda esta
-frontera desde la fachada y no declara una dependencia directa de
-`desert-tiger-core`.
+pública —incluidos `IdActor`, `IdLugar`, `IdSituacion`, `IdMomentoCausal`,
+`ClaveSituacionViaje` y `RechazoAccion`—, además de sus propios tipos de contenido
+y sesión. Un frontend importa toda esta frontera desde la fachada y no declara
+una dependencia directa de `desert-tiger-core`.
 
 Los otros estados usan:
 
 ```rust
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum RolPresentacion {
+    Apertura,
+    Deliberacion,
+    Compromiso,
+    PlanteamientoSituacion,
+    DesarrolloSituacion,
+    DesenlaceSituacion,
+    Replanteamiento,
+    Conclusion,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum VistaRegistroProyecto {
+    Proposito,
+    Propuesta,
+    Compromiso,
+    Subobjetivo,
+    Interpretacion,
+    Replanteamiento,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VistaReferenciaSituacion {
+    pub id: IdSituacion,
+    pub clave: ClaveSituacionViaje,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaMomentoCausal {
+    pub id: IdMomentoCausal,
+    pub detalle: VistaDetalleMecanico,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaReferenciaLugar {
+    pub id: IdLugar,
+    pub nombre: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaProgresoViaje {
+    pub lugar_confirmado: VistaReferenciaLugar,
+    pub siguiente_lugar: Option<VistaReferenciaLugar>,
+    pub destino_final: VistaReferenciaLugar,
+    pub duracion_transcurrida: Duracion,
+    pub fecha_proyectada: Fecha,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaFragmento {
     pub id: IdFragmento,
+    pub rol: RolPresentacion,
+    pub titulo: String,
     pub texto: String,
-    pub escena: Option<ClaveEscena>,
+    pub proyecto: Option<VistaRegistroProyecto>,
+    pub situacion: Option<VistaReferenciaSituacion>,
+    pub momentos: Vec<VistaMomentoCausal>,
+    pub progreso: VistaProgresoViaje,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaDecision {
     pub id: IdDecisionVista,
+    pub rol: RolPresentacion,
+    pub titulo: String,
     pub texto: String,
-    pub escena: Option<ClaveEscena>,
+    pub detalle: Option<VistaDetalleDecision>,
+    pub proyecto: Option<VistaRegistroProyecto>,
+    pub situacion: Option<VistaReferenciaSituacion>,
+    pub progreso: VistaProgresoViaje,
     pub opciones: Vec<VistaOpcionDecision>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaOpcionDecision {
     pub id: IdOpcionVista,
-    pub texto: String,
+    pub etiqueta: String,
+    pub detalle: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaDetalleDecision {
+    pub lineas_contexto: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -507,11 +671,97 @@ pub struct VistaFatal {
 }
 ```
 
-Una `VistaFragmento` corresponde uno a uno con un `FragmentoNarrativo`.
-`VistaDecision` conserva exactamente el texto, escena y orden de opciones
-entregados por el motor, pero sustituye sus IDs internos por los IDs de vista
-descritos en la sección 6. La aplicación reenvía `ClaveEscena` sin resolver
-arte, no une ni divide textos y no pagina.
+`VistaDetalleMecanico` es la proyección estructurada de una traza del motor:
+conserva verbo, responsable, factores visibles y sus ajustes, modo de resolución,
+valores revelables, banda, duración y efectos. `VistaDetalleDecision` conserva
+únicamente el contexto mecánico conocido y común a toda la decisión; cada
+`VistaOpcionDecision::detalle` contiene solo beneficios, costes, procedencia,
+precondiciones e incertidumbre propios de esa alternativa. Un mismo dato no se
+duplica entre ambos niveles. Todos reemplazan IDs de Actor o Lugar por nombres y
+referencias visibles sin alterar cifras, orden ni visibilidad; siguen los tipos
+cerrados del [motor](./05-motor-acciones.md#cronología-causal) y no constituyen un
+segundo reglamento de aplicación.
+
+La clasificación de los registros intencionales es normativa y no depende del
+texto que redacte el narrador:
+
+| `VistaRegistroProyecto` | `RolPresentacion` obligatorio |
+|---|---|
+| `Proposito` | `Apertura` |
+| `Propuesta` | `Deliberacion` |
+| `Compromiso` | `Compromiso` |
+| `Subobjetivo` | `PlanteamientoSituacion` |
+| `Interpretacion` | `DesenlaceSituacion` |
+| `Replanteamiento` | `Replanteamiento` |
+
+Si `proyecto` es `Some`, esta tabla tiene precedencia aunque el fragmento
+también refiera una situación. Con `proyecto: None`, la apertura de una
+situación usa `PlanteamientoSituacion`, su desarrollo usa
+`DesarrolloSituacion` y su cierre usa `DesenlaceSituacion`. La conclusión de
+`Viajar`, que no es otro `VistaRegistroProyecto`, usa `Conclusion`.
+
+Las decisiones siguen la frontera que resuelven: elegir una propuesta usa
+`Deliberacion`; precisar ritmo, preparación o ruta del plan adoptado usa
+`Compromiso`; decidir dentro de una situación o acción particular usa
+`DesarrolloSituacion`; y elegir una continuación durante un replanteamiento usa
+`Replanteamiento`. Esta correspondencia permite que cualquier frontend componga
+la misma secuencia sin analizar `titulo` o `texto`.
+
+`None` significa que ese nivel carece de desglose adicional. `Some` nunca puede
+estar vacío: `lineas_contexto` contiene al menos una línea no vacía y un detalle
+de opción contiene texto no vacío. Así, un frontend puede decidir si ofrece
+`[D]` sin analizar cadenas ni conocer variantes internas.
+
+`VistaMomentoCausal` identifica sin ambigüedad qué ejecución particular sustenta
+la viñeta y conserva su detalle mecánico. Un mismo momento puede aparecer en
+varias viñetas consecutivas de la misma situación cuando su presentación necesita
+más espacio o desarrollo; una viñeta puede enumerar varios momentos contiguos si
+el texto mantiene explícito su orden y sus resultados. El narrador no duplica ni
+fabrica momentos: la unión de IDs distintos a lo largo de la situación coincide
+exactamente con los `MomentoCausal` recibidos del núcleo.
+
+Los registros de proyecto, `SituacionIniciada` y `SituacionConcluida`, cada
+momento causal y la conclusión pueden producir una o varias
+`VistaFragmento` según el guion hardcodeado. `proyecto` conserva qué transición
+intencional sustenta el fragmento sin convertirla en un momento. No existe una
+segunda apertura además de `VistaRegistroProyecto::Proposito`, que se presenta
+con `RolPresentacion::Apertura`. No existe una
+fórmula de dos fragmentos por acción particular. La aplicación redacta `titulo`,
+`texto`, `etiqueta` y `detalle` a partir del proyecto, la situación, los hechos,
+las trazas y el catálogo; puede unir o dividir la presentación sin omitir ningún
+momento ni alterar su orden. Una acción
+multidiaria conserva un solo momento con su duración completa, aunque ese momento
+ocupe varias viñetas.
+
+`VistaDecision` sustituye los IDs internos por los IDs de vista descritos en la
+sección 6 y conserva el orden de opciones. `etiqueta` es una línea no vacía, sin
+controles, de como máximo 40 columnas visibles según `unicode-width`; este
+límite forma parte de la validación de la vista y garantiza que una opción
+completa quepa en el ancho terminal mínimo. El `detalle` opcional explica el
+intercambio conocido exclusivo de la opción sin anticipar el desenlace. La
+aplicación reenvía `ClaveSituacionViaje` sin resolver arte y no pagina; la
+paginación y el estado local que muestra u oculta el detalle pertenecen al
+frontend. `RolPresentacion` describe la función estructural tanto de fragmentos
+como de decisiones; no es un tono emocional ni obliga a que toda situación use
+los tres roles intermedios.
+
+`VistaProgresoViaje` sustituye cada `IdLugar` neutral del motor por una
+`VistaReferenciaLugar` con el mismo ID y su nombre visible. La terminal usa el
+ID para cámara, foco y marcador y usa el nombre ya resuelto para el marco; nunca
+busca ese texto en una instantánea anterior de `VistaMundo`. De igual modo,
+`VistaDecision::titulo` y `rol` llegan redactados o clasificados por la
+aplicación, y `proyecto` conserva la transición intencional que sustenta la
+decisión cuando existe.
+
+La representación Rust vigente aplana cada `VistaReferenciaLugar` en los pares
+`lugar_confirmado`/`nombre_lugar_confirmado`,
+`siguiente_lugar`/`nombre_siguiente_lugar` y
+`destino_final`/`nombre_destino_final`. Es la misma información y evita que el
+frontend vuelva a consultar el Mundo. Del mismo modo, el primer vertical
+proyecta cada `VistaMomentoCausal` como una línea de detalle ya filtrada dentro
+de `VistaFragmento::detalle`; la terminal solo la pagina y nunca reconstruye una
+tirada. Una migración futura puede conservar la estructura anidada del ejemplo
+sin cambiar este contrato semántico.
 
 `VistaFatal` se construye una sola vez al entrar en `EstadoSesion::Fatal` y se
 clona sin cambios en consultas posteriores. `mensaje` es una sola línea segura,
@@ -531,17 +781,20 @@ la imposibilidad de representar la posición de una opción mediante
 Mientras se presenta o decide una acción, la vista no expone el mapa ni una
 proyección viva del Mundo. Así, una consecuencia que el núcleo ya hubiera
 confirmado no puede revelar una nueva ubicación u otro resultado antes de que el
-jugador termine de presentar los fragmentos anteriores.
+jugador termine de presentar los fragmentos anteriores. `VistaProgresoViaje` es
+una instantánea histórica del punto visible, no acceso al estado vigente del
+Mundo; el frontend la combina con su última base visual para mover cámara y
+marcador sin observar emisiones futuras.
 
 Una vista nunca expone colecciones mutables, el estado interno reanudable de una
 acción, objetos Lua, la fuente de azar ni reglas que el frontend deba recalcular.
 
-El motor puede producir fragmentos narrativos, solicitudes de decisión,
+El motor puede producir registros cronológicos, solicitudes de decisión,
 resultados semánticos y finalización. La aplicación conserva su orden y expone
 solo la parte correspondiente a la fase visible. Un resultado semántico sirve
-para coordinar subsistemas de la aplicación y no se presenta como si fuera una
-pantalla narrativa por sí mismo. Color, posición, paginación, animación y widget
-pertenecen al frontend.
+para coordinar subsistemas y corroborar la consecuencia asociada; no se presenta
+como una pantalla contable por sí mismo. Color, posición, paginación, animación y
+widget pertenecen al frontend.
 
 ## 8. Categorías de error
 
@@ -601,9 +854,9 @@ intactas.
   actual. La sesión continúa utilizable y el componente que rechaza garantiza
   que no confirmó una mutación parcial.
 - **Incidencia recuperable de NPC:** un error atribuible a una política o el
-  rechazo inicial de su solicitud se entrega dentro de `ResumenNpc`; no es un
-  `ErrorIntencion`, no impide volver a `Disponible` y no se reintenta en esa
-  fase.
+  rechazo inicial de su solicitud se registra dentro de `ResumenNpc` y se
+  proyecta como `ClaseVistaResumenNpc::Incidencia`; no es un `ErrorIntencion`, no
+  impide volver a `Disponible` y no se reintenta en esa fase.
 - **Error fatal de sesión:** ya no puede garantizarse la consistencia. La
   Partida deja de aceptar intenciones de juego.
 
@@ -624,8 +877,25 @@ fachada.
 - El frontend nunca posee estado mutable del dominio ni del mapa de la Partida.
 - Hay como máximo una `EjecucionAccion` y una frontera pendiente.
 - Jugador y NPC atraviesan el mismo motor y las mismas validaciones.
+- La aplicación conserva y redacta el orden de los registros de proyecto sin
+  inferir propósito, plan o subobjetivo desde una ruta, una traza o una frase.
+- Un registro de proyecto sin acción particular puede producir una viñeta, pero
+  nunca un `VistaMomentoCausal` artificial.
 - El tiempo avanza una vez por acción completada del jugador y nunca por una
   acción NPC.
+- La fecha proyectada de una vista se deriva exclusivamente de la fecha capturada
+  al iniciar la acción y de la duración acumulada entregada por el motor; no muta
+  el Mundo.
+- Cada ejecución particular recibida conserva exactamente un momento causal
+  visible dentro de una situación; la aplicación puede distribuirlo entre
+  viñetas, pero no limitarlo, duplicarlo ni omitirlo.
+- Una situación puede contener varias ejecuciones y no existe una correspondencia
+  obligatoria entre escena, acción particular y fragmento.
+- Nombres y prosa proceden del catálogo, de la situación y de los hechos del
+  motor; la aplicación no reinterpreta factores ni consecuencias.
+- Un hecho narrativo con efecto mecánico solo se redacta si el núcleo lo entregó
+  como parte del contexto reglado y de la traza correspondiente.
+- No existe un enum de tono: la emoción surge del guion concreto de la situación.
 - Ninguna intención nueva del jugador se acepta durante la fase NPC.
 - Todo azar que afecte gameplay o decisiones NPC procede de la FuenteAzar de la
   Partida.
@@ -657,6 +927,9 @@ Las pruebas de aplicación, sin terminal real, cubrirán:
 - proyección exclusiva del jugador y los integrantes del Grupo en
   `jugador` y `companeros`, con el orden del Grupo y sin retratos de NPC
   independientes;
+- proyección del nombre visible de cada Actor junto con su ID y retrato, sin
+  mostrar la clave externa como nombre;
+- exposición de la fecha confirmada del Mundo en `VistaMundo`;
 - proyección de las claves de tipo visual, y no de los símbolos RON, en una
   `VistaMapa` con dimensiones y orden de celdas correctos;
 - exposición ordenada de todos los tipos declarados, incluido uno que todavía no
@@ -664,8 +937,38 @@ Las pruebas de aplicación, sin terminal real, cubrirán:
 - conservación de una `VistaMapa` anterior después de modificar una celda,
   mientras una vista nueva refleja el cambio sin afectar otra Partida;
 - inicio de `Viajar`, fragmento, decisión y continuación;
+- proyección ordenada de propósito, propuestas, compromiso, subobjetivos,
+  interpretaciones y replanteamientos sin analizar texto;
+- correspondencia exacta entre cada `VistaRegistroProyecto` y su
+  `RolPresentacion`, incluida su precedencia cuando la vista también refiere una
+  situación;
+- decisiones de propuesta, refinamiento del plan, situación particular y
+  replanteamiento clasificadas, respectivamente, como `Deliberacion`,
+  `Compromiso`, `DesarrolloSituacion` y `Replanteamiento`;
+- deliberación y elección de plan en las mismas fases generales de presentación
+  y decisión, sin una pantalla especial ni momentos causales inventados;
+- proyección exacta de `N` ejecuciones particulares como `N` momentos causales,
+  sin límite cuando `N` supera seis y sin perder dos ejecuciones iguales
+  consecutivas;
+- una situación que contiene varios momentos y un momento distribuido en varias
+  viñetas consecutivas, conservando IDs, trazas y orden;
+- una viñeta que presenta varios momentos contiguos sin volverlos indistinguibles
+  ni cambiar su secuencia;
+- dos situaciones dramáticas distintas que reutilizan la misma acción particular
+  y producen textos contextuales diferentes sin cambiar su traza mecánica;
+- ausencia de vistas causales para consultas de elegibilidad, pronósticos,
+  candidatos descartados y otras operaciones que no ejecuten una acción;
+- una acción particular multidiaria conservada como un momento con su duración
+  completa, aunque se presente en más de una viñeta;
+- resolución de nombres y redacción desde la traza sin cambiar factores, ajustes,
+  tirada, banda, duración ni efectos;
+- redacción de una causa mecánica únicamente cuando aparece en los hechos
+  contextuales y en la traza, y libertad de detalles literarios sin efecto
+  reglado;
 - ausencia del Lugar actual entre los objetivos ofrecidos y rechazo si se intenta
   enviarlo manualmente;
+- ausencia de Lugares desconectados o sin una ruta viable, sin que la aplicación
+  inspeccione Relaciones por su cuenta;
 - jugador vivo sin destinos que produce exactamente
   `Viajar { destinos: vec![] }` y `causa_indisponibilidad: None`;
 - jugador con `muerto` que produce `acciones: vec![]` y
@@ -675,7 +978,11 @@ Las pruebas de aplicación, sin terminal real, cubrirán:
   vigentes, incluida cualquier intención recibida en `Fatal`;
 - respuesta inválida sin perder la espera ni consumir azar;
 - ausencia de avance temporal antes de confirmar el último fragmento;
+- fecha proyectada pura y monótona en cada fragmento y decisión, incluido un
+  salto multidiario, sin modificar `Mundo::fecha()`;
 - un único avance seguido de la fase NPC;
+- coincidencia entre la última fecha y ubicación proyectadas y el Mundo después
+  de liberar la finalización;
 - uso conjunto de los componentes de meses y días de la `Duracion`, en el orden
   definido por el calendario;
 - error de calendario que conserva la fecha, impide iniciar la fase NPC y deja
@@ -683,8 +990,16 @@ Las pruebas de aplicación, sin terminal real, cubrirán:
 - acción NPC mediante el mismo motor y sin segundo avance;
 - omisión de las políticas Lua de integrantes del Grupo durante la fase NPC;
 - ausencia de resumen cuando la política no solicita nada;
-- resumen de éxito, solicitud rechazada o política fallida y regreso a
-  `Disponible`;
+- resumen breve de llegada, abandono, interrupción, solicitud rechazada o
+  política fallida y regreso a `Disponible`, derivado de un registro interno que
+  conserva todas las ejecuciones particulares;
+- viaje NPC con más de seis acciones cuya vista cuenta acciones y
+  replanteamientos, incluye propósito/destino y duración simulada total, nombra
+  solo el último replanteamiento y la última
+  consecuencia persistente con cantidades para las anteriores y no crece
+  proporcionalmente al viaje;
+- rechazo NPC cuya vista no inventa conclusión, Lugar final o duración, y error
+  de política anterior a solicitar que tampoco inventa destino o propósito;
 - fallo de infraestructura de la fase NPC que lleva a `Fatal` y no se presenta
   como resumen recuperable;
 - persistencia del resumen mientras no se acepte otra acción y descarte al
@@ -692,17 +1007,24 @@ Las pruebas de aplicación, sin terminal real, cubrirán:
 - rechazo de una confirmación de fragmento antigua o repetida sin cambiar la cola;
 - asignación de IDs de fragmento distintos entre acciones y rechazo de un ID
   antiguo en una presentación posterior sin consumir el fragmento vigente;
-- conservación exacta de una `ClaveEscena` presente o ausente desde el motor
-  hasta la vista, sin resolver arte ni exponer rutas;
-- consumo interno de un único `ActoresTrasladados` sin aplicar nuevamente el
-  traslado ni convertirlo por sí solo en una pantalla;
+- conservación exacta de cada `ReferenciaSituacion`, momento y progreso causal
+  desde el motor hasta la vista, sin resolver arte ni exponer tiles como ruta;
+- consumo interno de resultados semánticos sin aplicar nuevamente los cambios ni
+  convertirlos por sí solos en una pantalla, y presencia de todo dato observable
+  dentro del momento causal correspondiente;
 - conversión de los rechazos de decisión y opción a las variantes homónimas de
   `ErrorIntencion`, conservando la espera vigente;
 - asignación de IDs de decisión visibles distintos entre dos acciones y rechazo
   de los IDs de vista antiguos sin reanudar el motor ni perder la espera actual;
 - correspondencia exacta entre cada `IdOpcionVista` vigente y la opción interna
   que representa;
-- ausencia de mapa y Mundo vivo en las vistas de fragmento y decisión;
+- separación sin duplicados entre el detalle común de una decisión y el detalle
+  exclusivo de cada opción, con `None` para ausencia y rechazo de valores
+  `Some` vacíos;
+- etiquetas de opción no vacías, sin controles y de hasta 40 columnas visibles,
+  incluidas etiquetas Unicode medidas por ancho terminal y no por bytes;
+- ausencia de mapa y Mundo vivo en las vistas de fragmento y decisión, junto con
+  una instantánea de progreso que nunca revela el punto cronológico siguiente;
 - rechazo de una nueva acción del jugador con `muerto`;
 - mapeo de `ErrorInstanciarContenido`, disponibilidad inicial incoherente y
   fallo de entropía a los códigos exactos de `ErrorCrearPartida`, sin publicar

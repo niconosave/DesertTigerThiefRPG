@@ -574,6 +574,7 @@ mod pruebas {
                     valor: ValorVariableGlobal::Texto("abierto".to_owned()),
                 },
             ],
+            relaciones: vec![],
         })
         .expect("mundo válido");
         let claves = ClavesPrueba {

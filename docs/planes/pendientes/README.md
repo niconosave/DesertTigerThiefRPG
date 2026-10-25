@@ -4,14 +4,22 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
-## Primer incremento jugable
+## Refactor del reglamento de Viajar terminado
+
+PLAN-2026-025 a PLAN-2026-031 están implementados, verificados y archivados en
+[completados](../completados/README.md#refactor-del-reglamento-de-viajar).
+El [informe de verificación](../../tecnica/acciones/verificacion-viajar-reglamento.md)
+distingue el cierre funcional realizado de la valoración de jugabilidad que
+hará el usuario al probarlo. No quedan tareas de desarrollo de esta secuencia.
+
+## Pendientes de cierre del primer incremento jugable
 
 Los siete planes forman juntos un único incremento jugable. Su implementación
 es lineal: cada plan comienza cuando el alcance y las verificaciones acotadas del
-anterior están resueltos y registrados. Los planes permanecen en `pendientes/`
-hasta que PLAN-2026-007 integre el recorrido, deje el repositorio en un estado
-jugable y permita cerrar y archivar el conjunto. La dependencia transitiva no se
-repite en la tabla.
+anterior están resueltos y registrados. La capacidad principal ya está integrada,
+pero los archivos permanecen aquí mientras falten verificaciones o cierres
+documentales expresamente registrados en ellos. Ese trabajo pendiente no se
+redefine ni se duplica en los planes del incremento siguiente.
 
 | Orden | Plan | Dependencia directa | Resultado principal |
 |---:|---|---|---|
@@ -26,3 +34,41 @@ repite en la tabla.
 Al cerrar PLAN-2026-007, los siete resultados se completan y los archivos se
 mueven juntos a `../completados/`. En ese mismo cambio, esta tabla se retira o
 actualiza para enlazar el historial sin dejar enlaces rotos.
+
+### Refinamiento visual pendiente de cierre
+
+| Plan | Estado operativo | Resultado principal |
+|---|---|---|
+| [PLAN-2026-008](./2026-10-15-08-importar-retrato-durdraw.md) | En verificación manual | Retratos coloreados importados desde Durdraw. |
+
+Este plan se cierra conforme a sus propios criterios y no es una dependencia de
+las Relaciones o de las reglas nuevas de `Viajar`.
+
+## Trabajo aplazado sin diseño técnico aprobado
+
+| Plan | Estado operativo | Motivo |
+|---|---|---|
+| [PLAN-2026-009](./2026-10-15-09-diagnosticar-compatibilidad-unicode.md) | No ejecutable | Requiere diseñar y aprobar primero el contrato del diagnóstico de terminal. |
+
+PLAN-2026-009 no pertenece a la secuencia activa ni bloquea los planes nuevos.
+Solo podrá implementarse después de resolver las precondiciones que registra y
+sin convertir el propio plan en fuente de decisiones técnicas.
+
+## Antecedentes sustituidos: Viajar por expediciones y proyecto humano
+
+Los planes 016 a 019 y 021 están archivados en `../completados/`. La versión
+posterior quedó conservada en los commits locales `2ad4e54` y `b4cc2e4` antes
+de abrir `refactor/viajar-reglamento`. La prueba manual detectó diferencias de
+tiempo y dificultades de navegación, y se decidió reemplazar ese diseño.
+
+| Plan | Estado operativo | Tratamiento |
+|---|---|---|
+| [PLAN-2026-022](./2026-10-19-22-refactorizar-viajar-proyecto-humano.md) | Sustituido; implementación anterior conservada | Historial, sin nuevas tareas de corrección. |
+| [PLAN-2026-023](./2026-10-19-23-emitir-cronologia-humana-viaje.md) | Sustituido; implementación anterior conservada | Historial, sin nuevas tareas de corrección. |
+| [PLAN-2026-024](./2026-10-19-24-presentar-proyecto-viaje-terminal.md) | Sustituido; cierre manual anterior incompleto | No se declara completado por el refactor nuevo. |
+| [PLAN-2026-020](./2026-10-17-20-equilibrar-viajar-expediciones.md) | Sustituido; cierre anterior incompleto | No bloquea la secuencia 025–031. |
+
+Estos archivos permanecen aquí para conservar su implementación y verificaciones
+reales. No se trasladan a `completados/` ni se completan sus casillas por haber
+desarrollado el reglamento nuevo. Las tareas actuales pertenecen exclusivamente
+a PLAN-2026-025 a PLAN-2026-031.

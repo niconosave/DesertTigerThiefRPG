@@ -11,11 +11,15 @@ use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use unicode_width::UnicodeWidthChar;
 
 use crate::recursos::{NEGRO_PURO, RecursosVisuales};
 
 const ANCHO_MINIMO: u16 = 80;
 const ALTO_MINIMO: u16 = 24;
+const ANCHO_TEXTO_VINETA: usize = 66;
+const LINEAS_POR_PAGINA: usize = 8;
+const OPCIONES_POR_PAGINA: usize = 1;
 
 #[derive(Clone)]
 enum ModoLocal {
@@ -31,6 +35,9 @@ pub(crate) struct Interfaz {
     confirmar_salida: bool,
     salir: bool,
     error_recuperable: Option<String>,
+    mostrar_detalle: bool,
+    pagina: usize,
+    pagina_antes_detalle: usize,
     fotograma: usize,
 }
 
@@ -49,6 +56,9 @@ impl Interfaz {
             confirmar_salida: false,
             salir: false,
             error_recuperable: None,
+            mostrar_detalle: false,
+            pagina: 0,
+            pagina_antes_detalle: 0,
             fotograma: 0,
         })
     }
@@ -87,6 +97,19 @@ impl Interfaz {
             self.confirmar_salida = true;
             return;
         }
+        if normalizar_letra(evento.code) == Some('d') && self.vista_tiene_detalle() {
+            if self.mostrar_detalle {
+                self.mostrar_detalle = false;
+                self.pagina = self.pagina_antes_detalle;
+            } else {
+                self.mostrar_detalle = true;
+                self.pagina_antes_detalle = self.pagina;
+                if matches!(self.vista, VistaSesion::PresentandoAccion(_)) {
+                    self.pagina = 0;
+                }
+            }
+            return;
+        }
         match &mut self.modo {
             ModoLocal::Seleccion { destinos, foco } => match evento.code {
                 KeyCode::Left => *foco = foco.saturating_sub(1),
@@ -109,6 +132,15 @@ impl Interfaz {
     }
 
     fn manejar_modo_semantico(&mut self, tecla: KeyCode) {
+        if matches!(tecla, KeyCode::Left | KeyCode::PageUp) {
+            self.pagina = self.pagina.saturating_sub(1);
+            return;
+        }
+        if matches!(tecla, KeyCode::Right | KeyCode::PageDown) {
+            let paginas = self.paginas_vigentes();
+            self.pagina = (self.pagina + 1).min(paginas.saturating_sub(1));
+            return;
+        }
         match &self.vista {
             VistaSesion::Disponible(mundo) if normalizar_letra(tecla) == Some('v') => {
                 if let Some(destinos) =
@@ -122,14 +154,21 @@ impl Interfaz {
                 }
             }
             VistaSesion::PresentandoAccion(fragmento) if tecla == KeyCode::Enter => {
-                self.enviar(IntencionFrontend::ContinuarPresentacion {
-                    fragmento: fragmento.id,
-                });
+                let paginas = self.paginas_vigentes();
+                if self.pagina + 1 < paginas {
+                    self.pagina += 1;
+                } else if !self.mostrar_detalle {
+                    self.enviar(IntencionFrontend::ContinuarPresentacion {
+                        fragmento: fragmento.id,
+                    });
+                }
             }
             VistaSesion::EsperandoDecision(decision) => {
                 if let Some(letra) = normalizar_letra(tecla)
                     && let Some((_, opcion)) = atajos_decision(decision)
                         .into_iter()
+                        .skip(self.pagina * OPCIONES_POR_PAGINA)
+                        .take(OPCIONES_POR_PAGINA)
                         .find(|(atajo, _)| *atajo == letra)
                 {
                     self.enviar(IntencionFrontend::ResponderDecision {
@@ -149,6 +188,9 @@ impl Interfaz {
             Ok(vista) => {
                 self.vista = vista;
                 self.error_recuperable = None;
+                self.mostrar_detalle = false;
+                self.pagina = 0;
+                self.pagina_antes_detalle = 0;
                 self.actualizar_mundo();
             }
             Err(error) => self.error_recuperable = Some(texto_error_intencion(error)),
@@ -156,6 +198,7 @@ impl Interfaz {
     }
 
     fn actualizar_mundo(&mut self) {
+        self.ultima_vista_mundo = self.partida.mundo_visible();
         if let VistaSesion::Disponible(mundo) = &self.vista {
             self.ultima_vista_mundo = mundo.clone();
             self.modo = ModoLocal::Normal;
@@ -190,22 +233,41 @@ impl Interfaz {
             acciones,
         );
         match &self.vista {
-            VistaSesion::PresentandoAccion(fragmento) => self.dibujar_ventana(
-                frame,
-                region_mundo,
-                "Suceso",
-                &fragmento.texto,
-                fragmento.escena,
-                recursos,
-            ),
-            VistaSesion::EsperandoDecision(decision) => self.dibujar_ventana(
-                frame,
-                region_mundo,
-                "Decisión",
-                &decision.texto,
-                decision.escena,
-                recursos,
-            ),
+            VistaSesion::PresentandoAccion(fragmento) => {
+                let texto_completo = if self.mostrar_detalle && !fragmento.detalle.is_empty() {
+                    format!(
+                        "{}\n\nDETALLES\n{}",
+                        fragmento.texto,
+                        fragmento.detalle.join("\n")
+                    )
+                } else {
+                    fragmento.texto.clone()
+                };
+                let paginas = paginar_texto(&texto_completo);
+                let pagina = self.pagina.min(paginas.len().saturating_sub(1));
+                let titulo = titulo_paginado(&fragmento.titulo, pagina, paginas.len());
+                self.dibujar_ventana(
+                    frame,
+                    region_mundo,
+                    &titulo,
+                    &paginas[pagina],
+                    fragmento.escena,
+                    recursos,
+                )
+            }
+            VistaSesion::EsperandoDecision(decision) => {
+                let paginas = paginas_decision(decision, self.mostrar_detalle);
+                let pagina = self.pagina.min(paginas.len().saturating_sub(1));
+                let titulo = titulo_paginado(&decision.titulo, pagina, paginas.len());
+                self.dibujar_ventana(
+                    frame,
+                    region_mundo,
+                    &titulo,
+                    &paginas[pagina],
+                    decision.escena,
+                    recursos,
+                )
+            }
             VistaSesion::Fatal(fatal) => {
                 self.dibujar_ventana(frame, region_mundo, "Error", &fatal.mensaje, None, recursos)
             }
@@ -274,6 +336,21 @@ impl Interfaz {
                 }
             }
         }
+        let lugar_grupo = match &self.vista {
+            VistaSesion::PresentandoAccion(fragmento) => fragmento.progreso.lugar_confirmado,
+            VistaSesion::EsperandoDecision(decision) => decision.progreso.lugar_confirmado,
+            _ => mundo.lugar_jugador,
+        };
+        if let Some(coordenada) = mundo
+            .lugares
+            .iter()
+            .find(|lugar| lugar.id == lugar_grupo)
+            .map(|lugar| lugar.coordenada_central)
+            && let Some((x, y)) =
+                proyectar(coordenada, area, origen_x, origen_y, margen_x, margen_y)
+        {
+            poner_celda(frame, x, y, '@', recursos.ui.foco);
+        }
         let mut retratos = Vec::with_capacity(mundo.companeros.len() + 1);
         retratos.push(&mundo.jugador.retrato);
         retratos.extend(mundo.companeros.iter().map(|actor| &actor.retrato));
@@ -313,7 +390,11 @@ impl Interfaz {
     fn objetivo_camara(&self, mundo: &VistaMundo) -> desert_tiger_app::CoordenadaMapa {
         let id = match &self.modo {
             ModoLocal::Seleccion { destinos, foco } => destinos[*foco],
-            ModoLocal::Normal => mundo.lugar_jugador,
+            ModoLocal::Normal => match &self.vista {
+                VistaSesion::PresentandoAccion(fragmento) => fragmento.progreso.lugar_confirmado,
+                VistaSesion::EsperandoDecision(decision) => decision.progreso.lugar_confirmado,
+                _ => mundo.lugar_jugador,
+            },
         };
         mundo
             .lugares
@@ -341,10 +422,8 @@ impl Interfaz {
             return format!("> Destino: {nombre}. Elige adónde viajar.");
         }
         match &self.vista {
-            VistaSesion::PresentandoAccion(_) => {
-                "Lee lo sucedido y continúa cuando estés listo.".to_owned()
-            }
-            VistaSesion::EsperandoDecision(_) => "Elige cómo continuar.".to_owned(),
+            VistaSesion::PresentandoAccion(fragmento) => texto_progreso(&fragmento.progreso),
+            VistaSesion::EsperandoDecision(decision) => texto_progreso(&decision.progreso),
             VistaSesion::Fatal(_) => "La sesión encontró un error fatal.".to_owned(),
             VistaSesion::Disponible(mundo) => contexto_mundo(mundo),
         }
@@ -372,20 +451,97 @@ impl Interfaz {
                     Some(_) => " [V] Viajar  [Q] Salir".to_owned(),
                     None => " [Q] Salir".to_owned(),
                 },
-                VistaSesion::PresentandoAccion(_) => " [Enter] Continuar  [Q] Salir".to_owned(),
+                VistaSesion::PresentandoAccion(fragmento) => {
+                    let detalle = if fragmento.detalle.is_empty() {
+                        ""
+                    } else if self.mostrar_detalle {
+                        "  [D] Ocultar detalles"
+                    } else {
+                        "  [D] Detalles"
+                    };
+                    let paginas = self.paginas_vigentes();
+                    let navegar = if paginas > 1 {
+                        "  [←/→] Página"
+                    } else {
+                        ""
+                    };
+                    let accion = if self.mostrar_detalle {
+                        "[Enter] Página siguiente"
+                    } else {
+                        "[Enter] Continuar"
+                    };
+                    format!(" {accion}{navegar}{detalle}  [Q] Salir")
+                }
                 VistaSesion::EsperandoDecision(decision) => {
                     let opciones = atajos_decision(decision)
                         .into_iter()
-                        .zip(&decision.opciones)
+                        .skip(self.pagina * OPCIONES_POR_PAGINA)
+                        .take(OPCIONES_POR_PAGINA)
+                        .zip(
+                            decision
+                                .opciones
+                                .iter()
+                                .skip(self.pagina * OPCIONES_POR_PAGINA),
+                        )
                         .map(|((tecla, _), opcion)| {
                             format!("[{}] {}", tecla.to_ascii_uppercase(), opcion.texto)
                         })
                         .collect::<Vec<_>>()
                         .join("  ");
-                    format!(" {opciones}  [Q] Salir")
+                    let detalle = if decision
+                        .opciones
+                        .iter()
+                        .any(|opcion| opcion.detalle.is_some())
+                    {
+                        if self.mostrar_detalle {
+                            "  [D] Ocultar detalles"
+                        } else {
+                            "  [D] Detalles"
+                        }
+                    } else {
+                        ""
+                    };
+                    let navegar = if self.paginas_vigentes() > 1 {
+                        "  [←/→] Página"
+                    } else {
+                        ""
+                    };
+                    format!(" {opciones}{navegar}{detalle}  [Q] Salir")
                 }
                 VistaSesion::Fatal(_) => String::new(),
             },
+        }
+    }
+
+    fn vista_tiene_detalle(&self) -> bool {
+        match &self.vista {
+            VistaSesion::PresentandoAccion(fragmento) => !fragmento.detalle.is_empty(),
+            VistaSesion::EsperandoDecision(decision) => decision
+                .opciones
+                .iter()
+                .any(|opcion| opcion.detalle.is_some()),
+            _ => false,
+        }
+    }
+
+    fn paginas_vigentes(&self) -> usize {
+        match &self.vista {
+            VistaSesion::PresentandoAccion(fragmento) => {
+                let texto = if self.mostrar_detalle && !fragmento.detalle.is_empty() {
+                    format!(
+                        "{}\n\nDETALLES\n{}",
+                        fragmento.texto,
+                        fragmento.detalle.join("\n")
+                    )
+                } else {
+                    fragmento.texto.clone()
+                };
+                paginar_texto(&texto).len()
+            }
+            VistaSesion::EsperandoDecision(decision) => {
+                paginas_decision(decision, self.mostrar_detalle).len()
+            }
+            _ => 1,
         }
     }
 
@@ -454,11 +610,15 @@ fn destinos_viaje(mundo: &VistaMundo) -> Option<&[IdLugar]> {
 }
 
 fn atajos_decision(decision: &VistaDecision) -> Vec<(char, desert_tiger_app::IdOpcionVista)> {
-    let mut usados = BTreeSet::from(['q']);
+    let mut usados = BTreeSet::from(['d', 'q']);
     decision
         .opciones
         .iter()
-        .map(|opcion| {
+        .enumerate()
+        .map(|(indice, opcion)| {
+            if indice > 0 && indice % 24 == 0 {
+                usados = BTreeSet::from(['d', 'q']);
+            }
             let preferida = opcion
                 .texto
                 .chars()
@@ -473,6 +633,95 @@ fn atajos_decision(decision: &VistaDecision) -> Vec<(char, desert_tiger_app::IdO
         .collect()
 }
 
+fn paginas_decision(decision: &VistaDecision, mostrar_detalle: bool) -> Vec<String> {
+    let atajos = atajos_decision(decision);
+    let mut paginas = Vec::new();
+    for (indice_pagina, opciones) in decision.opciones.chunks(OPCIONES_POR_PAGINA).enumerate() {
+        let inicio = indice_pagina * OPCIONES_POR_PAGINA;
+        let mut texto = decision.texto.clone();
+        if mostrar_detalle {
+            texto.push_str("\n\nDETALLES\n");
+            for (desplazamiento, opcion) in opciones.iter().enumerate() {
+                let tecla = atajos[inicio + desplazamiento].0.to_ascii_uppercase();
+                texto.push_str(&format!("[{tecla}] {}\n", opcion.texto));
+                match &opcion.detalle {
+                    Some(detalle) => {
+                        texto.push_str(detalle);
+                        texto.push('\n');
+                    }
+                    None => texto.push_str("Sin desglose adicional.\n"),
+                }
+            }
+        }
+        paginas.push(texto.trim_end().to_owned());
+    }
+    if paginas.is_empty() {
+        paginas.push(decision.texto.clone());
+    }
+    paginas
+}
+
+fn titulo_paginado(titulo: &str, pagina: usize, total: usize) -> String {
+    if total > 1 {
+        format!("{titulo} · {}/{}", pagina + 1, total)
+    } else {
+        titulo.to_owned()
+    }
+}
+
+fn paginar_texto(texto: &str) -> Vec<String> {
+    let mut lineas = Vec::new();
+    for parrafo in texto.split('\n') {
+        if parrafo.is_empty() {
+            lineas.push(String::new());
+            continue;
+        }
+        let mut linea = String::new();
+        for palabra in parrafo.split_whitespace() {
+            let separador = usize::from(!linea.is_empty());
+            let ancho_linea = linea
+                .chars()
+                .map(|caracter| caracter.width().unwrap_or(0))
+                .sum::<usize>();
+            let ancho_palabra = palabra
+                .chars()
+                .map(|caracter| caracter.width().unwrap_or(0))
+                .sum::<usize>();
+            if ancho_linea + separador + ancho_palabra > ANCHO_TEXTO_VINETA && !linea.is_empty() {
+                lineas.push(std::mem::take(&mut linea));
+            }
+            if ancho_palabra > ANCHO_TEXTO_VINETA {
+                let mut fragmento = String::new();
+                let mut ancho_fragmento = 0;
+                for caracter in palabra.chars() {
+                    let ancho = caracter.width().unwrap_or(0);
+                    if ancho_fragmento + ancho > ANCHO_TEXTO_VINETA && !fragmento.is_empty() {
+                        lineas.push(std::mem::take(&mut fragmento));
+                        ancho_fragmento = 0;
+                    }
+                    fragmento.push(caracter);
+                    ancho_fragmento += ancho;
+                }
+                linea = fragmento;
+                continue;
+            }
+            if !linea.is_empty() {
+                linea.push(' ');
+            }
+            linea.push_str(palabra);
+        }
+        lineas.push(linea);
+    }
+    let mut paginas = lineas
+        .chunks(LINEAS_POR_PAGINA)
+        .map(|lineas| lineas.join("\n"))
+        .collect::<Vec<_>>();
+    if paginas.is_empty() {
+        paginas.push(String::new());
+    }
+    paginas
+}
+
 fn contexto_mundo(mundo: &VistaMundo) -> String {
     if mundo.causa_indisponibilidad == Some(CausaIndisponibilidad::JugadorMuerto) {
         return "El personaje jugador está muerto y no puede actuar.".to_owned();
@@ -480,9 +729,22 @@ fn contexto_mundo(mundo: &VistaMundo) -> String {
     if let Some(resumen) = &mundo.resumen_npc_reciente
         && let Some(entrada) = resumen.entradas().first()
     {
+        let actividad = resumen
+            .cronologias()
+            .first()
+            .map(|cronologia| {
+                format!(
+                    " {} escenas; {} simulados.",
+                    cronologia.escenas, cronologia.tiempo_visible
+                )
+            })
+            .unwrap_or_default();
         return match entrada {
             EntradaResumenNpc::ViajeCompletado { .. } => {
-                "Un actor completó un viaje mientras transcurría el tiempo.".to_owned()
+                format!("Un actor completó un viaje mientras transcurría el tiempo.{actividad}")
+            }
+            EntradaResumenNpc::ViajeInterrumpido { .. } => {
+                format!("Un actor intentó viajar, pero interrumpió el recorrido.{actividad}")
             }
             EntradaResumenNpc::SolicitudViajeRechazada { .. } => {
                 "Error: una acción de un NPC fue rechazada.".to_owned()
@@ -497,6 +759,22 @@ fn contexto_mundo(mundo: &VistaMundo) -> String {
     } else {
         "Elige una acción en el mundo.".to_owned()
     }
+}
+
+fn texto_progreso(progreso: &desert_tiger_app::VistaProgresoViaje) -> String {
+    let siguiente = progreso
+        .nombre_siguiente_lugar
+        .as_deref()
+        .map(|nombre| format!(" · siguiente: {nombre}"))
+        .unwrap_or_default();
+    format!(
+        "{} · {:02}/{:02}/{} · {}{siguiente}",
+        progreso.nombre_lugar_confirmado,
+        progreso.fecha_proyectada.dia(),
+        progreso.fecha_proyectada.mes().numero(),
+        progreso.fecha_proyectada.anio(),
+        progreso.tiempo_transcurrido,
+    )
 }
 
 fn texto_error_intencion(error: ErrorIntencion) -> String {
@@ -604,6 +882,115 @@ mod pruebas {
         interfaz.manejar_tecla(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         interfaz.avanzar_animacion(1);
         assert_eq!(interfaz.fotograma, 2);
+    }
+
+    #[test]
+    fn detalle_largo_se_pagina_y_enter_no_confirma_la_vineta() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).expect("contenido válido");
+        let partida = Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) })
+            .expect("partida válida");
+        let mut interfaz = Interfaz::nueva(partida).expect("interfaz válida");
+        interfaz.manejar_tecla(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
+        interfaz.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        // La primera vista puede ser una decisión de ruta o carga. Avanzamos
+        // por la fachada hasta una escena automática, sin suponer su número.
+        while let VistaSesion::EsperandoDecision(decision) = interfaz.vista.clone() {
+            interfaz.enviar(IntencionFrontend::ResponderDecision {
+                decision: decision.id,
+                opcion: decision.opciones[0].id,
+            });
+        }
+        let id = match &mut interfaz.vista {
+            VistaSesion::PresentandoAccion(fragmento) => {
+                fragmento.texto = "El grupo considera el propósito del viaje. ".repeat(20);
+                fragmento.detalle = vec!["factor visible y consecuencia comprobada ".repeat(20)];
+                fragmento.id
+            }
+            _ => panic!("se esperaba una viñeta"),
+        };
+        interfaz.manejar_tecla(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        assert!(interfaz.mostrar_detalle);
+        assert!(interfaz.paginas_vigentes() > 1);
+        interfaz.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert_eq!(interfaz.pagina, 1);
+        assert!(matches!(
+            &interfaz.vista,
+            VistaSesion::PresentandoAccion(fragmento) if fragmento.id == id
+        ));
+        interfaz.pagina = interfaz.paginas_vigentes() - 1;
+        interfaz.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert!(matches!(
+            &interfaz.vista,
+            VistaSesion::PresentandoAccion(fragmento) if fragmento.id == id
+        ));
+    }
+
+    #[test]
+    fn paginacion_de_texto_no_descarta_contenido() {
+        let texto = (0..30)
+            .map(|indice| format!("línea causal {indice}: intención, esfuerzo y consecuencia"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let paginas = paginar_texto(&texto);
+        assert!(paginas.len() > 3);
+        for indice in 0..30 {
+            assert!(
+                paginas
+                    .iter()
+                    .any(|pagina| pagina.contains(&format!("línea causal {indice}:")))
+            );
+        }
+    }
+
+    #[test]
+    fn viaje_completo_renderiza_cada_paso_y_redimensiona_sin_avanzar() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        let mut interfaz = Interfaz::nueva(partida).unwrap();
+        let destino = interfaz
+            .ultima_vista_mundo
+            .lugares
+            .iter()
+            .find(|l| l.nombre == "Mar de Levante")
+            .unwrap()
+            .id;
+        interfaz.enviar(IntencionFrontend::ComenzarViaje { destino });
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let mut pasos = 0;
+        loop {
+            terminal
+                .draw(|frame| interfaz.dibujar(frame, &recursos))
+                .unwrap();
+            pasos += 1;
+            assert!(pasos < 500);
+            match interfaz.vista.clone() {
+                VistaSesion::PresentandoAccion(r) => {
+                    let anterior = interfaz.vista.clone();
+                    terminal.backend_mut().resize(79, 24);
+                    terminal.resize(Rect::new(0, 0, 79, 24)).unwrap();
+                    terminal
+                        .draw(|frame| interfaz.dibujar(frame, &recursos))
+                        .unwrap();
+                    assert_eq!(interfaz.vista, anterior);
+                    terminal.backend_mut().resize(80, 24);
+                    terminal.resize(Rect::new(0, 0, 80, 24)).unwrap();
+                    interfaz.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: r.id });
+                }
+                VistaSesion::EsperandoDecision(d) => {
+                    interfaz.enviar(IntencionFrontend::ResponderDecision {
+                        decision: d.id,
+                        opcion: d.opciones[0].id,
+                    })
+                }
+                VistaSesion::Disponible(_) => break,
+                VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
+            }
+        }
+        assert!(pasos > 4);
     }
 
     #[test]

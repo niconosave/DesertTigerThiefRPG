@@ -6,6 +6,17 @@
 | Versión | 0.3 |
 | Fecha | 2026-10-14 |
 
+## Revisión implementada el 2026-10-24: Fracción compartida del día
+
+Fecha y Duracion conservan su calendario. FraccionDia, TiempoAccion, InstanteAccion y proyectar_tiempo están implementados en calendario.rs; la sección 4.2 de 06 es su contrato vigente. Partida retiene la fracción entre viajes; Lua sigue observando la fecha entera.
+
+La fuente vigente para estos cambios es el
+[contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
+Los apartados del cuerpo original incompatibles con esta revisión se conservan
+como historial, no como especificación alternativa. Los demás contratos del
+componente mantienen su alcance. Las verificaciones están en el
+[informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
 ## 1. Propósito y alcance
 
 Este documento es la fuente canónica para la fecha del Mundo, las duraciones de
