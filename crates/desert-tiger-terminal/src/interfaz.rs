@@ -308,7 +308,7 @@ impl Interfaz {
                     continue;
                 }
                 let clave = &mundo.mapa.celdas[my * mundo.mapa.ancho + mx];
-                let apariencia = recursos.tile(clave);
+                let apariencia = recursos.tile(clave, mx, my);
                 poner_celda(
                     frame,
                     area.x + vx as u16,
@@ -994,6 +994,59 @@ mod pruebas {
     }
 
     #[test]
+    fn mosaico_conserva_la_celda_global_al_mover_la_camara() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).expect("contenido válido");
+        let partida = Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) })
+            .expect("partida válida");
+        let mut interfaz = Interfaz::nueva(partida).expect("interfaz válida");
+        let recursos =
+            RecursosVisuales::cargar(&raiz.join("assets/terminal")).expect("recursos válidos");
+        let bosque = desert_tiger_app::ClaveTipoTile::nueva("bosque".to_owned()).unwrap();
+        let mut mundo = interfaz.ultima_vista_mundo.clone();
+        mundo.mapa.ancho = 120;
+        mundo.mapa.alto = 60;
+        mundo.mapa.celdas = vec![bosque.clone(); 120 * 60];
+        mundo.mapa.tipos_declarados = vec![bosque.clone()];
+        for lugar in &mut mundo.lugares {
+            lugar.coordenadas_rotulo.clear();
+        }
+        mundo.lugares[0].coordenada_central = desert_tiger_app::CoordenadaMapa { x: 50, y: 30 };
+        mundo.lugares[1].coordenada_central = desert_tiger_app::CoordenadaMapa { x: 51, y: 31 };
+        let destinos = vec![mundo.lugares[0].id, mundo.lugares[1].id];
+        mundo.lugar_jugador = destinos[0];
+        let area = Rect::new(0, 0, 80, 22);
+        let esperado = recursos.tile(&bosque, 40, 21);
+        // Estas fases del mosaico distinguen coordenadas de mapa y de pantalla.
+        assert_ne!(esperado.glifo, recursos.tile(&bosque, 30, 2).glifo);
+        assert_ne!(esperado.glifo, recursos.tile(&bosque, 29, 1).glifo);
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        interfaz.modo = ModoLocal::Seleccion {
+            destinos: destinos.clone(),
+            foco: 0,
+        };
+        terminal
+            .draw(|frame| interfaz.dibujar_mundo(frame, area, &mundo, &recursos))
+            .unwrap();
+        // La celda global (40, 21) queda en una fila libre de retratos.
+        let primera = terminal.backend().buffer()[(30, 2)].clone();
+        assert_eq!(primera.symbol(), esperado.glifo.to_string());
+        assert_eq!(primera.fg, esperado.estilo.fg.unwrap_or(Color::Reset));
+        assert_eq!(primera.bg, esperado.estilo.bg.unwrap_or(Color::Reset));
+        assert_eq!(primera.modifier, esperado.estilo.add_modifier);
+
+        interfaz.modo = ModoLocal::Seleccion { destinos, foco: 1 };
+        terminal
+            .draw(|frame| interfaz.dibujar_mundo(frame, area, &mundo, &recursos))
+            .unwrap();
+        let segunda = &terminal.backend().buffer()[(29, 1)];
+        assert_eq!(
+            &primera, segunda,
+            "mover la cámara en ambos ejes debe conservar el glifo y estilo de la celda global"
+        );
+    }
+
+    #[test]
     fn jugador_a_la_derecha_conserva_transparencia_colores_y_parpadeo() {
         assert_eq!(color_retrato(ColorRetrato::Negro), Color::Rgb(0, 0, 0));
         assert_eq!(
@@ -1029,7 +1082,7 @@ mod pruebas {
             .expect("el ojo se proyecta dentro del mapa");
         let clave_tile = &mundo.mapa.celdas[mapa_y * mundo.mapa.ancho + mapa_x];
         let fondo_mapa = recursos
-            .tile(clave_tile)
+            .tile(clave_tile, mapa_x, mapa_y)
             .estilo
             .bg
             .or(recursos.ui.pantalla.bg)
@@ -1055,7 +1108,10 @@ mod pruebas {
             &mundo.mapa.celdas[mapa_transparente_y * mundo.mapa.ancho + mapa_transparente_x];
         assert_eq!(
             transparente,
-            recursos.tile(clave_transparente).glifo.to_string(),
+            recursos
+                .tile(clave_transparente, mapa_transparente_x, mapa_transparente_y)
+                .glifo
+                .to_string(),
             "una celda transparente debe conservar el glifo vigente del mapa"
         );
 

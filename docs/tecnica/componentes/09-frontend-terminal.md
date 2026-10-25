@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.44 |
+| Versión | 0.45 |
 | Fecha | 2026-10-25 |
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
@@ -200,8 +200,8 @@ El RON contiene exactamente dos partes conceptuales:
 - `reserva`: una apariencia obligatoria cuyo glifo es `?`; su estilo se declara
   directamente en `tiles.ron`, no referencia `ui.ron` y se decidirá con el
   setting;
-- `apariencias`: un mapa de `ClaveTipoTile` a una apariencia compuesta por un
-  glifo y un estilo terminal.
+- `apariencias`: un mapa de `ClaveTipoTile` a un glifo fijo o un mosaico de
+  glifos, con un estilo terminal compartido por sus celdas.
 
 La forma del archivo será esta; los valores concretos solo ilustran el esquema y
 no fijan todavía la paleta artística del juego:
@@ -226,7 +226,10 @@ no fijan todavía la paleta artística del juego:
             ),
         ),
         "bosque": (
-            glifo: 'T',
+            patron: r#"
+♣.♠
+.♣.
+"#,
             estilo: (
                 frente: "verde",
                 fondo: None,
@@ -236,6 +239,28 @@ no fijan todavía la paleta artística del juego:
     },
 )
 ```
+
+Cada entrada de `apariencias` requiere exactamente uno de `glifo` o `patron`.
+El formato anterior `glifo: 'x'` sigue siendo válido y equivale a un patrón
+de una celda. `reserva` conserva su glifo fijo obligatorio `?`.
+
+`patron` es un bloque de texto no vacío y rectangular. Todas sus filas tienen
+el mismo número de columnas; los espacios cuentan y se dibujan con el estilo
+del terreno. Se normaliza CRLF a LF y se elimina como máximo un salto de línea
+inicial y uno final, como en las ilustraciones. No se recortan los márgenes.
+
+La carga convierte el mosaico a una matriz de caracteres. Durante el dibujo,
+`RecursosVisuales::tile(clave, x, y)` elige la columna `x % ancho_patron` y la fila
+`y % alto_patron`. `x` e `y` son coordenadas globales del mapa, antes de su
+proyección a pantalla. El origen del mosaico es siempre `(0, 0)` del mapa;
+cada tipo de terreno puede tener un tamaño de patrón diferente.
+
+El resultado no depende de cámara, ventana, fotograma de animación, semilla de
+partida ni fuente de azar del juego. Mover la cámara o redimensionar conserva
+la apariencia de una celda. Cambiar el tipo de terreno selecciona el patrón
+del nuevo tipo en esas mismas coordenadas. Los rótulos, marcadores y retratos
+siguen dibujándose por encima del terreno. No cambian los datos ni las reglas
+de `desert-tiger-core` o `desert-tiger-app`.
 
 Las claves siguen la gramática `lowerCamelCase` definida por contenido. Cada
 glifo es un único `char` que no es de control y cuyo ancho terminal, calculado
@@ -292,7 +317,8 @@ de interfaz pueden aplicar después su propio estilo y no se codifican como part
 del tile base.
 
 La carga rechaza claves duplicadas, claves con sintaxis inválida, una reserva
-ausente o cuyo glifo no sea `?`, glifos inválidos y estilos no reconocidos. Una
+ausente o cuyo glifo no sea `?`, glifos inválidos, patrones vacíos o no
+rectangulares, entradas sin `glifo` ni `patron` o con ambos, y estilos no reconocidos. Una
 entrada del catálogo que el contenido vigente no utilice es válida y varias
 claves pueden compartir la misma apariencia. La deserialización debe detectar
 una clave repetida antes de construir el mapa interno, sin permitir que la

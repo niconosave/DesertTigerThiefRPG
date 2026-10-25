@@ -4,12 +4,69 @@
         estilo: (frente: "blanco", fondo: Some("negro"), modificadores: ["invertido"]),
     ),
     apariencias: {
-        "arena": (glifo: '.', estilo: (frente: "amarillo", fondo: Some("negro"), modificadores: [])),
-        "sueloArido": (glifo: '-', estilo: (frente: "rojo", fondo: Some("negro"), modificadores: ["tenue"])),
-        "montana": (glifo: '▲', estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["negrita"])),
-        "vegetacion": (glifo: '∸', estilo: (frente: "verdeClaro", fondo: Some("negro"), modificadores: [])),
-        "bosque": (glifo: '♣', estilo: (frente: "verde", fondo: Some("negro"), modificadores: ["negrita"])),
-        "agua": (glifo: '∿', estilo: (frente: "azulOscuro", fondo: Some("negro"), modificadores: [])),
-        "bosqueQuemado": (glifo: '≁', estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["tenue"])),
+        // Cada bloque se repite desde (0, 0) del mapa, no de la pantalla.
+        // También se puede conservar un solo símbolo usando glifo: 'x'.
+        "arena": (
+            patron: r#"
+.,..:...
+...:..,.
+.:... ..
+.....:..
+"#,
+            estilo: (frente: "amarillo", fondo: Some("negro"), modificadores: []),
+        ),
+        "sueloArido": (
+            patron: r#"
+--..-:--
+.--,-.--
+---..--.
+-..--:--
+"#,
+            estilo: (frente: "rojo", fondo: Some("negro"), modificadores: ["tenue"]),
+        ),
+        "montana": (
+            patron: r#"
+▲▲^▲∧▲^▲
+^▲▲∧▲▲▲^
+▲∧▲▲^▲∧▲
+∧▲^▲▲∧▲▲
+"#,
+            estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["negrita"]),
+        ),
+        "vegetacion": (
+            patron: r#"
+∸.,∸'.,∸
+,∸∸.,'∸.
+.'∸,∸.∸,
+∸,.∸.,'∸
+"#,
+            estilo: (frente: "verdeClaro", fondo: Some("negro"), modificadores: []),
+        ),
+        "bosque": (
+            patron: r#"
+♣♠♣.♣♠♣.
+♠♣♠♣♣.♠♣
+♣.♣♠♣♠♣♠
+♠♣♣.♠♣♠♣
+"#,
+            estilo: (frente: "verde", fondo: Some("negro"), modificadores: ["negrita"]),
+        ),
+        "agua": (
+            patron: r#"
+∿∿~∿≈∿~~
+~≈∿~~∿∿≈
+∿~~≈∿~∿∿
+"#,
+            estilo: (frente: "azulOscuro", fondo: Some("negro"), modificadores: []),
+        ),
+        "bosqueQuemado": (
+            patron: r#"
+≁|..≁.:|
+.|≁.:≁|.
+≁..|:≁.|
+.|≁..|≁.
+"#,
+            estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["tenue"]),
+        ),
     },
 )

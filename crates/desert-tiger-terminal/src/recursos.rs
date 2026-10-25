@@ -30,9 +30,25 @@ pub(crate) struct AparienciaTile {
     pub estilo: Style,
 }
 
+struct PatronTile {
+    ancho: usize,
+    alto: usize,
+    glifos: Vec<char>,
+    estilo: Style,
+}
+
+impl PatronTile {
+    fn en(&self, x: usize, y: usize) -> AparienciaTile {
+        AparienciaTile {
+            glifo: self.glifos[(y % self.alto) * self.ancho + x % self.ancho],
+            estilo: self.estilo,
+        }
+    }
+}
+
 pub(crate) struct RecursosVisuales {
     reserva: AparienciaTile,
-    apariencias: BTreeMap<ClaveTipoTile, AparienciaTile>,
+    apariencias: BTreeMap<ClaveTipoTile, PatronTile>,
     pub ui: PaletaUi,
     escenas: Vec<(ClaveEscena, Vec<String>)>,
 }
@@ -50,12 +66,11 @@ impl RecursosVisuales {
         }
         let mut apariencias = BTreeMap::new();
         for (texto, dto) in tiles.apariencias.0 {
+            let patron = convertir_patron(dto)
+                .map_err(|error| ErrorRecursos(format!("tiles.ron, tipo {texto}: {error}")))?;
             let clave = ClaveTipoTile::nueva(texto)
                 .map_err(|error| ErrorRecursos(format!("clave de tile inválida: {error}")))?;
-            if apariencias
-                .insert(clave, convertir_apariencia(dto)?)
-                .is_some()
-            {
+            if apariencias.insert(clave, patron).is_some() {
                 return Err(ErrorRecursos("clave de tile duplicada".to_owned()));
             }
         }
@@ -83,8 +98,11 @@ impl RecursosVisuales {
         })
     }
 
-    pub(crate) fn tile(&self, clave: &ClaveTipoTile) -> &AparienciaTile {
-        self.apariencias.get(clave).unwrap_or(&self.reserva)
+    pub(crate) fn tile(&self, clave: &ClaveTipoTile, x: usize, y: usize) -> AparienciaTile {
+        self.apariencias
+            .get(clave)
+            .map(|patron| patron.en(x, y))
+            .unwrap_or_else(|| self.reserva.clone())
     }
 
     pub(crate) fn escena(&self, clave: ClaveEscena) -> Option<&[String]> {
@@ -123,7 +141,7 @@ struct TilesDto {
     apariencias: MapaAparienciasDto,
 }
 
-struct MapaAparienciasDto(Vec<(String, AparienciaDto)>);
+struct MapaAparienciasDto(Vec<(String, DefinicionTileDto)>);
 
 impl<'de> Deserialize<'de> for MapaAparienciasDto {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
@@ -150,6 +168,24 @@ impl<'de> Deserialize<'de> for MapaAparienciasDto {
 struct AparienciaDto {
     glifo: char,
     estilo: EstiloDto,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DefinicionTileDto {
+    #[serde(default, deserialize_with = "campo_presente")]
+    glifo: Option<char>,
+    #[serde(default, deserialize_with = "campo_presente")]
+    patron: Option<String>,
+    estilo: EstiloDto,
+}
+
+fn campo_presente<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(deserializer).map(Some)
 }
 
 #[derive(Deserialize)]
@@ -202,6 +238,24 @@ fn convertir_apariencia(dto: AparienciaDto) -> Result<AparienciaTile, ErrorRecur
     }
     Ok(AparienciaTile {
         glifo: dto.glifo,
+        estilo: convertir_estilo(dto.estilo)?,
+    })
+}
+
+fn convertir_patron(dto: DefinicionTileDto) -> Result<PatronTile, ErrorRecursos> {
+    let filas = match (dto.glifo, dto.patron) {
+        (Some(glifo), None) => normalizar_arte(&glifo.to_string())?,
+        (None, Some(patron)) => normalizar_arte(&patron)?,
+        _ => {
+            return Err(ErrorRecursos(
+                "se requiere exactamente uno de glifo o patron".to_owned(),
+            ));
+        }
+    };
+    Ok(PatronTile {
+        ancho: filas[0].chars().count(),
+        alto: filas.len(),
+        glifos: filas.iter().flat_map(|fila| fila.chars()).collect(),
         estilo: convertir_estilo(dto.estilo)?,
     })
 }
@@ -302,7 +356,7 @@ fn normalizar_arte(texto: &str) -> Result<Vec<String>, ErrorRecursos> {
         })
     {
         return Err(ErrorRecursos(
-            "el arte de escena debe ser rectangular y usar glifos de una columna".to_owned(),
+            "el arte debe ser rectangular y usar glifos de una columna".to_owned(),
         ));
     }
     Ok(filas)
@@ -311,6 +365,71 @@ fn normalizar_arte(texto: &str) -> Result<Vec<String>, ErrorRecursos> {
 #[cfg(test)]
 mod pruebas {
     use super::*;
+
+    fn patron_desde_ron(texto: &str) -> Result<PatronTile, ErrorRecursos> {
+        let dto = ron::from_str(texto).map_err(|error| ErrorRecursos(error.to_string()))?;
+        convertir_patron(dto)
+    }
+
+    #[test]
+    fn patron_repite_glifos_y_estilo_y_admite_el_formato_de_glifo_unico() {
+        let patron = patron_desde_ron(
+            r#"(patron: "ab\ncd", estilo: (frente: "rojo", fondo: Some("negro"), modificadores: ["tenue"]))"#,
+        )
+        .unwrap();
+        for (x, y, glifo) in [
+            (0, 0, 'a'),
+            (1, 0, 'b'),
+            (0, 1, 'c'),
+            (1, 1, 'd'),
+            (4, 6, 'a'),
+            (usize::MAX, usize::MAX, 'd'),
+        ] {
+            let celda = patron.en(x, y);
+            assert_eq!(celda.glifo, glifo);
+            assert_eq!(celda.estilo.fg, Some(Color::Red));
+            assert_eq!(celda.estilo.bg, Some(NEGRO_PURO));
+            assert_eq!(celda.estilo.add_modifier, Modifier::DIM);
+        }
+        let fijo = patron_desde_ron(
+            r#"(glifo: '♣', estilo: (frente: "verde", fondo: None, modificadores: []))"#,
+        )
+        .unwrap();
+        assert_eq!(fijo.en(0, 0).glifo, '♣');
+        assert_eq!(fijo.en(19, 21).glifo, '♣');
+    }
+
+    #[test]
+    fn patrones_rechazan_campos_ambiguos_y_glifos_de_ancho_incompatible() {
+        for campos in [
+            "",
+            r#"glifo: 'x', patron: "ab","#,
+            r#"glifo: 'x', glifo: 'y',"#,
+            r#"patron: "","#,
+            r#"patron: "ab\nc","#,
+            r#"patron: "界","#,
+            r#"patron: "e\u{0301}","#,
+            r#"patron: "a\tb","#,
+        ] {
+            let texto =
+                format!("({campos} estilo: (frente: \"blanco\", fondo: None, modificadores: []))");
+            assert!(patron_desde_ron(&texto).is_err(), "aceptó {texto}");
+        }
+    }
+
+    #[test]
+    fn tipo_desconocido_conserva_la_reserva_en_cualquier_coordenada() {
+        let raiz = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal");
+        let recursos = RecursosVisuales::cargar(&raiz).unwrap();
+        let clave = ClaveTipoTile::nueva("terrenoDeUnMod".to_owned()).unwrap();
+        assert!(!recursos.contiene_tile(&clave));
+        for (x, y) in [(0, 0), (37, 89), (usize::MAX, usize::MAX)] {
+            let tile = recursos.tile(&clave, x, y);
+            assert_eq!(tile.glifo, '?');
+            assert_eq!(tile.estilo.bg, Some(NEGRO_PURO));
+            assert!(tile.estilo.add_modifier.contains(Modifier::REVERSED));
+        }
+    }
 
     #[test]
     fn ilustraciones_admiten_bloques_de_una_columna_y_rechazan_ancho_incompatible() {
