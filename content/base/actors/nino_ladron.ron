@@ -6,86 +6,82 @@
     retrato: Some((
         paleta: {
             '0': (frente: "gris", fondo: None),
-            '4': (frente: "magenta", fondo: None),
-            '6': (frente: "magentaClaro", fondo: None),
-            '7': (frente: "grisOscuro", fondo: Some("grisMuyOscuro")),
-            '9': (frente: "amarillo", fondo: None),
-            'A': (frente: "negro", fondo: Some("negro")),
-            'B': (frente: "magentaClaro", fondo: Some("negro")),
-            'D': (frente: "grisOscuro", fondo: None),
-            'E': (frente: "grisMuyOscuro", fondo: None),
-            'F': (frente: "rojoClaro", fondo: None),
-            'I': (frente: "magenta", fondo: None),
-            'J': (frente: "rojo", fondo: None),
-            'K': (frente: "verdeClaro", fondo: Some("negro")),
+            '1': (frente: "gris", fondo: None),
+            '2': (frente: "azul", fondo: None),
+            '3': (frente: "cian", fondo: None),
+            '4': (frente: "cian", fondo: Some("azul")),
+            '5': (frente: "magentaClaro", fondo: None),
+            '6': (frente: "amarillo", fondo: None),
+            '7': (frente: "magentaClaro", fondo: Some("amarillo")),
+            '8': (frente: "grisOscuro", fondo: None),
         },
         fotogramas: [
             (
                 arte: r#"
-            
-            
-            
-            
-            
-   ▄██▄     
-  ▄█████▄   
-  ██▀▀███   
-   ▄▀▄███   
-   ▀▄██▀    
-  ▄█▄▀▄█▄   
- ▐███▄███▌  
- ██████████ 
- ██▀████▀██ 
+             
+             
+             
+             
+             
+   █████▄▄██▄
+  ███████████
+  ███████████
+   ████▄▄█▄  
+    ██████   
+     ███     
+▄███▀▀▀▀▀██▄ 
+████████████ 
+████████████ 
 "#,
                 estilos: Some(r#"
-000000000000
-000000000000
-000000000000
-000000000000
-000000000000
-000JFFJ00000
-00EEDDDEE000
-00EDBB664000
-000777666000
-000776640000
-00II766II000
-0I6676766I00
-0II666666II0
-0II999999II0
+0000000000000
+0000000000000
+0000000000000
+0000000000000
+0012222222220
+1122323324332
+1123233323223
+0123233355223
+0002555555550
+0002255555001
+0002255521000
+1116777776110
+5511111111151
+5511111111151
 "#),
             ),
             (
                 arte: r#"
-            
-            
-            
-            
-            
-   ▄██▄     
-  ▄█████▄   
-  ██(o███   
-   ▄▀▄███   
-   ▀▄██▀    
-  ▄█▄▀▄█▄   
- ▐███▄███▌  
- ██████████ 
- ██▀████▀██ 
+             
+             
+             
+             
+             
+   █████▄▄██▄
+  ███████████
+  ███████████
+   ████(0█▄  
+    ██████   
+     ███     
+▄███▀▀▀▀▀██▄ 
+████████████ 
+████████████ 
 "#,
                 estilos: Some(r#"
-000000000000
-000000000000
-000000000000
-000000000000
-000000000000
-000JFFJ00000
-00EEDDDEE000
-00EDAK664000
-000777666000
-000776640000
-00II766II000
-0I6676766I00
-0II666666II0
-0II999999II0
+0000000000000
+0000000000000
+0000000000000
+0000000000000
+0012222222220
+1122323324332
+1123233323223
+0123233355223
+0002555885558
+0002255555001
+0002255521000
+1116777776110
+5511111111151
+5511111111151
 "#),
             ),
         ],

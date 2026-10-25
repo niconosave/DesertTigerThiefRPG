@@ -204,8 +204,8 @@ fn convertir_pelicula(pelicula: PeliculaDurdraw) -> Result<String, ErrorImportac
 }
 
 fn validar_par_color([frente, fondo]: [u8; 2]) -> Result<(), String> {
-    if !(1..=16).contains(&frente) {
-        return Err(format!("color frontal fuera de 1..=16: {frente}"));
+    if frente > 16 {
+        return Err(format!("color frontal fuera de 0..=16: {frente}"));
     }
     if fondo > 8 {
         return Err(format!("color de fondo fuera de 0..=8: {fondo}"));
@@ -263,7 +263,8 @@ fn literal_raw(contenido: &str) -> String {
 
 fn nombre_color_frontal_durdraw(indice: u8) -> Option<&'static str> {
     match indice {
-        1 => Some("negro"),
+        // Durdraw exporta negro con 0 o 1 en su paleta ANSI de 16 colores.
+        0 | 1 => Some("negro"),
         2 => Some("azul"),
         3 => Some("verde"),
         4 => Some("cian"),
@@ -318,6 +319,10 @@ mod pruebas {
 
     #[test]
     fn traduce_la_paleta_de_fondo_y_usa_negro_como_transparencia() {
+        assert_eq!(nombre_color_frontal_durdraw(0), Some("negro"));
+        assert_eq!(nombre_color_frontal_durdraw(1), Some("negro"));
+        assert!(validar_par_color([0, 8]).is_ok());
+        assert!(validar_par_color([17, 8]).is_err());
         assert_eq!(nombre_fondo_durdraw(0), Some(None));
         assert_eq!(nombre_fondo_durdraw(8), Some(None));
         assert_eq!(nombre_fondo_durdraw(1), Some(Some("azul")));

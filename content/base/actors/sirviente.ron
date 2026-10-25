@@ -7,16 +7,19 @@
         paleta: {
             '0': (frente: "gris", fondo: None),
             '1': (frente: "gris", fondo: None),
-            '4': (frente: "magenta", fondo: None),
-            '6': (frente: "magentaClaro", fondo: None),
-            '7': (frente: "grisOscuro", fondo: Some("grisMuyOscuro")),
-            '8': (frente: "azul", fondo: None),
-            '9': (frente: "amarillo", fondo: None),
-            'A': (frente: "negro", fondo: Some("negro")),
-            'B': (frente: "magentaClaro", fondo: Some("negro")),
-            'D': (frente: "grisOscuro", fondo: None),
-            'E': (frente: "grisMuyOscuro", fondo: None),
-            'K': (frente: "verdeClaro", fondo: Some("negro")),
+            '2': (frente: "amarillo", fondo: None),
+            '3': (frente: "amarilloClaro", fondo: None),
+            '4': (frente: "amarilloClaro", fondo: Some("amarillo")),
+            '5': (frente: "grisOscuro", fondo: None),
+            '6': (frente: "negro", fondo: None),
+            '7': (frente: "grisOscuro", fondo: Some("magentaClaro")),
+            '8': (frente: "magentaClaro", fondo: Some("amarillo")),
+            '9': (frente: "grisOscuro", fondo: Some("grisMuyOscuro")),
+            'A': (frente: "magentaClaro", fondo: None),
+            'B': (frente: "azul", fondo: None),
+            'C': (frente: "cian", fondo: None),
+            'D': (frente: "grisOscuro", fondo: Some("gris")),
+            'E': (frente: "negro", fondo: Some("magentaClaro")),
         },
         fotogramas: [
             (
@@ -25,12 +28,12 @@
                 
                 
                 
-                
-     ▄████▄     
-    ▐██████     
-    ▐██▀▀█      
-     ▐▄▀▄█▌     
-      ▄▀▄█      
+      ▄▄▄▄▄▄    
+     ▐█████▀▄▄  
+      ▄▀▄▀▀▄▀▀  
+      ▄▀▄█▀▀█   
+      ▄▀▄████▀  
+      ▄▀▄██-█   
       ▄▀▄▀▄▀    
 ▄▄███▀▄▀▄▀▄▀▄██ 
 ████████████████
@@ -41,16 +44,16 @@
 0000000000000000
 0000000000000000
 0000000000000000
-0000000000000000
-00000EDDDDE00000
-0000EDDD44600000
-0000EDDBB6000000
-00000E7776600000
-0000007776000000
-0000007777771000
-8888977777777980
-8888999999999988
-8888888888888888
+0000012223331110
+0001124444444330
+0001129997787320
+000011999AAAA900
+000000999AAAAAA0
+000000999AAEA000
+0000009999991000
+BBBB2999999992B0
+BBBB2222222222BB
+BBBBBBBBBBBBBBBB
 "#),
             ),
             (
@@ -59,12 +62,12 @@
                 
                 
                 
-                
-     ▄████▄     
-    ▐██████     
-    ▐██(o█      
-     ▐▄▀▄█▌     
-      ▄▀▄█      
+      ▄▄▄▄▄▄    
+     ▐█████▀▄▄  
+      ▄▀▄▀▀▄▀▀  
+      ▄▀▄█(o█   
+      ▄▀▄████▀  
+      ▄▀▄██-█   
       ▄▀▄▀▄▀    
 ▄▄███▀▄▀▄▀▄▀▄██ 
 ████████████████
@@ -75,16 +78,16 @@
 0000000000000000
 0000000000000000
 0000000000000000
-0000000000000000
-00000EDDDDE00000
-0000EDDD44600000
-0000EDDAK6000000
-00000E7776600000
-0000007776000000
-0000007777771000
-8888977777777980
-8888999999999988
-8888888888888888
+0000012223331110
+0001124444444330
+0001129997787320
+000011999ABCA900
+000000999AAAAAA0
+000000999AAEA000
+0000009999991000
+BBBB2999999992B0
+BBBB2222222222BB
+BBBBBBBBBBBBBBBB
 "#),
             ),
         ],
