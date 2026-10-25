@@ -5,11 +5,11 @@
     relaciones: [
         (tipo: Conectado, destino: Lugar("mar_de_levante")),
     ],
-    coordenada_central: (x: 55, y: 1),
+    coordenada_central: (x: 110, y: 2),
     coordenadas_rotulo: [
-        (x: 51, y: 0), (x: 52, y: 0), (x: 53, y: 0),
-        (x: 54, y: 0), (x: 55, y: 0), (x: 56, y: 0),
-        (x: 57, y: 0), (x: 58, y: 0), (x: 59, y: 0),
-        (x: 60, y: 0),
+        (x: 106, y: 0), (x: 107, y: 0), (x: 108, y: 0),
+        (x: 109, y: 0), (x: 110, y: 0), (x: 111, y: 0),
+        (x: 112, y: 0), (x: 113, y: 0), (x: 114, y: 0),
+        (x: 115, y: 0),
     ],
 )

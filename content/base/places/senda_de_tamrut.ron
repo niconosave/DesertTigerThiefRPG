@@ -6,11 +6,11 @@
         (tipo: Conectado, destino: Lugar("valle_fertil")),
         (tipo: Conectado, destino: Lugar("bosque_de_tamrut")),
     ],
-    coordenada_central: (x: 70, y: 11),
+    coordenada_central: (x: 140, y: 22),
     coordenadas_rotulo: [
-        (x: 68, y: 9), (x: 69, y: 9), (x: 70, y: 9), (x: 71, y: 9),
-        (x: 72, y: 9), (x: 73, y: 10), (x: 74, y: 10), (x: 75, y: 10),
-        (x: 76, y: 10), (x: 77, y: 11), (x: 78, y: 11), (x: 79, y: 11),
-        (x: 80, y: 11), (x: 81, y: 11), (x: 82, y: 11),
+        (x: 143, y: 19), (x: 144, y: 19), (x: 145, y: 19), (x: 146, y: 19),
+        (x: 147, y: 19), (x: 148, y: 20), (x: 149, y: 20), (x: 150, y: 20),
+        (x: 151, y: 20), (x: 152, y: 21), (x: 153, y: 21), (x: 154, y: 21),
+        (x: 155, y: 21), (x: 156, y: 21), (x: 157, y: 21),
     ],
 )

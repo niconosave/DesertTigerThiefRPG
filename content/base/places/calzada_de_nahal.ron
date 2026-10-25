@@ -6,11 +6,11 @@
         (tipo: Conectado, destino: Lugar("marisma_verde")),
         (tipo: Conectado, destino: Lugar("nahal")),
     ],
-    coordenada_central: (x: 84, y: 26),
+    coordenada_central: (x: 168, y: 52),
     coordenadas_rotulo: [
-        (x: 75, y: 27), (x: 76, y: 27), (x: 77, y: 27), (x: 78, y: 27),
-        (x: 79, y: 27), (x: 80, y: 27), (x: 81, y: 27), (x: 82, y: 27),
-        (x: 83, y: 27), (x: 84, y: 27), (x: 85, y: 27), (x: 86, y: 27),
-        (x: 87, y: 27), (x: 88, y: 27), (x: 89, y: 27), (x: 90, y: 27),
+        (x: 157, y: 54), (x: 158, y: 54), (x: 159, y: 54), (x: 160, y: 54),
+        (x: 161, y: 54), (x: 162, y: 54), (x: 163, y: 54), (x: 164, y: 54),
+        (x: 165, y: 54), (x: 166, y: 54), (x: 167, y: 54), (x: 168, y: 54),
+        (x: 169, y: 54), (x: 170, y: 54), (x: 171, y: 54), (x: 172, y: 54),
     ],
 )

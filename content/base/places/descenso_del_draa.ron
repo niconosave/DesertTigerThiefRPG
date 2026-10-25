@@ -6,12 +6,12 @@
         (tipo: Conectado, destino: Lugar("paso_escarpado")),
         (tipo: Conectado, destino: Lugar("valle_fertil")),
     ],
-    coordenada_central: (x: 58, y: 11),
+    coordenada_central: (x: 116, y: 22),
     coordenadas_rotulo: [
-        (x: 52, y: 9), (x: 53, y: 9), (x: 54, y: 9), (x: 55, y: 9),
-        (x: 56, y: 9), (x: 57, y: 9), (x: 58, y: 9), (x: 59, y: 9),
-        (x: 60, y: 9), (x: 61, y: 9), (x: 62, y: 9), (x: 63, y: 9),
-        (x: 64, y: 9), (x: 65, y: 9), (x: 66, y: 9), (x: 67, y: 9),
-        (x: 68, y: 9),
+        (x: 112, y: 18), (x: 113, y: 18), (x: 114, y: 18), (x: 115, y: 18),
+        (x: 116, y: 18), (x: 117, y: 18), (x: 118, y: 18), (x: 119, y: 18),
+        (x: 120, y: 18), (x: 121, y: 18), (x: 122, y: 18), (x: 123, y: 18),
+        (x: 124, y: 18), (x: 125, y: 18), (x: 126, y: 18), (x: 127, y: 18),
+        (x: 128, y: 18),
     ],
 )

@@ -3,9 +3,9 @@
     nombre: "Nahal",
     caracteristicas: ["poblado", "mercado", "puerto", "muelle"],
     relaciones: [],
-    coordenada_central: (x: 86, y: 26),
+    coordenada_central: (x: 172, y: 52),
     coordenadas_rotulo: [
-        (x: 84, y: 25), (x: 85, y: 25), (x: 86, y: 25),
-        (x: 87, y: 25), (x: 88, y: 25),
+        (x: 170, y: 50), (x: 171, y: 50), (x: 172, y: 50),
+        (x: 173, y: 50), (x: 174, y: 50),
     ],
 )

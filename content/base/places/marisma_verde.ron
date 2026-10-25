@@ -3,12 +3,12 @@
     nombre: "Marisma Verde",
     caracteristicas: ["pantanoso", "fluvial", "aguasSomeras", "peces"],
     relaciones: [],
-    coordenada_central: (x: 83, y: 25),
+    coordenada_central: (x: 166, y: 50),
     coordenadas_rotulo: [
-        (x: 77, y: 22), (x: 78, y: 22), (x: 79, y: 22),
-        (x: 80, y: 22), (x: 81, y: 22), (x: 82, y: 23),
-        (x: 83, y: 23), (x: 84, y: 23), (x: 85, y: 23),
-        (x: 86, y: 24), (x: 87, y: 24), (x: 88, y: 24),
-        (x: 89, y: 24),
+        (x: 160, y: 45), (x: 161, y: 45), (x: 162, y: 45),
+        (x: 163, y: 45), (x: 164, y: 45), (x: 165, y: 46),
+        (x: 166, y: 46), (x: 167, y: 46), (x: 168, y: 46),
+        (x: 169, y: 47), (x: 170, y: 47), (x: 171, y: 47),
+        (x: 172, y: 47),
     ],
 )

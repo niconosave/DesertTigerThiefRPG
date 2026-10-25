@@ -1976,9 +1976,9 @@ mod pruebas {
             .instanciar_estado()
             .expect("el contenido validado debe instanciarse");
 
-        assert_eq!(mapa.ancho(), 96);
-        assert_eq!(mapa.alto(), 32);
-        assert_eq!(mapa.celdas().len(), 96 * 32);
+        assert_eq!(mapa.ancho(), 192);
+        assert_eq!(mapa.alto(), 64);
+        assert_eq!(mapa.celdas().len(), 192 * 64);
         assert_eq!(mundo.fecha().anio(), 2025);
         assert_eq!(mundo.fecha().mes(), Mes::Enero);
         assert_eq!(mundo.fecha().dia(), 31);

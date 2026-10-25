@@ -6,11 +6,11 @@
         (tipo: Conectado, destino: Lugar("playa_dorada")),
         (tipo: Conectado, destino: Lugar("golfo_del_siroco")),
     ],
-    coordenada_central: (x: 31, y: 21),
+    coordenada_central: (x: 62, y: 42),
     coordenadas_rotulo: [
-        (x: 25, y: 19), (x: 26, y: 19), (x: 27, y: 19),
-        (x: 28, y: 19), (x: 29, y: 20), (x: 30, y: 20),
-        (x: 31, y: 20), (x: 32, y: 20), (x: 33, y: 20),
-        (x: 34, y: 20), (x: 35, y: 20), (x: 36, y: 20),
+        (x: 55, y: 38), (x: 56, y: 38), (x: 57, y: 38),
+        (x: 58, y: 38), (x: 59, y: 39), (x: 60, y: 39),
+        (x: 61, y: 39), (x: 62, y: 39), (x: 63, y: 39),
+        (x: 64, y: 39), (x: 65, y: 39), (x: 66, y: 39),
     ],
 )

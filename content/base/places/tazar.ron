@@ -3,9 +3,9 @@
     nombre: "Tazar",
     caracteristicas: ["poblado", "posada", "aguaDulce"],
     relaciones: [],
-    coordenada_central: (x: 71, y: 10),
+    coordenada_central: (x: 142, y: 20),
     coordenadas_rotulo: [
-        (x: 69, y: 9), (x: 70, y: 9), (x: 71, y: 9),
-        (x: 72, y: 9), (x: 73, y: 9),
+        (x: 140, y: 18), (x: 141, y: 18), (x: 142, y: 18),
+        (x: 143, y: 18), (x: 144, y: 18),
     ],
 )

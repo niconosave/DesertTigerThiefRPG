@@ -3,13 +3,14 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.6 |
-| Fecha | 2026-10-20 |
+| Versión | 0.7 |
+| Fecha | 2026-10-25 |
 
 ## 1. Propósito
 
 Este documento conserva la colección implementada de Lugares basada en las formas de
-`assets/map.png` y en su traducción de `96 × 32` tiles. Su objetivo es dar una
+`assets/map.png` y en su traducción inicial de `96 × 32` tiles, ampliada al
+doble de ancho y alto (`192 × 64`) el 2026-10-25. Su objetivo es dar una
 geografía reconocible a los viajes y preparar contextos para futuras reglas sin
 convertir todavía cada idea en una mecánica.
 
@@ -17,6 +18,11 @@ Los nombres fueron aprobados como primera versión del atlas. Las claves,
 coordenadas exactas, Características y Relaciones tienen su única fuente
 ejecutable en `content/base/`; este documento conserva la intención geográfica
 y creativa sin duplicar esos datos.
+
+La ampliación duplica cada tile en ambas direcciones y escala los centros de
+los Lugares por el mismo factor. Cada rótulo se traslada hasta su nueva región
+conservando el recorrido compacto de sus letras, sin insertar espacios entre
+ellas. Se mantienen las formas geográficas y las Relaciones del atlas.
 
 ## 2. Lectura del mapa
 

@@ -6,11 +6,11 @@
         (tipo: Conectado, destino: Lugar("bosque_de_tamrut")),
         (tipo: Conectado, destino: Lugar("marisma_verde")),
     ],
-    coordenada_central: (x: 78, y: 21),
+    coordenada_central: (x: 156, y: 42),
     coordenadas_rotulo: [
-        (x: 68, y: 20), (x: 69, y: 20), (x: 70, y: 20), (x: 71, y: 20),
-        (x: 72, y: 20), (x: 73, y: 20), (x: 74, y: 20), (x: 75, y: 20),
-        (x: 76, y: 20), (x: 77, y: 20), (x: 78, y: 20), (x: 79, y: 20),
-        (x: 80, y: 20), (x: 81, y: 20),
+        (x: 142, y: 40), (x: 143, y: 40), (x: 144, y: 40), (x: 145, y: 40),
+        (x: 146, y: 40), (x: 147, y: 40), (x: 148, y: 40), (x: 149, y: 40),
+        (x: 150, y: 40), (x: 151, y: 40), (x: 152, y: 40), (x: 153, y: 40),
+        (x: 154, y: 40), (x: 155, y: 40),
     ],
 )

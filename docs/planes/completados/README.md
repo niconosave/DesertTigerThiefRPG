@@ -33,8 +33,9 @@ implementación cambia una decisión o un contrato.
 Cierre técnico: 2026-10-24. La serie se integró como un incremento jugable;
 los controles automáticos, recorridos manuales y ajustes están en el
 [informe de verificación](../../tecnica/acciones/verificacion-viajar-reglamento.md).
-El usuario todavía no ha valorado el tono y ritmo del conjunto; no se atribuye
-esa aprobación al cierre funcional realizado por el agente.
+El 2026-10-25 el usuario confirmó su prueba de viajes, navegación, interrupciones
+y separación de un compañero, con resultado general satisfactorio. Los detalles
+se corregirán en incrementos posteriores.
 
 | Plan | Resultado |
 |---|---|
@@ -45,3 +46,9 @@ esa aprobación al cierre funcional realizado por el agente.
 | [PLAN-2026-029](./2026-10-24-29-construir-motor-viajar-tarjetas.md) | Construir el nuevo motor de Viajar y sus tarjetas. |
 | [PLAN-2026-030](./2026-10-24-30-integrar-viajar-narracion-terminal.md) | Activar el nuevo Viajar y presentar sus escenas. |
 | [PLAN-2026-031](./2026-10-24-31-validar-contenido-cerrar-refactor-viajar.md) | Validar contenido y cerrar el refactor de Viajar. |
+
+## Ajustes del mapa
+
+| Fecha | Plan | Resultado |
+|---|---|---|
+| 2026-10-25 | [PLAN-2026-032](./2026-10-25-32-ampliar-mapa.md) | Mapa al doble de ancho y alto; centros y rótulos de los 26 Lugares adaptados. |
