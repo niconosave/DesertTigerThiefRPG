@@ -295,11 +295,14 @@ fn normalizar_arte(texto: &str) -> Result<Vec<String>, ErrorRecursos> {
     if filas.is_empty()
         || filas[0].is_empty()
         || filas.iter().any(|fila| {
-            fila.len() != filas[0].len() || !fila.chars().all(|c| c == ' ' || c.is_ascii_graphic())
+            fila.chars().count() != filas[0].chars().count()
+                || !fila
+                    .chars()
+                    .all(|c| !c.is_control() && c.width() == Some(1))
         })
     {
         return Err(ErrorRecursos(
-            "el arte de escena no es ASCII rectangular".to_owned(),
+            "el arte de escena debe ser rectangular y usar glifos de una columna".to_owned(),
         ));
     }
     Ok(filas)
@@ -308,6 +311,15 @@ fn normalizar_arte(texto: &str) -> Result<Vec<String>, ErrorRecursos> {
 #[cfg(test)]
 mod pruebas {
     use super::*;
+
+    #[test]
+    fn ilustraciones_admiten_bloques_de_una_columna_y_rechazan_ancho_incompatible() {
+        assert_eq!(normalizar_arte("\n██\nxx\n").unwrap(), vec!["██", "xx"]);
+        assert_eq!(normalizar_arte("░▓\r\n▌▐\r\n").unwrap(), vec!["░▓", "▌▐"]);
+        for arte in ["", "██\nx", "界", "e\u{0301}", "a\tb", "\u{1b}[31m", "a\rb"] {
+            assert!(normalizar_arte(arte).is_err(), "aceptó {arte:?}");
+        }
+    }
 
     fn apariencia(glifo: char) -> AparienciaDto {
         AparienciaDto {

@@ -32,10 +32,16 @@
         "principe_perdido",
         "bandido",
         "cazador",
+        "sirviente",
+        "mercader",
+        "nino_ladron",
     ],
     actor_jugador: "principe_perdido",
     companeros_iniciales: [
         "bandido",
+        "sirviente",
+        "mercader",
+        "nino_ladron",
     ],
     fecha_inicial: (
         anio: 2025,

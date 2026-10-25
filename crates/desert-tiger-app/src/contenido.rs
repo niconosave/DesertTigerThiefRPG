@@ -1982,7 +1982,7 @@ mod pruebas {
         assert_eq!(mundo.fecha().anio(), 2025);
         assert_eq!(mundo.fecha().mes(), Mes::Enero);
         assert_eq!(mundo.fecha().dia(), 31);
-        assert_eq!(mundo.grupo().integrantes().len(), 1);
+        assert_eq!(mundo.grupo().integrantes().len(), 4);
         assert_eq!(mundo.relaciones().len(), 42);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
@@ -2028,7 +2028,7 @@ mod pruebas {
                     .contains(&destino)
             );
         }
-        assert_eq!(contenido.presentacion().actores().len(), 3);
+        assert_eq!(contenido.presentacion().actores().len(), 6);
         let bandido = IdActor::desde_posicion(1).expect("ID válido");
         let cazador = IdActor::desde_posicion(2).expect("ID válido");
         let id_lugar = |posicion| IdLugar::desde_posicion(posicion).expect("ID válido");

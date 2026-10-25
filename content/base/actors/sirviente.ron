@@ -1,0 +1,93 @@
+(
+    clave: "sirviente",
+    lugar_inicial: "zona_arida",
+    caracteristicas: [],
+    relaciones: [],
+    retrato: Some((
+        paleta: {
+            '0': (frente: "gris", fondo: None),
+            '1': (frente: "gris", fondo: None),
+            '4': (frente: "magenta", fondo: None),
+            '6': (frente: "magentaClaro", fondo: None),
+            '7': (frente: "grisOscuro", fondo: Some("grisMuyOscuro")),
+            '8': (frente: "azul", fondo: None),
+            '9': (frente: "amarillo", fondo: None),
+            'A': (frente: "negro", fondo: Some("negro")),
+            'B': (frente: "magentaClaro", fondo: Some("negro")),
+            'D': (frente: "grisOscuro", fondo: None),
+            'E': (frente: "grisMuyOscuro", fondo: None),
+            'K': (frente: "verdeClaro", fondo: Some("negro")),
+        },
+        fotogramas: [
+            (
+                arte: r#"
+                
+                
+                
+                
+                
+     ▄████▄     
+    ▐██████     
+    ▐██▀▀█      
+     ▐▄▀▄█▌     
+      ▄▀▄█      
+      ▄▀▄▀▄▀    
+▄▄███▀▄▀▄▀▄▀▄██ 
+████████████████
+████████████████
+"#,
+                estilos: Some(r#"
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+00000EDDDDE00000
+0000EDDD44600000
+0000EDDBB6000000
+00000E7776600000
+0000007776000000
+0000007777771000
+8888977777777980
+8888999999999988
+8888888888888888
+"#),
+            ),
+            (
+                arte: r#"
+                
+                
+                
+                
+                
+     ▄████▄     
+    ▐██████     
+    ▐██(o█      
+     ▐▄▀▄█▌     
+      ▄▀▄█      
+      ▄▀▄▀▄▀    
+▄▄███▀▄▀▄▀▄▀▄██ 
+████████████████
+████████████████
+"#,
+                estilos: Some(r#"
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+0000000000000000
+00000EDDDDE00000
+0000EDDD44600000
+0000EDDAK6000000
+00000E7776600000
+0000007776000000
+0000007777771000
+8888977777777980
+8888999999999988
+8888888888888888
+"#),
+            ),
+        ],
+    )),
+    politica: Ninguna,
+)

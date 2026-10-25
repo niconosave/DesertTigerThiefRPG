@@ -52,3 +52,16 @@ se corregirán en incrementos posteriores.
 | Fecha | Plan | Resultado |
 |---|---|---|
 | 2026-10-25 | [PLAN-2026-032](./2026-10-25-32-ampliar-mapa.md) | Mapa al doble de ancho y alto; centros y rótulos de los 26 Lugares adaptados. |
+
+## Pruebas de retratos de compañeros
+
+| Fecha | Plan | Resultado |
+|---|---|---|
+| 2026-10-25 | [PLAN-2026-033](./2026-10-25-33-crear-tres-retratos-companeros.md) | Sirviente, Mercader y Niño ladrón con retratos animados e incorporados al Grupo inicial. |
+| 2026-10-25 | [PLAN-2026-034](./2026-10-25-34-reinterpretar-retrato-mercader.md) | Retrato del Mercader reinterpretado desde la referencia visual, conservando ojos y parpadeo. |
+
+## Ilustraciones de viñetas
+
+| Fecha | Plan | Resultado |
+|---|---|---|
+| 2026-10-25 | [PLAN-2026-035](./2026-10-25-35-importar-ilustraciones-viaje.md) | Cuatro dibujos del usuario incorporados a `scenes.ron`, con bloques Unicode de una columna. |

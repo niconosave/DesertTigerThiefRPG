@@ -1,0 +1,115 @@
+(
+    clave: "mercader",
+    lugar_inicial: "zona_arida",
+    caracteristicas: [],
+    relaciones: [],
+    retrato: Some((
+        paleta: {
+            '0': (frente: "gris", fondo: None),
+            'a': (frente: "blanco", fondo: None),
+            'b': (frente: "blanco", fondo: Some("amarillo")),
+            'c': (frente: "amarillo", fondo: None),
+            'd': (frente: "rojo", fondo: None),
+            'e': (frente: "rojoClaro", fondo: Some("rojo")),
+            'f': (frente: "blanco", fondo: Some("gris")),
+            'g': (frente: "amarillo", fondo: Some("magenta")),
+            'h': (frente: "magenta", fondo: Some("rojo")),
+            'i': (frente: "amarillo", fondo: Some("rojo")),
+            'j': (frente: "rojo", fondo: Some("amarillo")),
+            'k': (frente: "magenta", fondo: None),
+            'l': (frente: "rojo", fondo: Some("negro")),
+            'm': (frente: "rojo", fondo: Some("amarilloClaro")),
+            'n': (frente: "rojo", fondo: Some("magenta")),
+            'o': (frente: "negro", fondo: None),
+            'p': (frente: "negro", fondo: Some("amarillo")),
+            'q': (frente: "amarilloClaro", fondo: None),
+            'r': (frente: "amarilloClaro", fondo: Some("amarillo")),
+            's': (frente: "amarillo", fondo: Some("amarilloClaro")),
+            't': (frente: "amarilloClaro", fondo: Some("negro")),
+            'u': (frente: "negro", fondo: Some("amarilloClaro")),
+            'v': (frente: "blanco", fondo: Some("rojo")),
+            'w': (frente: "gris", fondo: Some("blanco")),
+            'x': (frente: "amarillo", fondo: Some("blanco")),
+            'y': (frente: "amarilloClaro", fondo: Some("gris")),
+            'z': (frente: "gris", fondo: Some("verde")),
+            'A': (frente: "verde", fondo: None),
+            'B': (frente: "amarillo", fondo: Some("verde")),
+            'C': (frente: "blanco", fondo: Some("verde")),
+            'D': (frente: "negro", fondo: Some("negro")),
+            'E': (frente: "verdeClaro", fondo: Some("negro")),
+            'F': (frente: "negro", fondo: Some("blanco")),
+            'G': (frente: "blanco", fondo: Some("negro")),
+        },
+        fotogramas: [
+            (
+                arte: r#"
+   ▄███             
+ ▄███▀█ ▄▄▀▀▀       
+▄█▀▀▀▀▀███▀▀▀▀▄     
+▀▀▄▀███▀█▀█████     
+ ███▀█▀█▀▀▀▀▀▀▀     
+  ▀▀▀▀██▀██████▄    
+  ▄███▀█████▀▀██▄   
+   ████▀██████████  
+  ▄████▀██████▀▀▀█▀ 
+▄██▀▀▀▀▀▀▀███▀███   
+███████▀▀▀████▀▀▀█▄ 
+████████▀███▀████▀██
+▀█████▀██▀█▀▀▀██▀███
+ ▀███████▀▀██▀▀█████
+"#,
+                estilos: Some(r#"
+000aaaa0000000000000
+0aaaabc0ddeee0000000
+aafbghidddjjiid00000
+ackhdddjciddddd00000
+0kddjcidlllmmmd00000
+00knlloopqqqqqqq0000
+00oooopqqqqqttqqq000
+000ooocrqqqqqqqqqq00
+00aa0ocsqqqqootuuoo0
+kkkjvvwxyrqqquqqq000
+kkkcddaFfzccccrywad0
+kkkcddaaGAAcica0avdc
+kkkcddvaaFABjxaaCddc
+0kkcdddaafFAACCAAddc
+"#),
+            ),
+            (
+                arte: r#"
+   ▄███             
+ ▄███▀█ ▄▄▀▀▀       
+▄█▀▀▀▀▀███▀▀▀▀▄     
+▀▀▄▀███▀█▀█████     
+ ███▀█▀█▀▀▀▀▀▀▀     
+  ▀▀▀▀██▀██████▄    
+  ▄███▀█████(o██▄   
+   ████▀██████████  
+  ▄████▀██████▀▀▀█▀ 
+▄██▀▀▀▀▀▀▀███▀███   
+███████▀▀▀████▀▀▀█▄ 
+████████▀███▀████▀██
+▀█████▀██▀█▀▀▀██▀███
+ ▀███████▀▀██▀▀█████
+"#,
+                estilos: Some(r#"
+000aaaa0000000000000
+0aaaabc0ddeee0000000
+aafbghidddjjiid00000
+ackhdddjciddddd00000
+0kddjcidlllmmmd00000
+00knlloopqqqqqqq0000
+00oooopqqqqqDEqqq000
+000ooocrqqqqqqqqqq00
+00aa0ocsqqqqootuuoo0
+kkkjvvwxyrqqquqqq000
+kkkcddaFfzccccrywad0
+kkkcddaaGAAcica0avdc
+kkkcddvaaFABjxaaCddc
+0kkcdddaafFAACCAAddc
+"#),
+            ),
+        ],
+    )),
+    politica: Ninguna,
+)

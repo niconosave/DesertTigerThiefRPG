@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.42 |
-| Fecha | 2026-10-20 |
+| Versión | 0.43 |
+| Fecha | 2026-10-25 |
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
 
@@ -464,8 +464,10 @@ destino solo selecciona una ilustración: la conclusión ya fue resuelta por la
 aplicación. `scenes.ron` puede omitir cualquier entrada y, en ese caso, la
 viñeta se presenta solo con texto.
 
-`arte` es un bloque estático, rectangular, no vacío, de caracteres ASCII
-imprimibles y espacios. Los saltos de línea separan filas; no se permiten
+`arte` es un bloque estático, rectangular y no vacío, de glifos Unicode de una
+columna, incluidos ASCII y los bloques usados en los dibujos. Se valida cada
+carácter mediante `UnicodeWidthChar::width() == Some(1)` y se rechazan controles.
+Los saltos de línea separan filas; no se permiten
 tabulaciones, controles ni secuencias de escape. Todas las filas tienen el mismo
 ancho y los espacios finales cuentan. Para permitir la escritura multilínea
 cómoda, el cargador elimina como máximo un salto de línea inmediatamente después
@@ -1309,7 +1311,7 @@ Pruebas automáticas:
   clasifica su emoción;
 - `scenes.ron` admite una lista vacía y rechaza claves desconocidas, duplicadas,
   alias, diferencias de mayúsculas, grafías `snake_case`, bloques vacíos, no
-  rectangulares, no ASCII o con controles;
+  rectangulares, con glifos de ancho distinto de una columna o con controles;
 - el arte multilínea conserva espacios y aplica exactamente la normalización de
   saltos inicial, final y CRLF definida por el catálogo;
 - ninguna vista de aplicación ni archivo bajo `content/` aporta bytes o rutas de
