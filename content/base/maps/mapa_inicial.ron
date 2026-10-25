@@ -1,0 +1,46 @@
+(
+    clave: "mapa_inicial",
+    leyenda: {
+        '.': "arena",
+        '-': "sueloArido",
+        '^': "montana",
+        ',': "vegetacion",
+        'u': "bosque",
+        'A': "agua",
+        'Q': "bosqueQuemado",
+    },
+    matriz: r#"
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,,,AA,----,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAA------------------^^^^^^^^^^^^^^AAAAAAA,,,AAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAA,AAAAAAA------------------^^^u^^^^^^^A^^^,,,,,,,,,,,,AAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAA,-----AAAAAA,-----------------^^^^^^^^^^,AAAAAAAA,,,,,,,,,AAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAA----------,AAAAAAAA,,AAAAA--------^^^^^^,,,,,,,,,,,,AA,,,,,,,,,,,,,,,,,AAAAAAAAAAAA
+AAAAAAAAAAA---------------AAAAAAAAAAAAAA,-------^^^^^^,,,,,,,,,,,,A,,,,,,,,,,,,,,,,,,,AAAAAAAAAA
+AAAAAAAAAA----------------,AAAAAAAAAAAAAAA-------^^^^^AAAAAAAAAAAAAA,,,,,,,,,,,,,,,,,,AAAAAAAAAA
+AAAAAAAAA,..--------------,AAAAAAAAAAAAAAA-------,^^^^^,,,,,,,,,,,,,A,,,,,,,,,,,,,,,AAAAAAAAAAAA
+AAAAAAAAAA...--------------AAAAAAAAAAAAAA--------^^^^^^,,,,,,,,,,,,,A,,,,,,^^^,,,,,AAAAAAAAAAAAA
+AAAAAAAAAAA,...--------------,AAAA,--------------^^^^^^,,,,,,,,,,,,,,A,^uuuuuuuuuu^AAAAAAAAAAAAA
+AAAAAAAAAAAAA...---------------------------------^^^^^^,,,,,,,,,,,,^u^A^uuuuuuuuuuuuu^AAAAAAAAAA
+AAAAAAAAAAAAA-..---------------------------------^^^u^,--,,,,,,,,,uuuuuAAAAAAAAuuuuuuuuu^AAAAAAA
+AAAAAAAAAAAA-...------------------------------,^^^u^^^-----^^^^^^uuuuuuuuuuuuu^Auuuuuuuuuuu^AAAA
+AAAAAAAAAAA...-----------------------------^^^^^u^u^------^^^uu^^uuuuuuuuuuuuuuAuuuuuuuuuuuuAAAA
+AAAAAAAAAA,..------------------------------^^^u^u^^-----^^^^^uu^uuuuuuuuuuuuuuuA^uuuuuuuuu^AAAAA
+AAAAAAAAAAA-..-----------------------------^^^uu^-----^^^^u^^u^^uuuuuuuuuuuuuuuAAuuuuuuuuAAAAAAA
+AAAAAAAAAA....-----------------------------^^^uu^----^^^^^uu^^^^^uuuuuuuuAAAAAA^uuuuuuu^AAAAAAAA
+AAAAAAAA-..--------------------------------,^^uu^----^^^^^^uu^uu^^^uuuuu^Auuuuuuuuuuuuu^AAAAAAAA
+AAAAAAAA...---------------------------------^^^^^.....-,,^^^^uu^^^^^uuuuuAAA^uuuuuuuuuu,AAAAAAAA
+AAAAAAAAA-----,,A,--------------------------.-^^-..........-^^^^^uu^^uuuuuuuAAA^uuuuuu,,,AAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAA---------------.....,AA,--......^^^^^^^uuuuuuuuuuuA^uuu^,,,,AAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAA,-------------.....-AAAAAAAA,...^^^^^^uuuuuuuuuuuu^Au^,,,,,,,AAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-----------.......AAAAAAAAAAA,^^^^^uuuuuuuuuuuuuu,A,,,,,,,,,,AAAAA
+AAAAAAAAAAAAAA,,,----,AAAAAAAAA----------.....-AAAAAAAAAAAAAA^^A^^^^^^AA,,,,,,,A,,,,,,,,,,AAAAAA
+AAAAAAAAAAAAA---------,AAAA,-------------....-AAAAAAAAAAAAAAAAAAAAAAAAAAAAA,,,,,A,,,,,,,,AAAAAAA
+AAAAAAAAAAAAAA,-------AAAAA---------------..-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,,,,A,,,,,,,AAAAAAAA
+AAAAAAAAAAAAAAA,-------AAAAAAA,-------------AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,A,,,,,,,AAAAAAAA
+AAAAAAAAAAAAAA,------AAAAAAAAAA--------AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,,,,,AAAAAAAAAA
+AAAAAAAAAAAAAA---,AAAAAAAAAAAAA----,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA,,AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+"#,
+)

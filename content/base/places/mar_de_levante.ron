@@ -1,0 +1,16 @@
+(
+    clave: "mar_de_levante",
+    nombre: "Mar de Levante",
+    caracteristicas: ["acuatico", "maritimo", "marAbierto", "aguaSalada"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("golfo_del_siroco")),
+    ],
+    coordenada_central: (x: 91, y: 12),
+    coordenadas_rotulo: [
+        (x: 93, y: 5), (x: 93, y: 6), (x: 93, y: 7),
+        (x: 93, y: 8), (x: 93, y: 9), (x: 93, y: 10),
+        (x: 93, y: 11), (x: 93, y: 12), (x: 93, y: 13),
+        (x: 93, y: 14), (x: 93, y: 15), (x: 93, y: 16),
+        (x: 93, y: 17), (x: 93, y: 18),
+    ],
+)

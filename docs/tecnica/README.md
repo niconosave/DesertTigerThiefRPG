@@ -1,20 +1,31 @@
 # Documentación técnica
 
-Este directorio alojará los documentos que traduzcan el
-[diseño general](../diseno-general.md) a decisiones de implementación verificables.
-Todavía no contiene una arquitectura elegida: esa será la siguiente etapa del
-proyecto.
+Este directorio traduce el [diseño general](../diseno-general.md) a decisiones de
+implementación verificables. El
+[diseño técnico general](./diseno-tecnico-general.md) define la arquitectura y
+los límites compartidos del proyecto.
 
-Cada documento técnico debería incluir, como mínimo:
+La estructura prevista es:
 
-- estado, responsables conceptuales y fecha de revisión;
-- requisitos `DG-*` que pretende satisfacer;
-- decisión adoptada y alternativas descartadas;
-- límites, responsabilidades y dirección de dependencias;
-- contratos de datos y comportamiento;
-- errores, validación, determinismo y persistencia cuando correspondan;
-- estrategia de pruebas y criterios de aceptación;
-- compatibilidad, migraciones y preguntas todavía abiertas.
+```text
+tecnica/
+├── diseno-tecnico-general.md
+├── componentes/
+│   └── <documentos técnicos específicos>.md
+└── acciones/
+    ├── <una especificación por acción general>.md
+    └── particulares/
+        └── <una especificación por acción particular>.md
+```
 
-Los planes de implementación deben enlazar secciones concretas de estos
-documentos, no repetir toda la decisión técnica dentro del plan.
+El diseño técnico general define la organización global, los límites entre
+partes y las reglas compartidas. Los documentos de `componentes/` diseñarán en
+detalle una parte concreta del código o de los datos. Los documentos de
+`acciones/` definirán solamente las reglas particulares de cada acción, usando
+el motor compartido sin volver a especificarlo. Cuando una operación de
+simulación sea reutilizable entre varias acciones generales, su única fuente
+normativa estará en `acciones/particulares/` y las acciones generales la
+enlazarán.
+
+Todos seguirán la [metodología de desarrollo](../metodologia-desarrollo.md). Los
+planes deberán enlazar sus secciones exactas en vez de repetir decisiones.

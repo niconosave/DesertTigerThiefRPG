@@ -1,0 +1,18 @@
+(
+    clave: "camino_de_los_mojones",
+    nombre: "Camino de los Mojones",
+    caracteristicas: ["camino", "arido", "rocoso", "abierto"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("zona_arida")),
+        (tipo: Conectado, destino: Lugar("paso_escarpado")),
+    ],
+    coordenada_central: (x: 37, y: 17),
+    coordenadas_rotulo: [
+        (x: 30, y: 19), (x: 31, y: 19), (x: 32, y: 19), (x: 33, y: 19),
+        (x: 34, y: 19), (x: 35, y: 19), (x: 36, y: 19), (x: 37, y: 19),
+        (x: 38, y: 19), (x: 39, y: 19), (x: 40, y: 19), (x: 41, y: 19),
+        (x: 42, y: 19), (x: 43, y: 19), (x: 44, y: 19), (x: 45, y: 19),
+        (x: 46, y: 19), (x: 47, y: 19), (x: 48, y: 19), (x: 49, y: 19),
+        (x: 50, y: 19),
+    ],
+)

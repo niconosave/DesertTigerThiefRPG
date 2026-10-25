@@ -1,0 +1,17 @@
+(
+    clave: "sierra_quebrada",
+    nombre: "Sierra Quebrada",
+    caracteristicas: ["montanoso", "rocoso", "boscoso", "empinado"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("bosque_de_tamrut")),
+        (tipo: Conectado, destino: Lugar("alcazar_gris")),
+    ],
+    coordenada_central: (x: 56, y: 24),
+    coordenadas_rotulo: [
+        (x: 48, y: 20), (x: 49, y: 20), (x: 50, y: 21),
+        (x: 51, y: 21), (x: 52, y: 22), (x: 53, y: 22),
+        (x: 54, y: 22), (x: 55, y: 23), (x: 56, y: 23),
+        (x: 57, y: 23), (x: 58, y: 24), (x: 59, y: 24),
+        (x: 60, y: 25), (x: 61, y: 25), (x: 62, y: 25),
+    ],
+)

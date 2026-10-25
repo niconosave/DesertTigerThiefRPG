@@ -1,0 +1,21 @@
+[package]
+name = "desert-tiger-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+desert-tiger-core = { path = "../desert-tiger-core" }
+mlua.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+ron.workspace = true
+serde.workspace = true
+unicode-width.workspace = true
+
+[lib]
+path = "src/lib.rs"
+

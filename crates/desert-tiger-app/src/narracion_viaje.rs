@@ -1,0 +1,368 @@
+use crate::contenido::ContenidoValidado;
+use crate::tiempo::formatear;
+use desert_tiger_core::acciones::*;
+use desert_tiger_core::{IdActor, IdLugar, TiempoAccion};
+
+pub(crate) struct Narrador<'a>(pub &'a ContenidoValidado);
+pub(crate) struct TextoEscena {
+    pub titulo: String,
+    pub texto: String,
+    pub detalle: Vec<String>,
+}
+fn litros(ml: u64) -> String {
+    if ml.is_multiple_of(1000) {
+        format!("{}", ml / 1000)
+    } else {
+        format!("{:.3}", ml as f64 / 1000.0)
+    }
+}
+pub(crate) fn reservas(r: &ReservasViaje) -> String {
+    format!(
+        "{} piezas de carne seca, {} panes, {} lonjas de queso y {} piezas de pescado salado; {} botas, con {} litros de agua",
+        r.comidas[0],
+        r.comidas[1],
+        r.comidas[2],
+        r.comidas[3],
+        r.botas.len(),
+        litros(r.botas.iter().map(|&v| u64::from(v)).sum())
+    )
+}
+impl Narrador<'_> {
+    pub fn actor(&self, id: IdActor) -> String {
+        self.0
+            .claves()
+            .clave_actor(id)
+            .unwrap_or("viajero")
+            .split('_')
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+    pub fn lugar(&self, id: IdLugar) -> String {
+        self.0
+            .presentacion()
+            .lugar(id)
+            .map(|l| l.nombre().to_owned())
+            .unwrap_or_else(|| "Lugar desconocido".into())
+    }
+    fn chequeo(&self, c: &ResultadoChequeo) -> String {
+        let capacidades = c
+            .modificadores
+            .iter()
+            .map(|m| format!("{} {:+}", m.caracteristica, m.bono))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!(
+            "{} intenta {:?}: dado {}, {}total {}, dificultad {}: {}.",
+            self.actor(c.responsable),
+            c.accion,
+            c.natural,
+            if capacidades.is_empty() {
+                String::new()
+            } else {
+                format!("{capacidades}; ")
+            },
+            c.ajustado,
+            c.dificultad,
+            if c.exito { "éxito" } else { "fallo" }
+        )
+    }
+    fn configuracion(&self, c: &ConfiguracionVista, visible: bool) -> String {
+        format!(
+            "{} animales de carga. Sobre los actores: {} g; límite conjunto: {} g; exceso: {} g. Demora añadida: {}.{}\nProvisiones: {}. Suplemento: {}.",
+            c.animales,
+            c.peso_actores,
+            c.limite_actores,
+            c.exceso_gramos,
+            formatear(c.demora),
+            if visible {
+                format!(" Tiempo total previsto: {}.", formatear(c.tiempo))
+            } else {
+                String::new()
+            },
+            reservas(&c.reservas),
+            reservas(&c.suplemento)
+        )
+    }
+    pub fn redactar(&self, r: &RegistroEscena) -> TextoEscena {
+        let mut detalle = Vec::new();
+        let mut texto=match &r.contenido {
+            ContenidoEscena::Plan{proponente:Some(id),habilitacion,ruta,previsto}=>{
+                let lugares=ruta.as_ref().map(|v|v.iter().map(|&id|self.lugar(id)).collect::<Vec<_>>().join(" → ")).unwrap_or_default();
+                format!("Querés alcanzar {}. {} aporta su experiencia ({}) y propone este recorrido: {lugares}.\nLa previsión sin demora es {}. El camino real podrá exigir más tiempo. Decidir cómo partir ocupa un día, incluso si cancelás.",self.lugar(r.destino_final),self.actor(*id),habilitacion.join(", "),previsto.map(formatear).unwrap_or_default())
+            }
+            ContenidoEscena::Plan{..}=>format!("Querés alcanzar {}, pero nadie del grupo conoce un recorrido fiable. Dedicás un día a reconocer la dirección general; tendrán que orientarse sobre la marcha.",self.lugar(r.destino_final)),
+            ContenidoEscena::Preparacion{chequeo,configuracion}=>format!("Antes de partir de {}, {} calcula y reúne comida, agua y suministros.\n{}\nConsiguen {} animales de carga, {} caballos y {} camellos para el recorrido previsto.\n{}",self.lugar(r.lugar),self.actor(chequeo.responsable),self.chequeo(chequeo),configuracion.animales,r.caballos,r.camellos,reservas(&configuracion.reservas)),
+            ContenidoEscena::CargaInicial{base,alternativa}=>format!("Durante la preparación, {} evalúan cómo llevar las provisiones. El peso obliga a decidir.\nEvitar la demora:\n{}\nLlevar un animal menos:\n{}",r.participantes.iter().map(|&id|self.actor(id)).collect::<Vec<_>>().join(", "),self.configuracion(base,r.plan_visible),self.configuracion(alternativa,r.plan_visible)),
+            ContenidoEscena::Incompleto{inicial:true,..}=>"Conseguís menos provisiones de las que habían calculado. No sabés si alcanzarán. Podés partir con lo reunido o cancelar y devolver los suministros.".into(),
+            ContenidoEscena::Incompleto{falta_comida,falta_agua,..}=>format!("En {} queda una ración diaria para todos, pero la previsión restante señala insuficiencia de {}{}. Debés decidir si seguir o detener el viaje.",self.lugar(r.lugar),if *falta_comida{"alimento "}else{""},if *falta_agua{"agua"}else{""}),
+            ContenidoEscena::Desplazamiento(d)=>{
+                let lider=self.actor(d.chequeos[0].responsable);let viajeros=r.participantes.iter().map(|&id|self.actor(id)).collect::<Vec<_>>().join(", ");
+                let inicio=match d.medio {
+                    Medio::Pie=>format!("Dejás atrás {} junto a {viajeros}. {lider} lee el terreno, busca referencias y abre camino hacia {}.",self.lugar(d.origen),self.lugar(d.destino)),
+                    Medio::Caballo=>format!("Al ritmo de los cascos, dejás atrás {} con {viajeros}. Bajo la guía de {lider}, las distancias ceden y el camino se abre en grandes vistas hacia {}.",self.lugar(d.origen),self.lugar(d.destino)),
+                    Medio::Camello=>format!("El paso largo y el balance de los camellos acompañan a {viajeros}. {lider} sostiene un avance regular desde {} hacia {}; las referencias se acercan lentamente desde la altura de las monturas.",self.lugar(d.origen),self.lugar(d.destino)),
+                    Medio::Barco=>format!("Con {viajeros}, dejás {} a bordo. {lider} interpreta el viento y gobierna las velas hacia {}. {}",self.lugar(d.origen),self.lugar(d.destino),if d.chequeos.iter().any(|c|c.exito){"El casco corta las olas con firmeza y el horizonte devuelve amplitud y libertad al viaje."}else{"El agua y el cielo exigen maniobras cuidadosas; el grupo se abre paso con seriedad, sin perder la esperanza."}),
+                };
+                let mut t=inicio;
+                for (actor,estados) in &r.estados_iniciales {
+                    t.push_str(&format!("\n{} comienza este tramo con {}.",self.actor(*actor),estados.join(" y ")));
+                }
+                for (i,m) in d.mitades.iter().enumerate(){
+                    t.push_str(&format!("\nEn {}, la mitad {} requiere {}: base {} horas{},{}{}{}; carga añadida {}.",self.lugar(m.lugar),if i==0{"de salida"}else{"de llegada"},formatear(m.duracion),m.horas_base,if m.pequena{"; Pequeño divide esa base por dos"}else if m.vasta{"; Vasto duplica esa base"}else{"; tamaño normal"},if m.terreno_lento{" el terreno obliga a la montura a medir sus apoyos y usar el paso a pie;"}else{""},if m.animal_limitante{" el animal de carga limita la velocidad;"}else{""},if m.estado_horas>0{format!(" los estados limitantes añaden {} horas;",m.estado_horas)}else{String::new()},formatear(m.demora_carga)));
+                    t.push_str(&format!("\n{}",self.chequeo(&d.chequeos[i])));
+                    if m.medio==Medio::Pie && d.medio!=Medio::Pie {
+                        t.push_str("\nAl faltar una montura, un integrante continúa a pie y el grupo acompaña ese paso. Se conserva el chequeo de Cabalgar ya realizado.");
+                    }
+                    if m.terreno_lento {
+                        let referencia=if m.pequena{m.horas_base/2}else if m.vasta{m.horas_base*2}else{m.horas_base};
+                        t.push_str(&format!("\nSin la restricción del terreno, esa mitad habría requerido {referencia} horas antes de carga y otras demoras."));
+                    }
+                    if let Some(inc)=&d.incidente && inc.lugar==m.lugar {t.push_str(&format!("\n{}",self.incidente(d.medio,inc)));}
+                }
+                if let Some((rumbo,viento,ajuste))=d.viento{t.push_str(&format!("\nRumbo {}, viento hacia {}: {} horas sobre la conexión. El viento se fijó al comenzar esta escena.",direccion(rumbo),direccion(viento),ajuste));}
+                for c in &r.cambios {if let desert_tiger_core::CambioConfirmado::ConocimientoRegistrado{actor,lugar}=c{t.push_str(&format!("\n{} aprende a reconocer {} y obtiene Conoce con ese Lugar.",self.actor(*actor),self.lugar(*lugar)));}}
+                if r.duracion.duracion.es_cero()&&r.duracion.fraccion==desert_tiger_core::FraccionDia::CERO && !d.mitades.is_empty(){t.push_str("\nEl viento permite cubrir la conexión sin tiempo adicional.");}
+                t.push_str(&format!("\nAl cerrar este momento, el grupo queda en {}.",self.lugar(r.lugar)));t
+            }
+            ContenidoEscena::Forrajeo{chequeos,obtenido,busca_comida,busca_agua}=>{
+                let mut t=format!("En {} necesitás conseguir {}{}. El grupo explora las oportunidades del entorno para sostener el camino.\n",self.lugar(r.lugar),if *busca_comida{"comida "}else{""},if *busca_agua{"agua"}else{""});
+                for c in chequeos{t.push_str(&self.chequeo(c));t.push('\n');}
+                t.push_str(&format!("En seis horas reunís {}.",reservas(obtenido)));t
+            }
+            ContenidoEscena::Sobrecarga{configuracion,lote}=>format!("La composición o las provisiones cambiaron en {}. La carga supera la capacidad y las reservas no cubren la demora restante.\n{}\nPara eliminar el exceso podés abandonar {} piezas de carne seca, {} panes, {} lonjas de queso, {} pescados y las botas {:?}, o cancelar.",self.lugar(r.lugar),self.configuracion(configuracion,r.plan_visible),lote.comidas[0],lote.comidas[1],lote.comidas[2],lote.comidas[3],lote.botas),
+            ContenidoEscena::Llegada{lugares}=>format!("{} {} se abre ante vos. El grupo alcanza su destino después de {}.",if *lugares>=5{"Después de tanta distancia y esfuerzo, la llegada tiene otro peso:"}else{"Por fin,"},self.lugar(r.destino_final),formatear(r.total)),
+        };
+        // Las cantidades y el tiempo siempre proceden del registro ya confirmado.
+        if r.duracion.duracion != desert_tiger_core::Duracion::CERO
+            || r.duracion.fraccion != desert_tiger_core::FraccionDia::CERO
+        {
+            texto.push_str(&format!(
+                "\n\nEste momento tomó {}. Tiempo total: {}.",
+                formatear(r.duracion),
+                formatear(r.total)
+            ));
+        }
+        if r.tarjeta != ClaveTarjeta::Llegada {
+            if r.consumo.jornadas > 0 {
+                texto.push_str(&format!("\nDurante el recorrido se completaron {} períodos de consumo: {} piezas de carne seca, {} panes, {} lonjas de queso, {} pescados y {} litros de agua consumidos.",r.consumo.jornadas,r.consumo.comidas[0],r.consumo.comidas[1],r.consumo.comidas[2],r.consumo.comidas[3],litros(r.consumo.agua_ml)));
+            } else if r.reservas.is_some() {
+                texto.push_str(&format!("\nNo se completó otra jornada de consumo; desde la última ración se acumulan {}.",formatear(r.horas_desde_racion)));
+            }
+        }
+        if let Some(t) = r.consumo.sin_alimento {
+            if t.duracion.es_cero() && t.fraccion == desert_tiger_core::FraccionDia::CERO {
+                texto.push_str(
+                    "\nAl cerrar este momento faltó alimento para completar la última ración.",
+                );
+            } else {
+                texto.push_str(&format!(
+                    "\nEl grupo afrontó hambre durante {}.",
+                    formatear(t)
+                ));
+            }
+        }
+        if let Some(t) = r.consumo.sin_agua {
+            if t.duracion.es_cero() && t.fraccion == desert_tiger_core::FraccionDia::CERO {
+                texto.push_str(
+                    "\nAl cerrar este momento faltó agua para completar la última ración.",
+                );
+            } else {
+                texto.push_str(&format!("\nEl grupo afrontó sed durante {}.", formatear(t)));
+            }
+        }
+        if let Some(v) = &r.reservas {
+            texto.push_str(&format!("\nReservas al cierre: {}.", reservas(v)));
+            if v.comidas == [0; 4] && r.consumo.sin_alimento.is_none() {
+                texto.push_str(
+                    " El alimento se agotó al pagar la última ración, sin carencia previa.",
+                );
+            }
+            if v.botas.iter().all(|&x| x == 0) && r.consumo.sin_agua.is_none() {
+                texto.push_str(" El agua se agotó al pagar la última ración, sin carencia previa.");
+            }
+        }
+        if let Some(cierre) = r.cierre {
+            let razon = match cierre {
+                CierreViaje::Llegada => None,
+                CierreViaje::SinRecursos => Some(
+                    "No reunís una ración diaria de ambos recursos para todos. El viaje termina aquí.",
+                ),
+                CierreViaje::InterrumpidoPorSeparacion => Some(
+                    "Elegís detener el viaje para buscar al compañero. Se contabiliza el tiempo de toda la conexión, pero quedás en el Lugar del incidente.",
+                ),
+                CierreViaje::Naufragio => Some("El naufragio pone fin al viaje en esta costa."),
+                CierreViaje::Cancelado => Some("El viaje termina por tu decisión."),
+            };
+            if let Some(razon) = razon {
+                texto.push_str(&format!("\n{razon}"));
+            }
+        }
+        // El detalle comparte la misma proyección pública; nunca incluye el estado privado.
+        detalle.push(texto.clone());
+        TextoEscena {
+            titulo: titulo(r.tarjeta).into(),
+            texto,
+            detalle,
+        }
+    }
+    fn incidente(&self, medio: Medio, i: &IncidenteResuelto) -> String {
+        let actor = i
+            .afectado
+            .map(|id| self.actor(id))
+            .unwrap_or_else(|| "el grupo".into());
+        let relato=match i.tipo {
+            Incidente::Agotamiento=>format!("{actor} se agota; esperás a que pueda retomar el paso, sin adquirir Cansado."),
+            Incidente::Esguince=>format!("Un mal apoyo lastima a {actor}; recibe Esguince solo si no tenía ya Esguince o Cansado. Si ya estaba afectado, su estado no empeora."),
+            Incidente::RumboPerdido=>"Las referencias dejan de coincidir. Los rodeos cansan a quienes no tenían Esguince ni Cansado; los demás conservan su estado.".into(),
+            Incidente::Separacion=>format!("Al reagruparse, falta {actor}. Su rastro quedó en {}. Podés detener el viaje para buscarlo o continuar sin él; la búsqueda posterior queda fuera de este viaje.",self.lugar(i.lugar)),
+            Incidente::Enfermedad=>"Una enfermedad desconocida te obliga a detenerte un día. Te recuperás, aunque queda Cansado si no tenías ya un estado limitante.".into(),
+            Incidente::Obstinada=>format!("La montura de {actor} se obstina en alejarse del rumbo; corregir los rodeos demora la marcha."),
+            Incidente::Detenida=>"Una montura se niega a seguir. El grupo espera y trabaja hasta reanudar la marcha.".into(),
+            Incidente::Asustada=>format!("Una montura se asusta, corre en otra dirección y derriba a {actor}. Reagruparse exige tiempo."),
+            Incidente::CrisisMontura=>format!("{} El grupo espera dos días. La recuperación obtiene {}: {}.",if medio==Medio::Camello{"Un animal que nadie alcanza a ver pica al camello."}else{"Una fiera ataca al caballo y lo deja herido."},i.recuperacion.unwrap_or(0),if i.recuperacion.is_some_and(|r|r>=8){"la montura se recupera"}else{"la montura muere"}),
+            Incidente::MuerteMontura=>"La montura muere durante el trayecto.".into(),
+            Incidente::Olas=>"Las olas apartan la proa; las correcciones cuestan tiempo.".into(),
+            Incidente::Lluvia=>"La lluvia oscurece cubierta y velas; sostenés el esfuerzo hasta recuperar el avance.".into(),
+            Incidente::SinViento=>"Las velas caen flojas. El barco permanece dos días esperando un impulso sobre el mar.".into(),
+            Incidente::Naufragio=>"Una tormenta fuerte hace naufragar el barco. El viaje termina en la costa; no se alcanza el destino previsto.".into(),
+            Incidente::PorLaBorda=>format!("Una sacudida arroja a {actor} por la borda. Sale del grupo y queda en una costa."),
+        };
+        format!("En {}: {relato} Incidente: {}. Demora añadida: {}.{}",self.lugar(i.lugar),i.dado,formatear(i.demora),i.monturas_restantes.map(|n|format!(" Quedan {n} monturas de esta especie; se comprueba si alcanza una por integrante.")).unwrap_or_default())
+    }
+}
+fn direccion(i: u8) -> &'static str {
+    [
+        "este", "noreste", "norte", "noroeste", "oeste", "suroeste", "sur", "sureste",
+    ]
+    .get(usize::from(i))
+    .copied()
+    .unwrap_or("indefinido")
+}
+
+fn titulo(t: ClaveTarjeta) -> &'static str {
+    match t {
+        ClaveTarjeta::SinPlan => "Partir sin plan",
+        ClaveTarjeta::PropuestaRuta => "Una propuesta de ruta",
+        ClaveTarjeta::Preparacion => "Preparar el viaje",
+        ClaveTarjeta::CargaInicial => "Cómo llevar las provisiones",
+        ClaveTarjeta::Incompleto => "Provisiones incompletas",
+        ClaveTarjeta::Andar => "Abrirse camino a pie",
+        ClaveTarjeta::Caballo => "Al ritmo de los caballos",
+        ClaveTarjeta::Camello => "Sobre el paso de los camellos",
+        ClaveTarjeta::Navegar => "Una travesía en barco",
+        ClaveTarjeta::Forrajeo => "Buscar alimento y agua",
+        ClaveTarjeta::Sobrecarga => "Una carga difícil de llevar",
+        ClaveTarjeta::Llegada => "Llegada",
+    }
+}
+pub(crate) fn opcion(o: OpcionViaje) -> &'static str {
+    match o {
+        OpcionViaje::AceptarPlan => "Aceptar el plan",
+        OpcionViaje::OtraRuta => "Partir por otro camino",
+        OpcionViaje::Cancelar => "Cancelar el viaje",
+        OpcionViaje::AceptarDemora => "Aceptar la demora",
+        OpcionViaje::EvitarDemora => "Evitar la demora por carga",
+        OpcionViaje::Continuar => "Continuar",
+        OpcionViaje::Buscar => "Detenerse para buscarlo",
+        OpcionViaje::Descartar => "Abandonar provisiones",
+    }
+}
+pub(crate) fn tiempo_texto(t: TiempoAccion) -> String {
+    formatear(t)
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use desert_tiger_core::{FraccionDia, InstanteAccion};
+
+    #[test]
+    fn sobrecarga_oculta_prevision_y_monturas_conservan_relato_propio() {
+        struct Cero;
+        impl desert_tiger_core::azar::FuenteAzar for Cero {
+            fn elegir_indice(
+                &mut self,
+                _: std::num::NonZeroUsize,
+            ) -> Result<usize, desert_tiger_core::azar::ErrorFuenteAzar> {
+                Ok(0)
+            }
+        }
+        let contenido = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mut mundo, _) = contenido.instanciar_estado().unwrap();
+        let actor = mundo.actor_jugador();
+        let destino = destinos_disponibles(&mundo, actor).unwrap()[0];
+        let rumbos = crate::contexto_viaje::construir(&mundo, contenido.presentacion()).unwrap();
+        let contexto = ContextoAccion {
+            inicio: InstanteAccion {
+                fecha: mundo.fecha(),
+                fraccion: FraccionDia::CERO,
+            },
+            rumbos: &rumbos,
+        };
+        let inicio = iniciar(
+            &mut mundo,
+            SolicitudAccion::Viajar { actor, destino },
+            &contexto,
+            &mut Cero,
+        )
+        .unwrap();
+        let mut registro = match inicio.paso {
+            PasoAccion::Escena(r) => r,
+            PasoAccion::Decision(d) => d.escena,
+            _ => panic!(),
+        };
+        registro.plan_visible = false;
+        registro.tarjeta = ClaveTarjeta::Sobrecarga;
+        registro.contenido = ContenidoEscena::Sobrecarga {
+            configuracion: ConfiguracionVista {
+                reservas: ReservasViaje::default(),
+                animales: 0,
+                exceso_gramos: 1,
+                peso_actores: 20_001,
+                limite_actores: 20_000,
+                tiempo: TiempoAccion {
+                    duracion: desert_tiger_core::Duracion::desde_dias(123),
+                    fraccion: FraccionDia::CERO,
+                },
+                demora: TiempoAccion {
+                    duracion: desert_tiger_core::Duracion::CERO,
+                    fraccion: FraccionDia::CERO,
+                },
+                suplemento: ReservasViaje::default(),
+            },
+            lote: Default::default(),
+        };
+        let narrador = Narrador(&contenido);
+        let texto = narrador.redactar(&registro);
+        assert!(!texto.texto.contains("123 días"));
+        assert!(!texto.detalle.join(" ").contains("Tiempo total previsto"));
+        registro.plan_visible = true;
+        assert!(narrador.redactar(&registro).texto.contains("123 días"));
+        let chequeo =
+            resolver_chequeo(&mundo, actor, AccionParticular::Cabalgar, 15, &mut Cero).unwrap();
+        let desplazamiento = Desplazamiento {
+            medio: Medio::Caballo,
+            origen: registro.lugar,
+            destino,
+            chequeos: [chequeo.clone(), chequeo],
+            mitades: vec![],
+            incidente: None,
+            viento: None,
+        };
+        registro.tarjeta = ClaveTarjeta::Caballo;
+        registro.contenido = ContenidoEscena::Desplazamiento(desplazamiento.clone());
+        let caballo = narrador.redactar(&registro);
+        registro.tarjeta = ClaveTarjeta::Camello;
+        registro.contenido = ContenidoEscena::Desplazamiento(Desplazamiento {
+            medio: Medio::Camello,
+            ..desplazamiento
+        });
+        let camello = narrador.redactar(&registro);
+        assert_ne!(caballo.titulo, camello.titulo);
+        assert!(caballo.texto.contains("cascos"));
+        assert!(camello.texto.contains("balance de los camellos"));
+    }
+}

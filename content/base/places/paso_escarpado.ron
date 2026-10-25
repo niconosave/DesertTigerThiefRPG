@@ -1,0 +1,36 @@
+(
+    clave: "paso_escarpado",
+    nombre: "Paso Escarpado",
+    caracteristicas: ["empinado", "montanoso", "rocoso", "elevado"],
+    relaciones: [
+        (
+            tipo: Conectado,
+            destino: Lugar("espinazo_gris"),
+        ),
+        (
+            tipo: Conectado,
+            destino: Lugar("sierra_quebrada"),
+        ),
+        (
+            tipo: Conectado,
+            destino: Lugar("alcazar_gris"),
+        ),
+    ],
+    coordenada_central: (x: 49, y: 16),
+    coordenadas_rotulo: [
+        (x: 43, y: 14),
+        (x: 44, y: 14),
+        (x: 45, y: 14),
+        (x: 46, y: 14),
+        (x: 47, y: 14),
+        (x: 48, y: 14),
+        (x: 49, y: 14),
+        (x: 50, y: 14),
+        (x: 51, y: 14),
+        (x: 52, y: 14),
+        (x: 53, y: 14),
+        (x: 54, y: 14),
+        (x: 55, y: 14),
+        (x: 56, y: 14),
+    ],
+)

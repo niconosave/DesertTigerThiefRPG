@@ -13,8 +13,7 @@
 
 ## Referencias
 
-- Diseño general: `<DG-...>`
-- Documentación técnica: <enlace relativo a `docs/tecnica/` y su sección exacta>
+- Documentación técnica: <enlace relativo a `docs/tecnica/` y a la sección exacta>
 - Otros planes o decisiones: <si corresponde>
 
 ## Alcance
@@ -42,10 +41,16 @@
 
 - [ ] <comando, prueba o comportamiento observable>
 - [ ] <criterio de aceptación enlazado>
+- [ ] Se cumplieron los controles y la definición de terminado de
+      `docs/metodologia-desarrollo.md`.
 
-## Riesgos y decisiones del plan
+## Riesgos y decisiones operativas
 
-- <riesgo y mitigación, o “Ninguno identificado”>
+- <riesgo, mitigación u orden operativo, o “Ninguno identificado”>
+
+Esta sección no puede crear reglas de juego ni decisiones técnicas. Si durante
+la ejecución aparece una, se actualiza y aprueba primero su documento canónico;
+el plan solo registra el enlace y el efecto sobre el trabajo.
 
 ## Resultado de la implementación
 

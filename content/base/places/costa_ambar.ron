@@ -1,0 +1,16 @@
+(
+    clave: "costa_ambar",
+    nombre: "Costa Ámbar",
+    caracteristicas: ["costero", "arenoso", "abierto", "viento"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("llano_del_viento")),
+        (tipo: Conectado, destino: Lugar("mar_de_poniente")),
+    ],
+    coordenada_central: (x: 11, y: 12),
+    coordenadas_rotulo: [
+        (x: 9, y: 7), (x: 9, y: 8), (x: 8, y: 9),
+        (x: 8, y: 10), (x: 9, y: 11), (x: 9, y: 12),
+        (x: 10, y: 13), (x: 10, y: 14), (x: 10, y: 15),
+        (x: 9, y: 16), (x: 9, y: 17),
+    ],
+)
