@@ -352,8 +352,8 @@ impl Interfaz {
             poner_celda(frame, x, y, '@', recursos.ui.foco);
         }
         let mut retratos = Vec::with_capacity(mundo.companeros.len() + 1);
-        retratos.push(&mundo.jugador.retrato);
         retratos.extend(mundo.companeros.iter().map(|actor| &actor.retrato));
+        retratos.push(&mundo.jugador.retrato);
         let mut x = area.x;
         let base_y = area.y + area.height;
         let mut anterior: Option<usize> = None;
@@ -994,7 +994,7 @@ mod pruebas {
     }
 
     #[test]
-    fn retrato_del_principe_conserva_transparencia_colores_y_parpadeo() {
+    fn jugador_a_la_derecha_conserva_transparencia_colores_y_parpadeo() {
         assert_eq!(color_retrato(ColorRetrato::Negro), Color::Rgb(0, 0, 0));
         assert_eq!(
             color_retrato(ColorRetrato::GrisMuyOscuro),
@@ -1010,13 +1010,16 @@ mod pruebas {
             RecursosVisuales::cargar(&raiz.join("assets/terminal")).expect("recursos validos");
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("backend valido");
         let mundo = &interfaz.ultima_vista_mundo;
+        // Con este grupo, el príncipe comienza tras los cuatro compañeros.
+        let inicio_jugador = 59_u16;
+        let ojo_x = inicio_jugador + 14;
         let area_mundo = Rect::new(0, 0, 80, 22);
         let objetivo = interfaz.objetivo_camara(mundo);
         let (origen_x, margen_x) =
             origen_eje(mundo.mapa.ancho, usize::from(area_mundo.width), objetivo.x);
         let (origen_y, margen_y) =
             origen_eje(mundo.mapa.alto, usize::from(area_mundo.height), objetivo.y);
-        let mapa_x = 14usize
+        let mapa_x = usize::from(ojo_x)
             .checked_sub(margen_x)
             .and_then(|x| x.checked_add(origen_x))
             .expect("el ojo se proyecta dentro del mapa");
@@ -1035,12 +1038,12 @@ mod pruebas {
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .expect("primer fotograma valido");
-        let cerrado = &terminal.backend().buffer()[(14, 15)];
+        let cerrado = &terminal.backend().buffer()[(ojo_x, 15)];
         assert_eq!(cerrado.symbol(), "▀");
         assert_eq!(cerrado.fg, Color::LightMagenta);
         assert_eq!(cerrado.bg, fondo_mapa);
-        let transparente = terminal.backend().buffer()[(0, 8)].symbol();
-        let mapa_transparente_x = 0usize
+        let transparente = terminal.backend().buffer()[(inicio_jugador, 8)].symbol();
+        let mapa_transparente_x = usize::from(inicio_jugador)
             .checked_sub(margen_x)
             .and_then(|x| x.checked_add(origen_x))
             .expect("la celda transparente se proyecta dentro del mapa");
@@ -1060,7 +1063,7 @@ mod pruebas {
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .expect("segundo fotograma valido");
-        let abierto = &terminal.backend().buffer()[(14, 15)];
+        let abierto = &terminal.backend().buffer()[(ojo_x, 15)];
         assert_eq!(abierto.symbol(), "o");
         assert_eq!(abierto.fg, Color::Cyan);
         assert_eq!(abierto.bg, fondo_mapa);

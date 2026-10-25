@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Implementado; ampliación visual del grupo incluida |
-| Versión | 0.7 |
+| Estado | Implementado |
+| Versión | 1.1 |
 | Fecha | 2026-10-25 |
 
 ## 1. Propósito y autoridad
@@ -55,29 +55,13 @@ de `Viajar`: el recorrido existe por sus Relaciones declaradas.
 | Príncipe Perdido | Actor jugador. | Hamada Roja. |
 | Bandido | Compañero inicial del príncipe e integrante del Grupo. | Hamada Roja. |
 | Cazador | NPC independiente y amistoso que contiene la única política Lua evaluable. | Valle del Drâa. |
-| Sirviente | Compañero con la misma ropa azul y dorada del príncipe, sin turbante y con nariz más pequeña. | Hamada Roja. |
-| Mercader | Compañero de silueta corpulenta y bigote, turbante rojo con pluma y banda dorada, ropa violeta, roja y verde y estola clara moteada. | Hamada Roja. |
-| Niño ladrón | Compañero pequeño inspirado visualmente en Aladino, con fez y chaleco. | Hamada Roja. |
+| Sirviente | Compañero del príncipe e integrante del Grupo. | Hamada Roja. |
+| Mercader | Compañero del príncipe e integrante del Grupo. | Hamada Roja. |
+| Niño ladrón | Compañero del príncipe e integrante del Grupo. | Hamada Roja. |
 
 El Grupo inicial contiene al Bandido, al Sirviente, al Mercader y al Niño ladrón.
-Los tres últimos se incorporaron el 2026-10-25 por solicitud del usuario para
-evaluar sus retratos juntos durante el juego. El Príncipe Perdido, como actor
-jugador, no pertenece a esa colección, y el Cazador permanece independiente.
-Esto ejercita el traslado conjunto y el solapamiento de retratos ya incluidos en
-el alcance; no agrega una mecánica nueva.
-
-Los retratos nuevos siguen el dibujo por bloques del príncipe, con transparencia,
-paleta por celda y dos fotogramas de parpadeo. Sus anchos permiten ver a los cinco
-viajeros en 80 columnas manteniendo el solapamiento existente del 25 %. Los datos
-y fotogramas están en un único RON por Actor. Esta prueba visual no añade
-habilidades, políticas Lua ni historias de fondo a los personajes nuevos.
-
-El retrato del Mercader se rehízo después a partir de la imagen aportada por el
-usuario: perfil hacia la derecha, mejillas y mentón redondos, pelo oscuro,
-bigote, pluma clara, turbante y vestimenta ornamentada. La traducción usa medios
-bloques con frente y fondo para conservar detalles en su tamaño existente.
-Mantiene el ojo de dos caracteres sobre negro y los dos fotogramas de parpadeo
-del estilo de los demás Actores.
+El Príncipe Perdido, como actor jugador, no pertenece a esa colección, y el
+Cazador permanece independiente.
 
 La relación concreta que llevó al Bandido a viajar con el príncipe permanece
 aplazada: para este incremento basta con que sea su compañero. `amistoso`

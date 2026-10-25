@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.43 |
+| Versión | 0.44 |
 | Fecha | 2026-10-25 |
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
@@ -879,8 +879,8 @@ inmediatamente superior a la barra contextual y el primero comienza en el borde
 izquierdo; por ello se extienden hacia arriba y cubren visualmente una parte del
 mapa, pero nunca invaden ninguna de las dos barras.
 
-El frontend dibuja primero al jugador y después a los compañeros en el orden
-recibido de `VistaMundo`. Cada retrato posterior comienza más a la derecha que el
+El frontend dibuja primero a los compañeros en el orden recibido de `VistaMundo`
+y al final al jugador, que queda a la derecha del grupo. Cada retrato posterior comienza más a la derecha que el
 anterior, antes de que termine su ancho, y se dibuja después: en las celdas de
 intersección queda visualmente por delante.
 
@@ -1428,10 +1428,11 @@ Pruebas automáticas:
   cancelarla vuelve el modo original;
 - el mapa conserva toda la altura disponible sobre las barras y los retratos se
   dibujan como una capa, sin reducirla;
-- el retrato del jugador comienza en el borde izquierdo, todos los retratos se
+- el primer compañero comienza en el borde izquierdo y el jugador queda a la
+  derecha de los compañeros; si está solo, comienza en el borde izquierdo. Todos los retratos se
   apoyan en la fila inmediatamente superior a la barra contextual y ninguno
   invade las barras;
-- cada compañero se desplaza hacia la derecha y, en las celdas donde se cruza
+- cada retrato sucesivo se desplaza hacia la derecha y, en las celdas donde se cruza
   con el retrato anterior, el retrato dibujado después queda por delante;
 - retratos consecutivos de anchos iguales y diferentes aplican la fórmula del
   25 %, incluido su redondeo hacia abajo y el mínimo de una columna;
