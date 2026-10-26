@@ -2,7 +2,7 @@
     clave: "cazador",
     nombre: "Cazador Amigable",
     biografia: "Un cazador amistoso que habita el valle fértil.",
-    lugar_inicial: "valle_fertil",
+    ubicacion_inicial: EnLugar("valle_fertil"),
     caracteristicas: ["cazador", "rastreador", "superviviente"],
     relaciones: [
         (tipo: Conoce, destino: Lugar("valle_fertil")),

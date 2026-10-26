@@ -681,12 +681,19 @@ struct ActorDto {
     nombre: String,
     #[serde(default)]
     biografia: String,
-    lugar_inicial: String,
+    ubicacion_inicial: UbicacionInicialDto,
     caracteristicas: Vec<String>,
     relaciones: Vec<DeclaracionRelacionDto>,
     #[serde(deserialize_with = "deserializar_opcion_requerida")]
     retrato: Option<RetratoDto>,
     politica: PoliticaDto,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+enum UbicacionInicialDto {
+    EnLugar(String),
+    FueraDelEscenario,
 }
 
 fn deserializar_opcion_requerida<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -802,6 +809,10 @@ enum PoliticaDto {
 
 #[derive(Deserialize)]
 enum TipoRelacionDto {
+    Sirviente,
+    Padre,
+    Madre,
+    MatadoPor,
     Conectado,
     Conoce,
 }
@@ -1114,12 +1125,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         variables_globales,
         relaciones,
     };
-    Mundo::nuevo(datos.clone()).map_err(|error| {
-        error_mundo(
-            ClaseDiagnosticoContenido::InvarianteDominio,
-            error.to_string(),
-        )
-    })?;
+    Mundo::nuevo(datos.clone()).map_err(|error| diagnosticar_modelo(error, &claves))?;
 
     let politicas: Vec<_> = actores
         .iter_mut()
@@ -1150,6 +1156,44 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
     crate::contexto_viaje::construir(&mundo, contenido.presentacion())
         .map_err(|e| error_mundo(ClaseDiagnosticoContenido::ValorInvalido, e))?;
     Ok(contenido)
+}
+
+fn diagnosticar_modelo(
+    error: desert_tiger_core::ErrorConstruirMundo,
+    claves: &CatalogoClaves,
+) -> ErrorContenido {
+    use desert_tiger_core::ErrorConstruirMundo as E;
+    let actor = match &error {
+        E::ProgenitorMultiplicado { actor, .. }
+        | E::ProgenitoresNoDistintos { actor, .. }
+        | E::JugadorFueraDelEscenario { actor }
+        | E::IntegranteGrupoFueraDelEscenario { actor } => Some(*actor),
+        E::CicloAscendencia { actores } => actores.first().copied(),
+        _ => None,
+    };
+    let detalle = if let E::CicloAscendencia { actores } = &error {
+        format!(
+            "relaciones: ciclo de ascendencia: {}",
+            actores
+                .iter()
+                .map(|&id| claves.clave_actor(id).unwrap_or("Actor desconocido"))
+                .collect::<Vec<_>>()
+                .join(" → ")
+        )
+    } else {
+        format!("ubicacion_inicial o relaciones: {error}")
+    };
+    if let Some(clave) = actor.and_then(|a| claves.clave_actor(a)) {
+        return error_archivo(
+            &PathBuf::from("actors").join(format!("{clave}.ron")),
+            TipoElementoContenido::Actor,
+            Some(clave),
+            ClaseDiagnosticoContenido::InvarianteDominio,
+            None,
+            detalle,
+        );
+    }
+    error_mundo(ClaseDiagnosticoContenido::InvarianteDominio, detalle)
 }
 
 fn leer_ron<T: DeserializeOwned>(
@@ -1514,20 +1558,28 @@ fn validar_actor(
             format!("biografia: {detalle}"),
         )
     })?;
-    let lugar = claves
-        .lugares_por_clave
-        .get(&dto.lugar_inicial)
-        .copied()
-        .ok_or_else(|| {
-            error_archivo(
-                ruta,
-                TipoElementoContenido::Actor,
-                Some(esperada),
-                ClaseDiagnosticoContenido::ReferenciaInvalida,
-                None,
-                format!("lugar inicial desconocido: {}", sanear(&dto.lugar_inicial)),
-            )
-        })?;
+    let ubicacion = match dto.ubicacion_inicial {
+        UbicacionInicialDto::FueraDelEscenario => {
+            desert_tiger_core::UbicacionActor::FueraDelEscenario
+        }
+        UbicacionInicialDto::EnLugar(clave) => {
+            let id = claves
+                .lugares_por_clave
+                .get(&clave)
+                .copied()
+                .ok_or_else(|| {
+                    error_archivo(
+                        ruta,
+                        TipoElementoContenido::Actor,
+                        Some(esperada),
+                        ClaseDiagnosticoContenido::ReferenciaInvalida,
+                        None,
+                        format!("ubicacion_inicial: Lugar desconocido: {}", sanear(&clave)),
+                    )
+                })?;
+            desert_tiger_core::UbicacionActor::EnLugar(id)
+        }
+    };
     let caracteristicas = validar_caracteristicas(
         dto.caracteristicas,
         ruta,
@@ -1576,7 +1628,7 @@ fn validar_actor(
     Ok(ActorValidado {
         inicial: ActorInicial {
             id,
-            lugar,
+            ubicacion,
             caracteristicas,
         },
         presentacion: PresentacionActor {
@@ -1601,6 +1653,10 @@ fn validar_relaciones(
     let mut resultado = Vec::with_capacity(declaraciones.len());
     for (posicion, declaracion) in declaraciones.into_iter().enumerate() {
         let tipo = match declaracion.tipo {
+            TipoRelacionDto::Sirviente => TipoRelacion::Sirviente,
+            TipoRelacionDto::Padre => TipoRelacion::Padre,
+            TipoRelacionDto::Madre => TipoRelacion::Madre,
+            TipoRelacionDto::MatadoPor => TipoRelacion::MatadoPor,
             TipoRelacionDto::Conectado => TipoRelacion::Conectado,
             TipoRelacionDto::Conoce => TipoRelacion::Conoce,
         };
@@ -1670,10 +1726,21 @@ fn validar_relaciones(
                 TipoRelacion::Conoce,
                 ExtremoRelacion::Actor(_),
                 ExtremoRelacion::Lugar(_)
+            ) | (
+                TipoRelacion::Padre
+                    | TipoRelacion::Madre
+                    | TipoRelacion::MatadoPor
+                    | TipoRelacion::Sirviente,
+                ExtremoRelacion::Actor(_),
+                ExtremoRelacion::Actor(_)
             )
         );
         if !extremos_validos {
             let requisito = match tipo {
+                TipoRelacion::Padre
+                | TipoRelacion::Madre
+                | TipoRelacion::MatadoPor
+                | TipoRelacion::Sirviente => "esta relación exige dos Actores",
                 TipoRelacion::Conectado => "Conectado exige dos Lugares",
                 TipoRelacion::Conoce => "Conoce exige un Actor de origen y un Lugar de destino",
             };
@@ -1729,7 +1796,15 @@ fn normalizar_relaciones<'a>(
             (TipoRelacion::Conectado, origen, destino) => {
                 (declaracion.inicial.tipo, destino, origen)
             }
-            (TipoRelacion::Conoce, origen, destino) => (declaracion.inicial.tipo, origen, destino),
+            (
+                TipoRelacion::Conoce
+                | TipoRelacion::Padre
+                | TipoRelacion::Madre
+                | TipoRelacion::MatadoPor
+                | TipoRelacion::Sirviente,
+                origen,
+                destino,
+            ) => (declaracion.inicial.tipo, origen, destino),
         };
         if let Some((ruta_primera, posicion_primera)) = vistas.get(&par) {
             return Err(error_archivo(
@@ -2302,6 +2377,121 @@ mod pruebas {
     use desert_tiger_core::Duracion;
     use desert_tiger_core::acciones::SolicitudAccion;
 
+    struct FixtureTemporal(PathBuf);
+    impl Drop for FixtureTemporal {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+    fn fixture_temporal() -> FixtureTemporal {
+        static NUMERO: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        fn copiar(origen: &Path, destino: &Path) {
+            fs::create_dir_all(destino).unwrap();
+            for entrada in fs::read_dir(origen).unwrap() {
+                let entrada = entrada.unwrap();
+                let ruta = entrada.path();
+                let salida = destino.join(entrada.file_name());
+                if ruta.is_dir() {
+                    copiar(&ruta, &salida);
+                } else {
+                    fs::copy(&ruta, &salida).unwrap();
+                }
+            }
+        }
+        let fixture = FixtureTemporal(std::env::temp_dir().join(format!(
+            "desert-tiger-familia-{}-{}",
+            std::process::id(),
+            NUMERO.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        )));
+        copiar(&raiz_base(), &fixture.0);
+        fixture
+    }
+
+    #[test]
+    fn ubicacion_ron_rechaza_formato_anterior_y_actores_jugables_externos() {
+        let fixture = fixture_temporal();
+        let archivo = fixture.0.join("actors/principe_perdido.ron");
+        let original = fs::read_to_string(&archivo).unwrap();
+        for reemplazo in [
+            "lugar_inicial: \"zona_arida\"",
+            "ubicacion_inicial: None",
+            "ubicacion_inicial: \"zona_arida\"",
+            "ubicacion_inicial: EnLugar(\"ausente\")",
+            "ubicacion_inicial: FueraDelEscenario",
+        ] {
+            fs::write(
+                &archivo,
+                original.replace("ubicacion_inicial: EnLugar(\"zona_arida\")", reemplazo),
+            )
+            .unwrap();
+            let error = cargar_contenido(&fixture.0)
+                .err()
+                .expect("debe rechazar ubicación inválida");
+            assert!(
+                matches!(&error.diagnosticos[0].origen,OrigenDiagnosticoContenido::Archivo{ruta_relativa} if ruta_relativa==Path::new("actors/principe_perdido.ron"))
+            );
+        }
+        fs::write(&archivo, &original).unwrap();
+        let archivo = fixture.0.join("actors/bandido.ron");
+        let original = fs::read_to_string(&archivo).unwrap();
+        fs::write(
+            &archivo,
+            original.replace(
+                "ubicacion_inicial: EnLugar(\"zona_arida\")",
+                "ubicacion_inicial: FueraDelEscenario",
+            ),
+        )
+        .unwrap();
+        let error = cargar_contenido(&fixture.0).err().unwrap();
+        assert!(
+            error.diagnosticos[0]
+                .detalle
+                .contains("IntegranteGrupoFueraDelEscenario")
+        );
+    }
+
+    #[test]
+    fn diagnosticos_familiares_identifican_archivo_tipo_y_recorrido_del_ciclo() {
+        let fixture = fixture_temporal();
+        let archivo = fixture.0.join("actors/principe_perdido.ron");
+        let original = fs::read_to_string(&archivo).unwrap();
+        fs::write(
+            &archivo,
+            original.replace(
+                "relaciones: [",
+                "relaciones: [\n        (tipo: Padre, destino: Actor(\"hermano_del_rey\")),",
+            ),
+        )
+        .unwrap();
+        let error = cargar_contenido(&fixture.0).err().unwrap();
+        assert!(
+            error.diagnosticos[0]
+                .detalle
+                .contains("ProgenitorMultiplicado")
+        );
+        assert!(error.diagnosticos[0].detalle.contains("Padre"));
+        assert!(
+            matches!(&error.diagnosticos[0].origen,OrigenDiagnosticoContenido::Archivo{ruta_relativa} if ruta_relativa==Path::new("actors/principe_perdido.ron"))
+        );
+        fs::write(&archivo, &original).unwrap();
+        let rey = fixture.0.join("actors/rey.ron");
+        let texto = fs::read_to_string(&rey).unwrap();
+        fs::write(
+            &rey,
+            texto.replace(
+                "Padre, destino: Actor(\"abuelo_paterno\")",
+                "Padre, destino: Actor(\"principe_perdido\")",
+            ),
+        )
+        .unwrap();
+        let error = cargar_contenido(&fixture.0).err().unwrap();
+        assert!(
+            error.diagnosticos[0]
+                .detalle
+                .contains("principe_perdido → rey → principe_perdido")
+        );
+    }
+
     #[test]
     fn metadatos_de_actor_validan_texto_y_biografia_opcional() {
         assert_eq!(
@@ -2449,7 +2639,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 42);
+        assert_eq!(mundo.relaciones().len(), 51);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -2494,7 +2684,7 @@ mod pruebas {
                     .contains(&destino)
             );
         }
-        assert_eq!(contenido.presentacion().actores().len(), 6);
+        assert_eq!(contenido.presentacion().actores().len(), 11);
         let bandido = IdActor::desde_posicion(1).expect("ID válido");
         let cazador = IdActor::desde_posicion(2).expect("ID válido");
         let id_lugar = |posicion| IdLugar::desde_posicion(posicion).expect("ID válido");

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Base inicial aprobada |
-| Versión | 0.17 |
-| Fecha | 2026-10-19 |
+| Versión | 0.19 |
+| Fecha | 2026-10-26 |
 
 ## 1. Propósito
 
@@ -139,7 +139,8 @@ en Rust pertenece a la documentación técnica y no se duplica aquí.
 
 Un actor:
 
-- siempre está en un lugar y nunca está lógicamente en un tile;
+- si está en el escenario jugable, está en un lugar y nunca lógicamente en un tile;
+- puede existir como contexto fuera del escenario, conservando su ficha y sus relaciones;
 - posee características que expresan inicialmente todo su estado de gameplay;
 - si no es el actor jugador, puede formar parte de su grupo;
 - puede tener arte ASCII definido en sus archivos de contenido;
@@ -149,6 +150,11 @@ El actor jugador se diferencia por recibir sus decisiones desde el frontend. Los
 NPC ajenos al grupo reciben sus decisiones desde reglas y scripts. Mientras un
 actor forme parte del grupo, su política Lua no se evalúa: su participación se
 decide dentro de las acciones del jugador.
+
+Los Actores de contexto fuera del escenario no actúan localmente ni forman
+parte del Grupo; se pueden consultar siguiendo relaciones desde Acampar. Esta
+ampliación está implementada según el
+[contrato de parentesco y contexto](./tecnica/componentes/14-parentesco-actores-contexto.md).
 
 ### Grupo
 
@@ -212,6 +218,16 @@ para orientar, estimar o reconocer hechos sin ocultar necesariamente el nombre
 y las conexiones del atlas. Para el Grupo, el conocimiento disponible reúne el
 del actor jugador y sus compañeros, sin convertirlo en una cualidad universal
 del Grupo.
+
+Las relaciones Padre y Madre describen la filiación biológica; en el alcance
+actual se asume también su vínculo social. Pueden estar documentados uno, ambos
+o ninguno de los progenitores. La hermandad se deduce de progenitores
+compartidos al consultar, sin guardar otra relación en el contenido.
+
+MatadoPor registra un hecho histórico entre Actores, independiente de la
+filiación. Estas relaciones permiten explorar el contexto del príncipe desde
+las fichas; no introducen reglas de reino o sucesión. Su exilio se expresa en
+la biografía. La ampliación se detalla en el contrato de parentesco citado.
 
 Medios de transporte, preparativos, conocimientos y equipo son inicialmente
 ideas con las que diseñar situaciones y decisiones, no categorías obligatorias

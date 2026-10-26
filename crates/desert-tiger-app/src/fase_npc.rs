@@ -100,9 +100,9 @@ pub(crate) fn ejecutar_fase_npc(
         let actor = politica.actor();
         if actor == mundo.actor_jugador()
             || mundo.grupo().contiene(actor)
-            || mundo
-                .actor(actor)
-                .is_none_or(|a| a.caracteristicas().any(|c| c.como_str() == "muerto"))
+            || mundo.actor(actor).is_none_or(|a| {
+                a.lugar().is_none() || a.caracteristicas().any(|c| c.como_str() == "muerto")
+            })
         {
             continue;
         }
@@ -249,6 +249,60 @@ fn diagnostico(e: ErrorPoliticaLua) -> DiagnosticoPoliticaNpc {
 #[cfg(test)]
 mod pruebas {
     use super::*;
+    #[test]
+    fn actor_externo_vivo_omite_lua_incluso_en_una_llamada_directa() {
+        struct SinAzar;
+        impl FuenteAzar for SinAzar {
+            fn elegir_indice(
+                &mut self,
+                _: NonZeroUsize,
+            ) -> Result<usize, desert_tiger_core::azar::ErrorFuenteAzar> {
+                panic!("un externo no puede consumir azar")
+            }
+        }
+        let c = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mut mundo, _) = c.instanciar_estado().unwrap();
+        let actor = IdActor::desde_posicion(8).unwrap();
+        assert!(mundo.actor(actor).unwrap().lugar().is_none());
+        assert!(
+            !mundo
+                .actor(actor)
+                .unwrap()
+                .caracteristicas()
+                .any(|c| c.como_str() == "muerto")
+        );
+        let politica = crate::lua::validar_politica(
+            actor,
+            "hermano_del_rey".into(),
+            "actors/hermano_del_rey.ron".into(),
+            "error('esta política no debe ejecutarse')".into(),
+        )
+        .unwrap();
+        assert!(matches!(
+            evaluar_politica(&politica, &mundo, c.claves()).unwrap(),
+            ResultadoPoliticaLua::Ninguna
+        ));
+        let rumbos = crate::contexto_viaje::construir(&mundo, c.presentacion()).unwrap();
+        let inicio = InstanteAccion {
+            fecha: mundo.fecha(),
+            fraccion: desert_tiger_core::FraccionDia::CERO,
+        };
+        assert!(
+            ejecutar_fase_npc(
+                &mut mundo,
+                &[politica],
+                c.claves(),
+                &rumbos,
+                inicio,
+                &mut SinAzar
+            )
+            .unwrap()
+            .is_none()
+        );
+    }
     struct Maximo;
     impl FuenteAzar for Maximo {
         fn elegir_indice(

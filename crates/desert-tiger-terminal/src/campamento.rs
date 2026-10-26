@@ -144,7 +144,23 @@ impl EstadoCampamento {
             ),
             None => "Sin características ni relaciones".into(),
         };
+        if let Some(EntradaFicha::Relacion(r)) = entrada
+            && let Some(explicacion) = &r.explicacion
+        {
+            texto.push_str(&format!("\n{explicacion}"));
+        }
         texto.push_str(&format!("\n\nFicha: {}", ficha.nombre));
+        if let Some(ubicacion) = &ficha.ubicacion {
+            texto.push_str(&format!(
+                "\nUbicación: {}",
+                match ubicacion {
+                    desert_tiger_app::VistaUbicacionActor::EnLugar { nombre, .. } =>
+                        nombre.as_str(),
+                    desert_tiger_app::VistaUbicacionActor::FueraDelEscenario =>
+                        "Fuera de la región",
+                }
+            ));
+        }
         if let Some(bio) = &ficha.biografia {
             texto.push_str(&format!(
                 "\n\nBiografía de {}\n{}",
@@ -368,12 +384,66 @@ mod pruebas {
     }
 
     #[test]
+    fn ficha_real_del_rey_navega_por_asesinato_y_hermandad_con_explicacion() {
+        let (p, mut e, recursos) = escenario();
+        let antes = p.mundo_visible();
+        e.manejar(KeyCode::Enter, &p);
+        assert_eq!(e.ficha.as_ref().unwrap().nombre, "Rey");
+        assert!(e.detalle().contains("Fuera de la región"));
+        let asesino = e
+            .ficha
+            .as_ref()
+            .unwrap()
+            .entradas
+            .iter()
+            .position(
+                |x| matches!(x,EntradaFicha::Relacion(r) if r.etiqueta.starts_with("Matado por:")),
+            )
+            .unwrap();
+        e.entrada = Some(asesino);
+        e.manejar(KeyCode::Enter, &p);
+        assert_eq!(e.ficha.as_ref().unwrap().nombre, "Hermano del rey");
+        let parentesco=e.ficha.as_ref().unwrap().entradas.iter().position(|x|matches!(x,EntradaFicha::Relacion(r) if matches!(r.vinculo,desert_tiger_app::VinculoFicha::Hermandad{..}))).unwrap();
+        e.entrada = Some(parentesco);
+        assert!(
+            e.detalle()
+                .contains("Progenitores en común: Abuelo paterno, Abuela paterna")
+        );
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 22), &p.mundo_visible(), &recursos, 0))
+            .unwrap();
+        let paginas = e.paginas().len();
+        let mut explicacion = false;
+        for _ in 0..paginas {
+            terminal
+                .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 22), &p.mundo_visible(), &recursos, 0))
+                .unwrap();
+            let texto: String = terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|c| c.symbol())
+                .collect();
+            explicacion |= texto.contains("Progenitores en común");
+            e.manejar(KeyCode::PageDown, &p);
+        }
+        assert!(explicacion);
+        e.manejar(KeyCode::Enter, &p);
+        assert_eq!(e.ficha.as_ref().unwrap().nombre, "Rey");
+        e.manejar(KeyCode::Left, &p);
+        assert_eq!(e.ficha.as_ref().unwrap().nombre, "Sirviente");
+        assert_eq!(p.mundo_visible(), antes);
+    }
+
+    #[test]
     fn focos_referencias_externas_ciclos_y_salida_no_alteran_el_grupo() {
         let (p, mut e, _) = escenario();
         let antes = p.mundo_visible();
         assert_eq!(e.horizontal, e.vista.integrantes.len() - 1);
         assert_eq!(e.ficha.as_ref().unwrap().nombre, "Príncipe Perdido");
-        assert_eq!(e.entrada, None);
+        assert_eq!(e.entrada, Some(0));
         e.manejar(KeyCode::Right, &p);
         assert!(e.saliendo());
         e.manejar(KeyCode::Right, &p);

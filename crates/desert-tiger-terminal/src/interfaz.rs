@@ -1025,7 +1025,7 @@ mod pruebas {
         fs::write(
             destino.join("actors/principe_perdido.ron"),
             r#"(
-            clave: "principe_perdido", nombre: "Príncipe Perdido", lugar_inicial: "zona_arida",
+            clave: "principe_perdido", nombre: "Príncipe Perdido", ubicacion_inicial: EnLugar("zona_arida"),
             caracteristicas: [], relaciones: [], politica: Ninguna,
             retrato: Some((
                 paleta: {

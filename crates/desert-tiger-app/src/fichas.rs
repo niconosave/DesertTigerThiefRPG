@@ -1,11 +1,14 @@
 use crate::contenido::ContenidoValidado;
-use desert_tiger_core::{ExtremoRelacion, IdRelacion, Mundo, TipoRelacion};
+use desert_tiger_core::{
+    ExtremoRelacion, IdActor, IdLugar, IdRelacion, Mundo, TipoRelacion, UbicacionActor,
+};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaFicha {
     pub elemento: ExtremoRelacion,
     pub nombre: String,
     pub biografia: Option<String>,
+    pub ubicacion: Option<VistaUbicacionActor>,
     pub entradas: Vec<EntradaFicha>,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -18,12 +21,27 @@ pub enum EntradaFicha {
     Relacion(VistaRelacionFicha),
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum VistaUbicacionActor {
+    EnLugar { lugar: IdLugar, nombre: String },
+    FueraDelEscenario,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum VinculoFicha {
+    Registrado {
+        id: IdRelacion,
+        tipo: TipoRelacion,
+        sentido: SentidoRelacionFicha,
+    },
+    Hermandad {
+        progenitores_compartidos: Vec<IdActor>,
+    },
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaRelacionFicha {
-    pub id: IdRelacion,
-    pub tipo: TipoRelacion,
-    pub sentido: SentidoRelacionFicha,
+    pub vinculo: VinculoFicha,
     pub etiqueta: String,
     pub referencia: ResumenElemento,
+    pub explicacion: Option<String>,
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SentidoRelacionFicha {
@@ -102,7 +120,7 @@ fn resumen(
     elemento: ExtremoRelacion,
 ) -> Result<ResumenElemento, ErrorConsultaFicha> {
     let (nombre, bio, caracteristicas) = datos(mundo, contenido, elemento)?;
-    let texto = if let Some(bio) = bio {
+    let mut texto = if let Some(bio) = bio {
         if bio.trim().is_empty() {
             "Sin biografía disponible".into()
         } else {
@@ -133,6 +151,11 @@ fn resumen(
         }
         texto
     };
+    if let ExtremoRelacion::Actor(id) = elemento
+        && mundo.actor(id).is_some_and(|a| a.lugar().is_none())
+    {
+        texto = format!("Fuera de la región. {texto}");
+    }
     Ok(ResumenElemento {
         elemento,
         nombre: nombre.into(),
@@ -172,24 +195,190 @@ pub(crate) fn proyectar(
         let otro = relacion.otro_extremo(elemento).ok_or_else(error)?;
         let referencia = resumen(mundo, contenido, otro)?;
         let (sentido, prefijo) = match relacion.tipo() {
+            TipoRelacion::Sirviente if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Sirviente de:")
+            }
+            TipoRelacion::Sirviente => (SentidoRelacionFicha::Entrante, "Servido por:"),
             TipoRelacion::Conectado => (SentidoRelacionFicha::Simetrica, "Conectado con"),
             TipoRelacion::Conoce if relacion.origen() == elemento => {
                 (SentidoRelacionFicha::Saliente, "Conoce")
             }
             TipoRelacion::Conoce => (SentidoRelacionFicha::Entrante, "Conocido por"),
+            TipoRelacion::Padre if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Padre:")
+            }
+            TipoRelacion::Padre => (SentidoRelacionFicha::Entrante, "Padre de:"),
+            TipoRelacion::Madre if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Madre:")
+            }
+            TipoRelacion::Madre => (SentidoRelacionFicha::Entrante, "Madre de:"),
+            TipoRelacion::MatadoPor if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Matado por:")
+            }
+            TipoRelacion::MatadoPor => (SentidoRelacionFicha::Entrante, "Mató a:"),
         };
         entradas.push(EntradaFicha::Relacion(VistaRelacionFicha {
-            id,
-            tipo: relacion.tipo(),
-            sentido,
+            vinculo: VinculoFicha::Registrado {
+                id,
+                tipo: relacion.tipo(),
+                sentido,
+            },
+            explicacion: None,
             etiqueta: format!("{prefijo} {}", referencia.nombre),
             referencia,
         }));
     }
+    let ubicacion = if let ExtremoRelacion::Actor(id) = elemento {
+        let actor = mundo
+            .actor(id)
+            .ok_or(ErrorConsultaFicha::ElementoInexistente)?;
+        let hermanos = mundo
+            .hermanos_de(id)
+            .ok_or(ErrorConsultaFicha::ElementoInexistente)?;
+        for hermano in hermanos {
+            let referencia = resumen(mundo, contenido, ExtremoRelacion::Actor(hermano.actor))?;
+            let nombres = hermano
+                .progenitores_compartidos
+                .iter()
+                .map(|&p| {
+                    contenido
+                        .presentacion()
+                        .actor(p)
+                        .map(|a| a.nombre())
+                        .ok_or_else(|| {
+                            ErrorConsultaFicha::EstadoInconsistente(
+                                "progenitor sin presentación".into(),
+                            )
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let explicacion = format!(
+                "{}: {}",
+                if nombres.len() == 1 {
+                    "Progenitor en común"
+                } else {
+                    "Progenitores en común"
+                },
+                nombres.join(", ")
+            );
+            entradas.push(EntradaFicha::Relacion(VistaRelacionFicha {
+                vinculo: VinculoFicha::Hermandad {
+                    progenitores_compartidos: hermano.progenitores_compartidos,
+                },
+                etiqueta: format!("Hermano/a de: {}", referencia.nombre),
+                referencia,
+                explicacion: Some(explicacion),
+            }));
+        }
+        Some(match actor.ubicacion() {
+            UbicacionActor::FueraDelEscenario => VistaUbicacionActor::FueraDelEscenario,
+            UbicacionActor::EnLugar(lugar) => VistaUbicacionActor::EnLugar {
+                lugar,
+                nombre: contenido
+                    .presentacion()
+                    .lugar(lugar)
+                    .ok_or_else(|| {
+                        ErrorConsultaFicha::EstadoInconsistente("ubicación sin presentación".into())
+                    })?
+                    .nombre()
+                    .into(),
+            },
+        })
+    } else {
+        None
+    };
     Ok(VistaFicha {
+        ubicacion,
         elemento,
         nombre: nombre.into(),
         biografia: bio.map(str::to_owned),
         entradas,
     })
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    #[test]
+    fn familia_del_principe_expone_hechos_y_deducciones_sin_ids_ficticios() {
+        let c = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mundo, _) = c.instanciar_estado().unwrap();
+        let (antes, _) = c.instanciar_estado().unwrap();
+        let id = |i| IdActor::desde_posicion(i).unwrap();
+        let ficha = |i| proyectar(&mundo, &c, ExtremoRelacion::Actor(id(i))).unwrap();
+        assert_eq!(mundo.actores().len(), 11);
+        for actor in [1, 3] {
+            let sirviente = ficha(actor);
+            assert!(sirviente.entradas.iter().any(|e| matches!(e,
+                EntradaFicha::Relacion(r) if r.etiqueta == "Sirviente de: Príncipe Perdido"
+                && r.referencia.elemento == ExtremoRelacion::Actor(id(0))
+                && matches!(r.vinculo, VinculoFicha::Registrado { tipo: TipoRelacion::Sirviente, sentido: SentidoRelacionFicha::Saliente, .. }))));
+            assert!(ficha(0).entradas.iter().any(|e| matches!(e,
+                EntradaFicha::Relacion(r) if r.referencia.elemento == ExtremoRelacion::Actor(id(actor))
+                && r.etiqueta.starts_with("Servido por:")
+                && matches!(r.vinculo, VinculoFicha::Registrado { tipo: TipoRelacion::Sirviente, sentido: SentidoRelacionFicha::Entrante, .. }))));
+            assert!(mundo.hermanos_de(id(actor)).unwrap().is_empty());
+        }
+        assert!(ficha(0).biografia.unwrap().contains("exiliado"));
+        assert!(
+            !mundo
+                .actor(id(0))
+                .unwrap()
+                .caracteristicas()
+                .any(|c| c.como_str() == "exiliado")
+        );
+        for _ in 0..50 {
+            let rey = ficha(6);
+            assert_eq!(rey.ubicacion, Some(VistaUbicacionActor::FueraDelEscenario));
+            let al_hermano = rey
+                .entradas
+                .iter()
+                .filter_map(|e| match e {
+                    EntradaFicha::Relacion(r)
+                        if r.referencia.elemento == ExtremoRelacion::Actor(id(8)) =>
+                    {
+                        Some(r)
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(al_hermano.len(), 2);
+            assert!(al_hermano.iter().any(|r| matches!(
+                r.vinculo,
+                VinculoFicha::Registrado {
+                    tipo: TipoRelacion::MatadoPor,
+                    sentido: SentidoRelacionFicha::Saliente,
+                    ..
+                }
+            )));
+            let derivado = al_hermano
+                .iter()
+                .find(|r| matches!(r.vinculo, VinculoFicha::Hermandad { .. }))
+                .unwrap();
+            assert_eq!(
+                derivado.vinculo,
+                VinculoFicha::Hermandad {
+                    progenitores_compartidos: vec![id(9), id(10)]
+                }
+            );
+            let explicacion = derivado.explicacion.as_ref().unwrap();
+            assert!(
+                explicacion.contains("Abuelo paterno") && explicacion.contains("Abuela paterna")
+            );
+            assert!(rey.entradas.iter().any(|e|matches!(e,EntradaFicha::Relacion(r) if r.etiqueta=="Padre de: Príncipe Perdido")));
+            assert!(ficha(7).entradas.iter().any(|e|matches!(e,EntradaFicha::Relacion(r) if r.etiqueta=="Madre de: Príncipe Perdido")));
+            let hermano = ficha(8);
+            assert!(
+                hermano
+                    .entradas
+                    .iter()
+                    .any(|e| matches!(e,EntradaFicha::Relacion(r) if r.etiqueta=="Mató a: Rey"))
+            );
+        }
+        assert_eq!(mundo, antes);
+        assert_eq!(mundo.relaciones().len(), 51);
+    }
 }

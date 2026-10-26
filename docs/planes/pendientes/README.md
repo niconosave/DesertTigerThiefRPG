@@ -4,6 +4,14 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Parentesco y Actores de contexto terminado
+
+PLAN-2026-038 está implementado, verificado y archivado en
+[completados](../completados/README.md#parentesco-y-actores-de-contexto).
+El [contrato 14](../../tecnica/componentes/14-parentesco-actores-contexto.md#12-verificación-de-la-implementación--2026-10-26)
+registra las pruebas y el recorrido manual. No quedan tareas pendientes de este
+alcance; los planes históricos conservan su estado anterior.
+
 ## Acampar terminado
 
 PLAN-2026-036 y PLAN-2026-037 están implementados, verificados y archivados en

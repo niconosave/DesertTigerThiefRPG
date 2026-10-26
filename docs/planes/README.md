@@ -3,6 +3,10 @@
 Los planes convierten documentación técnica ya discutida en pasos de desarrollo
 pequeños, ordenados y verificables.
 
+El desarrollo de parentesco y Actores de contexto está
+[completado en PLAN-2026-038](./completados/2026-10-26-38-incorporar-parentesco-actores-contexto.md),
+según el [contrato técnico 14](../tecnica/componentes/14-parentesco-actores-contexto.md).
+
 La secuencia de Acampar, PLAN-2026-036 y PLAN-2026-037, está
 [completada](./completados/README.md#acción-general-acampar). Su comportamiento
 implementado se define en el [contrato técnico](../tecnica/acciones/07-acampar.md).

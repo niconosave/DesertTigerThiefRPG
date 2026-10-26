@@ -1,10 +1,13 @@
 (
     clave: "principe_perdido",
     nombre: "Príncipe Perdido",
-    biografia: "Un príncipe perdido que viaja junto a sus compañeros.",
-    lugar_inicial: "zona_arida",
+    biografia: "Un príncipe que vive exiliado, lejos del continente del que procede. Viaja junto a sus compañeros.",
+    ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: [],
-    relaciones: [],
+    relaciones: [
+        (tipo: Padre, destino: Actor("rey")),
+        (tipo: Madre, destino: Actor("madre_del_principe")),
+    ],
     retrato: Some((
         paleta: {
             '0': (frente: "gris", fondo: None),

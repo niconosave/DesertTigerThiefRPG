@@ -2,9 +2,11 @@
     clave: "sirviente",
     nombre: "Sirviente",
     biografia: "Un sirviente que acompaña al príncipe en su viaje.",
-    lugar_inicial: "zona_arida",
+    ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: [],
-    relaciones: [],
+    relaciones: [
+        (tipo: Sirviente, destino: Actor("principe_perdido")),
+    ],
     retrato: Some((
         paleta: {
             '0': (frente: "gris", fondo: None),

@@ -1,0 +1,11 @@
+(
+    clave: "abuelo_paterno",
+    nombre: "Abuelo paterno",
+    biografia: "Progenitor del rey y de su hermano.",
+    ubicacion_inicial: FueraDelEscenario,
+    caracteristicas: [],
+    relaciones: [
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

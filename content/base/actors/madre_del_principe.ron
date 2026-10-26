@@ -1,0 +1,11 @@
+(
+    clave: "madre_del_principe",
+    nombre: "Madre del príncipe",
+    biografia: "Madre del príncipe, en el continente del que procede su hijo.",
+    ubicacion_inicial: FueraDelEscenario,
+    caracteristicas: [],
+    relaciones: [
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

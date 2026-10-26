@@ -3,8 +3,10 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.25 |
+| Versión | 0.26 |
 | Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
 
 > Ampliación implementada el 2026-10-26: nombres y biografías de
 > Actores, catálogo de características y consultas de presentación se definen
@@ -720,7 +722,7 @@ oficiales concretos permanecen en `content/base/`:
     clave: "principe_perdido",
     nombre: "Príncipe Perdido",
     biografia: "Un príncipe perdido que viaja junto a sus compañeros.",
-    lugar_inicial: "zona_arida",
+    ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: [],
     relaciones: [],
     retrato: Some((
@@ -752,10 +754,10 @@ conforme a la regla general de texto visible. No exige caracteres de una sola
 columna porque no se escribe sobre una matriz de tiles. La carga no lo normaliza,
 no lo usa para resolver referencias y no exige que sea único: la identidad estable
 sigue siendo `clave`. `caracteristicas` y `relaciones` pueden estar vacías; las
-primeras no admiten duplicados. Durante este incremento la lista de Relaciones de
-todo Actor debe estar vacía porque `Conectado` solo admite Lugares.
-`lugar_inicial` es una clave de Lugar incluida en la lista canónica de
-`world.ron`.
+primeras no admiten duplicados. Las relaciones de Actor admitidas se definen
+por sus tipos; la filiación y MatadoPor siguen el contrato 14.
+`ubicacion_inicial` usa EnLugar(clave de Lugar) o FueraDelEscenario, según
+el mismo contrato. El jugador y sus compañeros requieren ubicación local.
 
 `retrato` es obligatorio: `None` o `Some((...))`. El jugador y cada compañero
 inicial requieren `Some`; los demás Actores admiten ambos valores. La paleta,
@@ -1125,7 +1127,7 @@ campo produce `FormatoRonInvalido`:
 (
     clave: "cazador",
     nombre: "Cazador",
-    lugar_inicial: "valle_fertil",
+    ubicacion_inicial: EnLugar("valle_fertil"),
     caracteristicas: [],
     relaciones: [],
     politica: Ninguna,
@@ -1140,7 +1142,7 @@ Este Actor incluye el campo desconocido `titulo` y también produce
     clave: "cazador",
     nombre: "Cazador",
     titulo: "Guardián del valle",
-    lugar_inicial: "valle_fertil",
+    ubicacion_inicial: EnLugar("valle_fertil"),
     caracteristicas: [],
     relaciones: [],
     retrato: None,
@@ -1164,13 +1166,13 @@ variables_globales: (
 ```
 
 Finalmente, este archivo es RON válido pero su referencia no resuelve y produce
-`ReferenciaInvalida` sobre `lugar_inicial`:
+`ReferenciaInvalida` sobre `ubicacion_inicial`:
 
 ```ron
 (
     clave: "cazador",
     nombre: "Cazador",
-    lugar_inicial: "lugar_que_no_existe",
+    ubicacion_inicial: EnLugar("lugar_que_no_existe"),
     caracteristicas: [],
     relaciones: [],
     retrato: None,

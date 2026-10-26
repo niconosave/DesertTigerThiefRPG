@@ -77,3 +77,14 @@ se corregirán en incrementos posteriores.
 Verificación conjunta: 96 pruebas, cinco controles generales satisfactorios y
 recorrido manual del ejecutable release en PTY 80×24. El detalle está en la
 [sección 12 del contrato](../../tecnica/acciones/07-acampar.md#12-verificación-de-la-implementación--2026-10-26).
+
+
+## Parentesco y Actores de contexto
+
+| Fecha | Plan | Resultado |
+|---|---|---|
+| 2026-10-26 | [PLAN-2026-038](./2026-10-26-38-incorporar-parentesco-actores-contexto.md) | Actores externos, filiación, MatadoPor, hermanos deducidos y familia del príncipe consultable desde Acampar. |
+
+Verificación: 107 pruebas, controles generales y build release satisfactorios;
+recorrido manual en PTY 80×24. La [sección 12 del contrato](../../tecnica/componentes/14-parentesco-actores-contexto.md#12-verificación-de-la-implementación--2026-10-26)
+registra los resultados.

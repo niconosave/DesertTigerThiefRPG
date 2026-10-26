@@ -3,8 +3,12 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.1 |
+| Versión | 1.2 |
 | Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26: la ubicación visible y la
+> representación de vínculos registrados/deducidos se definen en el
+> [contrato 14, sección 6](../componentes/14-parentesco-actores-contexto.md#6-fichas-ubicación-inversas-y-deducciones).
 
 ## 1. Fuente, alcance y precedencia
 
@@ -50,6 +54,7 @@ La API reexportada desde `acciones` es:
 pub struct Acampada { /* actor privado; sin Clone ni Copy */ }
 pub struct ResultadoAcampada { pub tiempo: TiempoAccion }
 pub enum ErrorAcampada {
+    ActorFueraDelEscenario,
     ActorDesconocido,
     ActorMuerto,
     IntegranteDelGrupo,
@@ -188,6 +193,7 @@ pub struct VistaFicha {
     pub elemento: ExtremoRelacion,
     pub nombre: String,
     pub biografia: Option<String>, // Actor; None para Lugar
+    pub ubicacion: Option<VistaUbicacionActor>,
     pub entradas: Vec<EntradaFicha>,
 }
 pub enum EntradaFicha {
@@ -199,11 +205,10 @@ pub enum EntradaFicha {
     Relacion(VistaRelacionFicha),
 }
 pub struct VistaRelacionFicha {
-    pub id: IdRelacion,
-    pub tipo: TipoRelacion,
-    pub sentido: SentidoRelacionFicha,
+    pub vinculo: VinculoFicha, // tipos y deducciones en contrato 14, sección 6
     pub etiqueta: String,
     pub referencia: ResumenElemento,
+    pub explicacion: Option<String>,
 }
 pub enum SentidoRelacionFicha { Saliente, Entrante, Simetrica }
 pub struct ResumenElemento {

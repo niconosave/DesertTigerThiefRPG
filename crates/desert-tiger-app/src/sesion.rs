@@ -735,7 +735,7 @@ mod pruebas {
             .unwrap();
         assert_eq!(ficha.nombre, "Príncipe Perdido");
         assert!(ficha.entradas.iter().any(|e| matches!(e, EntradaFicha::Caracteristica { clave, descripcion: None, .. } if clave == "rasgoNuevo")));
-        assert!(ficha.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.sentido == SentidoRelacionFicha::Saliente)));
+        assert!(ficha.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if matches!(&r.vinculo, crate::VinculoFicha::Registrado { sentido: SentidoRelacionFicha::Saliente, .. }))));
         let cazador = IdActor::desde_posicion(2).unwrap();
         assert!(c.presentacion().actor(cazador).unwrap().retrato().is_none());
         for _ in 0..100 {
@@ -751,8 +751,8 @@ mod pruebas {
                 })
                 .unwrap();
             let f = p.consultar_ficha(v.id, referencia.elemento).unwrap();
-            assert!(f.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.sentido == SentidoRelacionFicha::Entrante && r.referencia.elemento == ExtremoRelacion::Actor(cazador))));
-            assert!(f.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.sentido == SentidoRelacionFicha::Simetrica)));
+            assert!(f.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if matches!(&r.vinculo, crate::VinculoFicha::Registrado { sentido: SentidoRelacionFicha::Entrante, .. }) && r.referencia.elemento == ExtremoRelacion::Actor(cazador))));
+            assert!(f.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if matches!(&r.vinculo, crate::VinculoFicha::Registrado { sentido: SentidoRelacionFicha::Simetrica, .. }))));
         }
         assert_eq!(
             p.consultar_ficha(
@@ -900,10 +900,13 @@ mod pruebas {
         assert_eq!(v.integrantes.len(), 1);
         assert_eq!(v.integrantes[0].actor, p.mundo.actor_jugador());
         assert!(
-            p.consultar_ficha(v.id, ExtremoRelacion::Actor(p.mundo.actor_jugador()))
-                .unwrap()
-                .entradas
-                .is_empty()
+            p.consultar_ficha(
+                v.id,
+                ExtremoRelacion::Actor(IdActor::desde_posicion(4).unwrap())
+            )
+            .unwrap()
+            .entradas
+            .is_empty()
         );
         assert!(matches!(
             p.procesar(IntencionFrontend::AbandonarCampamento { campamento: v.id })

@@ -3,8 +3,10 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.2 |
-| Fecha | 2026-10-16 |
+| Versión | 0.3 |
+| Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26. Filiación, MatadoPor e índices familiares: [contrato 14, secciones 4–5](./14-parentesco-actores-contexto.md#5-almacenamiento-índices-y-consultas-familiares).
 
 ## Revisión implementada el 2026-10-24: Conoce adquirido durante el viaje
 
@@ -114,6 +116,11 @@ pub enum ExtremoRelacion {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum TipoRelacion {
+    Sirviente,
+    Conoce,
+    Padre,
+    Madre,
+    MatadoPor,
     Conectado,
 }
 
@@ -662,3 +669,22 @@ Se diseñarán solamente cuando una mecánica aprobada las necesite:
 Agregar alguno de estos alcances exigirá actualizar este documento antes de
 ampliar enums, DTO, índices o API. No se reserva ahora una estructura genérica de
 propiedades ni un inventario para anticiparlos.
+
+## 11. Relación Sirviente — implementada el 2026-10-26
+
+`Sirviente` es dirigida Actor→Actor: el origen sirve al destino. Se declara en
+el RON de quien sirve, por ejemplo:
+
+```ron
+(tipo: Sirviente, destino: Actor("principe_perdido")),
+```
+
+La ficha del origen muestra «Sirviente de: {destino}» y la del destino,
+«Servido por: {origen}». Se indexa en ambos extremos como los demás vínculos
+registrados entre Actores, sin otra declaración inversa. Rechaza referencias
+inexistentes, extremos de Lugar, duplicados y autorreferencias. No impone una
+cardinalidad adicional ni modifica parentesco, pertenencia al Grupo o conducta.
+
+El contenido oficial declara este vínculo desde Bandido y Sirviente hacia el
+Príncipe Perdido. Las pruebas de fichas comprueban las dos lecturas y que no
+se deduzca hermandad a partir de esta relación.

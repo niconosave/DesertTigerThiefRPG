@@ -13,6 +13,7 @@ pub struct ResultadoAcampada {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorAcampada {
+    ActorFueraDelEscenario,
     ActorDesconocido,
     ActorMuerto,
     IntegranteDelGrupo,
@@ -21,6 +22,7 @@ pub enum ErrorAcampada {
 impl fmt::Display for ErrorAcampada {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
+            Self::ActorFueraDelEscenario => "el actor está fuera del escenario",
             Self::ActorDesconocido => "actor desconocido",
             Self::ActorMuerto => "un actor muerto no puede acampar",
             Self::IntegranteDelGrupo => "un compañero no actúa independientemente del grupo",
@@ -36,6 +38,9 @@ pub fn iniciar_acampada(mundo: &Mundo, actor: IdActor) -> Result<Acampada, Error
     }
     if actor != mundo.actor_jugador() && mundo.grupo().contiene(actor) {
         return Err(ErrorAcampada::IntegranteDelGrupo);
+    }
+    if actual.lugar().is_none() {
+        return Err(ErrorAcampada::ActorFueraDelEscenario);
     }
     Ok(Acampada { actor })
 }
@@ -72,7 +77,7 @@ mod pruebas {
             actores: (0..4)
                 .map(|i| ActorInicial {
                     id: id(i),
-                    lugar,
+                    ubicacion: crate::UbicacionActor::EnLugar(lugar),
                     caracteristicas: if i == 3 {
                         vec![Caracteristica::nueva("muerto".into()).unwrap()]
                     } else {

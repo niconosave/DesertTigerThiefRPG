@@ -2,9 +2,10 @@
     clave: "bandido",
     nombre: "Bandido",
     biografia: "Compañero del príncipe, familiarizado con los desiertos y los camellos.",
-    lugar_inicial: "zona_arida",
+    ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: ["fuerte", "guia", "camellero", "jinete", "conoceDesiertos", "conCamellos"],
     relaciones: [
+        (tipo: Sirviente, destino: Actor("principe_perdido")),
         (tipo: Conoce, destino: Lugar("zona_arida")),
         (tipo: Conoce, destino: Lugar("camino_de_los_mojones")),
         (tipo: Conoce, destino: Lugar("paso_escarpado")),
