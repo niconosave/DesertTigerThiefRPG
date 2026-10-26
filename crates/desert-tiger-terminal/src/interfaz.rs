@@ -308,7 +308,7 @@ impl Interfaz {
                     continue;
                 }
                 let clave = &mundo.mapa.celdas[my * mundo.mapa.ancho + mx];
-                let apariencia = recursos.tile(clave, mx, my);
+                let apariencia = recursos.tile(clave, mx, my, self.fotograma);
                 poner_celda(
                     frame,
                     area.x + vx as u16,
@@ -1003,7 +1003,7 @@ mod pruebas {
         let recursos =
             RecursosVisuales::cargar(&raiz.join("assets/terminal")).expect("recursos válidos");
         let bosque = desert_tiger_app::ClaveTipoTile::nueva("bosque".to_owned()).unwrap();
-        let recursos = recursos.con_patron_prueba(bosque.clone(), "ab\ncd");
+        let recursos = recursos.con_fotogramas_prueba(bosque.clone(), &["ab\ncd", "wx\nyz"]);
         let mut mundo = interfaz.ultima_vista_mundo.clone();
         mundo.mapa.ancho = 120;
         mundo.mapa.alto = 60;
@@ -1017,10 +1017,10 @@ mod pruebas {
         let destinos = vec![mundo.lugares[0].id, mundo.lugares[1].id];
         mundo.lugar_jugador = destinos[0];
         let area = Rect::new(0, 0, 80, 22);
-        let esperado = recursos.tile(&bosque, 40, 21);
+        let esperado = recursos.tile(&bosque, 40, 21, 0);
         // Estas fases del mosaico distinguen coordenadas de mapa y de pantalla.
-        assert_ne!(esperado.glifo, recursos.tile(&bosque, 30, 2).glifo);
-        assert_ne!(esperado.glifo, recursos.tile(&bosque, 29, 1).glifo);
+        assert_ne!(esperado.glifo, recursos.tile(&bosque, 30, 2, 0).glifo);
+        assert_ne!(esperado.glifo, recursos.tile(&bosque, 29, 1, 0).glifo);
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
         interfaz.modo = ModoLocal::Seleccion {
             destinos: destinos.clone(),
@@ -1045,6 +1045,16 @@ mod pruebas {
             &primera, segunda,
             "mover la cámara en ambos ejes debe conservar el glifo y estilo de la celda global"
         );
+        let vista_antes = interfaz.partida.vista();
+        interfaz.avanzar_animacion(2);
+        terminal
+            .draw(|frame| interfaz.dibujar_mundo(frame, area, &mundo, &recursos))
+            .unwrap();
+        let animada = &terminal.backend().buffer()[(29, 1)];
+        assert_eq!(animada.symbol(), "y");
+        assert_eq!(animada.fg, primera.fg);
+        assert_eq!(animada.bg, primera.bg);
+        assert_eq!(interfaz.partida.vista(), vista_antes);
     }
 
     #[test]
@@ -1108,7 +1118,7 @@ mod pruebas {
             .expect("el ojo se proyecta dentro del mapa");
         let clave_tile = &mundo.mapa.celdas[mapa_y * mundo.mapa.ancho + mapa_x];
         let fondo_mapa = recursos
-            .tile(clave_tile, mapa_x, mapa_y)
+            .tile(clave_tile, mapa_x, mapa_y, interfaz.fotograma)
             .estilo
             .bg
             .or(recursos.ui.pantalla.bg)
@@ -1132,7 +1142,12 @@ mod pruebas {
         assert_eq!(
             transparente,
             recursos
-                .tile(clave_transparente, mapa_transparente_x, mapa_transparente_y)
+                .tile(
+                    clave_transparente,
+                    mapa_transparente_x,
+                    mapa_transparente_y,
+                    interfaz.fotograma,
+                )
                 .glifo
                 .to_string(),
             "una celda transparente debe conservar el glifo vigente del mapa"

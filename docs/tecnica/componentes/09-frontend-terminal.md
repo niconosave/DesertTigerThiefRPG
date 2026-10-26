@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.46 |
+| Versión | 0.47 |
 | Fecha | 2026-10-25 |
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
@@ -200,8 +200,8 @@ El RON contiene exactamente dos partes conceptuales:
 - `reserva`: una apariencia obligatoria cuyo glifo es `?`; su estilo se declara
   directamente en `tiles.ron`, no referencia `ui.ron` y se decidirá con el
   setting;
-- `apariencias`: un mapa de `ClaveTipoTile` a un glifo fijo o un mosaico de
-  glifos, con un estilo terminal compartido por sus celdas.
+- `apariencias`: un mapa de `ClaveTipoTile` a un glifo fijo, un mosaico de
+  glifos o una secuencia animada de mosaicos, con un estilo terminal compartido.
 
 La forma del archivo será esta; los valores concretos solo ilustran el esquema y
 no fijan todavía la paleta artística del juego:
@@ -240,7 +240,8 @@ no fijan todavía la paleta artística del juego:
 )
 ```
 
-Cada entrada de `apariencias` requiere exactamente uno de `glifo` o `patron`.
+Cada entrada de `apariencias` requiere exactamente uno de `glifo`, `patron` o
+`fotogramas`.
 El formato anterior `glifo: 'x'` sigue siendo válido y equivale a un patrón
 de una celda. `reserva` conserva su glifo fijo obligatorio `?`.
 
@@ -250,17 +251,55 @@ del terreno. Se normaliza CRLF a LF y se elimina como máximo un salto de línea
 inicial y uno final, como en las ilustraciones. No se recortan los márgenes.
 
 La carga convierte el mosaico a una matriz de caracteres. Durante el dibujo,
-`RecursosVisuales::tile(clave, x, y)` elige la columna `x % ancho_patron` y la fila
+`RecursosVisuales::tile(clave, x, y, paso_animacion)` elige la columna `x % ancho_patron` y la fila
 `y % alto_patron`. `x` e `y` son coordenadas globales del mapa, antes de su
 proyección a pantalla. El origen del mosaico es siempre `(0, 0)` del mapa;
 cada tipo de terreno puede tener un tamaño de patrón diferente.
 
-El resultado no depende de cámara, ventana, fotograma de animación, semilla de
+La posición dentro del mosaico no depende de cámara, ventana, semilla de
 partida ni fuente de azar del juego. Mover la cámara o redimensionar conserva
-la apariencia de una celda. Cambiar el tipo de terreno selecciona el patrón
-del nuevo tipo en esas mismas coordenadas. Los rótulos, marcadores y retratos
+la apariencia de una celda para un mismo instante de animación. Cambiar el tipo
+de terreno selecciona el patrón del nuevo tipo en esas mismas coordenadas.
+Los rótulos, marcadores y retratos
 siguen dibujándose por encima del terreno. No cambian los datos ni las reglas
 de `desert-tiger-core` o `desert-tiger-app`.
+
+Para animar un tipo se utiliza `fotogramas`, una lista no vacía de bloques con
+las mismas reglas que `patron`. Todos deben tener el mismo ancho y alto; se
+conservan los espacios. Un único fotograma es válido y mantiene el dibujo fijo.
+Ejemplo de autoría:
+
+```ron
+"agua": (
+    duracion_fotograma_ms: 500,
+    fotogramas: [
+        r#"
+∿≈∿
+≈∿≈
+"#,
+        r#"
+≈∿≈
+∿≈∿
+"#,
+    ],
+    estilo: (frente: "azul", fondo: Some("negro"), modificadores: []),
+),
+```
+
+`duracion_fotograma_ms` vale 500 si se omite y se aplica por igual a todos los
+fotogramas de ese tipo. Debe ser un múltiplo positivo de 250, la resolución del
+reloj visual existente. Cada tipo puede tener su propia duración y cantidad de
+fotogramas. El estilo se comparte entre todos los fotogramas.
+
+La selección del fotograma es cíclica y usa el contador de animación de la
+terminal: `(paso_animacion * 250 / duracion_fotograma_ms) % cantidad_fotogramas`,
+con aritmética ampliada a `u128` antes del producto. Todas las celdas de un tipo
+usan el mismo fotograma en ese instante. La cámara y el redimensionado no
+reinician el ciclo. Las definiciones estáticas continúan siendo estáticas.
+
+Este reloj es el mismo que actualiza los retratos y se detiene durante la
+confirmación de salida. Es independiente de la fecha del Mundo, del consumo y
+de las acciones NPC; la animación no consulta ni modifica la simulación.
 
 Las claves siguen la gramática `lowerCamelCase` definida por contenido. Cada
 glifo es un único `char` que no es de control y cuyo ancho terminal, calculado
@@ -319,7 +358,8 @@ del tile base.
 
 La carga rechaza claves duplicadas, claves con sintaxis inválida, una reserva
 ausente o cuyo glifo no sea `?`, glifos inválidos, patrones vacíos o no
-rectangulares, entradas sin `glifo` ni `patron` o con ambos, y estilos no reconocidos. Una
+rectangulares, fotogramas de tamaños diferentes, duraciones inválidas, entradas
+sin una fuente de glifos o con varias a la vez, y estilos no reconocidos. Una
 entrada del catálogo que el contenido vigente no utilice es válida y varias
 claves pueden compartir la misma apariencia. La deserialización debe detectar
 una clave repetida antes de construir el mapa interno, sin permitir que la

@@ -34,14 +34,18 @@ pub(crate) struct AparienciaTile {
 struct PatronTile {
     ancho: usize,
     alto: usize,
-    glifos: Vec<char>,
+    fotogramas: Vec<Vec<char>>,
+    duracion_fotograma_ms: u64,
     estilo: Style,
 }
 
 impl PatronTile {
-    fn en(&self, x: usize, y: usize) -> AparienciaTile {
+    fn en(&self, x: usize, y: usize, paso_animacion: usize) -> AparienciaTile {
+        let transcurrido_ms = paso_animacion as u128 * crate::INTERVALO_ANIMACION.as_millis();
+        let indice = (transcurrido_ms / u128::from(self.duracion_fotograma_ms)
+            % self.fotogramas.len() as u128) as usize;
         AparienciaTile {
-            glifo: self.glifos[(y % self.alto) * self.ancho + x % self.ancho],
+            glifo: self.fotogramas[indice][(y % self.alto) * self.ancho + x % self.ancho],
             estilo: self.estilo,
         }
     }
@@ -99,10 +103,16 @@ impl RecursosVisuales {
         })
     }
 
-    pub(crate) fn tile(&self, clave: &ClaveTipoTile, x: usize, y: usize) -> AparienciaTile {
+    pub(crate) fn tile(
+        &self,
+        clave: &ClaveTipoTile,
+        x: usize,
+        y: usize,
+        paso_animacion: usize,
+    ) -> AparienciaTile {
         self.apariencias
             .get(clave)
-            .map(|patron| patron.en(x, y))
+            .map(|patron| patron.en(x, y, paso_animacion))
             .unwrap_or_else(|| self.reserva.clone())
     }
 
@@ -117,10 +127,16 @@ impl RecursosVisuales {
     }
 
     #[cfg(test)]
-    pub(crate) fn con_patron_prueba(mut self, clave: ClaveTipoTile, patron: &str) -> Self {
+    pub(crate) fn con_fotogramas_prueba(
+        mut self,
+        clave: ClaveTipoTile,
+        fotogramas: &[&str],
+    ) -> Self {
         let patron = convertir_patron(DefinicionTileDto {
             glifo: None,
-            patron: Some(patron.to_owned()),
+            patron: None,
+            fotogramas: Some(fotogramas.iter().map(|f| (*f).to_owned()).collect()),
+            duracion_fotograma_ms: 500,
             estilo: EstiloDto {
                 frente: "verde".to_owned(),
                 fondo: Some("negro".to_owned()),
@@ -194,7 +210,15 @@ struct DefinicionTileDto {
     glifo: Option<char>,
     #[serde(default, deserialize_with = "campo_presente")]
     patron: Option<String>,
+    #[serde(default, deserialize_with = "campo_presente")]
+    fotogramas: Option<Vec<String>>,
+    #[serde(default = "duracion_predeterminada")]
+    duracion_fotograma_ms: u64,
     estilo: EstiloDto,
+}
+
+fn duracion_predeterminada() -> u64 {
+    500
 }
 
 fn campo_presente<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -260,19 +284,48 @@ fn convertir_apariencia(dto: AparienciaDto) -> Result<AparienciaTile, ErrorRecur
 }
 
 fn convertir_patron(dto: DefinicionTileDto) -> Result<PatronTile, ErrorRecursos> {
-    let filas = match (dto.glifo, dto.patron) {
-        (Some(glifo), None) => normalizar_arte(&glifo.to_string())?,
-        (None, Some(patron)) => normalizar_arte(&patron)?,
+    let textos = match (dto.glifo, dto.patron, dto.fotogramas) {
+        (Some(glifo), None, None) => vec![glifo.to_string()],
+        (None, Some(patron), None) => vec![patron],
+        (None, None, Some(fotogramas)) => fotogramas,
         _ => {
             return Err(ErrorRecursos(
-                "se requiere exactamente uno de glifo o patron".to_owned(),
+                "se requiere exactamente uno de glifo, patron o fotogramas".to_owned(),
             ));
         }
     };
+    if textos.is_empty() {
+        return Err(ErrorRecursos("fotogramas no puede estar vacío".to_owned()));
+    }
+    if dto.duracion_fotograma_ms == 0
+        || u128::from(dto.duracion_fotograma_ms) % crate::INTERVALO_ANIMACION.as_millis() != 0
+    {
+        return Err(ErrorRecursos(
+            "duracion_fotograma_ms debe ser un múltiplo positivo de 250".to_owned(),
+        ));
+    }
+    let mut ancho = 0;
+    let mut alto = 0;
+    let mut fotogramas = Vec::with_capacity(textos.len());
+    for (indice, texto) in textos.iter().enumerate() {
+        let filas = normalizar_arte(texto)
+            .map_err(|error| ErrorRecursos(format!("fotograma {}: {error}", indice + 1)))?;
+        let dimensiones = (filas[0].chars().count(), filas.len());
+        if indice == 0 {
+            (ancho, alto) = dimensiones;
+        } else if dimensiones != (ancho, alto) {
+            return Err(ErrorRecursos(format!(
+                "fotograma {}: todos los fotogramas deben tener el mismo ancho y alto",
+                indice + 1
+            )));
+        }
+        fotogramas.push(filas.iter().flat_map(|fila| fila.chars()).collect());
+    }
     Ok(PatronTile {
-        ancho: filas[0].chars().count(),
-        alto: filas.len(),
-        glifos: filas.iter().flat_map(|fila| fila.chars()).collect(),
+        ancho,
+        alto,
+        fotogramas,
+        duracion_fotograma_ms: dto.duracion_fotograma_ms,
         estilo: convertir_estilo(dto.estilo)?,
     })
 }
@@ -403,7 +456,7 @@ mod pruebas {
             (4, 6, 'a'),
             (usize::MAX, usize::MAX, 'd'),
         ] {
-            let celda = patron.en(x, y);
+            let celda = patron.en(x, y, 0);
             assert_eq!(celda.glifo, glifo);
             assert_eq!(celda.estilo.fg, Some(Color::Red));
             assert_eq!(celda.estilo.bg, Some(NEGRO_PURO));
@@ -413,8 +466,8 @@ mod pruebas {
             r#"(glifo: '♣', estilo: (frente: "verde", fondo: None, modificadores: []))"#,
         )
         .unwrap();
-        assert_eq!(fijo.en(0, 0).glifo, '♣');
-        assert_eq!(fijo.en(19, 21).glifo, '♣');
+        assert_eq!(fijo.en(0, 0, 0).glifo, '♣');
+        assert_eq!(fijo.en(19, 21, usize::MAX).glifo, '♣');
     }
 
     #[test]
@@ -428,11 +481,45 @@ mod pruebas {
             r#"patron: "界","#,
             r#"patron: "e\u{0301}","#,
             r#"patron: "a\tb","#,
+            r#"fotogramas: [],"#,
+            r#"fotogramas: [""],"#,
+            r#"fotogramas: ["ab", "c"],"#,
+            r#"fotogramas: ["ab\ncd", "ef"],"#,
+            r#"fotogramas: ["ab", "界x"],"#,
+            r#"glifo: 'x', fotogramas: ["ab"],"#,
+            r#"patron: "ab", fotogramas: ["ab"],"#,
+            r#"fotogramas: ["a", "b"], duracion_fotograma_ms: 0,"#,
+            r#"fotogramas: ["a", "b"], duracion_fotograma_ms: 125,"#,
+            r#"fotogramas: ["a", "b"], duracion_fotograma_ms: 375,"#,
         ] {
             let texto =
                 format!("({campos} estilo: (frente: \"blanco\", fondo: None, modificadores: []))");
             assert!(patron_desde_ron(&texto).is_err(), "aceptó {texto}");
         }
+    }
+
+    #[test]
+    fn animacion_repite_el_ciclo_y_cada_tipo_conserva_su_velocidad() {
+        let rapido = patron_desde_ron(
+            r#"(fotogramas: ["ab\ncd", "ef\ngh", "ij\nkl"], estilo: (frente: "azul", fondo: Some("negro"), modificadores: []))"#,
+        )
+        .unwrap();
+        for (paso, esperado) in [(0, 'a'), (1, 'a'), (2, 'e'), (3, 'e'), (4, 'i'), (6, 'a')] {
+            assert_eq!(rapido.en(0, 0, paso).glifo, esperado);
+        }
+        assert_eq!(rapido.en(5, 5, 2).glifo, 'h');
+        let lento = patron_desde_ron(
+            r#"(fotogramas: ["a", "b"], duracion_fotograma_ms: 1000, estilo: (frente: "azul", fondo: None, modificadores: []))"#,
+        )
+        .unwrap();
+        assert_eq!(lento.en(0, 0, 2).glifo, 'a');
+        assert_eq!(lento.en(0, 0, 4).glifo, 'b');
+        assert_eq!(lento.en(0, 0, 8).glifo, 'a');
+        let estatico = patron_desde_ron(
+            r#"(patron: "ab\ncd", estilo: (frente: "verde", fondo: None, modificadores: []))"#,
+        )
+        .unwrap();
+        assert_eq!(estatico.en(0, 0, usize::MAX).glifo, 'a');
     }
 
     #[test]
@@ -442,7 +529,7 @@ mod pruebas {
         let clave = ClaveTipoTile::nueva("terrenoDeUnMod".to_owned()).unwrap();
         assert!(!recursos.contiene_tile(&clave));
         for (x, y) in [(0, 0), (37, 89), (usize::MAX, usize::MAX)] {
-            let tile = recursos.tile(&clave, x, y);
+            let tile = recursos.tile(&clave, x, y, usize::MAX);
             assert_eq!(tile.glifo, '?');
             assert_eq!(tile.estilo.bg, Some(NEGRO_PURO));
             assert!(tile.estilo.add_modifier.contains(Modifier::REVERSED));
