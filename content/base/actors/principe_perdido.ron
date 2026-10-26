@@ -18,6 +18,8 @@
             'A': (frente: "negro", fondo: Some("negro")),
             'B': (frente: "magentaClaro", fondo: Some("negro")),
             'C': (frente: "cian", fondo: Some("negro")),
+            'D': (frente: "negro", fondo: Some("magenta")),
+            'E': (frente: "negro", fondo: Some("magentaClaro")),
         },
         base: (
             arte: r#"
@@ -54,8 +56,51 @@
 "#),
         ),
         rostro: Some((
-            origen: (x: 9, y: 6),
-            expresiones: {},
+            origen: (x: 12, y: 6),
+            expresiones: {
+                "scared": (
+                    arte: r#"
+██🯐███
+█(o█  
+█████ 
+████  
+"#,
+                    estilos: Some(r#"
+13D413
+4AC650
+666666
+666600
+"#),
+                ),
+                "angry": (
+                    arte: r#"
+██𜰉███
+█(o█  
+█████ 
+██₤█  
+"#,
+                    estilos: Some(r#"
+13D413
+4AC650
+666666
+66E600
+"#),
+                ),
+                "happy": (
+                    arte: r#"
+██████
+█(o█  
+█████ 
+██◹█  
+"#,
+                    estilos: Some(r#"
+134413
+4AC650
+666666
+66E600
+"#),
+                ),
+            },
         )),
         parpadeo: Some((
             origen: (x: 13, y: 7),

@@ -512,8 +512,11 @@ retrato; la clave externa del Actor nunca se usa como reemplazo de su nombre.
 `RetratoActor` contiene gráficos neutrales validados, sin dependencia de
 Ratatui ni secuencias ANSI. Su contrato está en
 [`13-retratos-por-capas.md`](./13-retratos-por-capas.md).
-`expresion` selecciona una clave del rostro para esta vista; actualmente la
-proyección inicial entrega `None`. No representa un estado emocional del Mundo.
+`expresion` selecciona una clave del rostro para esta vista. La proyección
+normal entrega `None`; al publicar una viñeta se aplica la señal elegida por
+su narrador mediante `VistaMundo::mostrar_expresion_grupo`. Su ciclo de vida y
+reserva visual están definidos en el contrato 13. No representa un estado
+emocional del Mundo.
 
 La celda `(x, y)` de `VistaMapa` ocupa `y * ancho + x` y
 `celdas.len() == ancho * alto`. `tipos_declarados` incluye incluso las claves

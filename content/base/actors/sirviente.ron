@@ -56,8 +56,51 @@ BBBBBBBBBBBBBBBB
 "#),
         ),
         rostro: Some((
-            origen: (x: 6, y: 6),
-            expresiones: {},
+            origen: (x: 9, y: 6),
+            expresiones: {
+                "scared": (
+                    arte: r#"
+▀▀🯐▀▀ 
+█(o█  
+████▀ 
+██-█  
+"#,
+                    estilos: Some(r#"
+77E730
+ABCA00
+AAAAA0
+AAEA00
+"#),
+                ),
+                "angry": (
+                    arte: r#"
+▀▀𜰉▀▀ 
+█(o█  
+████▀ 
+██₤█  
+"#,
+                    estilos: Some(r#"
+77E730
+ABCA00
+AAAAA0
+AAEA00
+"#),
+                ),
+                "happy": (
+                    arte: r#"
+▀▀▄▀▀ 
+█(o█  
+████▀ 
+██◹█  
+"#,
+                    estilos: Some(r#"
+778730
+ABCA00
+AAAAA0
+AAEA00
+"#),
+                ),
+            },
         )),
         parpadeo: Some((
             origen: (x: 10, y: 7),

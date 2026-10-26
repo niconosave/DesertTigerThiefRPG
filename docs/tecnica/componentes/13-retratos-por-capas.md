@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.0 |
+| Versión | 1.1 |
 | Fecha | 2026-10-26 |
 
 ## Alcance y responsabilidades
@@ -87,10 +87,42 @@ del Grupo, jugador a la derecha, alineación, recorte y solapamiento del 25 %
 siguen el contrato 09; sus dimensiones siempre proceden de la base.
 
 `VistaActor.expresion: Option<String>` selecciona una expresión para esa vista.
-`None` o una clave inexistente conserva la cara base. Actualmente se proyecta
-`None`: no se han añadido reacciones emocionales automáticas ni dibujos nuevos
-de expresiones. Los cinco retratos existentes conservan su imagen de ojos
-abiertos como base y su ojo cerrado como parche.
+`None` o una clave inexistente conserva la cara base. Los retratos conservan su
+imagen de ojos abiertos como base y su ojo cerrado como parche.
+
+### Señal desde las viñetas
+
+La dirección dramática pertenece al código narrativo de la acción general.
+`TextoEscena.expresion: Option<&'static str>` comunica su elección a la sesión.
+Al publicar una viñeta, la sesión llama a
+`VistaMundo::mostrar_expresion_grupo(Option<&str>)`, que asigna la clave al
+jugador y a los compañeros presentes en esa viñeta. Este método público permite
+que otros códigos de presentación emitan la misma señal; también pueden indicar
+una expresión individual mediante `VistaActor.expresion`.
+
+La terminal consulta esas claves al dibujar los retratos. No analiza el texto,
+no decide emociones ni exige que todos los Actores tengan los mismos dibujos.
+La señal se renueva en cada viñeta, incluidas las decisiones; una escena sin
+expresión vuelve a la base. Al terminar o cancelar la acción, la vista normal
+se proyecta con `None`. Cambiar de página, abrir el detalle o confirmar la salida
+conserva la expresión de la viñeta vigente. No existe una variable global
+mutable ni un estado emocional persistente en el Mundo.
+
+En Viajar, `narracion_viaje::expresion_escena` fija estas señales iniciales:
+
+| Contexto | Expresión |
+|---|---|
+| Llegada | `happy` |
+| Desplazamiento con incidente o algún chequeo fallido | `scared` |
+| Desplazamiento sin incidentes ni fallos | `happy` |
+| Preparación | `happy` si el chequeo tiene éxito; `scared` si falla |
+| Forrajeo | `happy` si algún chequeo tiene éxito; `scared` en otro caso |
+| Provisiones incompletas | `scared` |
+| Plan, carga inicial, sobrecarga | Ninguna |
+
+Son decisiones de presentación editables junto al relato, sin efecto en las
+reglas de los chequeos. `angry` está disponible cuando un contexto lo solicite;
+no se asigna automáticamente a un acontecimiento de Viajar en esta versión.
 
 ## Temporización
 
@@ -118,3 +150,6 @@ o con un ojo de tamaño distinto de 2×1. `TestBackend` comprueba las tres capas
 transparencia de espacios, herencia de fondo, selección desconocida, posición
 estable y parpadeos independientes. El importador prueba la selección explícita.
 El contenido oficial se valida en conjunto. No hay decisiones pendientes.
+Las pruebas de sesión recorren un viaje y verifican que la señal alcanza al
+grupo y se limpia al terminar; las del narrador comprueban señales de éxito,
+fallo, carencia, llegada y retorno a una escena neutral.

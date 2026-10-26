@@ -79,6 +79,15 @@ pub struct VistaMundo {
     pub causa_indisponibilidad: Option<CausaIndisponibilidad>,
     pub resumen_npc_reciente: Option<ResumenNpc>,
 }
+impl VistaMundo {
+    /// Señal visual para los retratos del grupo; no modifica actores del Mundo.
+    /// Una expresión ausente del retrato conserva su cara base.
+    pub fn mostrar_expresion_grupo(&mut self, expresion: Option<&str>) {
+        for actor in std::iter::once(&mut self.jugador).chain(&mut self.companeros) {
+            actor.expresion = expresion.map(str::to_owned);
+        }
+    }
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaMapa {
     pub ancho: usize,
@@ -393,6 +402,7 @@ impl Partida {
             .filter(|&id| id != self.mundo_visible.jugador.id)
             .map(|id| proyectar_actor(&self.contenido, id))
             .collect::<Result<_, _>>()?;
+        self.mundo_visible.mostrar_expresion_grupo(texto.expresion);
         let escena = Some(match registro.tarjeta {
             ClaveTarjeta::Llegada => ClaveEscena::ViajeLlegada,
             ClaveTarjeta::Navegar => ClaveEscena::ViajeMarcha,
@@ -555,6 +565,55 @@ mod pruebas {
             &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
         )
         .unwrap()
+    }
+    #[test]
+    fn expresiones_de_vineta_llegan_al_grupo_y_se_limpian_al_final() {
+        let c = contenido();
+        let mut p = Partida::con_azar(&c, Box::new(AzarFavorable)).unwrap();
+        let mut vista = p.mundo_visible();
+        let antes = p.mundo_visible();
+        vista.mostrar_expresion_grupo(Some("angry"));
+        assert!(
+            std::iter::once(&vista.jugador)
+                .chain(&vista.companeros)
+                .all(|a| a.expresion.as_deref() == Some("angry"))
+        );
+        assert_eq!(p.mundo_visible(), antes);
+        let AccionDisponible::Viajar { destinos } = &antes.acciones[0];
+        let destino = destinos[0];
+        let mut v = p
+            .procesar(IntencionFrontend::ComenzarViaje { destino })
+            .unwrap();
+        let mut vio_happy = false;
+        for _ in 0..500 {
+            let mundo = p.mundo_visible();
+            let expresion = mundo.jugador.expresion.as_deref();
+            assert!(
+                mundo
+                    .companeros
+                    .iter()
+                    .all(|a| a.expresion.as_deref() == expresion)
+            );
+            vio_happy |= expresion == Some("happy");
+            v = match v {
+                VistaSesion::PresentandoAccion(r) => p
+                    .procesar(IntencionFrontend::ContinuarPresentacion { fragmento: r.id })
+                    .unwrap(),
+                VistaSesion::EsperandoDecision(d) => p
+                    .procesar(IntencionFrontend::ResponderDecision {
+                        decision: d.id,
+                        opcion: d.opciones[0].id,
+                    })
+                    .unwrap(),
+                VistaSesion::Disponible(_) => {
+                    assert_eq!(expresion, None);
+                    assert!(vio_happy);
+                    return;
+                }
+                VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
+            };
+        }
+        panic!("el viaje no terminó");
     }
     #[test]
     fn todos_los_destinos_terminan_y_no_hay_desfase() {

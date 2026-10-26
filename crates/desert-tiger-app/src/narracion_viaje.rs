@@ -8,6 +8,34 @@ pub(crate) struct TextoEscena {
     pub titulo: String,
     pub texto: String,
     pub detalle: Vec<String>,
+    pub expresion: Option<&'static str>,
+}
+
+// Dirección dramática de Viajar: se decide aquí, junto al relato, no en los
+// chequeos reutilizables ni a partir del texto que termina leyendo el jugador.
+fn expresion_escena(contenido: &ContenidoEscena) -> Option<&'static str> {
+    match contenido {
+        ContenidoEscena::Llegada { .. } => Some("happy"),
+        ContenidoEscena::Desplazamiento(d) => {
+            if d.incidente.is_some() || d.chequeos.iter().any(|c| !c.exito) {
+                Some("scared")
+            } else {
+                Some("happy")
+            }
+        }
+        ContenidoEscena::Preparacion { chequeo, .. } => {
+            Some(if chequeo.exito { "happy" } else { "scared" })
+        }
+        ContenidoEscena::Forrajeo { chequeos, .. } => Some(if chequeos.iter().any(|c| c.exito) {
+            "happy"
+        } else {
+            "scared"
+        }),
+        ContenidoEscena::Incompleto { .. } => Some("scared"),
+        ContenidoEscena::Plan { .. }
+        | ContenidoEscena::CargaInicial { .. }
+        | ContenidoEscena::Sobrecarga { .. } => None,
+    }
 }
 fn litros(ml: u64) -> String {
     if ml.is_multiple_of(1000) {
@@ -203,6 +231,7 @@ impl Narrador<'_> {
             titulo: titulo(r.tarjeta).into(),
             texto,
             detalle,
+            expresion: expresion_escena(&r.contenido),
         }
     }
     fn incidente(&self, medio: Medio, i: &IncidenteResuelto) -> String {
@@ -364,5 +393,27 @@ mod pruebas {
         assert_ne!(caballo.titulo, camello.titulo);
         assert!(caballo.texto.contains("cascos"));
         assert!(camello.texto.contains("balance de los camellos"));
+        assert_eq!(camello.expresion, Some("scared"));
+        if let ContenidoEscena::Desplazamiento(d) = &mut registro.contenido {
+            for chequeo in &mut d.chequeos {
+                chequeo.exito = true;
+            }
+        }
+        assert_eq!(narrador.redactar(&registro).expresion, Some("happy"));
+        registro.contenido = ContenidoEscena::Incompleto {
+            inicial: false,
+            falta_comida: true,
+            falta_agua: false,
+        };
+        assert_eq!(narrador.redactar(&registro).expresion, Some("scared"));
+        registro.contenido = ContenidoEscena::Llegada { lugares: 2 };
+        assert_eq!(narrador.redactar(&registro).expresion, Some("happy"));
+        registro.contenido = ContenidoEscena::Plan {
+            proponente: None,
+            habilitacion: vec![],
+            ruta: None,
+            previsto: None,
+        };
+        assert_eq!(narrador.redactar(&registro).expresion, None);
     }
 }
