@@ -63,3 +63,29 @@ cargo run --release --bin desert-tiger-terminal -- -B
 
 `-B` se puede combinar con las otras opciones. Los fondos coloreados del mapa
 y la interfaz, y los fondos explícitos de los retratos, se conservan.
+
+## Sonido de la fogata
+
+El sonido está habilitado por defecto y se escucha al acampar. Para desactivarlo:
+
+```sh
+cargo run --release --bin desert-tiger-terminal -- --no-audio
+```
+
+Se combina con `--content`, `--color-scheme` y `-B`. Si no hay una salida de
+audio compatible, el juego muestra un aviso y continúa en silencio.
+
+El volumen y la densidad del crepitar se editan en
+[`assets/audio/fogata.ron`](../assets/audio/fogata.ron); los cambios se cargan al
+reiniciar. El [contrato del sonido](./tecnica/componentes/18-crepitar-fogata.md#2-recurso-editable)
+explica los campos y sus límites.
+
+También se puede compilar sin FunDSP, CPAL ni sus requisitos de sistema:
+
+```sh
+cargo run --release --no-default-features --bin desert-tiger-terminal
+```
+
+En Linux, compilar con audio requiere los archivos de desarrollo de ALSA y
+`pkg-config`. El juego sintetiza el sonido; no requiere grabaciones ni un
+sintetizador MIDI instalado.

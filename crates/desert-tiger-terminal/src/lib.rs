@@ -1,4 +1,5 @@
 mod animacion;
+mod audio;
 mod campamento;
 mod colores;
 mod consulta_paleta;
@@ -70,7 +71,15 @@ where
             faltante.como_str()
         )));
     }
-    ejecutar_interactivo(partida, recursos, opciones.esquema, opciones.fondo_negro)
+    let audio = audio::preparar(!opciones.sin_audio, Path::new("assets/audio"))
+        .map_err(|error| ErrorTerminal(format!("recursos sonoros: {error}")))?;
+    ejecutar_interactivo(
+        partida,
+        recursos,
+        opciones.esquema,
+        opciones.fondo_negro,
+        audio,
+    )
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -78,6 +87,7 @@ struct Opciones {
     contenido: PathBuf,
     esquema: EsquemaColores,
     fondo_negro: bool,
+    sin_audio: bool,
 }
 
 fn analizar_argumentos<I, S>(argumentos: I) -> Result<Opciones, ErrorTerminal>
@@ -90,7 +100,15 @@ where
     let mut contenido = None;
     let mut esquema = None;
     let mut fondo_negro = false;
+    let mut sin_audio = false;
     while let Some(argumento) = iterador.next() {
+        if argumento == "--no-audio" {
+            if sin_audio {
+                return Err(ErrorTerminal("--no-audio no puede repetirse".into()));
+            }
+            sin_audio = true;
+            continue;
+        }
         if argumento == "-B" {
             if fondo_negro {
                 return Err(ErrorTerminal("-B no puede repetirse".into()));
@@ -128,6 +146,7 @@ where
         contenido: contenido.unwrap_or_else(|| PathBuf::from("content/base")),
         esquema: esquema.unwrap_or_default(),
         fondo_negro,
+        sin_audio,
     })
 }
 
@@ -136,6 +155,7 @@ fn ejecutar_interactivo(
     mut recursos: RecursosVisuales,
     esquema: EsquemaColores,
     fondo_negro: bool,
+    preparacion_audio: audio::PreparacionAudio,
 ) -> Result<(), ErrorTerminal> {
     let _guardia = GuardiaTerminal::entrar()?;
     let (mut paleta, mut entrada) = EntradaTerminal::consultar(esquema);
@@ -145,8 +165,13 @@ fn ejecutar_interactivo(
     let mut terminal = Terminal::new(backend).map_err(error_io)?;
     terminal.clear().map_err(error_io)?;
     let mut interfaz = Interfaz::nueva(partida).map_err(ErrorTerminal)?;
+    let mut audio = audio::ControlAudio::iniciar(preparacion_audio);
     let mut ultimo_paso = Instant::now();
     loop {
+        audio.actualizar(interfaz.ambiente_sonoro());
+        if let Some(aviso) = audio.tomar_aviso() {
+            interfaz.recibir_aviso_audio(aviso);
+        }
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .map_err(error_io)?;
@@ -174,6 +199,10 @@ fn ejecutar_interactivo(
                 Event::Resize(_, _) => {}
                 _ => {}
             }
+        }
+        audio.actualizar(interfaz.ambiente_sonoro());
+        if let Some(aviso) = audio.tomar_aviso() {
+            interfaz.recibir_aviso_audio(aviso);
         }
     }
 }
@@ -219,6 +248,7 @@ mod pruebas {
                 contenido: PathBuf::from("content/base"),
                 esquema: EsquemaColores::Terminal,
                 fondo_negro: false,
+                sin_audio: false,
             }
         );
         assert!(analizar_argumentos(["juego", "--content"]).is_err());
@@ -232,6 +262,35 @@ mod pruebas {
             ])
             .is_err()
         );
+    }
+
+    #[test]
+    fn opcion_sin_audio_se_combina_y_rechaza_duplicados_o_valores() {
+        let opciones = analizar_argumentos([
+            "juego",
+            "--no-audio",
+            "-B",
+            "--content",
+            "mundo",
+            "--color-scheme",
+            "fixed",
+        ])
+        .unwrap();
+        assert!(opciones.sin_audio && opciones.fondo_negro);
+        assert_eq!(opciones.contenido, PathBuf::from("mundo"));
+        assert_eq!(opciones.esquema, EsquemaColores::Fijo);
+        assert!(
+            analizar_argumentos(["juego", "--color-scheme", "terminal", "--no-audio"])
+                .unwrap()
+                .sin_audio
+        );
+        for args in [
+            vec!["juego", "--no-audio", "--no-audio"],
+            vec!["juego", "--no-audio", "true"],
+            vec!["juego", "--content", "--no-audio"],
+        ] {
+            assert!(analizar_argumentos(args).is_err());
+        }
     }
 
     #[test]
@@ -355,6 +414,7 @@ mod pruebas {
                 contenido: PathBuf::from("mundo"),
                 esquema: EsquemaColores::Fijo,
                 fondo_negro: false,
+                sin_audio: false,
             }
         );
         assert_eq!(

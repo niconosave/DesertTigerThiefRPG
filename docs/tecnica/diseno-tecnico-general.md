@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Implementado; detalles históricos señalados en sus componentes |
-| Versión | 0.16 |
-| Fecha | 2026-10-24 |
+| Estado | Implementado; audio en verificación auditiva; detalles históricos señalados en sus componentes |
+| Versión | 0.18 |
+| Fecha | 2026-10-26 |
 
 > El [contrato implementado de Viajar](./acciones/06-implementacion-viajar.md)
 > sustituye sus contratos anteriores. Las cabeceras de los componentes delimitan
@@ -52,6 +52,11 @@ adaptador o FFI, pero no una segunda implementación del gameplay.
 
 La organización física, el toolchain y los controles de dependencias pertenecen
 a [Workspace, entorno y límites de código](./componentes/01-workspace-entorno.md).
+
+La ampliación de [audio procedural](./componentes/17-audio-procedural.md)
+pertenece exclusivamente al frontend. Conserva las tres crates y el mismo
+proceso: el callback de salida procesa sonido independientemente del bucle de
+entrada y dibujo, sin acceder a la Partida ni ejecutar reglas del juego.
 
 ## 3. Vocabulario técnico
 
@@ -180,6 +185,8 @@ entrega rutas, bytes de arte ni una clave perteneciente a un frontend concreto.
 | Orden, límites, ejecución y resúmenes de NPC | [`07-fase-npc.md`](./componentes/07-fase-npc.md) |
 | Runtime, API, capacidades y errores Lua | [`08-integracion-lua.md`](./componentes/08-integracion-lua.md) |
 | Modos, entrada, layout, Ratatui y renderizado | [`09-frontend-terminal.md`](./componentes/09-frontend-terminal.md) |
+| Audio del frontend, dispositivo, activación y errores | [`17-audio-procedural.md`](./componentes/17-audio-procedural.md) |
+| Timbre y parámetros editables del crepitar de la fogata | [`18-crepitar-fogata.md`](./componentes/18-crepitar-fogata.md) |
 | Relaciones, extremos, índices, consultas y semántica de `conectado` | [`10-relaciones.md`](./componentes/10-relaciones.md) |
 | Operaciones persistentes y lotes atómicos | [`11-operaciones-mundo.md`](./componentes/11-operaciones-mundo.md) |
 | Relación `Conoce` y proyección de hechos conocidos | [`12-conocimiento-lugares.md`](./componentes/12-conocimiento-lugares.md) |

@@ -3,6 +3,11 @@
 Los planes convierten documentación técnica ya discutida en pasos de desarrollo
 pequeños, ordenados y verificables.
 
+El audio procedural de la fogata está integrado y en verificación auditiva en
+[PLAN-2026-041](./pendientes/2026-10-26-41-incorporar-audio-fogata.md), según los
+[contratos 17](../tecnica/componentes/17-audio-procedural.md) y
+[18](../tecnica/componentes/18-crepitar-fogata.md).
+
 La selección de colores nativos o fijos está
 [completada en PLAN-2026-040](./completados/2026-10-26-40-resolver-paleta-terminal.md),
 según el [contrato 16](../tecnica/componentes/16-paleta-terminal.md).

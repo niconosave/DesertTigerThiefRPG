@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Implementado |
-| Versión | 0.9 |
-| Fecha | 2026-10-14 |
+| Estado | Implementado; revisión auditiva del audio pendiente |
+| Versión | 0.11 |
+| Fecha | 2026-10-26 |
 
 ## 1. Propósito
 
@@ -91,6 +91,11 @@ cada crate hereda solamente las que usa:
 | `mlua` | `0.12.2` | `app` | sin características predeterminadas; `lua54`, `vendored` | políticas NPC en Lua 5.4 embebido |
 | `rand` | `0.10.3` | `app` | predeterminadas | semilla nueva desde el sistema y traits de azar |
 | `rand_chacha` | `0.10.0` | `app` | predeterminadas | `ChaCha12Rng` poseído por la Partida |
+
+La ampliación de FunDSP y CPAL, sus versiones, features y requisitos
+de sistema se define en el [contrato 17, sección 2](./17-audio-procedural.md#2-organización-y-dependencias).
+Esas dependencias están incorporadas al manifiesto y a `Cargo.lock`. El contrato permite
+compilar el frontend sin audio y no agrega dependencias a `app` ni `core`.
 
 `mlua` usa `vendored` para compilar y enlazar su propia Lua 5.4 en vez de depender
 de un paquete Lua instalado globalmente. Esa compilación requiere el compilador C

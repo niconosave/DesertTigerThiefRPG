@@ -1,0 +1,8 @@
+(
+    volumen: 0.35,
+    nivel_brasa: 0.28,
+    chasquidos_por_segundo: 8.0,
+    crujidos_por_segundo: 0.6,
+    entrada_ms: 200,
+    salida_ms: 250,
+)

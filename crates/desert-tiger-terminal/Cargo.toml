@@ -7,7 +7,13 @@ rust-version.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = ["audio"]
+audio = ["dep:fundsp", "dep:cpal"]
+
 [dependencies]
+fundsp = { workspace = true, optional = true }
+cpal = { workspace = true, optional = true }
 crossterm.workspace = true
 desert-tiger-app = { path = "../desert-tiger-app" }
 flate2.workspace = true
