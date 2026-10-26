@@ -21,6 +21,8 @@ Todos desarrollan el
 | [`12-conocimiento-lugares.md`](./12-conocimiento-lugares.md) | Relación dirigida `Conoce`, índices y proyección de hechos conocidos. |
 | [`13-retratos-por-capas.md`](./13-retratos-por-capas.md) | Base, expresiones, ojo superpuesto y parpadeo individual. |
 | [`14-parentesco-actores-contexto.md`](./14-parentesco-actores-contexto.md) | Implementado: Actores fuera del escenario, filiación, hermanos deducidos y MatadoPor. |
+| [`15-fogata-procedural.md`](./15-fogata-procedural.md) | Implementado: llama RGB, chispas, iluminación de retratos y reloj visual compatible. |
+| [`16-paleta-terminal.md`](./16-paleta-terminal.md) | Implementado: paleta nativa consultada, colores desconocidos sin tintado y opción de colores fijos. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen

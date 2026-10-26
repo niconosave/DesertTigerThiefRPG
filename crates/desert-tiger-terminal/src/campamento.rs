@@ -210,14 +210,14 @@ impl EstadoCampamento {
         area: Rect,
         mundo: &VistaMundo,
         recursos: &RecursosVisuales,
-        paso: usize,
+        reloj: &crate::animacion::RelojVisual,
     ) {
         let alto = mundo
             .companeros
             .iter()
             .chain(std::iter::once(&mundo.jugador))
             .map(|a| a.retrato.base().alto())
-            .chain(std::iter::once(recursos.fogata.len()))
+            .chain(std::iter::once(recursos.alto_fogata()))
             .max()
             .unwrap_or(0);
         let alto_arte = u16::try_from(alto)
@@ -225,25 +225,37 @@ impl EstadoCampamento {
             .min(area.height.saturating_sub(6));
         let ficha_alto = area.height - alto_arte;
         let arte = Rect::new(area.x, area.y + ficha_alto, area.width, alto_arte);
-        let fin_retratos = dibujar_retratos(frame, area, arte, mundo, recursos, paso);
+        let fin_retratos =
+            dibujar_retratos(frame, area, arte, mundo, recursos, reloj.paso_250_ms());
         let fogata_x = fin_retratos.saturating_add(1);
         let fogata_y = i64::from(area.bottom())
-            .saturating_sub(i64::try_from(recursos.fogata.len()).unwrap_or(i64::MAX));
-        for (y, fila) in recursos.fogata.iter().enumerate() {
-            for (x, c) in fila.chars().enumerate() {
-                if c == ' ' {
-                    continue;
-                }
-                let px = fogata_x.saturating_add(i64::try_from(x).unwrap_or(i64::MAX));
-                let py = fogata_y.saturating_add(i64::try_from(y).unwrap_or(i64::MAX));
-                if px >= i64::from(arte.x)
-                    && px < i64::from(arte.right())
-                    && py >= i64::from(arte.y)
-                    && py < i64::from(arte.bottom())
-                    && let (Ok(x), Ok(y)) = (u16::try_from(px), u16::try_from(py))
-                    && let Some(celda) = frame.buffer_mut().cell_mut((x, y))
-                {
-                    celda.set_char(c).set_style(recursos.estilo_fogata);
+            .saturating_sub(i64::try_from(recursos.alto_fogata()).unwrap_or(i64::MAX));
+        if let Some(configuracion) = &recursos.efecto_fogata {
+            crate::fogata::dibujar(
+                frame.buffer_mut(),
+                arte,
+                (fogata_x, fogata_y),
+                reloj.instante_ms(),
+                configuracion,
+                &recursos.paleta,
+            );
+        } else {
+            for (y, fila) in recursos.fogata.iter().enumerate() {
+                for (x, c) in fila.chars().enumerate() {
+                    if c == ' ' {
+                        continue;
+                    }
+                    let px = fogata_x.saturating_add(i64::try_from(x).unwrap_or(i64::MAX));
+                    let py = fogata_y.saturating_add(i64::try_from(y).unwrap_or(i64::MAX));
+                    if px >= i64::from(arte.x)
+                        && px < i64::from(arte.right())
+                        && py >= i64::from(arte.y)
+                        && py < i64::from(arte.bottom())
+                        && let (Ok(x), Ok(y)) = (u16::try_from(px), u16::try_from(py))
+                        && let Some(celda) = frame.buffer_mut().cell_mut((x, y))
+                    {
+                        celda.set_char(c).set_style(recursos.estilo_fogata);
+                    }
                 }
             }
         }
@@ -411,13 +423,29 @@ mod pruebas {
         );
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
         terminal
-            .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 22), &p.mundo_visible(), &recursos, 0))
+            .draw(|f| {
+                e.dibujar(
+                    f,
+                    Rect::new(0, 0, 80, 22),
+                    &p.mundo_visible(),
+                    &recursos,
+                    &crate::animacion::RelojVisual::default(),
+                )
+            })
             .unwrap();
         let paginas = e.paginas().len();
         let mut explicacion = false;
         for _ in 0..paginas {
             terminal
-                .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 22), &p.mundo_visible(), &recursos, 0))
+                .draw(|f| {
+                    e.dibujar(
+                        f,
+                        Rect::new(0, 0, 80, 22),
+                        &p.mundo_visible(),
+                        &recursos,
+                        &crate::animacion::RelojVisual::default(),
+                    )
+                })
                 .unwrap();
             let texto: String = terminal
                 .backend()
@@ -506,7 +534,8 @@ mod pruebas {
 
     #[test]
     fn render_minimo_pagina_biografia_y_conserva_lista_al_redimensionar() {
-        let (p, mut e, r) = escenario();
+        let (p, mut e, mut r) = escenario();
+        r.efecto_fogata = None;
         let ficha = e.ficha.as_mut().unwrap();
         ficha.biografia = Some(format!(
             "{}\nFINBIO",
@@ -522,7 +551,15 @@ mod pruebas {
         e.entrada = Some(99);
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
         terminal
-            .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 22), &p.mundo_visible(), &r, 0))
+            .draw(|f| {
+                e.dibujar(
+                    f,
+                    Rect::new(0, 0, 80, 22),
+                    &p.mundo_visible(),
+                    &r,
+                    &crate::animacion::RelojVisual::default(),
+                )
+            })
             .unwrap();
         assert_eq!(terminal.backend().buffer()[(59, 18)].symbol(), "/");
         let lineas: String = terminal
@@ -536,7 +573,15 @@ mod pruebas {
         let mut fin = false;
         for _ in 0..e.paginas().len() {
             terminal
-                .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 22), &p.mundo_visible(), &r, 0))
+                .draw(|f| {
+                    e.dibujar(
+                        f,
+                        Rect::new(0, 0, 80, 22),
+                        &p.mundo_visible(),
+                        &r,
+                        &crate::animacion::RelojVisual::default(),
+                    )
+                })
                 .unwrap();
             let texto: String = terminal
                 .backend()
@@ -552,12 +597,28 @@ mod pruebas {
         terminal.backend_mut().resize(120, 40);
         terminal.resize(Rect::new(0, 0, 120, 40)).unwrap();
         terminal
-            .draw(|f| e.dibujar(f, Rect::new(0, 0, 120, 38), &p.mundo_visible(), &r, 0))
+            .draw(|f| {
+                e.dibujar(
+                    f,
+                    Rect::new(0, 0, 120, 38),
+                    &p.mundo_visible(),
+                    &r,
+                    &crate::animacion::RelojVisual::default(),
+                )
+            })
             .unwrap();
         terminal.backend_mut().resize(80, 24);
         terminal.resize(Rect::new(0, 0, 80, 24)).unwrap();
         terminal
-            .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 22), &p.mundo_visible(), &r, 0))
+            .draw(|f| {
+                e.dibujar(
+                    f,
+                    Rect::new(0, 0, 80, 22),
+                    &p.mundo_visible(),
+                    &r,
+                    &crate::animacion::RelojVisual::default(),
+                )
+            })
             .unwrap();
         assert_eq!(e.entrada, Some(99));
         assert!(e.pagina.get() < e.paginas().len());
@@ -584,13 +645,29 @@ mod pruebas {
         let mut terminal = Terminal::new(TestBackend::new(80, 12)).unwrap();
         // Una región más baja que la base fuerza un origen lógico negativo.
         terminal
-            .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 10), &mundo, &r, 0))
+            .draw(|f| {
+                e.dibujar(
+                    f,
+                    Rect::new(0, 0, 80, 10),
+                    &mundo,
+                    &r,
+                    &crate::animacion::RelojVisual::default(),
+                )
+            })
             .unwrap();
         assert_eq!(terminal.backend().buffer()[(3, 9)].symbol(), "█");
         assert_eq!(terminal.backend().buffer()[(0, 0)].symbol(), "A");
         mundo.companeros = vec![mundo.jugador.clone(); 100];
         terminal
-            .draw(|f| e.dibujar(f, Rect::new(0, 0, 80, 10), &mundo, &r, 0))
+            .draw(|f| {
+                e.dibujar(
+                    f,
+                    Rect::new(0, 0, 80, 10),
+                    &mundo,
+                    &r,
+                    &crate::animacion::RelojVisual::default(),
+                )
+            })
             .unwrap();
         assert_eq!(terminal.backend().buffer()[(0, 0)].symbol(), "A");
         assert_eq!(terminal.backend().buffer()[(0, 10)].symbol(), " ");

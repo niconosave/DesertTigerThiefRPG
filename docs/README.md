@@ -32,3 +32,34 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 
 La [metodología de desarrollo](./metodologia-desarrollo.md) gobierna este flujo,
 los estándares de implementación, las pruebas y la definición de terminado.
+
+## Elegir los colores al jugar
+
+El modo predeterminado conserva la paleta de la terminal. Si puede consultarla,
+la fogata utiliza esos tonos como base de su luz; los colores que no puede
+consultar conservan su apariencia nativa.
+
+```sh
+cargo run --release --bin desert-tiger-terminal
+```
+
+Para usar la paleta RGB fija del juego, incluida la iluminación:
+
+```sh
+cargo run --release --bin desert-tiger-terminal -- --color-scheme fixed
+```
+
+También se admite `--color-scheme terminal` explícito. Estas opciones pueden
+combinarse con `--content RUTA`. El negro puro y los otros RGB explícitos se
+conservan en ambos modos. El [contrato 16](./tecnica/componentes/16-paleta-terminal.md)
+define el comportamiento y la compatibilidad.
+
+El fondo general usa por defecto el de tu terminal. Para forzar únicamente
+negro puro, conservando los colores nativos:
+
+```sh
+cargo run --release --bin desert-tiger-terminal -- -B
+```
+
+`-B` se puede combinar con las otras opciones. Los fondos coloreados del mapa
+y la interfaz, y los fondos explícitos de los retratos, se conservan.

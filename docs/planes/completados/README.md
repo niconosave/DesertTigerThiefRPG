@@ -88,3 +88,21 @@ recorrido manual del ejecutable release en PTY 80×24. El detalle está en la
 Verificación: 107 pruebas, controles generales y build release satisfactorios;
 recorrido manual en PTY 80×24. La [sección 12 del contrato](../../tecnica/componentes/14-parentesco-actores-contexto.md#12-verificación-de-la-implementación--2026-10-26)
 registra los resultados.
+
+## Fogata procedural del campamento
+
+| Fecha | Plan | Resultado |
+|---|---|---|
+| 2026-10-26 | [PLAN-2026-039](./2026-10-26-39-animar-iluminar-fogata.md) | Llama RGB, chispas, iluminación de retratos y reloj fino con compatibilidad temporal. |
+
+El [contrato 15](../../tecnica/componentes/15-fogata-procedural.md#11-verificación-de-la-implementación--2026-10-26)
+registra controles, pruebas y revisión del ejecutable.
+
+## Paleta nativa y colores fijos
+
+| Fecha | Plan | Resultado |
+|---|---|---|
+| 2026-10-26 | [PLAN-2026-040](./2026-10-26-40-resolver-paleta-terminal.md) | Consulta de paleta, nativos intactos, iluminación de colores conocidos y CLI de colores fijos. |
+
+El [contrato 16](../../tecnica/componentes/16-paleta-terminal.md#7-verificación-de-la-implementación--2026-10-26)
+registra pruebas, escenarios de terminal y revisión del ejecutable.

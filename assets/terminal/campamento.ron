@@ -7,5 +7,10 @@
  /__\ 
 "#,
         estilo: (frente: "amarillo", fondo: None, modificadores: []),
+        efecto: Some((
+            luz: (r: 255, g: 180, b: 72),
+            intensidad_luz: 0.45,
+            radio_luz: 28,
+        )),
     ),
 )

@@ -2720,7 +2720,7 @@ mod pruebas {
             retrato.base().celdas()[ojo].estilo,
             Some(EstiloCeldaRetrato {
                 frente: ColorRetrato::Cian,
-                fondo: Some(ColorRetrato::Negro),
+                fondo: None,
             })
         );
     }

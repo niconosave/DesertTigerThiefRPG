@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.3 |
+| Versión | 0.5 |
 | Fecha | 2026-10-26 |
 
 ## 1. Propósito y alcance
@@ -35,8 +35,14 @@ pantalla cambia a la vista de campamento:
 
 La ficha se dispone de forma que los retratos y la fogata no impidan leer la
 información seleccionada. Sus dimensiones, distribución y arte concreto se
-resolverán en el diseño técnico y en los recursos visuales del frontend. No se
-requiere animar la fogata en este alcance.
+resuelven en el diseño técnico y en los recursos visuales del frontend.
+
+La presentación agrega una llama que oscila suavemente, chispas
+que ascienden hacia la derecha y una luz cálida variable que ilumina los colores
+de los retratos y pierde intensidad con la distancia. Es un efecto de
+presentación; la lectura de fichas, los controles y el tiempo del juego mantienen
+su comportamiento. Su implementación se define en el
+[contrato técnico de fogata](../tecnica/componentes/15-fogata-procedural.md).
 
 ## 3. Información de las fichas
 

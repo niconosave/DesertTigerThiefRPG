@@ -3,12 +3,17 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.2 |
+| Versión | 1.4 |
 | Fecha | 2026-10-26 |
 
 > Ampliación implementada el 2026-10-26: la ubicación visible y la
 > representación de vínculos registrados/deducidos se definen en el
 > [contrato 14, sección 6](../componentes/14-parentesco-actores-contexto.md#6-fichas-ubicación-inversas-y-deducciones).
+
+> Ampliación implementada el 2026-10-26: el
+> [contrato 15](../componentes/15-fogata-procedural.md) amplía las secciones 8.1
+> y 8.3 con la fogata animada y su iluminación. Prevalece para ese incremento
+> sobre la presentación estática original de este contrato.
 
 ## 1. Fuente, alcance y precedencia
 
@@ -18,8 +23,8 @@ Describe el código implementado y sus contratos; no es un plan de trabajo.
 
 Comprende apertura y cierre de la acción, consulta de fichas, metadatos de
 Actores, catálogo de características y vista terminal con retratos y fogata.
-No añade recuperación, encuentros, inventario, tipos de relación, secretos,
-animación de fogata ni nuevos comportamientos de Lua. Las reglas de Viajar
+No añade recuperación, encuentros, inventario, tipos de relación, secretos
+ni nuevos comportamientos de Lua. Las reglas de Viajar
 permanecen en el [contrato 06](./06-implementacion-viajar.md).
 
 Este contrato amplía los componentes 02, 03, 04, 05 y 09 en los puntos enumerados
@@ -485,7 +490,10 @@ Se reutilizan `EstiloDto`, conversión de colores y normalización de bloques de
 una columna por carácter; sus espacios son transparentes. Este archivo es un
 recurso requerido de la terminal: ausencia o contenido inválido se diagnostica
 antes de entrar al modo interactivo. No se crea una ClaveEscena de Viajar para
-resolverlo. El gráfico oficial es estático y pequeño, como el ejemplo de 6×4.
+resolverlo. Este ejemplo de 6×4 sigue siendo el camino estático. El recurso
+oficial activa la representación procedural mediante el campo `efecto` del
+[contrato 15](../componentes/15-fogata-procedural.md#4-recurso-y-compatibilidad),
+que define su esquema, altura, animación e iluminación.
 
 ## 9. Errores e invariantes
 
@@ -545,7 +553,7 @@ arte y comodidad de los dos focos; no se detiene por cada ficha o variante.
 Los planes futuros deben referenciar estas secciones; no necesitan completar
 decisiones de datos, foco, tiempo o render. No quedan preguntas bloqueantes.
 Se aplazan las mecánicas de descanso, otros tipos de elementos, historial de
-fichas, animación de fogata y solicitudes Lua de Acampar.
+fichas y solicitudes Lua de Acampar.
 
 
 ## 12. Verificación de la implementación — 2026-10-26

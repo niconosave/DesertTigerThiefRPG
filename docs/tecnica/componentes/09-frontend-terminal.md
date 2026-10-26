@@ -3,11 +3,25 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.49 |
+| Versión | 0.54 |
 | Fecha | 2026-10-26 |
+
+> La resolución de color, la consulta inicial y la opción `--color-scheme`
+> están implementadas según el [contrato 16](./16-paleta-terminal.md). Los
+> colores nominales de los recursos se conservan en modo terminal; el modo fijo
+> convierte el buffer completo a RGB después de componerlo.
+
+> El fondo general nativo y la opción `-B` se rigen por la
+> [sección 8 del contrato 16](./16-paleta-terminal.md#8-fondo-predeterminado-y-opción--b).
 
 > Ampliación implementada el 2026-10-26: focos, controles y vista de
 > campamento se definen en [Acampar, secciones 7–8](../acciones/07-acampar.md#7-estado-local-y-controles-de-terminal).
+
+> Ampliación implementada el 2026-10-26: el
+> [contrato 15](./15-fogata-procedural.md) define la fogata procedural y sustituye
+> la frecuencia de la sección 8 por un reloj con vencimientos de 50/250 ms.
+> Los pasos de tiles y retratos siguen representando 250 ms; sus formatos,
+> duraciones y pruebas de compatibilidad se conservan.
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
 
@@ -290,8 +304,8 @@ Ejemplo de autoría:
 ```
 
 `duracion_fotograma_ms` vale 500 si se omite y se aplica por igual a todos los
-fotogramas de ese tipo. Debe ser un múltiplo positivo de 250, la resolución del
-reloj visual existente. Cada tipo puede tener su propia duración y cantidad de
+fotogramas de ese tipo. Debe ser un múltiplo positivo de 250, la unidad
+conservada para tiles y retratos. Cada tipo puede tener su propia duración y cantidad de
 fotogramas. El estilo se comparte entre todos los fotogramas.
 
 La selección del fotograma es cíclica y usa el contador de animación de la
@@ -392,7 +406,7 @@ valores aprobados:
 (
     pantalla: (
         frente: "gris",
-        fondo: Some("negro"),
+        fondo: None,
         modificadores: [],
     ),
     texto_normal: (
@@ -442,7 +456,7 @@ valores aprobados:
     ),
     barra_contextual: (
         frente: "blanco",
-        fondo: Some("negro"),
+        fondo: None,
         modificadores: [],
     ),
     barra_acciones: (
@@ -779,7 +793,7 @@ relleno, y no inserta las opciones de una decisión dentro de estas regiones.
 La ilustración usa `destacado` y su texto narrativo usa `texto_normal`. Cada
 espacio del bloque de arte es transparente: conserva el fondo `pantalla` de la
 ventana y no escribe glifo ni estilo. Los demás caracteres sustituyen el glifo y
-aplican el frente blanco y `negrita` de `destacado`, manteniendo el fondo negro.
+aplican el frente blanco y `negrita` de `destacado`, manteniendo el fondo del lienzo.
 Cuando existe más de una página, su indicador usa `secundario`. Estos estilos
 pertenecen a la terminal y nunca se incorporan a `scenes.ron` ni a las vistas de
 aplicación.
@@ -906,7 +920,7 @@ o totalmente cubierto; la barra contextual siempre repite su nombre completo.
 
 Cada fotograma escribe el glifo y el estilo base completos de todas las celdas
 visibles después de que `pantalla` haya rellenado el búfer. Por ello,
-`fondo: None` no impone un fondo propio y conserva el fondo negro de `pantalla`;
+`fondo: None` no impone un fondo propio y conserva el lienzo de `pantalla`;
 nunca hereda el de otro tipo de tile o del fotograma previo. Un fondo explícito
 del tile sí lo reemplaza. Las capas posteriores pueden aplicar un estilo
 adicional sin modificar el catálogo.
@@ -976,7 +990,8 @@ el rol `destacado` como reserva monocroma. Si contiene un estilo, la terminal
 convierte `ColorRetrato` a la variante equivalente de
 `ratatui::style::Color`, aplica el frente y aplica el fondo solamente cuando sea
 `Some`; no añade `negrita`, no interpreta secuencias ANSI y no consulta los
-recursos de tiles. En esa conversión, `Negro` produce `Rgb(0, 0, 0)` y
+recursos de tiles. En el frente, `Negro` produce `Black`; un fondo explícito
+`Some(Negro)` sigue produciendo `Rgb(0, 0, 0)`. Por su parte,
 `GrisMuyOscuro` produce `Rgb(32, 32, 32)`; los demás colores conservan su
 variante ANSI equivalente. Un fondo ausente conserva el fondo que ya aportó el
 mapa. El orden de capas mantiene la transparencia y permite que los bloques
@@ -1059,14 +1074,15 @@ El primer incremento usará un bucle síncrono y monohilo:
 4. actualiza el estado de interfaz;
 5. solicita a Ratatui un nuevo renderizado cuando cambió algo visible.
 
-El bucle visual avanza en pasos de 250 ms con un reloj monotónico del
-frontend. La entrada y los redimensionados interrumpen su espera. Ratatui dibuja
-el estado actual; los tiles conservan sus fotogramas y duración propios, y cada
-retrato calcula su parpadeo según el [contrato 13](./13-retratos-por-capas.md).
-Un vencimiento tardío avanza los pasos completos sin reproducirlos en ráfaga.
-La confirmación de salida congela el reloj visual. Este reloj nunca adelanta
-la fecha del Mundo ni consume el azar de la Partida. El bucle sigue siendo
-síncrono y monohilo.
+El reloj y los vencimientos se rigen por el
+[contrato 15, sección 3](./15-fogata-procedural.md#3-tiempo-visual): muestreo fino
+para la fogata y pasos derivados de 250 ms para tiles y retratos. Se conservan
+sus duraciones y el parpadeo del [contrato 13](./13-retratos-por-capas.md).
+La entrada y el resize interrumpen la espera; un vencimiento tardío presenta el
+estado actual sin reproducir cuadros atrasados. La confirmación congela el
+tiempo visual y conserva su fracción pendiente. Ese reloj nunca adelanta la
+fecha del Mundo ni consume el azar de la Partida. El bucle sigue siendo síncrono
+y monohilo.
 
 La inicialización y el cierre serán simétricos. Un guardián de ciclo de vida
 restaurará cursor, modo raw y pantalla principal tanto ante una salida normal

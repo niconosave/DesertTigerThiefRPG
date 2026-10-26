@@ -4,6 +4,20 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Paleta nativa y colores fijos terminados
+
+[PLAN-2026-040](../completados/2026-10-26-40-resolver-paleta-terminal.md) está
+implementado y archivado. Sus escenarios y verificaciones están en el
+[contrato 16](../../tecnica/componentes/16-paleta-terminal.md#7-verificación-de-la-implementación--2026-10-26).
+No quedan tareas de este incremento.
+
+## Fogata procedural terminada
+
+[PLAN-2026-039](../completados/2026-10-26-39-animar-iluminar-fogata.md) está
+implementado, verificado y archivado. El
+[contrato 15](../../tecnica/componentes/15-fogata-procedural.md#11-verificación-de-la-implementación--2026-10-26)
+registra su cierre. No quedan tareas de este incremento.
+
 ## Parentesco y Actores de contexto terminado
 
 PLAN-2026-038 está implementado, verificado y archivado en

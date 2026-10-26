@@ -1,7 +1,7 @@
 (
     reserva: (
         glifo: '?',
-        estilo: (frente: "blanco", fondo: Some("negro"), modificadores: ["invertido"]),
+        estilo: (frente: "blanco", fondo: None, modificadores: ["invertido"]),
     ),
     apariencias: {
         // Cada bloque se repite desde (0, 0) del mapa, no de la pantalla.
@@ -14,7 +14,7 @@
 ․  ․  ․ ․ 
   ․  ⁚ ∴  
 "#,
-            estilo: (frente: "amarillo", fondo: Some("negro"), modificadores: []),
+            estilo: (frente: "amarillo", fondo: None, modificadores: []),
         ),
         "sueloArido": (
             patron: r#"
@@ -31,7 +31,7 @@
     .    ¥      .          --   
   .   ¥ . ¥,         .  -       
 "#,
-            estilo: (frente: "rojo", fondo: Some("negro"), modificadores: ["tenue"]),
+            estilo: (frente: "rojo", fondo: None, modificadores: ["tenue"]),
         ),
         "montana": (
             patron: r#"
@@ -40,7 +40,7 @@
 🯚╱╲🯐🯓🯑🯒-
 🯐𜰉🮧𜰉🮢🯐🯓🯢
 "#,
-            estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["negrita"]),
+            estilo: (frente: "grisOscuro", fondo: None, modificadores: ["negrita"]),
         ),
         "vegetacion": (
             duracion_fotograma_ms: 1250,
@@ -64,7 +64,7 @@ r#"
 ∴*⁑⁙⁘*⌁∴
 "#,
             ],
-            estilo: (frente: "verdeClaro", fondo: Some("negro"), modificadores: []),
+            estilo: (frente: "verdeClaro", fondo: None, modificadores: []),
         ),
         "bosque": (
             patron: r#"
@@ -74,7 +74,7 @@ r#"
 ⋎⋂ƞn ⋎ ⋎vvn⋎⋎⋎
 ⋎⋎⋎ Ǫ⋎⋎ v⋎⋎⋎⋎⋎
 "#,
-            estilo: (frente: "verdeOscuro", fondo: Some("negro"), modificadores: ["negrita"]),
+            estilo: (frente: "verdeOscuro", fondo: None, modificadores: ["negrita"]),
         ),
         "agua": (
             // Añadí aquí más fotogramas del mismo ancho y alto para animar las olas.
@@ -109,7 +109,7 @@ r#"
 ◡◡ ◡◡◡◡◡◡◡◡◡◡◡◡◡ ◡◡  ◡
 "#,
             ],
-            estilo: (frente: "azul", fondo: Some("negro"), modificadores: []),
+            estilo: (frente: "azul", fondo: None, modificadores: []),
         ),
         "aguaRio": (
             duracion_fotograma_ms: 250,
@@ -130,7 +130,7 @@ r#"
 ∵∿∵
 "#,
             ],
-            estilo: (frente: "cianClaro", fondo: Some("negro"), modificadores: []),
+            estilo: (frente: "cianClaro", fondo: None, modificadores: []),
         ),
         "bosqueQuemado": (
             patron: r#"
@@ -139,7 +139,7 @@ r#"
 ≁..|:≁.|
 .|≁..|≁.
 "#,
-            estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["tenue"]),
+            estilo: (frente: "grisOscuro", fondo: None, modificadores: ["tenue"]),
         ),
     },
 )

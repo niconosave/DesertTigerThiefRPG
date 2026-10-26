@@ -14,6 +14,25 @@ pub(crate) const NEGRO_PURO: Color = Color::Rgb(0, 0, 0);
 const AZUL_OSCURO: Color = Color::Rgb(0, 24, 64);
 const VERDE_OSCURO: Color = Color::Rgb(32, 96, 78);
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ConfiguracionFogata {
+    luz: [u8; 3],
+    intensidad_luz: f32,
+    radio_luz: u16,
+}
+
+impl ConfiguracionFogata {
+    pub(crate) fn luz(&self) -> [u8; 3] {
+        self.luz
+    }
+    pub(crate) fn intensidad_luz(&self) -> f32 {
+        self.intensidad_luz
+    }
+    pub(crate) fn radio_luz(&self) -> u16 {
+        self.radio_luz
+    }
+}
+
 #[derive(Debug)]
 pub struct ErrorRecursos(String);
 
@@ -41,7 +60,7 @@ struct PatronTile {
 
 impl PatronTile {
     fn en(&self, x: usize, y: usize, paso_animacion: usize) -> AparienciaTile {
-        let transcurrido_ms = paso_animacion as u128 * crate::INTERVALO_ANIMACION.as_millis();
+        let transcurrido_ms = paso_animacion as u128 * crate::PASO_ANIMACION.as_millis();
         let indice = (transcurrido_ms / u128::from(self.duracion_fotograma_ms)
             % self.fotogramas.len() as u128) as usize;
         AparienciaTile {
@@ -52,12 +71,14 @@ impl PatronTile {
 }
 
 pub(crate) struct RecursosVisuales {
+    pub(crate) paleta: crate::colores::PaletaColores,
     reserva: AparienciaTile,
     apariencias: BTreeMap<ClaveTipoTile, PatronTile>,
     pub ui: PaletaUi,
     escenas: Vec<(ClaveEscena, Vec<String>)>,
     pub(crate) fogata: Vec<String>,
     pub(crate) estilo_fogata: Style,
+    pub(crate) efecto_fogata: Option<ConfiguracionFogata>,
 }
 
 impl RecursosVisuales {
@@ -65,7 +86,9 @@ impl RecursosVisuales {
         let tiles: TilesDto = leer_ron(&raiz.join("tiles.ron"))?;
         let ui: UiDto = leer_ron(&raiz.join("ui.ron"))?;
         let escenas: EscenasDto = leer_ron(&raiz.join("scenes.ron"))?;
-        let campamento: CampamentoDto = leer_ron(&raiz.join("campamento.ron"))?;
+        let campamento: CampamentoDto = leer_ron(&raiz.join("campamento.ron"))
+            .map_err(|e| ErrorRecursos(format!("{e} (fogata, incluido fogata.efecto)")))?;
+        let efecto_fogata = campamento.fogata.efecto.map(convertir_efecto).transpose()?;
         let fogata = normalizar_arte(&campamento.fogata.arte)
             .map_err(|e| ErrorRecursos(format!("campamento.ron: {e}")))?;
         let estilo_fogata = convertir_estilo(campamento.fogata.estilo)
@@ -103,13 +126,23 @@ impl RecursosVisuales {
             ilustraciones.push((clave, arte));
         }
         Ok(Self {
+            paleta: crate::colores::PaletaColores::default(),
             reserva,
             apariencias,
             ui: convertir_ui(ui)?,
             escenas: ilustraciones,
             fogata,
             estilo_fogata,
+            efecto_fogata,
         })
+    }
+
+    pub(crate) fn alto_fogata(&self) -> usize {
+        if self.efecto_fogata.is_some() {
+            usize::from(crate::fogata::ALTO)
+        } else {
+            self.fogata.len()
+        }
     }
 
     pub(crate) fn tile(
@@ -307,7 +340,7 @@ fn convertir_patron(dto: DefinicionTileDto) -> Result<PatronTile, ErrorRecursos>
         return Err(ErrorRecursos("fotogramas no puede estar vacío".to_owned()));
     }
     if dto.duracion_fotograma_ms == 0
-        || u128::from(dto.duracion_fotograma_ms) % crate::INTERVALO_ANIMACION.as_millis() != 0
+        || u128::from(dto.duracion_fotograma_ms) % crate::PASO_ANIMACION.as_millis() != 0
     {
         return Err(ErrorRecursos(
             "duracion_fotograma_ms debe ser un múltiplo positivo de 250".to_owned(),
@@ -540,7 +573,7 @@ mod pruebas {
         for (x, y) in [(0, 0), (37, 89), (usize::MAX, usize::MAX)] {
             let tile = recursos.tile(&clave, x, y, usize::MAX);
             assert_eq!(tile.glifo, '?');
-            assert_eq!(tile.estilo.bg, Some(NEGRO_PURO));
+            assert_eq!(tile.estilo.bg, None);
             assert!(tile.estilo.add_modifier.contains(Modifier::REVERSED));
         }
     }
@@ -584,6 +617,61 @@ mod pruebas {
         assert_eq!(color("azulOscuro").unwrap(), Color::Rgb(0, 24, 64));
         assert_eq!(color("verdeOscuro").unwrap(), Color::Rgb(32, 96, 78));
     }
+
+    #[test]
+    fn efecto_fogata_es_opcional_y_valida_limites_con_contexto() {
+        let original = include_str!("../../../assets/terminal/campamento.ron");
+        let oficial: CampamentoDto = ron::from_str(original).unwrap();
+        let config = convertir_efecto(oficial.fogata.efecto.unwrap()).unwrap();
+        assert_eq!(config.luz(), [255, 180, 72]);
+        assert_eq!(config.radio_luz(), 28);
+        for campo in ["", "efecto: None,"] {
+            let texto = format!(
+                r#"(fogata: (arte: "x", estilo: (frente: "amarillo", fondo: None, modificadores: []), {campo}))"#
+            );
+            let dto: CampamentoDto = ron::from_str(&texto).unwrap();
+            assert!(dto.fogata.efecto.is_none());
+        }
+        for (intensidad, radio, rojo, campo) in [
+            ("-0.1", 28, 255, "intensidad_luz"),
+            ("1.1", 28, 255, "intensidad_luz"),
+            ("NaN", 28, 255, "intensidad_luz"),
+            ("inf", 28, 255, "intensidad_luz"),
+            ("0.45", 0, 255, "radio_luz"),
+            ("0.45", 129, 255, "radio_luz"),
+            ("0.45", 28, 256, "luz.r"),
+        ] {
+            let texto = format!(
+                "(luz: (r: {rojo}, g: 180, b: 72), intensidad_luz: {intensidad}, radio_luz: {radio})"
+            );
+            let dto = ron::from_str(&texto).unwrap();
+            let error = convertir_efecto(dto).unwrap_err().to_string();
+            assert!(
+                error.contains(&format!("campamento.ron: fogata.efecto.{campo}")),
+                "{error}"
+            );
+        }
+        for (intensidad, radio) in [(0.0, 1), (1.0, 128)] {
+            assert!(
+                convertir_efecto(EfectoFogataDto {
+                    luz: RgbFogataDto {
+                        r: 0,
+                        g: 255,
+                        b: 255
+                    },
+                    intensidad_luz: intensidad,
+                    radio_luz: radio,
+                })
+                .is_ok()
+            );
+        }
+        for texto in [
+            "(luz: (r: 1, g: 2, b: 3), radio_luz: 28)",
+            "(luz: (r: 1, g: 2), intensidad_luz: 0.5, radio_luz: 28)",
+        ] {
+            assert!(ron::from_str::<EfectoFogataDto>(texto).is_err());
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -596,4 +684,48 @@ struct CampamentoDto {
 struct FogataDto {
     arte: String,
     estilo: EstiloDto,
+    #[serde(default)]
+    efecto: Option<EfectoFogataDto>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EfectoFogataDto {
+    luz: RgbFogataDto,
+    intensidad_luz: f32,
+    radio_luz: u16,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RgbFogataDto {
+    r: u16,
+    g: u16,
+    b: u16,
+}
+
+fn convertir_efecto(dto: EfectoFogataDto) -> Result<ConfiguracionFogata, ErrorRecursos> {
+    let error =
+        |campo, detalle| ErrorRecursos(format!("campamento.ron: fogata.efecto.{campo}: {detalle}"));
+    let canal =
+        |valor, nombre| u8::try_from(valor).map_err(|_| error(nombre, "debe estar entre 0 y 255"));
+    let luz = [
+        canal(dto.luz.r, "luz.r")?,
+        canal(dto.luz.g, "luz.g")?,
+        canal(dto.luz.b, "luz.b")?,
+    ];
+    if !dto.intensidad_luz.is_finite() || !(0.0..=1.0).contains(&dto.intensidad_luz) {
+        return Err(error(
+            "intensidad_luz",
+            "debe ser finita y estar entre 0 y 1",
+        ));
+    }
+    if !(1..=128).contains(&dto.radio_luz) {
+        return Err(error("radio_luz", "debe estar entre 1 y 128"));
+    }
+    Ok(ConfiguracionFogata {
+        luz,
+        intensidad_luz: dto.intensidad_luz,
+        radio_luz: dto.radio_luz,
+    })
 }

@@ -1,6 +1,9 @@
 use std::collections::BTreeSet;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::time::Duration;
+
+use crate::animacion::{PASO_ANIMACION, PASO_FOGATA, RelojVisual};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use desert_tiger_app::{
@@ -40,7 +43,7 @@ pub(crate) struct Interfaz {
     mostrar_detalle: bool,
     pagina: usize,
     pagina_antes_detalle: usize,
-    fotograma: usize,
+    reloj: RelojVisual,
     campamento: Option<crate::campamento::EstadoCampamento>,
 }
 
@@ -62,7 +65,7 @@ impl Interfaz {
             mostrar_detalle: false,
             pagina: 0,
             pagina_antes_detalle: 0,
-            fotograma: 0,
+            reloj: RelojVisual::default(),
             campamento: None,
         })
     }
@@ -78,10 +81,22 @@ impl Interfaz {
         }
     }
 
-    pub(crate) fn avanzar_animacion(&mut self, pasos: usize) {
+    pub(crate) fn avanzar_animacion(&mut self, transcurrido: Duration) {
         if !self.confirmar_salida {
-            self.fotograma = self.fotograma.wrapping_add(pasos);
+            self.reloj.avanzar(transcurrido);
         }
+    }
+
+    pub(crate) fn espera_animacion(&self, recursos: &RecursosVisuales) -> Duration {
+        if self.confirmar_salida {
+            return PASO_ANIMACION;
+        }
+        let intervalo = if self.campamento.is_some() && recursos.efecto_fogata.is_some() {
+            PASO_FOGATA
+        } else {
+            PASO_ANIMACION
+        };
+        self.reloj.hasta_siguiente(intervalo)
     }
 
     pub(crate) fn manejar_tecla(&mut self, evento: KeyEvent) {
@@ -236,8 +251,14 @@ impl Interfaz {
     }
 
     pub(crate) fn dibujar(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
+        self.dibujar_contenido(frame, recursos);
+        recursos.paleta.aplicar(frame.buffer_mut());
+    }
+
+    fn dibujar_contenido(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
         let area = frame.area();
-        frame.render_widget(Block::default().style(recursos.ui.pantalla), area);
+        let fondo = recursos.paleta.fondo_pantalla(recursos.ui.pantalla.bg);
+        frame.render_widget(Block::default().style(recursos.ui.pantalla.bg(fondo)), area);
         if area.width < ANCHO_MINIMO || area.height < ALTO_MINIMO {
             let texto = format!(
                 "Terminal insuficiente: se requieren 80 x 24; tamaño actual {} x {}. [Q] Salir",
@@ -252,7 +273,7 @@ impl Interfaz {
         let mundo = &self.ultima_vista_mundo;
         let region_mundo = Rect::new(area.x, area.y, area.width, area.height - 2);
         if let Some(campamento) = &self.campamento {
-            campamento.dibujar(frame, region_mundo, mundo, recursos, self.fotograma);
+            campamento.dibujar(frame, region_mundo, mundo, recursos, &self.reloj);
         } else {
             self.dibujar_mundo(frame, region_mundo, mundo, recursos);
         }
@@ -342,7 +363,7 @@ impl Interfaz {
                     continue;
                 }
                 let clave = &mundo.mapa.celdas[my * mundo.mapa.ancho + mx];
-                let apariencia = recursos.tile(clave, mx, my, self.fotograma);
+                let apariencia = recursos.tile(clave, mx, my, self.reloj.paso_250_ms());
                 poner_celda(
                     frame,
                     area.x + vx as u16,
@@ -385,7 +406,7 @@ impl Interfaz {
         {
             poner_celda(frame, x, y, '@', recursos.ui.foco);
         }
-        dibujar_retratos(frame, area, area, mundo, recursos, self.fotograma);
+        dibujar_retratos(frame, area, area, mundo, recursos, self.reloj.paso_250_ms());
     }
 
     fn objetivo_camara(&self, mundo: &VistaMundo) -> desert_tiger_app::CoordenadaMapa {
@@ -923,14 +944,18 @@ fn poner_celda(frame: &mut Frame<'_>, x: u16, y: u16, caracter: char, estilo: St
 fn estilo_retrato(estilo: EstiloCeldaRetrato) -> Style {
     let mut resultado = Style::default().fg(color_retrato(estilo.frente));
     if let Some(fondo) = estilo.fondo {
-        resultado = resultado.bg(color_retrato(fondo));
+        resultado = resultado.bg(if fondo == ColorRetrato::Negro {
+            NEGRO_PURO
+        } else {
+            color_retrato(fondo)
+        });
     }
     resultado
 }
 
 fn color_retrato(color: ColorRetrato) -> Color {
     match color {
-        ColorRetrato::Negro => NEGRO_PURO,
+        ColorRetrato::Negro => Color::Black,
         ColorRetrato::Rojo => Color::Red,
         ColorRetrato::Verde => Color::Green,
         ColorRetrato::Amarillo => Color::Yellow,
@@ -1059,7 +1084,8 @@ mod pruebas {
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal");
         let recursos = RecursosVisuales::cargar(&raiz).unwrap();
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
-        interfaz.fotograma = abierto;
+        interfaz.reloj = RelojVisual::default();
+        interfaz.reloj.avanzar(PASO_ANIMACION * abierto as u32);
         interfaz.ultima_vista_mundo.jugador.expresion = Some("enojado".into());
         terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
         let buffer = terminal.backend().buffer();
@@ -1067,7 +1093,8 @@ mod pruebas {
         assert_eq!(buffer[(1, 19)].symbol(), "b");
         assert_eq!(buffer[(2, 19)].symbol(), "Z");
         assert_eq!(buffer[(1, 20)].symbol(), "Q");
-        interfaz.fotograma = cerrado;
+        interfaz.reloj = RelojVisual::default();
+        interfaz.reloj.avanzar(PASO_ANIMACION * cerrado as u32);
         terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
         let buffer = terminal.backend().buffer();
         assert_eq!(buffer[(0, 19)].symbol(), "X");
@@ -1076,7 +1103,8 @@ mod pruebas {
         assert_eq!(buffer[(3, 19)].symbol(), "W");
         assert_eq!(buffer[(2, 19)].fg, Color::Cyan);
         assert_eq!(buffer[(2, 19)].bg, Color::Green);
-        interfaz.fotograma = abierto;
+        interfaz.reloj = RelojVisual::default();
+        interfaz.reloj.avanzar(PASO_ANIMACION * abierto as u32);
         interfaz.ultima_vista_mundo.jugador.expresion = Some("inexistente".into());
         terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
         assert_eq!(terminal.backend().buffer()[(0, 19)].symbol(), "a");
@@ -1114,14 +1142,14 @@ mod pruebas {
         let partida = Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) })
             .expect("partida válida");
         let mut interfaz = Interfaz::nueva(partida).expect("interfaz válida");
-        interfaz.avanzar_animacion(1);
-        assert_eq!(interfaz.fotograma, 1);
+        interfaz.avanzar_animacion(PASO_ANIMACION * 1);
+        assert_eq!(interfaz.reloj.paso_250_ms(), 1);
         interfaz.manejar_tecla(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE));
-        interfaz.avanzar_animacion(3);
-        assert_eq!(interfaz.fotograma, 1);
+        interfaz.avanzar_animacion(PASO_ANIMACION * 3);
+        assert_eq!(interfaz.reloj.paso_250_ms(), 1);
         interfaz.manejar_tecla(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-        interfaz.avanzar_animacion(1);
-        assert_eq!(interfaz.fotograma, 2);
+        interfaz.avanzar_animacion(PASO_ANIMACION * 1);
+        assert_eq!(interfaz.reloj.paso_250_ms(), 2);
     }
 
     #[test]
@@ -1287,7 +1315,7 @@ mod pruebas {
             "mover la cámara en ambos ejes debe conservar el glifo y estilo de la celda global"
         );
         let vista_antes = interfaz.partida.vista();
-        interfaz.avanzar_animacion(2);
+        interfaz.avanzar_animacion(PASO_ANIMACION * 2);
         terminal
             .draw(|frame| interfaz.dibujar_mundo(frame, area, &mundo, &recursos))
             .unwrap();
@@ -1300,7 +1328,7 @@ mod pruebas {
 
     #[test]
     fn jugador_a_la_derecha_conserva_transparencia_colores_y_parpadeo() {
-        assert_eq!(color_retrato(ColorRetrato::Negro), Color::Rgb(0, 0, 0));
+        assert_eq!(color_retrato(ColorRetrato::Negro), Color::Black);
         assert_eq!(
             color_retrato(ColorRetrato::GrisMuyOscuro),
             Color::Rgb(32, 32, 32)
@@ -1319,12 +1347,14 @@ mod pruebas {
             usize::try_from(actor.retrato.parpadeo().unwrap().intervalo_ms() / 250).unwrap();
         let abierto = (0..periodo).find(|&p| !parpadeando(actor, p)).unwrap();
         let cerrado = (0..periodo).find(|&p| parpadeando(actor, p)).unwrap();
-        interfaz.fotograma = cerrado;
+        interfaz.reloj = RelojVisual::default();
+        interfaz.reloj.avanzar(PASO_ANIMACION * cerrado as u32);
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .expect("primer fotograma valido");
         let cerrado_buffer = terminal.backend().buffer().clone();
-        interfaz.fotograma = abierto;
+        interfaz.reloj = RelojVisual::default();
+        interfaz.reloj.avanzar(PASO_ANIMACION * abierto as u32);
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .expect("segundo fotograma valido");
@@ -1338,7 +1368,7 @@ mod pruebas {
                 ojo.symbol() == "o"
                     && ojo.fg == Color::Cyan
                     && borde.symbol() == "("
-                    && borde.fg == NEGRO_PURO
+                    && borde.fg == Color::Black
             })
             .expect("el ojo del príncipe es visible");
         let mundo = &interfaz.ultima_vista_mundo;
@@ -1355,17 +1385,16 @@ mod pruebas {
             origen_eje(mundo.mapa.ancho, usize::from(area_mundo.width), objetivo.x);
         let (origen_y, margen_y) =
             origen_eje(mundo.mapa.alto, usize::from(area_mundo.height), objetivo.y);
-        let mapa_x = usize::from(ojo_x)
-            .checked_sub(margen_x)
-            .and_then(|x| x.checked_add(origen_x))
-            .expect("el ojo se proyecta dentro del mapa");
-        let mapa_y = 15usize
-            .checked_sub(margen_y)
-            .and_then(|y| y.checked_add(origen_y))
-            .expect("el ojo se proyecta dentro del mapa");
-        let clave_tile = &mundo.mapa.celdas[mapa_y * mundo.mapa.ancho + mapa_x];
+
+        let mapa_x = usize::from(ojo_x).checked_sub(margen_x).unwrap() + origen_x;
+        let mapa_y = 15usize.checked_sub(margen_y).unwrap() + origen_y;
         let fondo_mapa = recursos
-            .tile(clave_tile, mapa_x, mapa_y, interfaz.fotograma)
+            .tile(
+                &mundo.mapa.celdas[mapa_y * mundo.mapa.ancho + mapa_x],
+                mapa_x,
+                mapa_y,
+                interfaz.reloj.paso_250_ms(),
+            )
             .estilo
             .bg
             .or(recursos.ui.pantalla.bg)
@@ -1374,6 +1403,7 @@ mod pruebas {
         let cerrado = &cerrado_buffer[(ojo_x, 15)];
         assert_eq!(cerrado.symbol(), "▀");
         assert_eq!(cerrado.fg, Color::LightMagenta);
+        // Base y parpadeo heredan el lienzo, como el retrato del sirviente.
         assert_eq!(cerrado.bg, fondo_mapa);
         let transparente = terminal.backend().buffer()[(inicio_jugador, 8)].symbol();
         let mapa_transparente_x = usize::from(inicio_jugador)
@@ -1393,7 +1423,7 @@ mod pruebas {
                     clave_transparente,
                     mapa_transparente_x,
                     mapa_transparente_y,
-                    interfaz.fotograma,
+                    interfaz.reloj.paso_250_ms(),
                 )
                 .glifo
                 .to_string(),
@@ -1404,5 +1434,220 @@ mod pruebas {
         assert_eq!(abierto.symbol(), "o");
         assert_eq!(abierto.fg, Color::Cyan);
         assert_eq!(abierto.bg, fondo_mapa);
+    }
+
+    fn cuadro_campamento(
+        interfaz: &Interfaz,
+        recursos: &RecursosVisuales,
+        ancho: u16,
+        alto: u16,
+    ) -> ratatui::buffer::Buffer {
+        let mut t = Terminal::new(TestBackend::new(ancho, alto)).unwrap();
+        t.draw(|f| interfaz.dibujar(f, recursos)).unwrap();
+        t.backend().buffer().clone()
+    }
+
+    #[test]
+    fn fogata_cambia_solo_el_arte_y_conserva_pausa_resize_y_estilos_de_la_ficha() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let mut recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut i = Interfaz::nueva(
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap(),
+        )
+        .unwrap();
+        let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('a')));
+        assert_eq!(i.espera_animacion(&recursos), PASO_FOGATA);
+        i.avanzar_animacion(Duration::from_millis(249));
+        assert_eq!(i.reloj.paso_250_ms(), 0);
+        assert_eq!(i.espera_animacion(&recursos), Duration::from_millis(1));
+        let antes = i.partida.vista();
+        let animado = cuadro_campamento(&i, &recursos, 80, 24);
+        assert_eq!(animado, cuadro_campamento(&i, &recursos, 80, 24));
+        let config = recursos.efecto_fogata.take();
+        assert_eq!(i.espera_animacion(&recursos), Duration::from_millis(1));
+        let estatico = cuadro_campamento(&i, &recursos, 80, 24);
+        let alto = i
+            .ultima_vista_mundo
+            .companeros
+            .iter()
+            .chain(std::iter::once(&i.ultima_vista_mundo.jugador))
+            .map(|a| a.retrato.base().alto())
+            .max()
+            .unwrap();
+        assert!(alto >= 10);
+        let fin_ficha = 22 - alto.min(16) as u16;
+        for y in (0..fin_ficha).chain(22..24) {
+            for x in 0..80 {
+                assert_eq!(animado[(x, y)], estatico[(x, y)]);
+            }
+        }
+        assert_ne!(animado, estatico);
+        recursos.efecto_fogata = config;
+        i.manejar_tecla(tecla(KeyCode::Char('q')));
+        let pausa = cuadro_campamento(&i, &recursos, 80, 24);
+        i.avanzar_animacion(Duration::from_secs(30));
+        assert_eq!(i.espera_animacion(&recursos), PASO_ANIMACION);
+        assert_eq!(pausa, cuadro_campamento(&i, &recursos, 80, 24));
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert_eq!(animado, cuadro_campamento(&i, &recursos, 80, 24));
+        let _ = cuadro_campamento(&i, &recursos, 120, 40);
+        assert_eq!(animado, cuadro_campamento(&i, &recursos, 80, 24));
+        let _ = cuadro_campamento(&i, &recursos, 79, 23);
+        assert_eq!(animado, cuadro_campamento(&i, &recursos, 80, 24));
+        i.avanzar_animacion(Duration::from_millis(1));
+        assert_eq!(i.reloj.paso_250_ms(), 1);
+        assert_eq!(i.reloj.instante_ms(), 250);
+        i.avanzar_animacion(Duration::from_millis(500));
+        assert_ne!(animado, cuadro_campamento(&i, &recursos, 80, 24));
+        assert_eq!(i.partida.vista(), antes);
+    }
+
+    #[test]
+    fn animar_campamento_no_cambia_el_cierre_ni_el_azar_del_viaje_siguiente() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let recorrer = |animar: bool| {
+            let mut i = Interfaz::nueva(
+                Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap(),
+            )
+            .unwrap();
+            let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
+            assert_eq!(i.espera_animacion(&recursos), PASO_ANIMACION);
+            i.manejar_tecla(tecla(KeyCode::Char('a')));
+            let inicial = i.partida.vista();
+            if animar {
+                for _ in 0..30 {
+                    i.avanzar_animacion(Duration::from_millis(53));
+                    let _ = cuadro_campamento(&i, &recursos, 80, 24);
+                }
+            }
+            assert_eq!(i.partida.vista(), inicial);
+            i.manejar_tecla(tecla(KeyCode::Esc));
+            i.manejar_tecla(tecla(KeyCode::Enter));
+            assert!(matches!(i.vista, VistaSesion::Disponible(_)));
+            let mut vistas = vec![i.vista.clone()];
+            let destino = i
+                .ultima_vista_mundo
+                .acciones
+                .iter()
+                .find_map(|a| match a {
+                    AccionDisponible::Viajar { destinos } => destinos.first().copied(),
+                    AccionDisponible::Acampar => None,
+                })
+                .unwrap();
+            i.enviar(IntencionFrontend::ComenzarViaje { destino });
+            for _ in 0..500 {
+                vistas.push(i.vista.clone());
+                match i.vista.clone() {
+                    VistaSesion::PresentandoAccion(f) => {
+                        i.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: f.id })
+                    }
+                    VistaSesion::EsperandoDecision(d) => {
+                        i.enviar(IntencionFrontend::ResponderDecision {
+                            decision: d.id,
+                            opcion: d.opciones[0].id,
+                        })
+                    }
+                    VistaSesion::Disponible(_) => return vistas,
+                    otra => panic!("vista inesperada: {otra:?}"),
+                }
+            }
+            panic!("el viaje no terminó");
+        };
+        assert_eq!(recorrer(false), recorrer(true));
+    }
+    #[test]
+    fn paleta_consultada_solo_afecta_luz_y_modo_fijo_cubre_la_pantalla_completa() {
+        use crate::colores::PaletaColores;
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let mut recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut i = Interfaz::nueva(
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap(),
+        )
+        .unwrap();
+        let normal = cuadro_campamento(&i, &recursos, 80, 24);
+        recursos.paleta.registrar(13, [187, 136, 170]);
+        assert_eq!(normal, cuadro_campamento(&i, &recursos, 80, 24));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+        let parcial = cuadro_campamento(&i, &recursos, 80, 24);
+        recursos.paleta = PaletaColores::default();
+        let desconocida = cuadro_campamento(&i, &recursos, 80, 24);
+        assert!(
+            parcial
+                .content
+                .iter()
+                .zip(&desconocida.content)
+                .any(|(a, b)| a.fg != b.fg || a.bg != b.bg)
+        );
+        for (a, b) in parcial.content.iter().zip(&desconocida.content) {
+            assert_eq!(a.symbol(), b.symbol());
+            if b.fg == Color::Blue {
+                assert_eq!(a.fg, Color::Blue);
+            }
+            if b.bg == Color::Blue {
+                assert_eq!(a.bg, Color::Blue);
+            }
+        }
+        recursos.paleta.registrar(13, [187, 136, 170]);
+        recursos.paleta.registrar(4, [80, 90, 140]);
+        assert_ne!(parcial, cuadro_campamento(&i, &recursos, 80, 24));
+        recursos.paleta = PaletaColores::fija();
+        for (ancho, alto) in [(80, 24), (79, 23)] {
+            for celda in &cuadro_campamento(&i, &recursos, ancho, alto).content {
+                assert!(matches!(celda.fg, Color::Rgb(..)));
+                assert!(matches!(celda.bg, Color::Rgb(..)));
+            }
+        }
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE));
+        for celda in &cuadro_campamento(&i, &recursos, 80, 24).content {
+            assert!(matches!(celda.fg, Color::Rgb(..)) && matches!(celda.bg, Color::Rgb(..)));
+        }
+    }
+    #[test]
+    fn fondo_negro_solo_cambia_el_lienzo_y_conserva_arte_y_colores() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let mut r = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut i = Interfaz::nueva(
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap(),
+        )
+        .unwrap();
+        for (acampar, modal, ancho, alto) in [
+            (false, false, 80, 24),
+            (true, false, 80, 24),
+            (true, true, 80, 24),
+            (true, true, 79, 23),
+        ] {
+            if acampar && i.campamento.is_none() {
+                i.manejar_tecla(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+            }
+            if modal && !i.confirmar_salida {
+                i.manejar_tecla(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE));
+            }
+            r.paleta.forzar_fondo_negro(false);
+            let nativo = cuadro_campamento(&i, &r, ancho, alto);
+            r.paleta.forzar_fondo_negro(true);
+            let negro = cuadro_campamento(&i, &r, ancho, alto);
+            if ancho >= ANCHO_MINIMO && alto >= ALTO_MINIMO {
+                assert!(nativo.content.iter().any(|c| c.bg == Color::Reset));
+            }
+            for (n, b) in nativo.content.iter().zip(&negro.content) {
+                assert_eq!(n.symbol(), b.symbol());
+                assert_eq!(n.fg, b.fg);
+                assert_eq!(n.modifier, b.modifier);
+                assert_eq!(
+                    b.bg,
+                    if n.bg == Color::Reset {
+                        NEGRO_PURO
+                    } else {
+                        n.bg
+                    }
+                );
+            }
+        }
     }
 }
