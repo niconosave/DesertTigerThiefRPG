@@ -622,7 +622,16 @@ mod pruebas {
     fn efecto_fogata_es_opcional_y_valida_limites_con_contexto() {
         let original = include_str!("../../../assets/terminal/campamento.ron");
         let oficial: CampamentoDto = ron::from_str(original).unwrap();
-        let config = convertir_efecto(oficial.fogata.efecto.unwrap()).unwrap();
+        oficial
+            .fogata
+            .efecto
+            .map(convertir_efecto)
+            .transpose()
+            .unwrap();
+        let ejemplo =
+            ron::from_str("(luz: (r: 255, g: 180, b: 72), intensidad_luz: 0.45, radio_luz: 28)")
+                .unwrap();
+        let config = convertir_efecto(ejemplo).unwrap();
         assert_eq!(config.luz(), [255, 180, 72]);
         assert_eq!(config.radio_luz(), 28);
         for campo in ["", "efecto: None,"] {

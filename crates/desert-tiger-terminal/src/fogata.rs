@@ -7,6 +7,7 @@ use crate::recursos::ConfiguracionFogata;
 
 pub(crate) const ANCHO: u16 = 12;
 pub(crate) const ALTO: u16 = 10;
+const REALCE_CONTORNO: f32 = 1.75;
 
 // Hash cosmético explícito: ni la semilla ni el RNG de la Partida intervienen.
 fn muestra(clave: u64, ciclo: u64) -> f32 {
@@ -204,11 +205,23 @@ pub(crate) fn dibujar(
             let dx = (x - lx) as f32;
             let dy = (y - ly) as f32 * 2.0;
             let caida = (1.0 - dx.hypot(dy) / radio as f32).max(0.0).powi(2);
+            // Los glifos todavía pertenecen solo a los retratos: el fuego se
+            // dibuja después. No confundimos el recorte con un borde real.
+            let borde_derecho = x < lx
+                && x + 1 < i64::from(recorte.right())
+                && buffer
+                    .cell((x as u16, y as u16))
+                    .is_some_and(|c| c.symbol() != " ")
+                && buffer
+                    .cell(((x + 1) as u16, y as u16))
+                    .is_some_and(|c| c.symbol() == " ");
+            let intensidad =
+                (brillo * caida * if borde_derecho { REALCE_CONTORNO } else { 1.0 }).min(1.0);
             if caida > 0.0
                 && let Some(celda) = buffer.cell_mut((x as u16, y as u16))
             {
-                celda.fg = iluminar(celda.fg, configuracion.luz(), brillo * caida, paleta);
-                celda.bg = iluminar(celda.bg, configuracion.luz(), brillo * caida, paleta);
+                celda.fg = iluminar(celda.fg, configuracion.luz(), intensidad, paleta);
+                celda.bg = iluminar(celda.bg, configuracion.luz(), intensidad, paleta);
             }
         }
     }
@@ -294,6 +307,40 @@ mod pruebas {
         .unwrap()
         .efecto_fogata
         .unwrap()
+    }
+
+    #[test]
+    fn borde_derecho_recibe_mas_luz_sin_aumentar_el_alcance() {
+        let config = configuracion();
+        let area = Rect::new(0, 0, 160, 24);
+        let mut borde = Buffer::empty(area);
+        for x in 5..10 {
+            borde[(x, 10)]
+                .set_char('#')
+                .set_fg(Color::Rgb(60, 60, 60))
+                .set_bg(Color::Rgb(0, 0, 0));
+        }
+        borde[(159, 10)]
+            .set_char('#')
+            .set_fg(Color::Rgb(60, 60, 60));
+        let mut interior = borde.clone();
+        interior[(10, 10)]
+            .set_char('#')
+            .set_fg(Color::Rgb(60, 60, 60));
+        let lejano = borde[(159, 10)].clone();
+        for b in [&mut borde, &mut interior] {
+            dibujar(b, area, (15, 3), 0, &config, &PaletaColores::default());
+        }
+        let Color::Rgb(realce, _, _) = borde[(9, 10)].fg else {
+            panic!("borde iluminado");
+        };
+        let Color::Rgb(normal, _, _) = interior[(9, 10)].fg else {
+            panic!("interior iluminado");
+        };
+        assert!(realce > normal);
+        assert_eq!(borde[(9, 10)].symbol(), "#");
+        assert_eq!(borde[(9, 10)].bg, Color::Rgb(0, 0, 0));
+        assert_eq!(borde[(159, 10)], lejano);
     }
 
     #[test]

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.5 |
+| Versión | 1.6 |
 | Fecha | 2026-10-26 |
 
 > Ampliación implementada: el [contrato 16](./16-paleta-terminal.md) gobierna
@@ -252,6 +252,16 @@ caida = max(0, 1 - d/radio_luz)^2
 oscilacion = 0.85 + 0.15*N(0,t,400)
 a = intensidad_luz * caida * oscilacion
 ```
+
+El contorno derecho visible de los retratos recibe un realce de 1.75 sobre
+`a`, limitado a 1. Se considera contorno una celda con glifo cuyo vecino
+inmediato derecho está vacío y es visible dentro del recorte. Solo se aplica
+a la izquierda de la fuente y dentro del radio existente. Se consulta el buffer
+compuesto de los retratos antes de dibujar fuego y chispas; un borde cortado por
+la pantalla no se interpreta como silueta. El interior conserva la intensidad
+normal. El realce afecta los canales de color resolubles bajo las mismas reglas
+de mezcla y preservación del negro, sin cambiar los glifos, el alcance ni los
+valores editados en el recurso del campamento.
 
 La corrección vertical aproxima las proporciones de una celda de terminal.
 Con `a == 0` se conserva el estilo exacto. Con luz, frente y fondo se calculan
