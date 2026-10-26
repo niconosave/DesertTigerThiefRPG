@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.2 |
+| Versión | 1.5 |
 | Fecha | 2026-10-26 |
 
 > Ampliación implementada: el [contrato 16](./16-paleta-terminal.md) gobierna
@@ -138,10 +138,10 @@ semilla cosmética constante del módulo. Dibujar dos veces el mismo instante
 produce la misma imagen. No se consulta el reloj, el sistema de archivos ni
 ningún generador de azar durante el dibujo.
 
-El área lógica mide **12 columnas por 10 filas**, con origen superior izquierdo
-`(0, 0)`. La base queda en la última fila. Sus dimensiones no cambian durante la
-animación; el estilo artístico puede afinarse después sin cambiar el contrato
-de reloj o composición.
+La base del fuego mide **12 columnas por 10 filas**, con origen superior izquierdo
+`(0, 0)` y los leños en la última fila. Sus dimensiones no cambian durante la
+animación. Las chispas de flotación larga pueden superar ese rectángulo y se
+recortan contra la región de arte disponible, sin reservar espacio adicional.
 
 ### 5.1. Llama y brasas
 
@@ -179,15 +179,41 @@ oscila ligeramente hacia los lados y su sesgo superior es hacia la derecha.
 ### 5.2. Chispas
 
 Se usan seis emisores calculados por ciclos de 1800 ms y desfases de 300 ms.
-El hash de emisor y ciclo fija el punto de salida, duración entre 900 y 1400 ms
-y pequeñas variaciones de velocidad. Cada chispa parte cerca de `(5, 7)`;
-asciende entre 3 y 4 filas por segundo y deriva entre 1 y 2 columnas por segundo
-hacia la derecha. Se dibuja en la celda más cercana mientras vive y está dentro
-del área lógica; no se almacena una lista que crezca con el tiempo.
+El hash de emisor y ciclo fija el punto de salida y la duración, que se conserva
+entre 900 y 1400 ms. Cada chispa parte cerca de `(5, 7)` y se dispara hacia una
+dirección propia: ambas direcciones laterales, con predominio ascendente y una
+minoría de salidas hacia abajo de menor alcance vertical.
+
+La distancia del impulso es de 2.8–4 unidades y su avance usa
+`1 - exp(-8 * edad_segundos)`: se desplaza rápidamente al principio y luego
+desacelera. Desde los 250 ms se agrega flotación ascendente débil, una pequeña
+deriva hacia la derecha y oscilaciones distintas por chispa para dibujar un
+zigzag irregular. La elevación del impulso se amplifica por 1.2 y las salidas
+hacia abajo se atenúan por 0.25. Todo se calcula directamente para la edad actual,
+sin integrar pasos ni consumir azar de la Partida. Se conserva el área lógica.
+
+Se dibuja en la celda más cercana mientras vive y está dentro del área lógica;
+no se almacena una lista que crezca con el tiempo.
+
+Se agregan tres emisores de flotación larga, con ciclos de 9000 ms y desfases
+de 3000 ms. Cada partícula vive entre 5000 y 8000 ms y deriva hacia la derecha
+a 1.4–2.2 columnas por segundo y hacia arriba a 0.9–1.35 filas por segundo.
+Oscilaciones propias de menor frecuencia producen el zigzag; una elevación
+inicial pequeña la separa de las brasas. Su brillo parte de 0.75 y decae con
+`sqrt(1 - edad/duracion)`. Se conservan los seis emisores rápidos anteriores.
+
+Las coordenadas de todas las chispas se representan con signo. Las largas no
+terminan al salir del rectángulo del fuego ni al salir de la pantalla: solo
+expiran por edad. El compositor recorta sus posiciones contra la región de arte
+y el buffer, conservando ficha y barras. Primero se dibuja el fuego completo y
+luego las nueve partículas posibles, resolviendo coincidencias por mayor brillo.
 
 Su glifo pasa de `·` a `.` al envejecer y su frente pierde brillo de amarillo a
-naranja oscuro. El fondo de la celda existente se conserva. Si coinciden varias
-chispas se dibuja la más luminosa; se componen después de leños, brasas y llama.
+naranja oscuro cuando está fuera del fuego, conservando el fondo existente.
+Cuando coincide con una celda visible del fuego, el color de esa celda pasa al
+fondo y el punto usa blanco RGB 255,255,255 para conservar la continuidad de la
+llama. Si coinciden varias chispas se dibuja la más luminosa; se componen después
+de leños, brasas y llama.
 Los caracteres utilizados deben ocupar una columna según `unicode-width`.
 
 ## 6. Iluminación y composición
@@ -272,7 +298,7 @@ estático conserva el dibujo existente en `campamento.rs`. Muestreo, conversión
 y mezcla se separan en funciones internas para probar sus contratos.
 
 El trabajo por cuadro queda acotado por la región visible dentro del radio de
-luz, 120 celdas de fuego y seis chispas. No depende del número de elementos del
+luz, 120 celdas de fuego y nueve chispas. No depende del número de elementos del
 Mundo ni del tiempo transcurrido. Se recorta antes de acceder al buffer; los
 orígenes fuera de pantalla y las regiones vacías son válidos y no producen
 errores ni `panic`. El efecto no necesita reservar memoria por cuadro.

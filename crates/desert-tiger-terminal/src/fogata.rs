@@ -79,8 +79,8 @@ fn fuego(x: u16, y: u16, t: u64) -> Option<(char, Color)> {
 
 #[derive(Clone, Copy)]
 struct Chispa {
-    x: u16,
-    y: u16,
+    x: i64,
+    y: i64,
     brillo: f32,
 }
 
@@ -94,16 +94,70 @@ fn chispa(emisor: u64, t: u64) -> Option<Chispa> {
         return None;
     }
     let edad = edad_ms / 1000.0;
-    let x = 5.0 + muestra(70 + emisor, ciclo) + edad * (1.0 + muestra(80 + emisor, ciclo));
-    let y = 7.0 - edad * (3.0 + muestra(90 + emisor, ciclo));
+    let direccion = muestra(100 + emisor, ciclo) * std::f32::consts::PI;
+    let angulo = if muestra(110 + emisor, ciclo) < 0.85 {
+        -direccion
+    } else {
+        direccion
+    };
+    let alcance = 2.8 + 1.2 * muestra(80 + emisor, ciclo);
+    // El impulso se agota pronto; después quedan la deriva y un bamboleo
+    // pequeño. Se muestrea directamente, sin simular fotogramas atrasados.
+    let impulso = 1.0 - (-8.0 * edad).exp();
+    let flotacion = (edad - 0.25).max(0.0);
+    let frecuencia = 9.0 + 5.0 * muestra(90 + emisor, ciclo);
+    let fase_zigzag = std::f32::consts::TAU * muestra(120 + emisor, ciclo);
+    let zigzag = (fase_zigzag + edad * frecuencia).sin() - fase_zigzag.sin();
+    let ondulacion =
+        (fase_zigzag * 0.7 + edad * frecuencia * 0.6).sin() - (fase_zigzag * 0.7).sin();
+    let vertical = angulo.sin();
+    let x = 5.0
+        + muestra(70 + emisor, ciclo)
+        + angulo.cos() * alcance * impulso
+        + 0.22 * flotacion
+        + 0.4 * zigzag * impulso;
+    let y = 7.0 + vertical * alcance * if vertical < 0.0 { 1.2 } else { 0.25 } * impulso
+        - 0.9 * flotacion
+        + 0.2 * ondulacion * impulso;
     let (x, y) = (x.round(), y.round());
     if x < 0.0 || x >= f32::from(ANCHO) || y < 0.0 || y >= f32::from(ALTO) {
         return None;
     }
     Some(Chispa {
-        x: x as u16,
-        y: y as u16,
+        x: x as i64,
+        y: y as i64,
         brillo: 1.0 - edad_ms / duracion,
+    })
+}
+
+fn chispa_larga(emisor: u64, t: u64) -> Option<Chispa> {
+    let fase = u128::from(t) + u128::from(emisor * 3000);
+    let ciclo = (fase / 9000) as u64;
+    let edad_ms = (fase % 9000) as f32;
+    let duracion = 5000.0 + 3000.0 * muestra(150 + emisor, ciclo);
+    if edad_ms >= duracion {
+        return None;
+    }
+    let edad = edad_ms / 1000.0;
+    let fase_zigzag = std::f32::consts::TAU * muestra(160 + emisor, ciclo);
+    let frecuencia = 2.2 + 1.6 * muestra(170 + emisor, ciclo);
+    let zigzag = (fase_zigzag + edad * frecuencia).sin() - fase_zigzag.sin();
+    let ondulacion =
+        (fase_zigzag * 0.7 + edad * frecuencia * 0.6).sin() - (fase_zigzag * 0.7).sin();
+    let x = 5.0
+        + muestra(180 + emisor, ciclo)
+        + edad * (1.4 + 0.8 * muestra(190 + emisor, ciclo))
+        + 0.8 * zigzag;
+    let y = 7.0
+        - edad * (0.9 + 0.45 * muestra(200 + emisor, ciclo))
+        - 0.7 * (1.0 - (-4.0 * edad).exp())
+        + 0.3 * ondulacion;
+    // Su vida depende solo de la edad. Las coordenadas pueden salir del dibujo
+    // de la llama; el compositor aplica el recorte visible al dibujar.
+    Some(Chispa {
+        x: x.round() as i64,
+        y: y.round() as i64,
+        brillo: 0.75 * (1.0 - edad_ms / duracion).sqrt(),
     })
 }
 
@@ -158,7 +212,13 @@ pub(crate) fn dibujar(
             }
         }
     }
-    let chispas = std::array::from_fn::<_, 6, _>(|i| chispa(i as u64, instante_ms));
+    let chispas = std::array::from_fn::<_, 9, _>(|i| {
+        if i < 6 {
+            chispa(i as u64, instante_ms)
+        } else {
+            chispa_larga((i - 6) as u64, instante_ms)
+        }
+    });
     for y in 0..ALTO {
         for x in 0..ANCHO {
             let px = ox.saturating_add(i64::from(x));
@@ -171,19 +231,49 @@ pub(crate) fn dibujar(
                 continue;
             }
             if let Some(celda) = buffer.cell_mut((px as u16, py as u16)) {
-                if let Some((glifo, color)) = fuego(x, y, instante_ms) {
+                let celda_fuego = fuego(x, y, instante_ms);
+                if let Some((glifo, color)) = celda_fuego {
                     celda.set_char(glifo).set_fg(color);
                 }
-                if let Some(chispa) = chispas
-                    .iter()
-                    .flatten()
-                    .filter(|c| c.x == x && c.y == y)
-                    .max_by(|a, b| a.brillo.total_cmp(&b.brillo))
-                {
-                    celda
-                        .set_char(if chispa.brillo > 0.5 { '·' } else { '.' })
-                        .set_fg(interpolar([96, 35, 0], [255, 224, 96], chispa.brillo));
-                }
+            }
+        }
+    }
+    for (indice, chispa) in chispas
+        .iter()
+        .enumerate()
+        .filter_map(|(i, c)| c.map(|c| (i, c)))
+    {
+        if chispas.iter().enumerate().any(|(i, c)| {
+            c.is_some_and(|c| {
+                c.x == chispa.x
+                    && c.y == chispa.y
+                    && (c.brillo > chispa.brillo || (c.brillo == chispa.brillo && i < indice))
+            })
+        }) {
+            continue;
+        }
+        let px = ox.saturating_add(chispa.x);
+        let py = oy.saturating_add(chispa.y);
+        if px < i64::from(recorte.x)
+            || px >= i64::from(recorte.right())
+            || py < i64::from(recorte.y)
+            || py >= i64::from(recorte.bottom())
+        {
+            continue;
+        }
+        if let Some(celda) = buffer.cell_mut((px as u16, py as u16)) {
+            celda.set_char(if chispa.brillo > 0.5 { '·' } else { '.' });
+            let celda_fuego = if (0..i64::from(ANCHO)).contains(&chispa.x)
+                && (0..i64::from(ALTO)).contains(&chispa.y)
+            {
+                fuego(chispa.x as u16, chispa.y as u16, instante_ms)
+            } else {
+                None
+            };
+            if let Some((_, color)) = celda_fuego {
+                celda.set_fg(Color::Rgb(255, 255, 255)).set_bg(color);
+            } else {
+                celda.set_fg(interpolar([96, 35, 0], [255, 224, 96], chispa.brillo));
             }
         }
     }
@@ -232,7 +322,13 @@ mod pruebas {
             }
             for emisor in 0..6 {
                 if let Some(c) = chispa(emisor, t) {
-                    assert!(c.x < ANCHO && c.y < ALTO && (0.0..=1.0).contains(&c.brillo));
+                    assert!(
+                        c.x >= 0
+                            && c.x < i64::from(ANCHO)
+                            && c.y >= 0
+                            && c.y < i64::from(ALTO)
+                            && (0.0..=1.0).contains(&c.brillo)
+                    );
                 }
             }
         }
@@ -243,8 +339,29 @@ mod pruebas {
         );
         let inicial = chispa(0, 0).unwrap();
         let posterior = chispa(0, 500).unwrap();
-        assert!(posterior.y < inicial.y && posterior.x >= inicial.x);
+        assert_ne!((posterior.x, posterior.y), (inicial.x, inicial.y));
         assert!(posterior.brillo < inicial.brillo);
+        let (mut izquierda, mut derecha, mut asciende) = (false, false, false);
+        let (mut recorrido_inicial, mut recorrido_final) = (0u64, 0u64);
+        for ciclo in 1..=4 {
+            for emisor in 0..6 {
+                let inicio = ciclo * 1800 - emisor * 300;
+                let a = chispa(emisor, inicio).unwrap();
+                let b = chispa(emisor, inicio + 200).unwrap();
+                let c = chispa(emisor, inicio + 600).unwrap();
+                let d = chispa(emisor, inicio + 800).unwrap();
+                izquierda |= b.x < a.x;
+                derecha |= b.x > a.x;
+                asciende |= b.y < a.y;
+                recorrido_inicial += a.x.abs_diff(b.x) + a.y.abs_diff(b.y);
+                recorrido_final += c.x.abs_diff(d.x) + c.y.abs_diff(d.y);
+            }
+        }
+        assert!(izquierda && derecha && asciende);
+        assert!(
+            recorrido_inicial > recorrido_final,
+            "el impulso debe ceder a la flotación"
+        );
     }
 
     #[test]
@@ -376,5 +493,37 @@ mod pruebas {
             iluminar(Color::Rgb(32, 32, 32), [255, 180, 72], 0.1, &paleta),
             Color::Rgb(54, 48, 38)
         );
+    }
+    #[test]
+    fn chispas_largas_viven_fuera_de_la_llama_y_se_recortan_al_area_de_arte() {
+        let a = chispa_larga(0, 0).unwrap();
+        let b = chispa_larga(0, 4900).unwrap();
+        assert!(b.x > a.x && b.y < a.y);
+        assert!(b.x >= i64::from(ANCHO) || b.y < 0);
+        assert!(b.brillo < a.brillo);
+        assert!(chispa_larga(0, 8000).is_none());
+        let area = Rect::new(0, 0, 40, 24);
+        let recorte = Rect::new(2, 2, 30, 20);
+        let mut buffer = Buffer::empty(area);
+        dibujar(
+            &mut buffer,
+            recorte,
+            (5, 10),
+            4900,
+            &configuracion(),
+            &PaletaColores::default(),
+        );
+        let x = (5 + b.x) as u16;
+        let y = (10 + b.y) as u16;
+        assert!(recorte.contains((x, y).into()));
+        assert!(["·", "."].contains(&buffer[(x, y)].symbol()));
+        for y in 0..24 {
+            for x in 0..40 {
+                if !recorte.contains((x, y).into()) {
+                    assert_eq!(buffer[(x, y)].symbol(), " ");
+                }
+            }
+        }
+        assert!(chispa_larga(2, u64::MAX).is_none_or(|c| c.brillo.is_finite()));
     }
 }
