@@ -3,8 +3,14 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.13 |
-| Fecha | 2026-10-18 |
+| Versión | 0.15 |
+| Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26. Ubicación y parentesco: [contrato 14, secciones 3–5](./14-parentesco-actores-contexto.md#3-ubicación-del-actor).
+
+> Ampliación implementada el 2026-10-26: el acceso público comprobado
+> a índices de Actor y Lugar se define en
+> [Acampar, sección 4.3](../acciones/07-acampar.md#43-consultas-eficientes).
 
 ## Revisión implementada el 2026-10-24: Grupo y conocimiento dinámico
 
@@ -405,7 +411,7 @@ pub struct LugarInicial {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ActorInicial {
     pub id: IdActor,
-    pub lugar: IdLugar,
+    pub ubicacion: UbicacionActor,
     pub caracteristicas: Vec<Caracteristica>,
 }
 
@@ -428,7 +434,7 @@ pub struct Lugar {
 
 pub struct Actor {
     id: IdActor,
-    lugar: IdLugar,
+    ubicacion: UbicacionActor,
     caracteristicas: BTreeSet<Caracteristica>,
 }
 
@@ -484,7 +490,8 @@ impl Lugar {
 
 impl Actor {
     pub fn id(&self) -> IdActor;
-    pub fn lugar(&self) -> IdLugar;
+    pub fn ubicacion(&self) -> UbicacionActor;
+    pub fn lugar(&self) -> Option<IdLugar>;
     pub fn tiene_caracteristica(
         &self,
         caracteristica: &Caracteristica,
@@ -665,6 +672,7 @@ pub enum ErrorConstruirMundo {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorTraslado {
+    ActorFueraDelEscenario { actor: IdActor },
     ActorDesconocido {
         actor: IdActor,
     },

@@ -3,6 +3,22 @@
 Los planes convierten documentación técnica ya discutida en pasos de desarrollo
 pequeños, ordenados y verificables.
 
+La selección de colores nativos o fijos está
+[completada en PLAN-2026-040](./completados/2026-10-26-40-resolver-paleta-terminal.md),
+según el [contrato 16](../tecnica/componentes/16-paleta-terminal.md).
+
+La fogata procedural e iluminación del campamento está
+[completada en PLAN-2026-039](./completados/2026-10-26-39-animar-iluminar-fogata.md),
+según el [contrato técnico 15](../tecnica/componentes/15-fogata-procedural.md).
+
+El desarrollo de parentesco y Actores de contexto está
+[completado en PLAN-2026-038](./completados/2026-10-26-38-incorporar-parentesco-actores-contexto.md),
+según el [contrato técnico 14](../tecnica/componentes/14-parentesco-actores-contexto.md).
+
+La secuencia de Acampar, PLAN-2026-036 y PLAN-2026-037, está
+[completada](./completados/README.md#acción-general-acampar). Su comportamiento
+implementado se define en el [contrato técnico](../tecnica/acciones/07-acampar.md).
+
 La secuencia de refactor de `Viajar`, PLAN-2026-025 a PLAN-2026-031, está
 [completada](./completados/README.md#refactor-del-reglamento-de-viajar).
 El índice de [pendientes](./pendientes/README.md) conserva otros alcances y

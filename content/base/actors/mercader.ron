@@ -1,6 +1,8 @@
 (
     clave: "mercader",
-    lugar_inicial: "zona_arida",
+    nombre: "Mercader",
+    biografia: "Un mercader de ropas coloridas y gran bigote.",
+    ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: [],
     relaciones: [],
     retrato: Some((

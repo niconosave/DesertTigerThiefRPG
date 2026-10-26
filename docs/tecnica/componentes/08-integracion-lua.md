@@ -3,8 +3,10 @@
 | Campo | Valor |
 |---|---|
 | Estado | Aprobado para implementar |
-| Versión | 0.8 |
-| Fecha | 2026-10-15 |
+| Versión | 0.9 |
+| Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26. Actores fuera del escenario: [contrato 14, sección 3.3](./14-parentesco-actores-contexto.md#33-npc-y-lua).
 
 ## 1. Propósito y alcance
 

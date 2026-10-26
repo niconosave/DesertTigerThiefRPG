@@ -152,6 +152,9 @@ pub(crate) fn evaluar_politica<R: ResolucionClavesLua>(
             "el actor asociado no existe en el Mundo".to_owned(),
         )
     })?;
+    let Some(lugar) = actor.lugar() else {
+        return Ok(ResultadoPoliticaLua::Ninguna);
+    };
     let clave_actor = claves.clave_actor(actor.id()).ok_or_else(|| {
         error_directo(
             politica,
@@ -168,7 +171,7 @@ pub(crate) fn evaluar_politica<R: ResolucionClavesLua>(
             "la clave del actor no coincide con la política".to_owned(),
         ));
     }
-    let clave_lugar = claves.clave_lugar(actor.lugar()).ok_or_else(|| {
+    let clave_lugar = claves.clave_lugar(lugar).ok_or_else(|| {
         error_directo(
             politica,
             EtapaLua::Preparacion,
@@ -541,17 +544,17 @@ mod pruebas {
             actores: vec![
                 ActorInicial {
                     id: id_actor(0),
-                    lugar: id_lugar(0),
+                    ubicacion: desert_tiger_core::UbicacionActor::EnLugar(id_lugar(0)),
                     caracteristicas: vec![],
                 },
                 ActorInicial {
                     id: id_actor(1),
-                    lugar: id_lugar(0),
+                    ubicacion: desert_tiger_core::UbicacionActor::EnLugar(id_lugar(0)),
                     caracteristicas: vec![],
                 },
                 ActorInicial {
                     id: id_actor(2),
-                    lugar: id_lugar(1),
+                    ubicacion: desert_tiger_core::UbicacionActor::EnLugar(id_lugar(1)),
                     caracteristicas: vec![
                         Caracteristica::nueva("rapido".to_owned()).expect("característica válida"),
                     ],

@@ -1,0 +1,16 @@
+(
+    fogata: (
+        arte: r#"
+  /\  
+ /██\ 
+  ██  
+ /__\ 
+"#,
+        estilo: (frente: "amarillo", fondo: None, modificadores: []),
+        efecto: Some((
+            luz: (r: 255, g: 180, b: 72),
+            intensidad_luz: 0.8175,
+            radio_luz: 39,
+        )),
+    ),
+)

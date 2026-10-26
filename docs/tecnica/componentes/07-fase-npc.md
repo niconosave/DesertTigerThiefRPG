@@ -3,8 +3,10 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.14 |
-| Fecha | 2026-10-20 |
+| Versión | 0.15 |
+| Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26. Exclusión de Actores externos antes de Lua: [contrato 14, sección 3.3](./14-parentesco-actores-contexto.md#33-npc-y-lua).
 
 ## Revisión implementada el 2026-10-24: Cero o más NPC con el mismo motor
 

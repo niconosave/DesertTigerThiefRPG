@@ -1,3 +1,8 @@
+mod animacion;
+mod campamento;
+mod colores;
+mod consulta_paleta;
+mod fogata;
 mod interfaz;
 mod recursos;
 
@@ -5,10 +10,10 @@ use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::io::{self, stdout};
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use crossterm::cursor::{Hide, Show};
-use crossterm::event::{self, Event};
+use crossterm::event::Event;
 use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
@@ -20,7 +25,9 @@ use ratatui::backend::CrosstermBackend;
 use interfaz::Interfaz;
 use recursos::RecursosVisuales;
 
-const INTERVALO_ANIMACION: Duration = Duration::from_millis(250);
+use animacion::PASO_ANIMACION;
+use colores::EsquemaColores;
+use consulta_paleta::EntradaTerminal;
 
 #[derive(Debug)]
 pub struct ErrorTerminal(String);
@@ -38,10 +45,10 @@ where
     I: IntoIterator<Item = S>,
     S: Into<String>,
 {
-    let contenido = analizar_argumentos(argumentos)?;
+    let opciones = analizar_argumentos(argumentos)?;
     let recursos = RecursosVisuales::cargar(Path::new("assets/terminal"))
         .map_err(|error| ErrorTerminal(format!("recursos visuales: {error}")))?;
-    let contenido = cargar_contenido(&contenido).map_err(|error| {
+    let contenido = cargar_contenido(&opciones.contenido).map_err(|error| {
         let detalle = error
             .diagnosticos()
             .first()
@@ -63,10 +70,17 @@ where
             faltante.como_str()
         )));
     }
-    ejecutar_interactivo(partida, recursos)
+    ejecutar_interactivo(partida, recursos, opciones.esquema, opciones.fondo_negro)
 }
 
-fn analizar_argumentos<I, S>(argumentos: I) -> Result<PathBuf, ErrorTerminal>
+#[derive(Debug, PartialEq, Eq)]
+struct Opciones {
+    contenido: PathBuf,
+    esquema: EsquemaColores,
+    fondo_negro: bool,
+}
+
+fn analizar_argumentos<I, S>(argumentos: I) -> Result<Opciones, ErrorTerminal>
 where
     I: IntoIterator<Item = S>,
     S: Into<String>,
@@ -74,26 +88,59 @@ where
     let mut iterador = argumentos.into_iter().map(Into::into);
     let _programa = iterador.next();
     let mut contenido = None;
+    let mut esquema = None;
+    let mut fondo_negro = false;
     while let Some(argumento) = iterador.next() {
-        if argumento != "--content" {
+        if argumento == "-B" {
+            if fondo_negro {
+                return Err(ErrorTerminal("-B no puede repetirse".into()));
+            }
+            fondo_negro = true;
+            continue;
+        }
+        if argumento != "--content" && argumento != "--color-scheme" {
             return Err(ErrorTerminal(format!("opción desconocida: {argumento}")));
         }
-        if contenido.is_some() {
-            return Err(ErrorTerminal("--content no puede repetirse".to_owned()));
+        if (argumento == "--content" && contenido.is_some())
+            || (argumento == "--color-scheme" && esquema.is_some())
+        {
+            return Err(ErrorTerminal(format!("{argumento} no puede repetirse")));
         }
-        let ruta = iterador
+        let valor = iterador
             .next()
-            .ok_or_else(|| ErrorTerminal("--content requiere una ruta".to_owned()))?;
-        if ruta == "--content" {
-            return Err(ErrorTerminal("--content requiere una ruta".to_owned()));
+            .filter(|s| !s.starts_with("--") && s != "-B")
+            .ok_or_else(|| ErrorTerminal(format!("{argumento} requiere un valor")))?;
+        if argumento == "--content" {
+            contenido = Some(PathBuf::from(valor));
+        } else {
+            esquema = Some(match valor.as_str() {
+                "terminal" => EsquemaColores::Terminal,
+                "fixed" => EsquemaColores::Fijo,
+                _ => {
+                    return Err(ErrorTerminal(format!(
+                        "--color-scheme: valor desconocido {valor}; se espera terminal o fixed"
+                    )));
+                }
+            });
         }
-        contenido = Some(PathBuf::from(ruta));
     }
-    Ok(contenido.unwrap_or_else(|| PathBuf::from("content/base")))
+    Ok(Opciones {
+        contenido: contenido.unwrap_or_else(|| PathBuf::from("content/base")),
+        esquema: esquema.unwrap_or_default(),
+        fondo_negro,
+    })
 }
 
-fn ejecutar_interactivo(partida: Partida, recursos: RecursosVisuales) -> Result<(), ErrorTerminal> {
+fn ejecutar_interactivo(
+    partida: Partida,
+    mut recursos: RecursosVisuales,
+    esquema: EsquemaColores,
+    fondo_negro: bool,
+) -> Result<(), ErrorTerminal> {
     let _guardia = GuardiaTerminal::entrar()?;
+    let (mut paleta, mut entrada) = EntradaTerminal::consultar(esquema);
+    paleta.forzar_fondo_negro(fondo_negro);
+    recursos.paleta = paleta;
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend).map_err(error_io)?;
     terminal.clear().map_err(error_io)?;
@@ -109,21 +156,24 @@ fn ejecutar_interactivo(partida: Partida, recursos: RecursosVisuales) -> Result<
         if interfaz.debe_salir() {
             return Ok(());
         }
-        let transcurrido = ultimo_paso.elapsed();
-        let espera = INTERVALO_ANIMACION.saturating_sub(transcurrido);
-        if event::poll(espera).map_err(error_io)? {
-            match event::read().map_err(error_io)? {
+        // Contamos también el tiempo de composición antes de esperar.
+        let ahora = Instant::now();
+        interfaz.avanzar_animacion(ahora.duration_since(ultimo_paso));
+        ultimo_paso = ahora;
+        let evento = entrada
+            .leer(interfaz.espera_animacion(&recursos))
+            .map_err(error_io)?;
+        // Se aplica el estado de pausa anterior al evento, incluso si no llegó
+        // entrada. Al cancelar Q no recuperamos el tiempo del modal.
+        let ahora = Instant::now();
+        interfaz.avanzar_animacion(ahora.duration_since(ultimo_paso));
+        ultimo_paso = ahora;
+        if let Some(evento) = evento {
+            match evento {
                 Event::Key(tecla) => interfaz.manejar_tecla(tecla),
                 Event::Resize(_, _) => {}
                 _ => {}
             }
-        }
-        let transcurrido = ultimo_paso.elapsed();
-        let pasos = transcurrido.as_millis() / INTERVALO_ANIMACION.as_millis();
-        if pasos > 0 {
-            interfaz.avanzar_animacion(usize::try_from(pasos).unwrap_or(usize::MAX));
-            ultimo_paso +=
-                INTERVALO_ANIMACION.saturating_mul(u32::try_from(pasos).unwrap_or(u32::MAX));
         }
     }
 }
@@ -165,7 +215,11 @@ mod pruebas {
     fn argumentos_respetan_default_y_rechazan_ambiguedades() {
         assert_eq!(
             analizar_argumentos(["juego"]).expect("default válido"),
-            PathBuf::from("content/base")
+            Opciones {
+                contenido: PathBuf::from("content/base"),
+                esquema: EsquemaColores::Terminal,
+                fondo_negro: false,
+            }
         );
         assert!(analizar_argumentos(["juego", "--content"]).is_err());
         assert!(
@@ -236,6 +290,7 @@ mod pruebas {
             let destino = match &inicial {
                 VistaSesion::Disponible(mundo) => match &mundo.acciones[0] {
                     desert_tiger_app::AccionDisponible::Viajar { destinos } => destinos[0],
+                    desert_tiger_app::AccionDisponible::Acampar => panic!("se esperaba Viajar"),
                 },
                 _ => panic!("vista inicial inesperada"),
             };
@@ -266,6 +321,7 @@ mod pruebas {
                         assert_eq!(mundo.lugar_jugador, destino);
                         break;
                     }
+                    VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                     VistaSesion::Fatal(fatal) => panic!("sesión fatal: {}", fatal.mensaje),
                 };
             }
@@ -287,5 +343,66 @@ mod pruebas {
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .expect("el recorrido se puede presentar");
+    }
+    #[test]
+    fn argumentos_colores_validan_valores_duplicados_y_combinacion_con_contenido() {
+        let opciones =
+            analizar_argumentos(["juego", "--color-scheme", "fixed", "--content", "mundo"])
+                .unwrap();
+        assert_eq!(
+            opciones,
+            Opciones {
+                contenido: PathBuf::from("mundo"),
+                esquema: EsquemaColores::Fijo,
+                fondo_negro: false,
+            }
+        );
+        assert_eq!(
+            analizar_argumentos(["juego", "--content", "mundo", "--color-scheme", "terminal"])
+                .unwrap()
+                .esquema,
+            EsquemaColores::Terminal
+        );
+        for args in [
+            vec!["juego", "--color-scheme"],
+            vec!["juego", "--color-scheme", "otro"],
+            vec![
+                "juego",
+                "--color-scheme",
+                "fixed",
+                "--color-scheme",
+                "terminal",
+            ],
+            vec!["juego", "--content", "--color-scheme", "fixed"],
+            vec!["juego", "--otra"],
+        ] {
+            assert!(analizar_argumentos(args).is_err());
+        }
+    }
+    #[test]
+    fn opcion_b_mayuscula_no_cambia_el_esquema_y_admite_combinaciones() {
+        let opciones = analizar_argumentos(["juego", "-B"]).unwrap();
+        assert!(opciones.fondo_negro);
+        assert_eq!(opciones.esquema, EsquemaColores::Terminal);
+        let opciones = analizar_argumentos([
+            "juego",
+            "--content",
+            "mundo",
+            "-B",
+            "--color-scheme",
+            "fixed",
+        ])
+        .unwrap();
+        assert!(opciones.fondo_negro);
+        assert_eq!(opciones.esquema, EsquemaColores::Fijo);
+        assert_eq!(opciones.contenido, PathBuf::from("mundo"));
+        for argumentos in [
+            vec!["juego", "-B", "-B"],
+            vec!["juego", "-b"],
+            vec!["juego", "--content", "-B"],
+            vec!["juego", "--color-scheme", "-B"],
+        ] {
+            assert!(analizar_argumentos(argumentos).is_err());
+        }
     }
 }

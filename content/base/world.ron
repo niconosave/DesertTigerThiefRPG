@@ -35,6 +35,12 @@
         "sirviente",
         "mercader",
         "nino_ladron",
+        "rey",
+        "madre_del_principe",
+        "hermano_del_rey",
+        "abuelo_paterno",
+        "abuela_paterna",
+
     ],
     actor_jugador: "principe_perdido",
     companeros_iniciales: [

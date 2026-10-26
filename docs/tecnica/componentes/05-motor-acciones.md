@@ -3,8 +3,12 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.19 |
-| Fecha | 2026-10-20 |
+| Versión | 0.20 |
+| Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26: Acampar usa una API core
+> propia, definida en [su sección 3](../acciones/07-acampar.md#3-regla-del-núcleo).
+> No se introduce en los registros y opciones específicos de Viajar.
 
 ## Revisión implementada el 2026-10-24: Motor reanudable vigente
 

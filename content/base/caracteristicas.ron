@@ -1,0 +1,304 @@
+(
+    entradas: [
+        (
+            clave: "abierto",
+            nombre: "Abierto",
+            descripcion: "Terreno abierto, con pocas barreras que oculten el horizonte.",
+        ),
+        (
+            clave: "acuatico",
+            nombre: "Acuático",
+            descripcion: "Un entorno dominado por el agua.",
+        ),
+        (
+            clave: "administrador",
+            nombre: "Administrador",
+            descripcion: "Aporta +2 a los chequeos de CalcularProvisiones.",
+        ),
+        (
+            clave: "aguaDulce",
+            nombre: "Agua dulce",
+            descripcion: "Agua dulce que puede servir como recurso según las reglas de búsqueda.",
+        ),
+        (
+            clave: "aguaSalada",
+            nombre: "Agua salada",
+            descripcion: "Agua salada; no equivale a agua potable.",
+        ),
+        (
+            clave: "aguaSalobre",
+            nombre: "Agua salobre",
+            descripcion: "Agua donde se mezclan aguas dulces y saladas.",
+        ),
+        (
+            clave: "aguasSomeras",
+            nombre: "Aguas someras",
+            descripcion: "Aguas de poca profundidad.",
+        ),
+        (
+            clave: "arenoso",
+            nombre: "Arenoso",
+            descripcion: "El suelo está cubierto de arena.",
+        ),
+        (
+            clave: "arido",
+            nombre: "Árido",
+            descripcion: "Lugar seco, con escasez de humedad.",
+        ),
+        (
+            clave: "boscoso",
+            nombre: "Boscoso",
+            descripcion: "Terreno cubierto de árboles y vegetación boscosa.",
+        ),
+        (
+            clave: "calzada",
+            nombre: "Calzada",
+            descripcion: "Una vía construida para facilitar el paso.",
+        ),
+        (
+            clave: "camellero",
+            nombre: "Camellero",
+            descripcion: "Tiene experiencia con camellos. Cada acción determina si considera esta cualidad.",
+        ),
+        (
+            clave: "camino",
+            nombre: "Camino",
+            descripcion: "Una vía de paso reconocible en el terreno.",
+        ),
+        (
+            clave: "canalNavegable",
+            nombre: "Canal navegable",
+            descripcion: "Un canal por el que pueden transitar embarcaciones.",
+        ),
+        (
+            clave: "cansado",
+            nombre: "Cansado",
+            descripcion: "El cansancio limita el avance según las reglas del desplazamiento. Acampar todavía no elimina este estado.",
+        ),
+        (
+            clave: "cazador",
+            nombre: "Cazador",
+            descripcion: "Tiene experiencia en la caza; las acciones aplican sus propias reglas para aprovecharla.",
+        ),
+        (
+            clave: "conCamellos",
+            nombre: "Con camellos",
+            descripcion: "Dispone de camellos según el contenido que describe al personaje; no crea un inventario de monturas.",
+        ),
+        (
+            clave: "conoceDesiertos",
+            nombre: "Conoce desiertos",
+            descripcion: "Está familiarizado con los desiertos. Su uso depende de las reglas de cada acción.",
+        ),
+        (
+            clave: "corrienteRapida",
+            nombre: "Corriente rapida",
+            descripcion: "El agua corre con rapidez.",
+        ),
+        (
+            clave: "costero",
+            nombre: "Costero",
+            descripcion: "Se encuentra junto al litoral.",
+        ),
+        (
+            clave: "desierto",
+            nombre: "Desierto",
+            descripcion: "Una región desértica, seca y con vegetación escasa.",
+        ),
+        (
+            clave: "elevado",
+            nombre: "Elevado",
+            descripcion: "Terreno situado a gran altura.",
+        ),
+        (
+            clave: "empinado",
+            nombre: "Empinado",
+            descripcion: "Pendiente pronunciada que condiciona el desplazamiento.",
+        ),
+        (
+            clave: "esguince",
+            nombre: "Esguince",
+            descripcion: "Una lesión que limita el avance según las reglas del viaje. Acampar todavía no la cura.",
+        ),
+        (
+            clave: "estrecho",
+            nombre: "Estrecho",
+            descripcion: "Un espacio con poco ancho disponible para atravesarlo.",
+        ),
+        (
+            clave: "expedicionario",
+            nombre: "Expedicionario",
+            descripcion: "Aporta +2 a CalcularProvisiones y a Forajear.",
+        ),
+        (
+            clave: "fauna",
+            nombre: "Fauna",
+            descripcion: "Hay animales en el entorno.",
+        ),
+        (
+            clave: "faunaAbundante",
+            nombre: "Fauna abundante",
+            descripcion: "El entorno alberga una fauna abundante.",
+        ),
+        (
+            clave: "fertil",
+            nombre: "Fértil",
+            descripcion: "La tierra permite una vegetación y producción abundantes.",
+        ),
+        (
+            clave: "fluvial",
+            nombre: "Fluvial",
+            descripcion: "Un entorno asociado a un río.",
+        ),
+        (
+            clave: "fortificado",
+            nombre: "Fortificado",
+            descripcion: "El lugar cuenta con defensas construidas.",
+        ),
+        (
+            clave: "fuerte",
+            nombre: "Fuerte",
+            descripcion: "Destaca por su fuerza física. Cada acción determina si considera esta cualidad.",
+        ),
+        (
+            clave: "guia",
+            nombre: "Guia",
+            descripcion: "Tiene experiencia guiando viajeros; las acciones definen cómo se aprovecha.",
+        ),
+        (
+            clave: "herbalista",
+            nombre: "Herbalista",
+            descripcion: "Aporta +2 a los chequeos de Forajear.",
+        ),
+        (
+            clave: "insular",
+            nombre: "Insular",
+            descripcion: "Un lugar situado en una isla.",
+        ),
+        (
+            clave: "jinete",
+            nombre: "Jinete",
+            descripcion: "Su experiencia montando aporta +2 al chequeo de Cabalgar, compartido por caballo y camello.",
+        ),
+        (
+            clave: "marAbierto",
+            nombre: "Mar abierto",
+            descripcion: "Una región marítima alejada del abrigo inmediato de la costa.",
+        ),
+        (
+            clave: "maritimo",
+            nombre: "Marítimo",
+            descripcion: "Un lugar de mar: el desplazamiento emplea las reglas de navegación.",
+        ),
+        (
+            clave: "mercado",
+            nombre: "Mercado",
+            descripcion: "Hay actividad de intercambio y abastecimiento.",
+        ),
+        (
+            clave: "montanoso",
+            nombre: "Montañoso",
+            descripcion: "Un paisaje de montañas y desniveles.",
+        ),
+        (
+            clave: "muelle",
+            nombre: "Muelle",
+            descripcion: "Una construcción que permite acercarse a las embarcaciones.",
+        ),
+        (
+            clave: "muerto",
+            nombre: "Muerto",
+            descripcion: "El Actor ha muerto y no puede iniciar acciones.",
+        ),
+        (
+            clave: "navegante",
+            nombre: "Navegante",
+            descripcion: "Aporta +4 a los chequeos de NavegarEnBarco.",
+        ),
+        (
+            clave: "pantanoso",
+            nombre: "Pantanoso",
+            descripcion: "Terreno húmedo, anegado y difícil de pisar con firmeza.",
+        ),
+        (
+            clave: "peces",
+            nombre: "Peces",
+            descripcion: "Hay peces en las aguas del lugar.",
+        ),
+        (
+            clave: "pecesAbundantes",
+            nombre: "Peces abundantes",
+            descripcion: "Las aguas albergan peces en abundancia.",
+        ),
+        (
+            clave: "poblado",
+            nombre: "Poblado",
+            descripcion: "Un lugar habitado por una comunidad.",
+        ),
+        (
+            clave: "posada",
+            nombre: "Posada",
+            descripcion: "Hay un establecimiento para alojar viajeros.",
+        ),
+        (
+            clave: "puerto",
+            nombre: "Puerto",
+            descripcion: "Un lugar de acceso y actividad de embarcaciones.",
+        ),
+        (
+            clave: "rastreador",
+            nombre: "Rastreador",
+            descripcion: "Tiene experiencia siguiendo rastros; cada acción decide cómo usarla.",
+        ),
+        (
+            clave: "resguardado",
+            nombre: "Resguardado",
+            descripcion: "Un entorno que ofrece abrigo frente a la exposición.",
+        ),
+        (
+            clave: "rocoso",
+            nombre: "Rocoso",
+            descripcion: "El terreno está formado por roca y piedras.",
+        ),
+        (
+            clave: "sendero",
+            nombre: "Sendero",
+            descripcion: "Una senda de paso más estrecha que un camino.",
+        ),
+        (
+            clave: "sombreado",
+            nombre: "Sombreado",
+            descripcion: "El entorno ofrece sombra.",
+        ),
+        (
+            clave: "superviviente",
+            nombre: "Superviviente",
+            descripcion: "Tiene experiencia sobreviviendo en condiciones difíciles; su uso depende de cada acción.",
+        ),
+        (
+            clave: "terraplen",
+            nombre: "Terraplén",
+            descripcion: "Una elevación o relleno de tierra construido.",
+        ),
+        (
+            clave: "vado",
+            nombre: "Vado",
+            descripcion: "Un punto por el que se puede atravesar un curso de agua.",
+        ),
+        (
+            clave: "vagabundo",
+            nombre: "Vagabundo",
+            descripcion: "Aporta +2 a los chequeos de Andar.",
+        ),
+        (
+            clave: "vegetacionComestible",
+            nombre: "Vegetación comestible",
+            descripcion: "Hay vegetación que puede aprovecharse como alimento según las reglas de búsqueda.",
+        ),
+        (
+            clave: "viento",
+            nombre: "Viento",
+            descripcion: "Un entorno expuesto al viento.",
+        ),
+    ],
+)

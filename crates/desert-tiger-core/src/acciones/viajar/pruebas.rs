@@ -26,14 +26,14 @@ fn escenario(terrenos: &[&[&str]], actores: &[&[&str]]) -> Mundo {
         .enumerate()
         .map(|(i, c)| ActorInicial {
             id: actor(i),
-            lugar: id(0),
+            ubicacion: crate::UbicacionActor::EnLugar(id(0)),
             caracteristicas: rasgos(c),
         })
         .collect();
     if iniciales.len() == 1 {
         iniciales.push(ActorInicial {
             id: actor(1),
-            lugar: id(0),
+            ubicacion: crate::UbicacionActor::EnLugar(id(0)),
             caracteristicas: vec![],
         });
     }
@@ -114,12 +114,12 @@ fn mundo() -> Mundo {
         actores: vec![
             ActorInicial {
                 id: actor(0),
-                lugar: id(0),
+                ubicacion: crate::UbicacionActor::EnLugar(id(0)),
                 caracteristicas: rasgos(&["viajero", "jinete", "navegante", "expedicionario"]),
             },
             ActorInicial {
                 id: actor(1),
-                lugar: id(0),
+                ubicacion: crate::UbicacionActor::EnLugar(id(0)),
                 caracteristicas: vec![],
             },
         ],
@@ -697,12 +697,12 @@ fn rutas_ponderan_tamano_y_destinos_son_consultas_puras() {
         actores: vec![
             ActorInicial {
                 id: actor(0),
-                lugar: id(0),
+                ubicacion: crate::UbicacionActor::EnLugar(id(0)),
                 caracteristicas: vec![],
             },
             ActorInicial {
                 id: actor(1),
-                lugar: id(0),
+                ubicacion: crate::UbicacionActor::EnLugar(id(0)),
                 caracteristicas: vec![],
             },
         ],

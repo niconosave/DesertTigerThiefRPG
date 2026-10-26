@@ -3,8 +3,14 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.1 |
+| Versión | 1.4 |
 | Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26: el
+> [contrato 15](./15-fogata-procedural.md#3-tiempo-visual) conserva los pasos de
+> 250 ms de este documento, derivados de un reloj visual más fino. Su
+> [iluminación](./15-fogata-procedural.md#6-iluminación-y-composición) se aplica
+> después de componer los retratos del campamento, sin modificar sus archivos.
 
 ## Alcance y responsabilidades
 
@@ -82,6 +88,10 @@ Los constructores son privados: la carga garantiza sus invariantes.
 El renderizador omite por completo los espacios de cualquier capa, incluidos
 sus estilos. En una celda visible, un fondo `None` conserva el fondo existente;
 `Some("negro")` lo reemplaza por negro puro. Un estilo ausente usa `destacado`.
+El frente `"negro"` usa el negro ANSI nativo (`Color::Black`), como los demás
+colores nominales; el modo fijo lo resuelve mediante su paleta RGB. Para que un
+ojo o bloque parcial herede el lienzo se utiliza `fondo: None`, también en el
+parche de parpadeo. Un fondo negro explícito sigue siendo una decisión del arte.
 Se terminan todas las capas de un Actor antes de dibujar al siguiente. El orden
 del Grupo, jugador a la derecha, alineación, recorte y solapamiento del 25 %
 siguen el contrato 09; sus dimensiones siempre proceden de la base.

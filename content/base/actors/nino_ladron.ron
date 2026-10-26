@@ -1,6 +1,8 @@
 (
     clave: "nino_ladron",
-    lugar_inicial: "zona_arida",
+    nombre: "Niño Ladrón",
+    biografia: "Un joven ladrón que busca abrirse camino.",
+    ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: [],
     relaciones: [],
     retrato: Some((

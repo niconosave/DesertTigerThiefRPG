@@ -3,8 +3,12 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.22 |
+| Versión | 0.23 |
 | Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26: fichas, fase Acampando e
+> intenciones se definen en [Acampar](../acciones/07-acampar.md#5-proyección-de-fichas);
+> la finalización compartida con Viajar, en su sección 6.3.
 
 ## Revisión implementada el 2026-10-24: Sesión y vistas del viaje activo
 
@@ -298,6 +302,8 @@ La API pública tendrá esta forma. `vista` y `procesar` son métodos inherentes
 ```rust
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntencionFrontend {
+    ComenzarCampamento,
+    AbandonarCampamento { campamento: IdCampamento },
     ComenzarViaje { destino: IdLugar },
     ResponderDecision {
         decision: IdDecisionVista,
@@ -428,6 +434,7 @@ estructura con campos opcionales para todas las fases:
 ```rust
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum VistaSesion {
+    Acampando(VistaCampamento),
     Disponible(VistaMundo),
     PresentandoAccion(VistaFragmento),
     EsperandoDecision(VistaDecision),
@@ -489,6 +496,7 @@ pub struct VistaActor {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AccionDisponible {
+    Acampar,
     Viajar {
         destinos: Vec<IdLugar>,
     },
@@ -523,12 +531,12 @@ La celda `(x, y)` de `VistaMapa` ocupa `y * ancho + x` y
 ausentes de la matriz y usa orden lexicográfico. La vista no contiene símbolos
 RON, glifos, estilos ni acceso al `EstadoMapa`.
 
-Si el jugador no tiene `muerto`, `acciones` contiene exactamente una variante
-`Viajar` y sus destinos son el resultado, posiblemente vacío, de
+Si el jugador no tiene `muerto`, `acciones` contiene `Viajar` y después
+`Acampar`. Los destinos de Viajar son el resultado, posiblemente vacío, de
 `destinos_disponibles` en orden canónico. El Lugar actual, los Lugares
 sin ruta `Conectado` viable con los medios actuales ya están excluidos por el
 núcleo. Una lista vacía permite mostrar el control
-deshabilitado, pero no confirmar un destino. En ese caso
+deshabilitado, pero no confirmar un destino; Acampar sigue disponible. En ese caso
 `causa_indisponibilidad` es `None`.
 
 Si el jugador tiene `muerto`, `acciones` queda vacía y

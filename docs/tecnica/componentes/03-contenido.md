@@ -3,8 +3,14 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.24 |
+| Versión | 0.26 |
 | Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
+
+> Ampliación implementada el 2026-10-26: nombres y biografías de
+> Actores, catálogo de características y consultas de presentación se definen
+> en [Acampar, sección 4](../acciones/07-acampar.md#4-contenido-y-compatibilidad).
 
 ## Revisión implementada el 2026-10-24: Validación de contenido para Viajar
 
@@ -389,6 +395,7 @@ pub(crate) struct CatalogoPresentacion {
     mapa: PlantillaMapa,
     lugares: Vec<PresentacionLugar>,
     actores: Vec<PresentacionActor>,
+    caracteristicas: BTreeMap<String, DescripcionCaracteristica>,
 }
 
 struct PlantillaMapa {
@@ -409,6 +416,7 @@ pub(crate) struct PresentacionLugar {
 pub(crate) struct PresentacionActor {
     id: IdActor,
     nombre: String,
+    biografia: String,
     retrato: Option<RetratoActor>,
 }
 
@@ -443,9 +451,8 @@ impl PresentacionActor {
 }
 ```
 
-Los vectores conservan el orden canónico. Las búsquedas por ID son lineales en
-el primer incremento; no se mantiene un segundo índice sin una necesidad
-medida. `PresentacionActor` conserva el nombre validado del mismo archivo RON que
+Los vectores conservan el orden canónico. Las búsquedas por ID usan su índice
+comprobado y verifican la identidad, según el contrato de Acampar, sección 4.3. `PresentacionActor` conserva el nombre validado del mismo archivo RON que
 define al Actor. Ese nombre permite que la aplicación resuelva los participantes
 de una traza causal sin exponer la clave técnica ni pedirle al frontend que la
 transforme.
@@ -714,7 +721,8 @@ oficiales concretos permanecen en `content/base/`:
 (
     clave: "principe_perdido",
     nombre: "Príncipe Perdido",
-    lugar_inicial: "zona_arida",
+    biografia: "Un príncipe perdido que viaja junto a sus compañeros.",
+    ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: [],
     relaciones: [],
     retrato: Some((
@@ -739,16 +747,17 @@ oficiales concretos permanecen en `content/base/`:
 )
 ```
 
-Todos sus campos son obligatorios. `nombre` es presentación y no puede estar
+Salvo `biografia`, que es opcional según el contrato de Acampar, sus campos
+son obligatorios. `nombre` es presentación y no puede estar
 vacío; admite texto Unicode, pero rechaza controles C0/C1 y secuencias de escape
 conforme a la regla general de texto visible. No exige caracteres de una sola
 columna porque no se escribe sobre una matriz de tiles. La carga no lo normaliza,
 no lo usa para resolver referencias y no exige que sea único: la identidad estable
 sigue siendo `clave`. `caracteristicas` y `relaciones` pueden estar vacías; las
-primeras no admiten duplicados. Durante este incremento la lista de Relaciones de
-todo Actor debe estar vacía porque `Conectado` solo admite Lugares.
-`lugar_inicial` es una clave de Lugar incluida en la lista canónica de
-`world.ron`.
+primeras no admiten duplicados. Las relaciones de Actor admitidas se definen
+por sus tipos; la filiación y MatadoPor siguen el contrato 14.
+`ubicacion_inicial` usa EnLugar(clave de Lugar) o FueraDelEscenario, según
+el mismo contrato. El jugador y sus compañeros requieren ubicación local.
 
 `retrato` es obligatorio: `None` o `Some((...))`. El jugador y cada compañero
 inicial requieren `Some`; los demás Actores admiten ambos valores. La paleta,
@@ -1118,7 +1127,7 @@ campo produce `FormatoRonInvalido`:
 (
     clave: "cazador",
     nombre: "Cazador",
-    lugar_inicial: "valle_fertil",
+    ubicacion_inicial: EnLugar("valle_fertil"),
     caracteristicas: [],
     relaciones: [],
     politica: Ninguna,
@@ -1133,7 +1142,7 @@ Este Actor incluye el campo desconocido `titulo` y también produce
     clave: "cazador",
     nombre: "Cazador",
     titulo: "Guardián del valle",
-    lugar_inicial: "valle_fertil",
+    ubicacion_inicial: EnLugar("valle_fertil"),
     caracteristicas: [],
     relaciones: [],
     retrato: None,
@@ -1157,13 +1166,13 @@ variables_globales: (
 ```
 
 Finalmente, este archivo es RON válido pero su referencia no resuelve y produce
-`ReferenciaInvalida` sobre `lugar_inicial`:
+`ReferenciaInvalida` sobre `ubicacion_inicial`:
 
 ```ron
 (
     clave: "cazador",
     nombre: "Cazador",
-    lugar_inicial: "lugar_que_no_existe",
+    ubicacion_inicial: EnLugar("lugar_que_no_existe"),
     caracteristicas: [],
     relaciones: [],
     retrato: None,

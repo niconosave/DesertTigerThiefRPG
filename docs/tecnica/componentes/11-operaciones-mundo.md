@@ -3,8 +3,10 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.1 |
-| Fecha | 2026-10-18 |
+| Versión | 1.2 |
+| Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26. Ubicación local y rechazo de traslados externos: [contrato 14, secciones 3 y 7](./14-parentesco-actores-contexto.md#3-ubicación-del-actor).
 
 ## Revisión implementada el 2026-10-24: Separación y conocimiento atómicos
 

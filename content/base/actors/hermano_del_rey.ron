@@ -1,0 +1,13 @@
+(
+    clave: "hermano_del_rey",
+    nombre: "Hermano del rey",
+    biografia: "Hermano del padre del príncipe, procedente del mismo continente.",
+    ubicacion_inicial: FueraDelEscenario,
+    caracteristicas: [],
+    relaciones: [
+        (tipo: Padre, destino: Actor("abuelo_paterno")),
+        (tipo: Madre, destino: Actor("abuela_paterna")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

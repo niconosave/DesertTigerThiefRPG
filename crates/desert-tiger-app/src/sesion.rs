@@ -42,6 +42,10 @@ pub struct IdDecisionVista(u64);
 pub struct IdOpcionVista(u32);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntencionFrontend {
+    ComenzarCampamento,
+    AbandonarCampamento {
+        campamento: IdCampamento,
+    },
     ComenzarViaje {
         destino: IdLugar,
     },
@@ -55,6 +59,8 @@ pub enum IntencionFrontend {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorIntencion {
+    CampamentoNoVigente,
+    AcampadaRechazada(acciones::ErrorAcampada),
     FaseIncompatible,
     FragmentoNoVigente,
     DecisionNoVigente,
@@ -63,6 +69,7 @@ pub enum ErrorIntencion {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum VistaSesion {
+    Acampando(VistaCampamento),
     Disponible(VistaMundo),
     PresentandoAccion(VistaFragmento),
     EsperandoDecision(VistaDecision),
@@ -104,12 +111,14 @@ pub struct VistaLugar {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaActor {
+    pub nombre: String,
     pub id: IdActor,
     pub retrato: RetratoActor,
     pub expresion: Option<String>,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AccionDisponible {
+    Acampar,
     Viajar { destinos: Vec<IdLugar> },
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -178,7 +187,41 @@ impl FuenteAzar for AzarChaCha {
         Ok(self.0.random_range(0..n.get()))
     }
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct IdCampamento(u64);
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct IntegranteCampamento {
+    pub actor: IdActor,
+    pub nombre: String,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaCampamento {
+    pub id: IdCampamento,
+    pub lugar: IdLugar,
+    pub integrantes: Vec<IntegranteCampamento>,
+}
+#[derive(Debug)]
+enum FalloCierreAccion {
+    Calendario(String),
+    Npc(String),
+    Proyeccion(String),
+}
+impl FalloCierreAccion {
+    fn codigo(&self) -> CodigoFatalSesion {
+        match self {
+            Self::Calendario(_) => CodigoFatalSesion::Calendario,
+            Self::Npc(_) => CodigoFatalSesion::IntegracionNpc,
+            Self::Proyeccion(_) => CodigoFatalSesion::EstadoInconsistente,
+        }
+    }
+    fn detalle(self) -> String {
+        match self {
+            Self::Calendario(s) | Self::Npc(s) | Self::Proyeccion(s) => s,
+        }
+    }
+}
 pub struct Partida {
+    acampada: Option<acciones::Acampada>,
     mundo: Mundo,
     mapa: EstadoMapa,
     contenido: ContenidoValidado,
@@ -231,6 +274,7 @@ impl Partida {
         };
         let base = proyectar_mundo(&mundo, &mapa, contenido, None).map_err(error_crear)?;
         Ok(Self {
+            acampada: None,
             mundo,
             mapa,
             contenido: contenido.clone(),
@@ -256,7 +300,77 @@ impl Partida {
         &mut self,
         intencion: IntencionFrontend,
     ) -> Result<VistaSesion, ErrorIntencion> {
+        match intencion {
+            IntencionFrontend::ComenzarCampamento => {
+                if !matches!(self.vista, VistaSesion::Disponible(_)) {
+                    return Err(ErrorIntencion::FaseIncompatible);
+                }
+                let acampada = acciones::iniciar_acampada(&self.mundo, self.mundo.actor_jugador())
+                    .map_err(ErrorIntencion::AcampadaRechazada)?;
+                let Some(ordinal) = self.ordinal.checked_add(1) else {
+                    self.fatal(
+                        CodigoFatalSesion::ContadorAgotado,
+                        "contador de campamentos agotado".into(),
+                    );
+                    return Ok(self.vista());
+                };
+                let mut mundo =
+                    match proyectar_mundo(&self.mundo, &self.mapa, &self.contenido, None) {
+                        Ok(m) => m,
+                        Err(e) => {
+                            self.fatal(CodigoFatalSesion::EstadoInconsistente, e);
+                            return Ok(self.vista());
+                        }
+                    };
+                let integrantes = mundo
+                    .companeros
+                    .iter()
+                    .chain(std::iter::once(&mundo.jugador))
+                    .map(|a| IntegranteCampamento {
+                        actor: a.id,
+                        nombre: a.nombre.clone(),
+                    })
+                    .collect();
+                mundo.acciones.clear();
+                self.ordinal = ordinal;
+                self.acampada = Some(acampada);
+                self.vista = VistaSesion::Acampando(VistaCampamento {
+                    id: IdCampamento(ordinal),
+                    lugar: mundo.lugar_jugador,
+                    integrantes,
+                });
+                self.mundo_visible = mundo;
+                return Ok(self.vista());
+            }
+            IntencionFrontend::AbandonarCampamento { campamento } => {
+                let VistaSesion::Acampando(v) = &self.vista else {
+                    return Err(ErrorIntencion::FaseIncompatible);
+                };
+                if v.id != campamento {
+                    return Err(ErrorIntencion::CampamentoNoVigente);
+                }
+                let Some(acampada) = self.acampada.take() else {
+                    self.fatal(
+                        CodigoFatalSesion::EstadoInconsistente,
+                        "campamento sin acampada".into(),
+                    );
+                    return Ok(self.vista());
+                };
+                let resultado = acciones::finalizar_acampada(acampada);
+                if let Err(e) = self.concluir_accion(resultado.tiempo) {
+                    self.fatal(e.codigo(), e.detalle());
+                }
+                return Ok(self.vista());
+            }
+            IntencionFrontend::ComenzarViaje { .. }
+            | IntencionFrontend::ContinuarPresentacion { .. }
+            | IntencionFrontend::ResponderDecision { .. } => {}
+        }
         let resultado = match intencion {
+            IntencionFrontend::ComenzarCampamento
+            | IntencionFrontend::AbandonarCampamento { .. } => {
+                return Err(ErrorIntencion::FaseIncompatible);
+            }
             IntencionFrontend::ComenzarViaje { destino } => {
                 if !matches!(self.vista, VistaSesion::Disponible(_)) {
                     return Err(ErrorIntencion::FaseIncompatible);
@@ -356,28 +470,52 @@ impl Partida {
         }
         Ok(self.vista())
     }
+    pub fn consultar_ficha(
+        &self,
+        campamento: IdCampamento,
+        elemento: crate::ExtremoRelacion,
+    ) -> Result<crate::VistaFicha, crate::ErrorConsultaFicha> {
+        let VistaSesion::Acampando(v) = &self.vista else {
+            return Err(crate::ErrorConsultaFicha::FaseIncompatible);
+        };
+        if v.id != campamento {
+            return Err(crate::ErrorConsultaFicha::CampamentoNoVigente);
+        }
+        crate::fichas::proyectar(&self.mundo, &self.contenido, elemento)
+    }
+    fn concluir_accion(
+        &mut self,
+        tiempo: desert_tiger_core::TiempoAccion,
+    ) -> Result<(), FalloCierreAccion> {
+        self.ejecucion = None;
+        self.paso = None;
+        self.opciones.clear();
+        self.acampada = None;
+        crate::tiempo::confirmar(&mut self.mundo, &mut self.resto, tiempo)
+            .map_err(FalloCierreAccion::Calendario)?;
+        let inicio = InstanteAccion {
+            fecha: self.mundo.fecha(),
+            fraccion: self.resto,
+        };
+        let resumen = ejecutar_fase_npc(
+            &mut self.mundo,
+            self.contenido.politicas(),
+            self.contenido.claves(),
+            &self.rumbos,
+            inicio,
+            self.azar.as_mut(),
+        )
+        .map_err(|e| FalloCierreAccion::Npc(e.0))?;
+        self.mundo_visible = proyectar_mundo(&self.mundo, &self.mapa, &self.contenido, resumen)
+            .map_err(FalloCierreAccion::Proyeccion)?;
+        self.vista = VistaSesion::Disponible(self.mundo_visible.clone());
+        Ok(())
+    }
     fn publicar(&mut self, paso: PasoAccion) -> Result<(), String> {
         if let PasoAccion::Finalizada(fin) = paso {
-            self.ejecucion = None;
-            self.paso = None;
-            self.opciones.clear();
-            crate::tiempo::confirmar(&mut self.mundo, &mut self.resto, fin.tiempo)?;
-            let inicio = InstanteAccion {
-                fecha: self.mundo.fecha(),
-                fraccion: self.resto,
-            };
-            let resumen = ejecutar_fase_npc(
-                &mut self.mundo,
-                self.contenido.politicas(),
-                self.contenido.claves(),
-                &self.rumbos,
-                inicio,
-                self.azar.as_mut(),
-            )
-            .map_err(|e| e.0)?;
-            self.mundo_visible =
-                proyectar_mundo(&self.mundo, &self.mapa, &self.contenido, resumen)?;
-            self.vista = VistaSesion::Disponible(self.mundo_visible.clone());
+            if let Err(e) = self.concluir_accion(fin.tiempo) {
+                self.fatal(e.codigo(), e.detalle());
+            }
             return Ok(());
         }
         let (registro, opciones) = match paso {
@@ -476,6 +614,10 @@ fn progreso(r: &RegistroEscena, n: &crate::narracion_viaje::Narrador<'_>) -> Vis
     }
 }
 fn proyectar_actor(contenido: &ContenidoValidado, id: IdActor) -> Result<VistaActor, String> {
+    let actor = contenido
+        .presentacion()
+        .actor(id)
+        .ok_or("Actor desconocido")?;
     let retrato = contenido
         .presentacion()
         .actor(id)
@@ -483,6 +625,7 @@ fn proyectar_actor(contenido: &ContenidoValidado, id: IdActor) -> Result<VistaAc
         .cloned()
         .ok_or("Actor sin retrato")?;
     Ok(VistaActor {
+        nombre: actor.nombre().to_owned(),
         id,
         retrato,
         expresion: None,
@@ -503,10 +646,13 @@ fn proyectar_mundo(
     let acciones = if muerto {
         Vec::new()
     } else {
-        vec![AccionDisponible::Viajar {
-            destinos: acciones::destinos_disponibles(m, m.actor_jugador())
-                .map_err(|e| e.to_string())?,
-        }]
+        vec![
+            AccionDisponible::Viajar {
+                destinos: acciones::destinos_disponibles(m, m.actor_jugador())
+                    .map_err(|e| e.to_string())?,
+            },
+            AccionDisponible::Acampar,
+        ]
     };
     Ok(VistaMundo {
         mapa: VistaMapa {
@@ -549,6 +695,231 @@ fn proyectar_mundo(
 #[cfg(test)]
 mod pruebas {
     use super::*;
+    use crate::{EntradaFicha, ErrorConsultaFicha, ExtremoRelacion, SentidoRelacionFicha};
+    use desert_tiger_core::{Caracteristica, LoteOperaciones, OperacionMundo, TiempoAccion};
+
+    #[test]
+    fn acampar_consulta_estado_actual_y_relaciones_sin_consumir_azar() {
+        struct SinAzar;
+        impl FuenteAzar for SinAzar {
+            fn elegir_indice(&mut self, _: NonZeroUsize) -> Result<usize, ErrorFuenteAzar> {
+                panic!("una consulta no puede consumir azar");
+            }
+        }
+        let c = contenido();
+        let mut p = Partida::con_azar(&c, Box::new(SinAzar)).unwrap();
+        let jugador = p.mundo.actor_jugador();
+        let lugar = p.mundo.ubicacion_actor(jugador).unwrap();
+        p.mundo
+            .aplicar_lote(
+                LoteOperaciones::nuevo(vec![
+                    OperacionMundo::AnadirCaracteristicaActor {
+                        actor: jugador,
+                        caracteristica: Caracteristica::nueva("rasgoNuevo".into()).unwrap(),
+                    },
+                    OperacionMundo::RegistrarConocimiento {
+                        actor: jugador,
+                        lugar,
+                    },
+                ])
+                .unwrap(),
+            )
+            .unwrap();
+        let antes = format!("{:?}", p.mundo);
+        let VistaSesion::Acampando(v) = p.procesar(IntencionFrontend::ComenzarCampamento).unwrap()
+        else {
+            panic!()
+        };
+        let ficha = p
+            .consultar_ficha(v.id, ExtremoRelacion::Actor(jugador))
+            .unwrap();
+        assert_eq!(ficha.nombre, "Príncipe Perdido");
+        assert!(ficha.entradas.iter().any(|e| matches!(e, EntradaFicha::Caracteristica { clave, descripcion: None, .. } if clave == "rasgoNuevo")));
+        assert!(ficha.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if matches!(&r.vinculo, crate::VinculoFicha::Registrado { sentido: SentidoRelacionFicha::Saliente, .. }))));
+        let cazador = IdActor::desde_posicion(2).unwrap();
+        assert!(c.presentacion().actor(cazador).unwrap().retrato().is_none());
+        for _ in 0..100 {
+            let f = p
+                .consultar_ficha(v.id, ExtremoRelacion::Actor(cazador))
+                .unwrap();
+            let referencia = f
+                .entradas
+                .iter()
+                .find_map(|e| match e {
+                    EntradaFicha::Relacion(r) => Some(&r.referencia),
+                    _ => None,
+                })
+                .unwrap();
+            let f = p.consultar_ficha(v.id, referencia.elemento).unwrap();
+            assert!(f.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if matches!(&r.vinculo, crate::VinculoFicha::Registrado { sentido: SentidoRelacionFicha::Entrante, .. }) && r.referencia.elemento == ExtremoRelacion::Actor(cazador))));
+            assert!(f.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if matches!(&r.vinculo, crate::VinculoFicha::Registrado { sentido: SentidoRelacionFicha::Simetrica, .. }))));
+        }
+        assert_eq!(
+            p.consultar_ficha(
+                v.id,
+                ExtremoRelacion::Actor(IdActor::desde_posicion(999).unwrap())
+            ),
+            Err(ErrorConsultaFicha::ElementoInexistente)
+        );
+        assert_eq!(
+            p.procesar(IntencionFrontend::ComenzarCampamento),
+            Err(ErrorIntencion::FaseIncompatible)
+        );
+        assert_eq!(format!("{:?}", p.mundo), antes);
+    }
+
+    #[test]
+    fn acampar_confirma_un_dia_con_resto_y_npc_una_sola_vez() {
+        use std::{cell::Cell, rc::Rc};
+        struct Contado(Rc<Cell<usize>>);
+        impl FuenteAzar for Contado {
+            fn elegir_indice(&mut self, n: NonZeroUsize) -> Result<usize, ErrorFuenteAzar> {
+                self.0.set(self.0.get() + 1);
+                Ok(match n.get() {
+                    20 => 19,
+                    9 => 8,
+                    _ => 0,
+                })
+            }
+        }
+        let cuenta = Rc::new(Cell::new(0));
+        let mut p = Partida::con_azar(&contenido(), Box::new(Contado(cuenta.clone()))).unwrap();
+        p.resto = FraccionDia::nueva(300_000_000).unwrap();
+        let fecha = p.mundo.fecha();
+        let lugar = p.mundo.ubicacion_actor(p.mundo.actor_jugador());
+        let VistaSesion::Acampando(v) = p.procesar(IntencionFrontend::ComenzarCampamento).unwrap()
+        else {
+            panic!()
+        };
+        assert_eq!(cuenta.get(), 0);
+        assert!(matches!(
+            p.procesar(IntencionFrontend::AbandonarCampamento { campamento: v.id })
+                .unwrap(),
+            VistaSesion::Disponible(_)
+        ));
+        let fin = desert_tiger_core::proyectar_tiempo(
+            InstanteAccion {
+                fecha,
+                fraccion: FraccionDia::CERO,
+            },
+            TiempoAccion {
+                duracion: Duracion::desde_dias(1),
+                fraccion: FraccionDia::CERO,
+            },
+        )
+        .unwrap();
+        assert_eq!(p.mundo.fecha(), fin.fecha);
+        assert_eq!(p.resto.partes(), 300_000_000);
+        assert_eq!(p.mundo.ubicacion_actor(p.mundo.actor_jugador()), lugar);
+        assert!(
+            cuenta.get() > 0,
+            "la política NPC debe actuar al cambiar de mes"
+        );
+        let llamadas = cuenta.get();
+        assert_eq!(
+            p.procesar(IntencionFrontend::AbandonarCampamento { campamento: v.id }),
+            Err(ErrorIntencion::FaseIncompatible)
+        );
+        let VistaSesion::Acampando(nuevo) =
+            p.procesar(IntencionFrontend::ComenzarCampamento).unwrap()
+        else {
+            panic!()
+        };
+        assert_ne!(nuevo.id, v.id);
+        assert_eq!(
+            p.procesar(IntencionFrontend::AbandonarCampamento { campamento: v.id }),
+            Err(ErrorIntencion::CampamentoNoVigente)
+        );
+        assert_eq!(
+            p.consultar_ficha(v.id, ExtremoRelacion::Actor(p.mundo.actor_jugador())),
+            Err(ErrorConsultaFicha::CampamentoNoVigente)
+        );
+        assert_eq!(cuenta.get(), llamadas);
+        assert_eq!(p.mundo.fecha(), fin.fecha);
+    }
+
+    #[test]
+    fn acampar_rechaza_muerto_y_calendario_no_desborda_parcialmente() {
+        let mut p = Partida::con_azar(&contenido(), Box::new(AzarFavorable)).unwrap();
+        let fecha = p.mundo.fecha();
+        let limite = Fecha::nueva(9999, desert_tiger_core::Mes::Diciembre, 31).unwrap();
+        let meses = (9999 - u32::from(fecha.anio())) * 12 + 11;
+        p.mundo.avanzar_fecha(Duracion::desde_meses(meses)).unwrap();
+        p.resto = FraccionDia::nueva(123).unwrap();
+        let VistaSesion::Acampando(v) = p.procesar(IntencionFrontend::ComenzarCampamento).unwrap()
+        else {
+            panic!()
+        };
+        assert!(matches!(
+            p.procesar(IntencionFrontend::AbandonarCampamento { campamento: v.id })
+                .unwrap(),
+            VistaSesion::Fatal(VistaFatal {
+                codigo: CodigoFatalSesion::Calendario,
+                ..
+            })
+        ));
+        assert_eq!(p.mundo.fecha(), limite);
+        assert_eq!(p.resto.partes(), 123);
+        let mut p = Partida::con_azar(&contenido(), Box::new(AzarFavorable)).unwrap();
+        p.mundo
+            .aplicar_lote(
+                LoteOperaciones::nuevo(vec![OperacionMundo::AnadirCaracteristicaActor {
+                    actor: p.mundo.actor_jugador(),
+                    caracteristica: Caracteristica::nueva("muerto".into()).unwrap(),
+                }])
+                .unwrap(),
+            )
+            .unwrap();
+        assert_eq!(
+            p.procesar(IntencionFrontend::ComenzarCampamento),
+            Err(ErrorIntencion::AcampadaRechazada(
+                acciones::ErrorAcampada::ActorMuerto
+            ))
+        );
+    }
+
+    #[test]
+    fn campamento_sin_companeros_admite_ficha_vacia_y_cierre() {
+        let c = contenido();
+        let mut p = Partida::con_azar(&c, Box::new(AzarFavorable)).unwrap();
+        let lugar = p.mundo.ubicacion_actor(p.mundo.actor_jugador()).unwrap();
+        let operaciones = p
+            .mundo
+            .grupo()
+            .integrantes()
+            .iter()
+            .map(|&actor| OperacionMundo::SepararCompanero { actor, lugar })
+            .collect();
+        p.mundo
+            .aplicar_lote(LoteOperaciones::nuevo(operaciones).unwrap())
+            .unwrap();
+        let VistaSesion::Acampando(v) = p.procesar(IntencionFrontend::ComenzarCampamento).unwrap()
+        else {
+            panic!()
+        };
+        assert_eq!(v.integrantes.len(), 1);
+        assert_eq!(v.integrantes[0].actor, p.mundo.actor_jugador());
+        assert!(
+            p.consultar_ficha(
+                v.id,
+                ExtremoRelacion::Actor(IdActor::desde_posicion(4).unwrap())
+            )
+            .unwrap()
+            .entradas
+            .is_empty()
+        );
+        assert!(matches!(
+            p.procesar(IntencionFrontend::AbandonarCampamento { campamento: v.id })
+                .unwrap(),
+            VistaSesion::Disponible(_)
+        ));
+        assert!(
+            p.mundo_visible()
+                .acciones
+                .iter()
+                .any(|a| matches!(a, AccionDisponible::Acampar))
+        );
+    }
     struct AzarFavorable;
     impl FuenteAzar for AzarFavorable {
         fn elegir_indice(&mut self, n: NonZeroUsize) -> Result<usize, ErrorFuenteAzar> {
@@ -579,7 +950,9 @@ mod pruebas {
                 .all(|a| a.expresion.as_deref() == Some("angry"))
         );
         assert_eq!(p.mundo_visible(), antes);
-        let AccionDisponible::Viajar { destinos } = &antes.acciones[0];
+        let AccionDisponible::Viajar { destinos } = &antes.acciones[0] else {
+            panic!("se esperaba Viajar")
+        };
         let destino = destinos[0];
         let mut v = p
             .procesar(IntencionFrontend::ComenzarViaje { destino })
@@ -610,6 +983,7 @@ mod pruebas {
                     assert!(vio_happy);
                     return;
                 }
+                VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                 VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
             };
         }
@@ -622,7 +996,9 @@ mod pruebas {
         let VistaSesion::Disponible(v) = inicial.vista() else {
             panic!()
         };
-        let AccionDisponible::Viajar { destinos } = &v.acciones[0];
+        let AccionDisponible::Viajar { destinos } = &v.acciones[0] else {
+            panic!("se esperaba Viajar")
+        };
         let mut llegadas = 0;
         for &destino in destinos {
             let antes = llegadas;
@@ -673,6 +1049,7 @@ mod pruebas {
                             assert!(p.mundo.fecha() >= inicio);
                             break;
                         }
+                        VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                         VistaSesion::Fatal(f) => {
                             panic!("destino {destino:?}, semilla {semilla}: {}", f.mensaje)
                         }
@@ -705,6 +1082,7 @@ mod pruebas {
                         llegadas += 1;
                         break;
                     }
+                    VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                     VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
                 };
             }

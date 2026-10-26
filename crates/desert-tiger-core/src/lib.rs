@@ -18,3 +18,5 @@ pub use modelo::{
     OperacionMundo, Relacion, RelacionInicial, TipoRelacion, TipoVariableGlobal,
     TrasladoConfirmado, ValorVariableGlobal, VariableGlobalInicial,
 };
+
+pub use modelo::{HermanoDerivado, Progenitores, UbicacionActor};

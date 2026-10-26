@@ -6,7 +6,11 @@ use std::{
     fmt,
     num::NonZeroUsize,
 };
+mod acampar;
 mod particulares;
+pub use acampar::{
+    Acampada, ErrorAcampada, ResultadoAcampada, finalizar_acampada, iniciar_acampada,
+};
 mod viajar;
 pub use particulares::chequeos::{
     AccionParticular, ModificadorAplicado, ResultadoChequeo, evaluar_capacidad, resolver_chequeo,
@@ -23,6 +27,7 @@ pub enum SolicitudAccion {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RechazoAccion {
+    ActorFueraDelEscenario,
     ActorDesconocido,
     JugadorMuerto,
     DestinoInvalido,
@@ -84,8 +89,11 @@ pub fn destinos_disponibles(mundo: &Mundo, actor: IdActor) -> Result<Vec<IdLugar
     if actor != mundo.actor_jugador() && mundo.grupo().contiene(actor) {
         return Err(RechazoAccion::IntegranteDelGrupo);
     }
-    let mut vistos = BTreeSet::from([actual.lugar()]);
-    let mut cola = VecDeque::from([actual.lugar()]);
+    let lugar = actual
+        .lugar()
+        .ok_or(RechazoAccion::ActorFueraDelEscenario)?;
+    let mut vistos = BTreeSet::from([lugar]);
+    let mut cola = VecDeque::from([lugar]);
     while let Some(l) = cola.pop_front() {
         for &vecino in mundo.lugares_conectados(l).unwrap_or(&[]) {
             if vistos.insert(vecino) {
@@ -93,7 +101,7 @@ pub fn destinos_disponibles(mundo: &Mundo, actor: IdActor) -> Result<Vec<IdLugar
             }
         }
     }
-    vistos.remove(&actual.lugar());
+    vistos.remove(&lugar);
     Ok(vistos.into_iter().collect())
 }
 

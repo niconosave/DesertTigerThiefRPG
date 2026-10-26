@@ -1,0 +1,14 @@
+(
+    clave: "rey",
+    nombre: "Rey",
+    biografia: "Padre del príncipe, procedente de otro continente.",
+    ubicacion_inicial: FueraDelEscenario,
+    caracteristicas: ["muerto"],
+    relaciones: [
+        (tipo: Padre, destino: Actor("abuelo_paterno")),
+        (tipo: Madre, destino: Actor("abuela_paterna")),
+        (tipo: MatadoPor, destino: Actor("hermano_del_rey")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

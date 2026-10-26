@@ -12,6 +12,7 @@ cada acción.
 | [`03-cronologia-causal-viaje.md`](./03-cronologia-causal-viaje.md) | Antecedente obsoleto para componer situaciones dramáticas de viaje, preservar cada momento causal y presentar el progreso. |
 | [`04-proyecto-humano-viajar.md`](./04-proyecto-humano-viajar.md) | Antecedente obsoleto de propósito, deliberación, plan, subobjetivos, procedencia de medios, interpretación y replanteamiento. |
 | [`06-implementacion-viajar.md`](./06-implementacion-viajar.md) | Contrato implementado del refactor: módulos, cálculos, ejecución por escenas e integración. |
+| [`07-acampar.md`](./07-acampar.md) | Contrato implementado: acampada, fichas, navegación, contenido y vista terminal. |
 | [`borradores/05-viajar-redisenio.md`](./borradores/05-viajar-redisenio.md) | Reglamento aprobado de `Viajar`, conservado en su ruta para mantener referencias. |
 | [`borradores/CONTEXTO-viajar-redisenio.md`](./borradores/CONTEXTO-viajar-redisenio.md) | Traspaso breve para continuar el rediseño en otra conversación. |
 | [`particulares/`](./particulares/README.md) | Índice vigente de las cinco pruebas y archivos históricos sustituidos. |

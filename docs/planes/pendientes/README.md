@@ -4,6 +4,36 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Paleta nativa y colores fijos terminados
+
+[PLAN-2026-040](../completados/2026-10-26-40-resolver-paleta-terminal.md) está
+implementado y archivado. Sus escenarios y verificaciones están en el
+[contrato 16](../../tecnica/componentes/16-paleta-terminal.md#7-verificación-de-la-implementación--2026-10-26).
+No quedan tareas de este incremento.
+
+## Fogata procedural terminada
+
+[PLAN-2026-039](../completados/2026-10-26-39-animar-iluminar-fogata.md) está
+implementado, verificado y archivado. El
+[contrato 15](../../tecnica/componentes/15-fogata-procedural.md#11-verificación-de-la-implementación--2026-10-26)
+registra su cierre. No quedan tareas de este incremento.
+
+## Parentesco y Actores de contexto terminado
+
+PLAN-2026-038 está implementado, verificado y archivado en
+[completados](../completados/README.md#parentesco-y-actores-de-contexto).
+El [contrato 14](../../tecnica/componentes/14-parentesco-actores-contexto.md#12-verificación-de-la-implementación--2026-10-26)
+registra las pruebas y el recorrido manual. No quedan tareas pendientes de este
+alcance; los planes históricos conservan su estado anterior.
+
+## Acampar terminado
+
+PLAN-2026-036 y PLAN-2026-037 están implementados, verificados y archivados en
+[completados](../completados/README.md#acción-general-acampar).
+El [contrato de Acampar](../../tecnica/acciones/07-acampar.md#12-verificación-de-la-implementación--2026-10-26)
+registra las pruebas y el recorrido manual del incremento. No quedan tareas de
+esta secuencia; los alcances anteriores conservan sus propios estados.
+
 ## Refactor del reglamento de Viajar terminado
 
 PLAN-2026-025 a PLAN-2026-031 están implementados, verificados y archivados en

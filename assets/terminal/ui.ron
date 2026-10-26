@@ -1,5 +1,5 @@
 (
-    pantalla: (frente: "gris", fondo: Some("negro"), modificadores: []),
+    pantalla: (frente: "gris", fondo: None, modificadores: []),
     texto_normal: (frente: "gris", fondo: None, modificadores: []),
     destacado: (frente: "blanco", fondo: None, modificadores: ["negrita"]),
     secundario: (frente: "grisOscuro", fondo: None, modificadores: []),
@@ -9,6 +9,6 @@
     atajo: (frente: "amarilloClaro", fondo: None, modificadores: ["negrita"]),
     error: (frente: "blanco", fondo: Some("rojo"), modificadores: ["negrita"]),
     deshabilitado: (frente: "gris", fondo: None, modificadores: ["tenue"]),
-    barra_contextual: (frente: "blanco", fondo: Some("negro"), modificadores: []),
+    barra_contextual: (frente: "blanco", fondo: None, modificadores: []),
     barra_acciones: (frente: "blanco", fondo: Some("azul"), modificadores: []),
 )
