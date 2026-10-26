@@ -1,10 +1,12 @@
 use std::collections::BTreeSet;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use desert_tiger_app::{
     AccionDisponible, CausaIndisponibilidad, ColorRetrato, EntradaResumenNpc, ErrorIntencion,
-    EstiloCeldaRetrato, IdLugar, IntencionFrontend, Partida, VistaDecision, VistaMundo,
-    VistaSesion,
+    EstiloCeldaRetrato, GraficoRetrato, IdLugar, IntencionFrontend, Partida, VistaActor,
+    VistaDecision, VistaMundo, VistaSesion,
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -351,39 +353,36 @@ impl Interfaz {
         {
             poner_celda(frame, x, y, '@', recursos.ui.foco);
         }
-        let mut retratos = Vec::with_capacity(mundo.companeros.len() + 1);
-        retratos.extend(mundo.companeros.iter().map(|actor| &actor.retrato));
-        retratos.push(&mundo.jugador.retrato);
+        let mut actores = Vec::with_capacity(mundo.companeros.len() + 1);
+        actores.extend(mundo.companeros.iter());
+        actores.push(&mundo.jugador);
         let mut x = area.x;
         let base_y = area.y + area.height;
         let mut anterior: Option<usize> = None;
-        for retrato in retratos {
-            let fotograma = &retrato.fotogramas()[self.fotograma % retrato.fotogramas().len()];
+        for actor in actores {
+            let retrato = &actor.retrato;
+            let base = retrato.base();
             if let Some(ancho_anterior) = anterior {
-                let solapamiento = 1.max(ancho_anterior.min(fotograma.ancho()) / 4);
+                let solapamiento = 1.max(ancho_anterior.min(base.ancho()) / 4);
                 x = x.saturating_add(
                     u16::try_from(ancho_anterior - solapamiento).unwrap_or(u16::MAX),
                 );
             }
-            let alto = u16::try_from(fotograma.alto()).unwrap_or(u16::MAX);
+            let alto = u16::try_from(base.alto()).unwrap_or(u16::MAX);
             let inicio_y = base_y.saturating_sub(alto);
-            for (indice, celda) in fotograma.celdas().iter().enumerate() {
-                if celda.glifo == ' ' {
-                    continue;
-                }
-                let fila = indice / fotograma.ancho();
-                let columna = indice % fotograma.ancho();
-                let px = x.saturating_add(u16::try_from(columna).unwrap_or(u16::MAX));
-                let py = inicio_y.saturating_add(u16::try_from(fila).unwrap_or(u16::MAX));
-                if px < area.right() && py >= area.y && py < area.bottom() {
-                    let estilo = celda
-                        .estilo
-                        .map(estilo_retrato)
-                        .unwrap_or(recursos.ui.destacado);
-                    poner_celda(frame, px, py, celda.glifo, estilo);
-                }
+            for (origen, grafico) in retrato
+                .capas(
+                    actor.expresion.as_deref(),
+                    parpadeando(actor, self.fotograma),
+                )
+                .into_iter()
+                .flatten()
+            {
+                let px = x.saturating_add(u16::try_from(origen.x).unwrap_or(u16::MAX));
+                let py = inicio_y.saturating_add(u16::try_from(origen.y).unwrap_or(u16::MAX));
+                dibujar_grafico_retrato(frame, area, px, py, grafico, recursos);
             }
-            anterior = Some(fotograma.ancho());
+            anterior = Some(base.ancho());
         }
     }
 
@@ -822,6 +821,43 @@ fn proyectar(
     ))
 }
 
+fn parpadeando(actor: &VistaActor, paso: usize) -> bool {
+    let Some(parpadeo) = actor.retrato.parpadeo() else {
+        return false;
+    };
+    let intervalo = u128::from(parpadeo.intervalo_ms() / 250);
+    let duracion = u128::from(parpadeo.duracion_ms() / 250);
+    // Es un desfase visual estable por ID. Nunca consume azar de la Partida.
+    let mut hash = DefaultHasher::new();
+    actor.id.hash(&mut hash);
+    let desfase = u128::from(hash.finish()) % intervalo;
+    (paso as u128 + desfase) % intervalo >= intervalo - duracion
+}
+
+fn dibujar_grafico_retrato(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    x: u16,
+    y: u16,
+    grafico: &GraficoRetrato,
+    recursos: &RecursosVisuales,
+) {
+    for (indice, celda) in grafico.celdas().iter().enumerate() {
+        if celda.glifo == ' ' {
+            continue;
+        }
+        let px = x.saturating_add(u16::try_from(indice % grafico.ancho()).unwrap_or(u16::MAX));
+        let py = y.saturating_add(u16::try_from(indice / grafico.ancho()).unwrap_or(u16::MAX));
+        if px >= area.x && px < area.right() && py >= area.y && py < area.bottom() {
+            let estilo = celda
+                .estilo
+                .map(estilo_retrato)
+                .unwrap_or(recursos.ui.destacado);
+            poner_celda(frame, px, py, celda.glifo, estilo);
+        }
+    }
+}
+
 fn poner_celda(frame: &mut Frame<'_>, x: u16, y: u16, caracter: char, estilo: Style) {
     if let Some(celda) = frame.buffer_mut().cell_mut((x, y)) {
         celda.set_char(caracter).set_style(estilo);
@@ -866,6 +902,122 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    fn partida_con_retrato_capas() -> Partida {
+        use std::fs;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NUMERO: AtomicU64 = AtomicU64::new(0);
+        let destino = std::env::temp_dir().join(format!(
+            "desert-tiger-retrato-capas-{}-{}",
+            std::process::id(),
+            NUMERO.fetch_add(1, Ordering::Relaxed)
+        ));
+        struct Temporal(PathBuf);
+        impl Drop for Temporal {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        fn copiar(origen: &std::path::Path, destino: &std::path::Path) {
+            fs::create_dir_all(destino).unwrap();
+            for entrada in fs::read_dir(origen).unwrap() {
+                let entrada = entrada.unwrap();
+                let siguiente = destino.join(entrada.file_name());
+                if entrada.file_type().unwrap().is_dir() {
+                    copiar(&entrada.path(), &siguiente);
+                } else {
+                    fs::copy(entrada.path(), siguiente).unwrap();
+                }
+            }
+        }
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base");
+        fs::create_dir(&destino).unwrap();
+        let _temporal = Temporal(destino.clone());
+        copiar(&raiz, &destino);
+        fs::write(
+            destino.join("actors/principe_perdido.ron"),
+            r#"(
+            clave: "principe_perdido", lugar_inicial: "zona_arida",
+            caracteristicas: [], relaciones: [], politica: Ninguna,
+            retrato: Some((
+                paleta: {
+                    'b': (frente: "blanco", fondo: Some("negro")),
+                    'e': (frente: "rojo", fondo: Some("verde")),
+                    'p': (frente: "cian", fondo: None),
+                },
+                base: (arte: "abcd\nefgh\nijkl", estilos: Some("bbbb\nbbbb\nbbbb")),
+                rostro: Some((origen: (x: 0, y: 0), expresiones: {
+                    "enojado": (arte: "X ZW\n Q  ", estilos: Some("eeee\neeee")),
+                })),
+                parpadeo: Some((origen: (x: 1, y: 0), intervalo_ms: 1000, duracion_ms: 250,
+                    ojo_cerrado: (arte: " C ", estilos: Some("ppp")),
+                )),
+            )),
+        )"#,
+        )
+        .unwrap();
+        let contenido = cargar_contenido(&destino).unwrap();
+        Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap()
+    }
+
+    #[test]
+    fn expresion_y_ojo_se_superponen_con_transparencia_y_prioridad() {
+        let mut interfaz = Interfaz::nueva(partida_con_retrato_capas()).unwrap();
+        interfaz.ultima_vista_mundo.companeros.clear();
+        let antes = interfaz.partida.vista();
+        let actor = &interfaz.ultima_vista_mundo.jugador;
+        let abierto = (0..4).find(|&p| !parpadeando(actor, p)).unwrap();
+        let cerrado = (0..4).find(|&p| parpadeando(actor, p)).unwrap();
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal");
+        let recursos = RecursosVisuales::cargar(&raiz).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        interfaz.fotograma = abierto;
+        interfaz.ultima_vista_mundo.jugador.expresion = Some("enojado".into());
+        terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(0, 19)].symbol(), "X");
+        assert_eq!(buffer[(1, 19)].symbol(), "b");
+        assert_eq!(buffer[(2, 19)].symbol(), "Z");
+        assert_eq!(buffer[(1, 20)].symbol(), "Q");
+        interfaz.fotograma = cerrado;
+        terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
+        let buffer = terminal.backend().buffer();
+        assert_eq!(buffer[(0, 19)].symbol(), "X");
+        assert_eq!(buffer[(1, 19)].symbol(), "b");
+        assert_eq!(buffer[(2, 19)].symbol(), "C");
+        assert_eq!(buffer[(3, 19)].symbol(), "W");
+        assert_eq!(buffer[(2, 19)].fg, Color::Cyan);
+        assert_eq!(buffer[(2, 19)].bg, Color::Green);
+        interfaz.fotograma = abierto;
+        interfaz.ultima_vista_mundo.jugador.expresion = Some("inexistente".into());
+        terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
+        assert_eq!(terminal.backend().buffer()[(0, 19)].symbol(), "a");
+        assert_eq!(interfaz.partida.vista(), antes);
+    }
+
+    #[test]
+    fn los_actores_no_comparten_todos_la_fase_de_parpadeo() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base");
+        let contenido = cargar_contenido(&raiz).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let interfaz = Interfaz::nueva(partida).unwrap();
+        let mut actor = interfaz.ultima_vista_mundo.jugador.clone();
+        let periodo =
+            usize::try_from(actor.retrato.parpadeo().unwrap().intervalo_ms() / 250).unwrap();
+        let secuencias: Vec<Vec<bool>> = (0..5)
+            .map(|id| {
+                actor.id = desert_tiger_app::IdActor::desde_posicion(id).unwrap();
+                (0..periodo).map(|p| parpadeando(&actor, p)).collect()
+            })
+            .collect();
+        assert!(
+            secuencias
+                .iter()
+                .all(|s| s.iter().any(|&cerrado| cerrado) && s.iter().any(|&cerrado| !cerrado))
+        );
+        assert!(secuencias[1..].iter().any(|s| s != &secuencias[0]));
+    }
 
     #[test]
     fn confirmacion_congela_y_reanuda_la_animacion() {
@@ -1073,11 +1225,17 @@ mod pruebas {
         let recursos =
             RecursosVisuales::cargar(&raiz.join("assets/terminal")).expect("recursos validos");
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("backend valido");
+        let actor = &interfaz.ultima_vista_mundo.jugador;
+        let periodo =
+            usize::try_from(actor.retrato.parpadeo().unwrap().intervalo_ms() / 250).unwrap();
+        let abierto = (0..periodo).find(|&p| !parpadeando(actor, p)).unwrap();
+        let cerrado = (0..periodo).find(|&p| parpadeando(actor, p)).unwrap();
+        interfaz.fotograma = cerrado;
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .expect("primer fotograma valido");
         let cerrado_buffer = terminal.backend().buffer().clone();
-        interfaz.avanzar_animacion(1);
+        interfaz.fotograma = abierto;
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .expect("segundo fotograma valido");

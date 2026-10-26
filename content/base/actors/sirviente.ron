@@ -21,43 +21,8 @@
             'D': (frente: "grisOscuro", fondo: Some("gris")),
             'E': (frente: "negro", fondo: Some("magentaClaro")),
         },
-        fotogramas: [
-            (
-                arte: r#"
-                
-                
-                
-                
-      ▄▄▄▄▄▄    
-     ▐█████▀▄▄  
-      ▄▀▄▀▀▄▀▀  
-      ▄▀▄█▀▀█   
-      ▄▀▄████▀  
-      ▄▀▄██-█   
-      ▄▀▄▀▄▀    
-▄▄███▀▄▀▄▀▄▀▄██ 
-████████████████
-████████████████
-"#,
-                estilos: Some(r#"
-0000000000000000
-0000000000000000
-0000000000000000
-0000000000000000
-0000012223331110
-0001124444444330
-0001129997787320
-000011999AAAA900
-000000999AAAAAA0
-000000999AAEA000
-0000009999991000
-BBBB2999999992B0
-BBBB2222222222BB
-BBBBBBBBBBBBBBBB
-"#),
-            ),
-            (
-                arte: r#"
+        base: (
+            arte: r#"
                 
                 
                 
@@ -73,7 +38,7 @@ BBBBBBBBBBBBBBBB
 ████████████████
 ████████████████
 "#,
-                estilos: Some(r#"
+            estilos: Some(r#"
 0000000000000000
 0000000000000000
 0000000000000000
@@ -89,8 +54,24 @@ BBBB2999999992B0
 BBBB2222222222BB
 BBBBBBBBBBBBBBBB
 "#),
+        ),
+        rostro: Some((
+            origen: (x: 6, y: 6),
+            expresiones: {},
+        )),
+        parpadeo: Some((
+            origen: (x: 10, y: 7),
+            intervalo_ms: 5250,
+            duracion_ms: 250,
+            ojo_cerrado: (
+                arte: r#"
+▀▀
+"#,
+                estilos: Some(r#"
+AA
+"#),
             ),
-        ],
+        )),
     )),
     politica: Ninguna,
 )

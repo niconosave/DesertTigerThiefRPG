@@ -11,8 +11,9 @@ mod tiempo;
 pub use contenido::{
     CeldaRetrato, ClaseDiagnosticoContenido, ClaveTipoTile, ColorRetrato, ContenidoValidado,
     CoordenadaMapa, DiagnosticoContenido, ElementoDiagnosticoContenido, ErrorClaveTipoTile,
-    ErrorContenido, EstiloCeldaRetrato, FotogramaRetrato, OrigenDiagnosticoContenido,
-    PosicionDiagnosticoContenido, RetratoActor, TipoElementoContenido, cargar_contenido,
+    ErrorContenido, EstiloCeldaRetrato, GraficoRetrato, OrigenDiagnosticoContenido,
+    ParpadeoRetrato, PosicionDiagnosticoContenido, PosicionRetrato, RetratoActor, RostroRetrato,
+    TipoElementoContenido, cargar_contenido,
 };
 pub use desert_tiger_core::acciones::{
     ClaveEscena, RechazoAccion, RegistroProyecto, RolPresentacion,

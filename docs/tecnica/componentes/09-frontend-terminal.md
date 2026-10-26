@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.47 |
-| Fecha | 2026-10-25 |
+| Versión | 0.48 |
+| Fecha | 2026-10-26 |
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
 
@@ -656,7 +656,7 @@ ya fue aplicado. Cuando la aplicación vuelve a entregar `VistaMundo` después d
 la fase NPC, la instantánea anterior se descarta.
 
 La inmutabilidad anterior se refiere a los datos de Mundo recibidos de la
-aplicación. El frontend puede seleccionar otros fotogramas de los retratos y
+aplicación. El frontend puede actualizar el parpadeo de los retratos y
 usar el `ProgresoViaje` vigente, por lo que la animación y el seguimiento
 continúan detrás de una viñeta sin revelar consecuencias posteriores.
 
@@ -960,10 +960,10 @@ solapamiento = max(1, min(ancho_anterior, ancho_siguiente) / 4)
 x_siguiente = x_anterior + ancho_anterior - solapamiento
 ```
 
-Como todos los fotogramas de un mismo Actor tienen las mismas dimensiones, la
-posición no cambia durante su animación.
+El ancho y alto proceden siempre de la base: las capas no cambian la posición.
+La composición sigue el [contrato 13](./13-retratos-por-capas.md).
 
-Los espacios de un fotograma de retrato son transparentes. Conservan su posición
+Los espacios de cada capa de retrato son transparentes. Conservan su posición
 y cuentan para calcular el ancho, la alineación y el solapamiento, pero el
 renderizador omite esas celdas por completo: no reemplaza el glifo ni el estilo
 que ya aportaron el mapa, un rótulo u otro retrato. Cualquier carácter ASCII
@@ -989,8 +989,9 @@ borde superior o derecho de la región. No escala, redistribuye, incrementa el
 solapamiento ni escribe sobre las barras; un retrato que quede completamente
 fuera puede no producir celdas visibles sin invalidar la Partida.
 
-El fotograma vigente pertenece al frontend y la lista ordenada de fotogramas
-procede del catálogo de presentación.
+Se dibuja base, expresión y ojo, en ese orden, antes de pasar al siguiente
+Actor. La expresión procede de `VistaActor.expresion`; el frontend calcula
+el parpadeo individual según el contrato 13.
 
 En selección de viaje, la cámara enfoca el lugar activo y su nombre usa el rol
 `foco`. La barra contextual comienza con `> Destino: ` y repite el nombre del
@@ -1051,18 +1052,14 @@ El primer incremento usará un bucle síncrono y monohilo:
 4. actualiza el estado de interfaz;
 5. solicita a Ratatui un nuevo renderizado cuando cambió algo visible.
 
-La cadencia inicial de los retratos será global y fija: un paso cada 250 ms. El
-RON no contiene duraciones. El bucle calcula el tiempo de espera hasta el próximo
-paso y permite que la entrada o un redimensionado lo interrumpan. Ratatui no
-reproduce la animación: solo dibuja el fotograma que el estado del frontend haya
-seleccionado.
-
-La temporización utiliza un reloj monotónico del frontend y nunca adelanta la
-fecha del Mundo. Si un vencimiento se atiende tarde, se calcula cuántos intervalos
-completos transcurrieron y se avanza esa cantidad módulo el número de fotogramas;
-no se reproducen en ráfaga los estados atrasados. Una lista de un solo fotograma
-permanece estática y no requiere vencimientos propios. No se incorporará un
-runtime asíncrono mientras este bucle resulte suficiente.
+El bucle visual avanza en pasos de 250 ms con un reloj monotónico del
+frontend. La entrada y los redimensionados interrumpen su espera. Ratatui dibuja
+el estado actual; los tiles conservan sus fotogramas y duración propios, y cada
+retrato calcula su parpadeo según el [contrato 13](./13-retratos-por-capas.md).
+Un vencimiento tardío avanza los pasos completos sin reproducirlos en ráfaga.
+La confirmación de salida congela el reloj visual. Este reloj nunca adelanta
+la fecha del Mundo ni consume el azar de la Partida. El bucle sigue siendo
+síncrono y monohilo.
 
 La inicialización y el cierre serán simétricos. Un guardián de ciclo de vida
 restaurará cursor, modo raw y pantalla principal tanto ante una salida normal
@@ -1386,7 +1383,7 @@ Pruebas automáticas:
 - cuando hay ilustración, aparece encima del texto; cuando no la hay, el texto
   ocupa toda la región interior disponible;
 - las ilustraciones de viñeta permanecen estáticas aunque los retratos del fondo
-  continúen usando sus fotogramas de animación;
+  continúen parpadeando;
 - el regreso desde la acción dibuja la vista actualizada del mundo y mantiene el
   resumen NPC limitado a la barra contextual;
 - las transiciones visuales no ejecutan reglas propias;
@@ -1503,13 +1500,14 @@ Pruebas automáticas:
   con el retrato anterior, el retrato dibujado después queda por delante;
 - retratos consecutivos de anchos iguales y diferentes aplican la fórmula del
   25 %, incluido su redondeo hacia abajo y el mínimo de una columna;
-- cambiar de fotograma no desplaza ningún retrato;
+- cambiar de expresión o parpadear no desplaza ningún retrato;
 - un espacio de retrato conserva exactamente el glifo y el estilo previamente
   dibujados en la celda; una celda visible sin estilo usa `destacado`, y una
   celda coloreada reemplaza glifo, frente y fondo explícito sin perder un fondo
   heredado cuando el suyo es `None`;
-- los dos fotogramas oficiales del Príncipe conservan dimensiones y colores,
-  alternan el ojo sin mover el retrato y dejan ver el mapa a través del padding;
+- la base y el ojo cerrado del Príncipe conservan su dibujo y colores;
+  las capas respetan transparencia, prioridad y fondo heredado, y los Actores
+  tienen fases de parpadeo independientes;
 - el conjunto de retratos del contenido oficial cabe completo en el tamaño
   mínimo admitido;
 - retratos modificados que exceden la región se recortan en sus bordes superior

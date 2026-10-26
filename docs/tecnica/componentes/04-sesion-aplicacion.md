@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.21 |
-| Fecha | 2026-10-20 |
+| Versión | 0.22 |
+| Fecha | 2026-10-26 |
 
 ## Revisión implementada el 2026-10-24: Sesión y vistas del viaje activo
 
@@ -484,6 +484,7 @@ pub struct VistaActor {
     pub id: IdActor,
     pub nombre: String,
     pub retrato: RetratoActor,
+    pub expresion: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -508,14 +509,11 @@ conservan el orden del Grupo. Solo esos Actores se proyectan porque son los
 sigue aplazada. El contenido garantiza que todos tienen nombre visible y
 retrato; la clave externa del Actor nunca se usa como reemplazo de su nombre.
 
-`RetratoActor` es un valor inmutable y neutral que contiene fotogramas de
-idénticas dimensiones. Cada `FotogramaRetrato` publica su ancho, alto y una
-secuencia plana de `CeldaRetrato` en orden de filas. Cada celda expone un
-`char` validado de una columna y un `Option<EstiloCeldaRetrato>`; el estilo
-contiene `ColorRetrato` frontal y fondo opcional mediante los diecisiete nombres
-del contrato de contenido. Ninguno de estos tipos depende de Ratatui ni incluye
-secuencias ANSI. El frontend decide cómo convertir el valor neutral o cómo
-representar un estilo ausente.
+`RetratoActor` contiene gráficos neutrales validados, sin dependencia de
+Ratatui ni secuencias ANSI. Su contrato está en
+[`13-retratos-por-capas.md`](./13-retratos-por-capas.md).
+`expresion` selecciona una clave del rostro para esta vista; actualmente la
+proyección inicial entrega `None`. No representa un estado emocional del Mundo.
 
 La celda `(x, y)` de `VistaMapa` ocupa `y * ancho + x` y
 `celdas.len() == ancho * alto`. `tipos_declarados` incluye incluso las claves

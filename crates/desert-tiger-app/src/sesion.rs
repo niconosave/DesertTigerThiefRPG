@@ -97,6 +97,7 @@ pub struct VistaLugar {
 pub struct VistaActor {
     pub id: IdActor,
     pub retrato: RetratoActor,
+    pub expresion: Option<String>,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AccionDisponible {
@@ -471,7 +472,11 @@ fn proyectar_actor(contenido: &ContenidoValidado, id: IdActor) -> Result<VistaAc
         .and_then(|a| a.retrato())
         .cloned()
         .ok_or("Actor sin retrato")?;
-    Ok(VistaActor { id, retrato })
+    Ok(VistaActor {
+        id,
+        retrato,
+        expresion: None,
+    })
 }
 fn proyectar_mundo(
     m: &Mundo,

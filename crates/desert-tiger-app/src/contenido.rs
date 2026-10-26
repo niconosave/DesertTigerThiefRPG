@@ -74,13 +74,13 @@ pub struct CoordenadaMapa {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FotogramaRetrato {
+pub struct GraficoRetrato {
     ancho: usize,
     alto: usize,
     celdas: Vec<CeldaRetrato>,
 }
 
-impl FotogramaRetrato {
+impl GraficoRetrato {
     pub fn ancho(&self) -> usize {
         self.ancho
     }
@@ -129,12 +129,94 @@ pub enum ColorRetrato {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RetratoActor {
-    fotogramas: Vec<FotogramaRetrato>,
+    base: GraficoRetrato,
+    rostro: Option<RostroRetrato>,
+    parpadeo: Option<ParpadeoRetrato>,
 }
 
 impl RetratoActor {
-    pub fn fotogramas(&self) -> &[FotogramaRetrato] {
-        &self.fotogramas
+    pub fn base(&self) -> &GraficoRetrato {
+        &self.base
+    }
+
+    pub fn rostro(&self) -> Option<&RostroRetrato> {
+        self.rostro.as_ref()
+    }
+
+    pub fn parpadeo(&self) -> Option<&ParpadeoRetrato> {
+        self.parpadeo.as_ref()
+    }
+
+    pub fn capas(
+        &self,
+        expresion: Option<&str>,
+        parpadeando: bool,
+    ) -> [Option<(PosicionRetrato, &GraficoRetrato)>; 3] {
+        let rostro = self.rostro.as_ref().and_then(|rostro| {
+            expresion.and_then(|clave| {
+                rostro
+                    .expresion(clave)
+                    .map(|grafico| (rostro.origen, grafico))
+            })
+        });
+        let ojo = self
+            .parpadeo
+            .as_ref()
+            .filter(|_| parpadeando)
+            .map(|parpadeo| (parpadeo.origen, &parpadeo.ojo_cerrado));
+        [
+            Some((PosicionRetrato { x: 0, y: 0 }, &self.base)),
+            rostro,
+            ojo,
+        ]
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PosicionRetrato {
+    pub x: usize,
+    pub y: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RostroRetrato {
+    origen: PosicionRetrato,
+    expresiones: BTreeMap<String, GraficoRetrato>,
+}
+
+impl RostroRetrato {
+    pub fn origen(&self) -> PosicionRetrato {
+        self.origen
+    }
+
+    pub fn expresion(&self, clave: &str) -> Option<&GraficoRetrato> {
+        self.expresiones.get(clave)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ParpadeoRetrato {
+    origen: PosicionRetrato,
+    ojo_cerrado: GraficoRetrato,
+    intervalo_ms: u64,
+    duracion_ms: u64,
+}
+
+impl ParpadeoRetrato {
+    pub fn origen(&self) -> PosicionRetrato {
+        self.origen
+    }
+
+    pub fn ojo_cerrado(&self) -> &GraficoRetrato {
+        &self.ojo_cerrado
+    }
+
+    pub fn intervalo_ms(&self) -> u64 {
+        self.intervalo_ms
+    }
+
+    pub fn duracion_ms(&self) -> u64 {
+        self.duracion_ms
     }
 }
 
@@ -603,7 +685,59 @@ where
 #[serde(deny_unknown_fields)]
 struct RetratoDto {
     paleta: PaletaRetratoDto,
-    fotogramas: Vec<FotogramaRetratoDto>,
+    base: GraficoRetratoDto,
+    #[serde(default)]
+    rostro: Option<RostroRetratoDto>,
+    #[serde(default)]
+    parpadeo: Option<ParpadeoRetratoDto>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RostroRetratoDto {
+    origen: CoordenadaDto,
+    expresiones: ExpresionesRetratoDto,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ParpadeoRetratoDto {
+    origen: CoordenadaDto,
+    ojo_cerrado: GraficoRetratoDto,
+    #[serde(default = "intervalo_parpadeo")]
+    intervalo_ms: u64,
+    #[serde(default = "duracion_parpadeo")]
+    duracion_ms: u64,
+}
+
+fn intervalo_parpadeo() -> u64 {
+    4500
+}
+
+fn duracion_parpadeo() -> u64 {
+    250
+}
+
+struct ExpresionesRetratoDto(Vec<(String, GraficoRetratoDto)>);
+
+impl<'de> Deserialize<'de> for ExpresionesRetratoDto {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitante;
+        impl<'de> Visitor<'de> for Visitante {
+            type Value = ExpresionesRetratoDto;
+            fn expecting(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+                formatter.write_str("un mapa de expresiones de rostro")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut acceso: A) -> Result<Self::Value, A::Error> {
+                let mut entradas = Vec::new();
+                while let Some(entrada) = acceso.next_entry()? {
+                    entradas.push(entrada);
+                }
+                Ok(ExpresionesRetratoDto(entradas))
+            }
+        }
+        deserializer.deserialize_map(Visitante)
+    }
 }
 
 struct PaletaRetratoDto(Vec<(char, EstiloCeldaRetratoDto)>);
@@ -639,7 +773,7 @@ struct EstiloCeldaRetratoDto {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct FotogramaRetratoDto {
+struct GraficoRetratoDto {
     arte: String,
     estilos: Option<String>,
 }
@@ -1486,10 +1620,6 @@ fn validar_retrato(
             detalle,
         )
     };
-    if dto.fotogramas.is_empty() {
-        return Err(error("el retrato no tiene fotogramas".to_owned()));
-    }
-
     let mut paleta = BTreeMap::new();
     for (codigo, estilo) in dto.paleta.0 {
         if !codigo.is_ascii_graphic() || matches!(codigo, '\'' | '"' | '\\') {
@@ -1526,83 +1656,149 @@ fn validar_retrato(
         }
     }
 
-    let mut fotogramas = Vec::with_capacity(dto.fotogramas.len());
-    let mut dimensiones = None;
-    for (numero, fotograma) in dto.fotogramas.into_iter().enumerate() {
-        let cuerpo = normalizar_bloque(&fotograma.arte).map_err(error)?;
-        let filas: Vec<Vec<char>> = cuerpo.lines().map(|fila| fila.chars().collect()).collect();
-        if filas.is_empty() || filas[0].is_empty() || filas.iter().any(Vec::is_empty) {
-            return Err(error(format!("fotograma {} vacío", numero + 1)));
-        }
-        let ancho = filas[0].len();
-        if filas.iter().any(|fila| fila.len() != ancho) {
-            return Err(error(format!(
-                "arte del fotograma {} no rectangular",
-                numero + 1
-            )));
-        }
-        for (y, fila) in filas.iter().enumerate() {
-            for (x, caracter) in fila.iter().copied().enumerate() {
-                if caracter.is_control() || caracter.width() != Some(1) {
+    let base = validar_grafico_retrato(dto.base, &paleta, &error, "base")?;
+    let rostro = dto
+        .rostro
+        .map(|rostro| {
+            let origen = validar_posicion_retrato(rostro.origen, &base, &error)?;
+            let mut expresiones = BTreeMap::new();
+            for (nombre, grafico) in rostro.expresiones.0 {
+                if nombre.len() > MAX_BYTES_CLAVE_EXTERNA || !es_lower_camel(&nombre) {
                     return Err(error(format!(
-                        "glifo de retrato no admitido en fotograma {}, ({x}, {y}): {}",
-                        numero + 1,
-                        caracter.escape_default()
+                        "clave de expresión inválida: {}",
+                        sanear(&nombre)
                     )));
                 }
+                let grafico = validar_grafico_retrato(grafico, &paleta, &error, &nombre)?;
+                validar_limites_capa(origen, &grafico, &base, &error)?;
+                if expresiones.insert(nombre.clone(), grafico).is_some() {
+                    return Err(error(format!("expresión duplicada: {nombre}")));
+                }
             }
+            Ok(RostroRetrato {
+                origen,
+                expresiones,
+            })
+        })
+        .transpose()?;
+    let parpadeo = dto.parpadeo.map(|parpadeo| {
+        if parpadeo.duracion_ms == 0 || parpadeo.intervalo_ms <= parpadeo.duracion_ms
+            || parpadeo.intervalo_ms % 250 != 0 || parpadeo.duracion_ms % 250 != 0 {
+            return Err(error("parpadeo: intervalo y duración deben ser múltiplos positivos de 250 ms y la duración debe ser menor que el intervalo".to_owned()));
         }
-        let actuales = (ancho, filas.len());
-        if dimensiones.is_some_and(|esperadas| esperadas != actuales) {
-            return Err(error(
-                "los fotogramas tienen dimensiones diferentes".to_owned(),
-            ));
-        }
-        dimensiones = Some(actuales);
+        let origen = validar_posicion_retrato(parpadeo.origen, &base, &error)?;
+        let ojo_cerrado = validar_grafico_retrato(parpadeo.ojo_cerrado, &paleta, &error, "ojo_cerrado")?;
+        validar_limites_capa(origen, &ojo_cerrado, &base, &error)?;
+        Ok(ParpadeoRetrato { origen, ojo_cerrado, intervalo_ms: parpadeo.intervalo_ms, duracion_ms: parpadeo.duracion_ms })
+    }).transpose()?;
+    Ok(RetratoActor {
+        base,
+        rostro,
+        parpadeo,
+    })
+}
 
-        let estilos = match fotograma.estilos {
-            None => vec![None; ancho * filas.len()],
-            Some(texto) => {
-                let cuerpo = normalizar_bloque(&texto).map_err(error)?;
-                let filas_estilo: Vec<Vec<char>> =
-                    cuerpo.lines().map(|fila| fila.chars().collect()).collect();
-                if filas_estilo.len() != filas.len()
-                    || filas_estilo.iter().any(|fila| fila.len() != ancho)
-                {
-                    return Err(error(format!(
-                        "matriz de estilos del fotograma {} no coincide con el arte",
-                        numero + 1
-                    )));
-                }
-                let mut estilos = Vec::with_capacity(ancho * filas.len());
-                for (y, fila) in filas_estilo.into_iter().enumerate() {
-                    for (x, codigo) in fila.into_iter().enumerate() {
-                        let estilo = paleta.get(&codigo).copied().ok_or_else(|| {
-                            error(format!(
-                                "estilo de retrato no declarado en fotograma {}, ({x}, {y}): {}",
-                                numero + 1,
-                                codigo.escape_default()
-                            ))
-                        })?;
-                        estilos.push(Some(estilo));
-                    }
-                }
-                estilos
-            }
-        };
-        let celdas = filas
-            .into_iter()
-            .flatten()
-            .zip(estilos)
-            .map(|(glifo, estilo)| CeldaRetrato { glifo, estilo })
-            .collect();
-        fotogramas.push(FotogramaRetrato {
-            ancho,
-            alto: actuales.1,
-            celdas,
-        });
+fn validar_posicion_retrato(
+    dto: CoordenadaDto,
+    base: &GraficoRetrato,
+    error: &impl Fn(String) -> ErrorContenido,
+) -> Result<PosicionRetrato, ErrorContenido> {
+    let x = usize::try_from(dto.x)
+        .map_err(|_| error("coordenada de retrato fuera de rango".to_owned()))?;
+    let y = usize::try_from(dto.y)
+        .map_err(|_| error("coordenada de retrato fuera de rango".to_owned()))?;
+    if x >= base.ancho || y >= base.alto {
+        return Err(error("origen de capa fuera del retrato base".to_owned()));
     }
-    Ok(RetratoActor { fotogramas })
+    Ok(PosicionRetrato { x, y })
+}
+
+fn validar_limites_capa(
+    origen: PosicionRetrato,
+    grafico: &GraficoRetrato,
+    base: &GraficoRetrato,
+    error: &impl Fn(String) -> ErrorContenido,
+) -> Result<(), ErrorContenido> {
+    if !origen
+        .x
+        .checked_add(grafico.ancho)
+        .is_some_and(|x| x <= base.ancho)
+        || !origen
+            .y
+            .checked_add(grafico.alto)
+            .is_some_and(|y| y <= base.alto)
+    {
+        return Err(error(
+            "la capa excede los límites del retrato base".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn validar_grafico_retrato(
+    grafico: GraficoRetratoDto,
+    paleta: &BTreeMap<char, EstiloCeldaRetrato>,
+    error: &impl Fn(String) -> ErrorContenido,
+    contexto: &str,
+) -> Result<GraficoRetrato, ErrorContenido> {
+    let fallo = |detalle| error(format!("{contexto}: {detalle}"));
+    let cuerpo = normalizar_bloque(&grafico.arte).map_err(fallo)?;
+    let filas: Vec<Vec<char>> = cuerpo.lines().map(|fila| fila.chars().collect()).collect();
+    if filas.is_empty() || filas[0].is_empty() || filas.iter().any(Vec::is_empty) {
+        return Err(fallo("gráfico vacío".to_owned()));
+    }
+    let ancho = filas[0].len();
+    let alto = filas.len();
+    if filas.iter().any(|fila| fila.len() != ancho) {
+        return Err(fallo("arte no rectangular".to_owned()));
+    }
+    for (y, fila) in filas.iter().enumerate() {
+        for (x, caracter) in fila.iter().copied().enumerate() {
+            if caracter.is_control() || caracter.width() != Some(1) {
+                return Err(fallo(format!(
+                    "glifo de retrato no admitido en ({x}, {y}): {}",
+                    caracter.escape_default()
+                )));
+            }
+        }
+    }
+    let estilos = match grafico.estilos {
+        None => vec![None; ancho * alto],
+        Some(texto) => {
+            let cuerpo = normalizar_bloque(&texto).map_err(fallo)?;
+            let filas_estilo: Vec<Vec<char>> =
+                cuerpo.lines().map(|fila| fila.chars().collect()).collect();
+            if filas_estilo.len() != alto || filas_estilo.iter().any(|fila| fila.len() != ancho) {
+                return Err(fallo(
+                    "matriz de estilos no coincide con el arte".to_owned(),
+                ));
+            }
+            let mut estilos = Vec::with_capacity(ancho * alto);
+            for (y, fila) in filas_estilo.into_iter().enumerate() {
+                for (x, codigo) in fila.into_iter().enumerate() {
+                    let estilo = paleta.get(&codigo).copied().ok_or_else(|| {
+                        fallo(format!(
+                            "estilo de retrato no declarado en ({x}, {y}): {}",
+                            codigo.escape_default()
+                        ))
+                    })?;
+                    estilos.push(Some(estilo));
+                }
+            }
+            estilos
+        }
+    };
+    let celdas = filas
+        .into_iter()
+        .flatten()
+        .zip(estilos)
+        .map(|(glifo, estilo)| CeldaRetrato { glifo, estilo })
+        .collect();
+    Ok(GraficoRetrato {
+        ancho,
+        alto,
+        celdas,
+    })
 }
 
 fn color_retrato(texto: &str) -> Option<ColorRetrato> {
@@ -2056,18 +2252,15 @@ mod pruebas {
         let retrato = contenido.presentacion().actores()[0]
             .retrato()
             .expect("el príncipe tiene retrato");
-        assert_eq!(retrato.fotogramas().len(), 2);
-        assert!(
-            retrato
-                .fotogramas()
-                .iter()
-                .all(|fotograma| fotograma.ancho() == 24 && fotograma.alto() == 14)
-        );
+        assert_eq!((retrato.base().ancho(), retrato.base().alto()), (24, 14));
         let ojo = 7 * 24 + 14;
-        assert_eq!(retrato.fotogramas()[0].celdas()[ojo].glifo, '▀');
-        assert_eq!(retrato.fotogramas()[1].celdas()[ojo].glifo, 'o');
         assert_eq!(
-            retrato.fotogramas()[1].celdas()[ojo].estilo,
+            retrato.parpadeo().unwrap().ojo_cerrado().celdas()[1].glifo,
+            '▀'
+        );
+        assert_eq!(retrato.base().celdas()[ojo].glifo, 'o');
+        assert_eq!(
+            retrato.base().celdas()[ojo].estilo,
             Some(EstiloCeldaRetrato {
                 frente: ColorRetrato::Cian,
                 fondo: Some(ColorRetrato::Negro),
@@ -2082,10 +2275,12 @@ mod pruebas {
     ) -> RetratoDto {
         RetratoDto {
             paleta: PaletaRetratoDto(paleta),
-            fotogramas: vec![FotogramaRetratoDto {
+            base: GraficoRetratoDto {
                 arte: arte.to_owned(),
                 estilos: estilos.map(str::to_owned),
-            }],
+            },
+            rostro: None,
+            parpadeo: None,
         }
     }
 
@@ -2094,6 +2289,93 @@ mod pruebas {
             frente: "blanco".to_owned(),
             fondo: None,
         }
+    }
+
+    fn retrato_capas_de_prueba() -> RetratoDto {
+        ron::from_str(
+            r#"(
+            paleta: {
+                'b': (frente: "blanco", fondo: Some("negro")),
+                'e': (frente: "rojo", fondo: Some("verde")),
+                'p': (frente: "cian", fondo: None),
+            },
+            base: (arte: "abcd\nefgh\nijkl", estilos: Some("bbbb\nbbbb\nbbbb")),
+            rostro: Some((origen: (x: 0, y: 0), expresiones: {
+                "enojado": (arte: "X ZW\n Q  ", estilos: Some("eeee\neeee")),
+            })),
+            parpadeo: Some((origen: (x: 1, y: 0),
+                intervalo_ms: 1000, duracion_ms: 250,
+                ojo_cerrado: (arte: " C ", estilos: Some("ppp")),
+            )),
+        )"#,
+        )
+        .expect("retrato de prueba válido")
+    }
+
+    #[test]
+    fn capas_tienen_origen_y_orden_sin_imponer_un_ojo_de_dos_celdas() {
+        let retrato = validar_retrato(
+            retrato_capas_de_prueba(),
+            Path::new("actors/prueba.ron"),
+            "prueba",
+        )
+        .unwrap();
+        let capas = retrato.capas(Some("enojado"), true);
+        assert_eq!(capas[0].unwrap().1.celdas()[0].glifo, 'a');
+        assert_eq!(capas[1].unwrap().1.celdas()[0].glifo, 'X');
+        assert_eq!(capas[1].unwrap().1.celdas()[1].glifo, ' ');
+        let (origen, ojo) = capas[2].unwrap();
+        assert_eq!(origen, PosicionRetrato { x: 1, y: 0 });
+        assert_eq!((ojo.ancho(), ojo.alto()), (3, 1));
+        assert!(retrato.capas(Some("desconocida"), false)[1].is_none());
+        assert!(retrato.capas(None, false)[2].is_none());
+    }
+
+    #[test]
+    fn rechaza_capas_fuera_del_retrato_y_expresiones_duplicadas() {
+        let mut dto = retrato_capas_de_prueba();
+        dto.parpadeo.as_mut().unwrap().origen.x = 2;
+        let error = validar_retrato(dto, Path::new("actors/prueba.ron"), "prueba").unwrap_err();
+        assert!(error.diagnosticos()[0].detalle().contains("límites"));
+        let mut dto = retrato_capas_de_prueba();
+        dto.rostro.as_mut().unwrap().expresiones.0.push((
+            "enojado".into(),
+            GraficoRetratoDto {
+                arte: "x".into(),
+                estilos: None,
+            },
+        ));
+        let error = validar_retrato(dto, Path::new("actors/prueba.ron"), "prueba").unwrap_err();
+        assert!(error.diagnosticos()[0].detalle().contains("duplicada"));
+        let mut dto = retrato_capas_de_prueba();
+        dto.rostro.as_mut().unwrap().origen.x = u64::MAX;
+        assert!(validar_retrato(dto, Path::new("actors/prueba.ron"), "prueba").is_err());
+    }
+
+    #[test]
+    fn rechaza_tiempos_invalidos_y_admite_retratos_sin_capas() {
+        for (intervalo, duracion) in [
+            (0, 250),
+            (1000, 0),
+            (1000, 1000),
+            (1000, 1250),
+            (1100, 250),
+            (1000, 100),
+        ] {
+            let mut dto = retrato_capas_de_prueba();
+            let parpadeo = dto.parpadeo.as_mut().unwrap();
+            parpadeo.intervalo_ms = intervalo;
+            parpadeo.duracion_ms = duracion;
+            assert!(validar_retrato(dto, Path::new("actors/prueba.ron"), "prueba").is_err());
+        }
+        let retrato = validar_retrato(
+            retrato_de_prueba("x", None, vec![]),
+            Path::new("actors/prueba.ron"),
+            "prueba",
+        )
+        .unwrap();
+        assert!(retrato.rostro().is_none());
+        assert!(retrato.parpadeo().is_none());
     }
 
     #[test]

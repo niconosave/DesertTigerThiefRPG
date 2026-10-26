@@ -19,6 +19,7 @@ Todos desarrollan el
 | [`10-relaciones.md`](./10-relaciones.md) | Relaciones entre elementos, índices de consulta y grafo `Conectado`. |
 | [`11-operaciones-mundo.md`](./11-operaciones-mundo.md) | Consecuencias persistentes y lotes de aplicación atómica. |
 | [`12-conocimiento-lugares.md`](./12-conocimiento-lugares.md) | Relación dirigida `Conoce`, índices y proyección de hechos conocidos. |
+| [`13-retratos-por-capas.md`](./13-retratos-por-capas.md) | Base, expresiones, ojo superpuesto y parpadeo individual. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen

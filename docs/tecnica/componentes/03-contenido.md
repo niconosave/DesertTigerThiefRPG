@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.23 |
-| Fecha | 2026-10-19 |
+| Versión | 0.24 |
+| Fecha | 2026-10-26 |
 
 ## Revisión implementada el 2026-10-24: Validación de contenido para Viajar
 
@@ -96,7 +96,7 @@ El conjunto de contenido del primer incremento aportará, como mínimo:
 - actores, con nombre visible, características y lugar inicial;
 - una lista obligatoria de Relaciones dentro de cada archivo de Lugar y Actor,
   vacía cuando el elemento no declara ninguna;
-- una lista ordenada de fotogramas de celdas, incorporada en el mismo archivo
+- un retrato base con capas opcionales, incorporado en el mismo archivo
   RON del Actor, obligatoria para el jugador y para cualquier compañero inicial;
   puede incluir glifos Unicode de una columna y una paleta ANSI de presentación;
   otros actores podrán declarar explícitamente que no tienen retrato;
@@ -367,39 +367,18 @@ pub struct CoordenadaMapa {
     pub y: usize,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FotogramaRetrato {
-    ancho: usize,
-    filas: Vec<String>,
-}
-
-impl FotogramaRetrato {
-    pub fn ancho(&self) -> usize;
-    pub fn alto(&self) -> usize;
-
-    pub fn filas(
-        &self,
-    ) -> impl ExactSizeIterator<Item = &str> + '_;
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RetratoActor {
-    fotogramas: Vec<FotogramaRetrato>,
-}
-
-impl RetratoActor {
-    pub fn fotogramas(&self) -> &[FotogramaRetrato];
-}
+// API de retratos: véase 13-retratos-por-capas.md.
+// GraficoRetrato: ancho(), alto(), celdas().
+// RetratoActor: base(), rostro(), parpadeo(), capas().
 ```
 
 `ClaveTipoTile::nueva` usa la gramática y límite definidos en la sección 3.
 Es pública porque la terminal debe validar las claves de su catálogo de
 apariencias. `ErrorClaveTipoTile` implementa `Display` y `Error`.
 
-Los constructores de `FotogramaRetrato` y `RetratoActor` son privados: el
-frontend solo recibe arte ya normalizado y validado. `alto()` coincide con la
-cantidad de filas, cada fila contiene `ancho()` caracteres ASCII y
-`fotogramas()` nunca está vacío.
+Los constructores de los retratos son privados: el frontend recibe arte
+normalizado y validado. El contrato está en
+[`13-retratos-por-capas.md`](./13-retratos-por-capas.md).
 
 ### Catálogo de presentación y mapa de la Partida
 
@@ -562,7 +541,7 @@ toleran por esa razón; no forman parte del esquema ni deben usarse en el
 contenido oficial. El cargador no realiza un análisis léxico adicional para
 rechazarlos.
 
-Las cadenas raw son la forma recomendada para escribir matrices, fotogramas y
+Las cadenas raw son la forma recomendada para escribir matrices, gráficos y
 código Lua, porque conservan el contenido de manera legible. Después de
 deserializar, Rust recibe un `String` y ya no puede distinguir si fue escrito con
 sintaxis raw o escapada: ambas formas son válidas si producen exactamente el
@@ -728,7 +707,7 @@ distintas dentro del mismo Lugar. Lugares diferentes sí pueden superponer sus
 rótulos, porque esa composición es responsabilidad del diseño del contenido.
 
 El siguiente ejemplo muestra todos los campos normativos de un archivo de Actor
-mediante `principe_perdido`. El fotograma solo ilustra el formato; los datos
+mediante `principe_perdido`. El gráfico solo ilustra el formato; los datos
 oficiales concretos permanecen en `content/base/`:
 
 ```ron
@@ -743,18 +722,18 @@ oficiales concretos permanecen en `content/base/`:
             '0': (frente: "amarillo", fondo: Some("gris")),
             '1': (frente: "negro", fondo: Some("gris")),
         },
-        fotogramas: [
-            (
-                arte: r#"
+        base: (
+            arte: r#"
  █ 
 <o>
 "#,
-                estilos: Some(r#"
+            estilos: Some(r#"
 000
 010
 "#),
-            ),
-        ],
+        ),
+        rostro: None,
+        parpadeo: None,
     )),
     politica: Ninguna,
 )
@@ -771,53 +750,18 @@ todo Actor debe estar vacía porque `Conectado` solo admite Lugares.
 `lugar_inicial` es una clave de Lugar incluida en la lista canónica de
 `world.ron`.
 
-`retrato` usa exactamente `None` o
-`Some((paleta: {...}, fotogramas: [...] ))`. Aunque se
-represente como una opción RON, el campo no puede omitirse. El DTO usa
-`#[serde(deserialize_with = "deserializar_opcion_requerida")]` sobre
-`Option<RetratoDto>`; esa función delega en `Option::<RetratoDto>::deserialize`
-sin declarar `default`. Así el campo ausente es un error, mientras `None` sigue
-siendo un valor explícito válido según el rol. El jugador y cada compañero
-inicial requieren `Some`; los demás Actores admiten cualquiera de los dos
-valores. `fotogramas` es una lista ordenada y no vacía, sin duración individual.
-Un solo elemento representa un retrato estático.
-
-`paleta` relaciona claves ASCII visibles de una celda con un estilo neutral. Las
-claves no se repiten y no pueden ser espacios, controles, comillas ni barra
-invertida. `frente` es obligatorio y `fondo` usa `None` o `Some(color)`. Los
-colores admitidos son exactamente `negro`, `rojo`, `verde`, `amarillo`, `azul`,
-`magenta`, `cian`, `gris`, `grisOscuro`, `grisMuyOscuro`, `rojoClaro`,
-`verdeClaro`, `amarilloClaro`, `azulClaro`, `magentaClaro`, `cianClaro` y
-`blanco`. Estos valores son presentación neutral: `desert-tiger-app` no
-construye un `Style` ni depende de Ratatui.
-
-Cada entrada de `fotogramas` contiene `arte` y `estilos`. La carga convierte
-CRLF a LF, rechaza cualquier `CR` aislado y retira como máximo un LF inicial y
-uno final de cada bloque. No recorta espacios ni ningún otro carácter. `arte`
-debe contener al menos una fila y una columna y cada `char` debe ser imprimible y
-ocupar exactamente una columna según `UnicodeWidthChar::width(c) == Some(1)`.
-Esto admite los bloques `█`, `▐`, `▌`, `▄` y `▀`, pero rechaza controles,
-marcas combinantes, emojis anchos y glifos de ancho ambiguo que la biblioteca no
-clasifique como una columna. Todas las filas y todos los fotogramas del Actor
-tienen idénticos ancho y alto medidos en columnas, no en bytes UTF-8. Los
-espacios finales cuentan para el ancho.
-
-`estilos: None` aplica a cada celda visible el estilo predeterminado del
-frontend y permite retratos monocromos sencillos. `estilos: Some(bloque)` exige
-una matriz rectangular con las mismas dimensiones que `arte`; cada carácter de
-esa matriz debe ser una clave declarada en `paleta`. El estilo de una celda cuyo
-glifo sea un espacio se valida pero no elimina su transparencia. Una paleta
-vacía es válida cuando ningún fotograma la referencia; una clave declarada y no
-usada también es válida para facilitar iteraciones artísticas. Actores distintos
-pueden tener dimensiones y paletas distintas; su distribución pertenece al
-frontend.
+`retrato` es obligatorio: `None` o `Some((...))`. El jugador y cada compañero
+inicial requieren `Some`; los demás Actores admiten ambos valores. La paleta,
+los gráficos, las capas y sus validaciones se definen en
+[`13-retratos-por-capas.md`](./13-retratos-por-capas.md).
 
 El formato `.dur` no se carga durante una Partida. El binario de autoría
 `importar-retrato-durdraw` de `desert-tiger-terminal` acepta archivos Durdraw de
 versión 8, comprimidos con gzip, con codificación UTF-8 y paleta de 16 colores.
 Valida dimensiones, secuencia de fotogramas, glifos, `colorMap` y demoras nulas,
-y escribe de forma determinista un fragmento RON `RetratoDto` por la salida
-estándar. La frecuencia global del archivo es informativa y no se copia porque
+y escribe un fragmento RON con una sola `base` por la salida estándar.
+Selecciona el primer fotograma salvo que se indique `--fotograma N` (desde uno);
+`rostro` y `parpadeo` quedan en `None`. No infiere ojos ni expresiones. La frecuencia global del archivo es informativa y no se copia porque
 la cadencia pertenece al frontend. El importador nunca modifica el Actor: el
 diseñador revisa e incorpora el fragmento al único RON canónico del elemento.
 `flate2` y `serde_json` se justifican exclusivamente por la lectura segura de
@@ -836,7 +780,7 @@ importar.
 Desde la raíz del repositorio, la conversión se ejecuta así:
 
 ```sh
-cargo run -p desert-tiger-terminal --bin importar-retrato-durdraw -- assets/principe.dur
+cargo run -p desert-tiger-terminal --bin importar-retrato-durdraw -- assets/principe.dur --fotograma 2
 ```
 
 La salida se muestra en la terminal para poder revisarla y copiarla en el campo
@@ -1318,12 +1262,12 @@ Las pruebas automáticas cubrirán:
 - aceptación de ASCII, espacios y letras acentuadas de ancho uno, y rechazo de
   caracteres de ancho cero o doble y de secuencias con marcas combinantes;
 - validación conjunta de todo el contenido oficial;
-- aceptación de un retrato con un fotograma y rechazo de una lista vacía, un
-  bloque no rectangular o dimensiones distintas entre fotogramas del mismo
-  Actor;
+- aceptación de retratos estáticos o por capas; rechazo de bloques no
+  rectangulares, capas fuera de la base, expresiones duplicadas y tiempos
+  inválidos según el contrato 13;
 - exigencia del campo `retrato`, aceptación explícita de `None` para un NPC y
   rechazo de `None` para el jugador o un compañero inicial;
-- normalización CRLF de fotogramas, rechazo de `CR` aislado y tratamiento exacto
+- normalización CRLF de gráficos, rechazo de `CR` aislado y tratamiento exacto
   del único LF inicial y final;
 - exigencia del campo `politica` y aceptación de sus variantes `Ninguna` y
   `Lua(String)`;

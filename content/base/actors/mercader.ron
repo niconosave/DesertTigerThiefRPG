@@ -40,43 +40,8 @@
             'F': (frente: "negro", fondo: Some("blanco")),
             'G': (frente: "blanco", fondo: Some("negro")),
         },
-        fotogramas: [
-            (
-                arte: r#"
-   ▄███             
- ▄███▀█ ▄▄▀▀▀       
-▄█▀▀▀▀▀███▀▀▀▀▄     
-▀▀▄▀███▀█▀█████     
- ███▀█▀█▀▀▀▀▀▀▀     
-  ▀▀▀▀██▀██████▄    
-  ▄███▀█████▀▀██▄   
-   ████▀██████████  
-  ▄████▀██████▀▀▀█▀ 
-▄██▀▀▀▀▀▀▀███▀███   
-███████▀▀▀████▀▀▀█▄ 
-████████▀███▀████▀██
-▀█████▀██▀█▀▀▀██▀███
- ▀███████▀▀██▀▀█████
-"#,
-                estilos: Some(r#"
-000aaaa0000000000000
-0aaaabc0ddeee0000000
-aafbghidddjjiid00000
-ackhdddjciddddd00000
-0kddjcidlllmmmd00000
-00knlloopqqqqqqq0000
-00oooopqqqqqttqqq000
-000ooocrqqqqqqqqqq00
-00aa0ocsqqqqootuuoo0
-kkkjvvwxyrqqquqqq000
-kkkcddaFfzccccrywad0
-kkkcddaaGAAcica0avdc
-kkkcddvaaFABjxaaCddc
-0kkcdddaafFAACCAAddc
-"#),
-            ),
-            (
-                arte: r#"
+        base: (
+            arte: r#"
    ▄███             
  ▄███▀█ ▄▄▀▀▀       
 ▄█▀▀▀▀▀███▀▀▀▀▄     
@@ -92,7 +57,7 @@ kkkcddvaaFABjxaaCddc
 ▀█████▀██▀█▀▀▀██▀███
  ▀███████▀▀██▀▀█████
 "#,
-                estilos: Some(r#"
+            estilos: Some(r#"
 000aaaa0000000000000
 0aaaabc0ddeee0000000
 aafbghidddjjiid00000
@@ -108,8 +73,24 @@ kkkcddaaGAAcica0avdc
 kkkcddvaaFABjxaaCddc
 0kkcdddaafFAACCAAddc
 "#),
+        ),
+        rostro: Some((
+            origen: (x: 8, y: 5),
+            expresiones: {},
+        )),
+        parpadeo: Some((
+            origen: (x: 12, y: 6),
+            intervalo_ms: 4500,
+            duracion_ms: 250,
+            ojo_cerrado: (
+                arte: r#"
+▀▀
+"#,
+                estilos: Some(r#"
+tt
+"#),
             ),
-        ],
+        )),
     )),
     politica: Ninguna,
 )

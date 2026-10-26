@@ -71,36 +71,56 @@ where
     let programa = argumentos
         .next()
         .unwrap_or_else(|| "importar-retrato-durdraw".to_owned());
-    let ruta = argumentos
-        .next()
-        .ok_or_else(|| ErrorImportacion(format!("uso: {programa} <archivo.dur>")))?;
+    let ruta = argumentos.next().ok_or_else(|| {
+        ErrorImportacion(format!("uso: {programa} <archivo.dur> [--fotograma N]"))
+    })?;
+    let numero = match argumentos.next().as_deref() {
+        None => 1,
+        Some("--fotograma") => argumentos
+            .next()
+            .and_then(|n| n.parse::<usize>().ok())
+            .filter(|&n| n > 0)
+            .ok_or_else(|| {
+                ErrorImportacion("--fotograma requiere un número positivo".to_owned())
+            })?,
+        _ => {
+            return Err(ErrorImportacion(format!(
+                "uso: {programa} <archivo.dur> [--fotograma N]"
+            )));
+        }
+    };
     if argumentos.next().is_some() {
-        return Err(ErrorImportacion(format!("uso: {programa} <archivo.dur>")));
+        return Err(ErrorImportacion(format!(
+            "uso: {programa} <archivo.dur> [--fotograma N]"
+        )));
     }
-    let salida = convertir_archivo(Path::new(&ruta))?;
+    let salida = convertir_archivo(Path::new(&ruta), numero)?;
     io::stdout()
         .lock()
         .write_all(salida.as_bytes())
         .map_err(|error| ErrorImportacion(format!("no se pudo escribir la salida: {error}")))
 }
 
-fn convertir_archivo(ruta: &Path) -> Result<String, ErrorImportacion> {
+fn convertir_archivo(ruta: &Path, numero: usize) -> Result<String, ErrorImportacion> {
     let bytes =
         fs::read(ruta).map_err(|error| ErrorImportacion(format!("{}: {error}", ruta.display())))?;
-    convertir_bytes(&bytes)
+    convertir_bytes(&bytes, numero)
 }
 
-fn convertir_bytes(bytes: &[u8]) -> Result<String, ErrorImportacion> {
+fn convertir_bytes(bytes: &[u8], numero: usize) -> Result<String, ErrorImportacion> {
     let mut json = String::new();
     GzDecoder::new(bytes)
         .read_to_string(&mut json)
         .map_err(|error| ErrorImportacion(format!("gzip o UTF-8 inválido: {error}")))?;
     let archivo: ArchivoDurdraw = serde_json::from_str(&json)
         .map_err(|error| ErrorImportacion(format!("JSON Durdraw inválido: {error}")))?;
-    convertir_pelicula(archivo.pelicula)
+    convertir_pelicula(archivo.pelicula, numero)
 }
 
-fn convertir_pelicula(pelicula: PeliculaDurdraw) -> Result<String, ErrorImportacion> {
+fn convertir_pelicula(
+    pelicula: PeliculaDurdraw,
+    numero: usize,
+) -> Result<String, ErrorImportacion> {
     if pelicula.version_formato != 8 {
         return Err(ErrorImportacion(format!(
             "versión Durdraw no admitida: {}; se requiere 8",
@@ -200,7 +220,16 @@ fn convertir_pelicula(pelicula: PeliculaDurdraw) -> Result<String, ErrorImportac
         fotogramas.push(FotogramaConvertido { arte, estilos });
     }
 
-    escribir_ron(&paleta, &fotogramas)
+    let elegido = numero
+        .checked_sub(1)
+        .and_then(|i| fotogramas.get(i))
+        .ok_or_else(|| {
+            ErrorImportacion(format!(
+                "fotograma {numero} inexistente; el archivo tiene {}",
+                fotogramas.len()
+            ))
+        })?;
+    escribir_ron(&paleta, elegido)
 }
 
 fn validar_par_color([frente, fondo]: [u8; 2]) -> Result<(), String> {
@@ -215,7 +244,7 @@ fn validar_par_color([frente, fondo]: [u8; 2]) -> Result<(), String> {
 
 fn escribir_ron(
     paleta: &[[u8; 2]],
-    fotogramas: &[FotogramaConvertido],
+    grafico: &FotogramaConvertido,
 ) -> Result<String, ErrorImportacion> {
     let mut salida = String::from("(\n    paleta: {\n");
     for (indice, [frente, fondo]) in paleta.iter().copied().enumerate() {
@@ -240,15 +269,11 @@ fn escribir_ron(
             fondo
         ));
     }
-    salida.push_str("    },\n    fotogramas: [\n");
-    for fotograma in fotogramas {
-        salida.push_str("        (\n            arte: ");
-        salida.push_str(&literal_raw(&fotograma.arte));
-        salida.push_str(",\n            estilos: Some(");
-        salida.push_str(&literal_raw(&fotograma.estilos));
-        salida.push_str("),\n        ),\n");
-    }
-    salida.push_str("    ],\n)\n");
+    salida.push_str("    },\n    base: (\n        arte: ");
+    salida.push_str(&literal_raw(&grafico.arte));
+    salida.push_str(",\n        estilos: Some(");
+    salida.push_str(&literal_raw(&grafico.estilos));
+    salida.push_str("),\n    ),\n    rostro: None,\n    parpadeo: None,\n)\n");
     Ok(salida)
 }
 
@@ -306,11 +331,13 @@ mod pruebas {
     #[test]
     fn convierte_el_retrato_oficial_de_forma_reproducible() {
         let bytes = include_bytes!("../../../../assets/principe.dur");
-        let primera = convertir_bytes(bytes).expect("fixture Durdraw válido");
-        let segunda = convertir_bytes(bytes).expect("segunda conversión válida");
+        let primera = convertir_bytes(bytes, 1).expect("fixture Durdraw válido");
+        let segunda = convertir_bytes(bytes, 1).expect("segunda conversión válida");
 
         assert_eq!(primera, segunda);
-        assert_eq!(primera.matches("arte:").count(), 2);
+        assert_eq!(primera.matches("arte:").count(), 1);
+        assert!(primera.contains("base:"));
+        assert!(!primera.contains("fotogramas:"));
         assert!(primera.contains('█'));
         assert!(primera.contains("frente: \"magentaClaro\""));
         assert!(primera.contains("'1': (frente: \"gris\", fondo: None)"));
@@ -333,6 +360,18 @@ mod pruebas {
     }
 
     #[test]
+    fn selecciona_un_grafico_base_sin_adivinar_el_parpadeo() {
+        let bytes = include_bytes!("../../../../assets/principe.dur");
+        let primero = convertir_bytes(bytes, 1).unwrap();
+        let segundo = convertir_bytes(bytes, 2).unwrap();
+        assert_ne!(primero, segundo);
+        assert_eq!(segundo.matches("arte:").count(), 1);
+        assert!(segundo.contains("parpadeo: None"));
+        assert!(convertir_bytes(bytes, 0).is_err());
+        assert!(convertir_bytes(bytes, 3).is_err());
+    }
+
+    #[test]
     fn rechaza_glifos_anchos_y_demoras_propias() {
         let pelicula = PeliculaDurdraw {
             version_formato: 8,
@@ -347,7 +386,7 @@ mod pruebas {
                 colores: vec![vec![[8, 0]]],
             }],
         };
-        assert!(convertir_pelicula(pelicula).is_err());
+        assert!(convertir_pelicula(pelicula, 1).is_err());
 
         let pelicula = PeliculaDurdraw {
             version_formato: 8,
@@ -362,6 +401,6 @@ mod pruebas {
                 colores: vec![vec![[8, 0]]],
             }],
         };
-        assert!(convertir_pelicula(pelicula).is_err());
+        assert!(convertir_pelicula(pelicula, 1).is_err());
     }
 }
