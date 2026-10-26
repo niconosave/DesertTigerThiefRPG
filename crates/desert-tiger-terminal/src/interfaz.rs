@@ -1003,6 +1003,7 @@ mod pruebas {
         let recursos =
             RecursosVisuales::cargar(&raiz.join("assets/terminal")).expect("recursos válidos");
         let bosque = desert_tiger_app::ClaveTipoTile::nueva("bosque".to_owned()).unwrap();
+        let recursos = recursos.con_patron_prueba(bosque.clone(), "ab\ncd");
         let mut mundo = interfaz.ultima_vista_mundo.clone();
         mundo.mapa.ancho = 120;
         mundo.mapa.alto = 60;
@@ -1062,10 +1063,35 @@ mod pruebas {
         let recursos =
             RecursosVisuales::cargar(&raiz.join("assets/terminal")).expect("recursos validos");
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("backend valido");
+        terminal
+            .draw(|frame| interfaz.dibujar(frame, &recursos))
+            .expect("primer fotograma valido");
+        let cerrado_buffer = terminal.backend().buffer().clone();
+        interfaz.avanzar_animacion(1);
+        terminal
+            .draw(|frame| interfaz.dibujar(frame, &recursos))
+            .expect("segundo fotograma valido");
+        let abierto_buffer = terminal.backend().buffer();
+        // El ojo del príncipe identifica su posición sin fijar cuántos compañeros
+        // eligió el diseñador ni reproducir el algoritmo de solapamiento.
+        let ojo_x = (1..80_u16)
+            .find(|&x| {
+                let ojo = &abierto_buffer[(x, 15)];
+                let borde = &abierto_buffer[(x - 1, 15)];
+                ojo.symbol() == "o"
+                    && ojo.fg == Color::Cyan
+                    && borde.symbol() == "("
+                    && borde.fg == NEGRO_PURO
+            })
+            .expect("el ojo del príncipe es visible");
         let mundo = &interfaz.ultima_vista_mundo;
-        // Con este grupo, el príncipe comienza tras los cuatro compañeros.
-        let inicio_jugador = 59_u16;
-        let ojo_x = inicio_jugador + 14;
+        if !mundo.companeros.is_empty() {
+            assert!(
+                ojo_x > 14,
+                "el jugador debe aparecer después de sus compañeros"
+            );
+        }
+        let inicio_jugador = ojo_x - 14;
         let area_mundo = Rect::new(0, 0, 80, 22);
         let objetivo = interfaz.objetivo_camara(mundo);
         let (origen_x, margen_x) =
@@ -1088,10 +1114,7 @@ mod pruebas {
             .or(recursos.ui.pantalla.bg)
             .unwrap_or(Color::Reset);
 
-        terminal
-            .draw(|frame| interfaz.dibujar(frame, &recursos))
-            .expect("primer fotograma valido");
-        let cerrado = &terminal.backend().buffer()[(ojo_x, 15)];
+        let cerrado = &cerrado_buffer[(ojo_x, 15)];
         assert_eq!(cerrado.symbol(), "▀");
         assert_eq!(cerrado.fg, Color::LightMagenta);
         assert_eq!(cerrado.bg, fondo_mapa);
@@ -1115,11 +1138,7 @@ mod pruebas {
             "una celda transparente debe conservar el glifo vigente del mapa"
         );
 
-        interfaz.avanzar_animacion(1);
-        terminal
-            .draw(|frame| interfaz.dibujar(frame, &recursos))
-            .expect("segundo fotograma valido");
-        let abierto = &terminal.backend().buffer()[(ojo_x, 15)];
+        let abierto = &abierto_buffer[(ojo_x, 15)];
         assert_eq!(abierto.symbol(), "o");
         assert_eq!(abierto.fg, Color::Cyan);
         assert_eq!(abierto.bg, fondo_mapa);

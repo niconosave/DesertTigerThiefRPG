@@ -38,8 +38,6 @@
     ],
     actor_jugador: "principe_perdido",
     companeros_iniciales: [
-        "mercader",
-        "nino_ladron",
         "bandido",
         "sirviente",
     ],

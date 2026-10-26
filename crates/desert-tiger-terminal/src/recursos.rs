@@ -12,6 +12,7 @@ use unicode_width::UnicodeWidthChar;
 
 pub(crate) const NEGRO_PURO: Color = Color::Rgb(0, 0, 0);
 const AZUL_OSCURO: Color = Color::Rgb(0, 24, 64);
+const VERDE_OSCURO: Color = Color::Rgb(32, 96, 78);
 
 #[derive(Debug)]
 pub struct ErrorRecursos(String);
@@ -113,6 +114,22 @@ impl RecursosVisuales {
 
     pub(crate) fn contiene_tile(&self, clave: &ClaveTipoTile) -> bool {
         self.apariencias.contains_key(clave)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn con_patron_prueba(mut self, clave: ClaveTipoTile, patron: &str) -> Self {
+        let patron = convertir_patron(DefinicionTileDto {
+            glifo: None,
+            patron: Some(patron.to_owned()),
+            estilo: EstiloDto {
+                frente: "verde".to_owned(),
+                fondo: Some("negro".to_owned()),
+                modificadores: vec!["negrita".to_owned()],
+            },
+        })
+        .expect("patrón controlado válido");
+        self.apariencias.insert(clave, patron);
+        self
     }
 }
 
@@ -310,6 +327,7 @@ fn color(texto: &str) -> Result<Color, ErrorRecursos> {
         "negro" => Ok(NEGRO_PURO),
         "rojo" => Ok(Color::Red),
         "verde" => Ok(Color::Green),
+        "verdeOscuro" => Ok(VERDE_OSCURO),
         "amarillo" => Ok(Color::Yellow),
         "azul" => Ok(Color::Blue),
         "azulOscuro" => Ok(AZUL_OSCURO),
@@ -468,5 +486,6 @@ mod pruebas {
     fn colores_rgb_fijos_no_dependen_de_la_paleta_ansi() {
         assert_eq!(color("negro").unwrap(), Color::Rgb(0, 0, 0));
         assert_eq!(color("azulOscuro").unwrap(), Color::Rgb(0, 24, 64));
+        assert_eq!(color("verdeOscuro").unwrap(), Color::Rgb(32, 96, 78));
     }
 }

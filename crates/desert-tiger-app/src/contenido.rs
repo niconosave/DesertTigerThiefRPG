@@ -1982,7 +1982,10 @@ mod pruebas {
         assert_eq!(mundo.fecha().anio(), 2025);
         assert_eq!(mundo.fecha().mes(), Mes::Enero);
         assert_eq!(mundo.fecha().dia(), 31);
-        assert_eq!(mundo.grupo().integrantes().len(), 4);
+        assert_eq!(
+            mundo.grupo().integrantes(),
+            contenido.interno.plantilla_mundo.companeros.as_slice()
+        );
         assert_eq!(mundo.relaciones().len(), 42);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),

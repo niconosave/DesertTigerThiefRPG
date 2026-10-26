@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.45 |
+| Versión | 0.46 |
 | Fecha | 2026-10-25 |
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
@@ -270,7 +270,7 @@ El estilo se declara directamente dentro de cada apariencia y no referencia
 otro nombre: `frente` es obligatorio, `fondo` es `None` o `Some(color)` y
 `modificadores` es una lista sin duplicados cuyo orden no cambia el resultado.
 
-Los únicos nombres admitidos son los diecisiete colores de la paleta inicial. La
+Los únicos nombres admitidos son los dieciocho colores de la paleta. La
 conversión normativa es:
 
 | Valor RON | `ratatui::style::Color` |
@@ -278,6 +278,7 @@ conversión normativa es:
 | `negro` | `Rgb(0, 0, 0)` |
 | `rojo` | `Red` |
 | `verde` | `Green` |
+| `verdeOscuro` | `Rgb(32, 96, 78)` |
 | `amarillo` | `Yellow` |
 | `azul` | `Blue` |
 | `azulOscuro` | `Rgb(0, 24, 64)` |
@@ -295,7 +296,7 @@ conversión normativa es:
 
 No se aceptan alias, traducciones alternativas ni diferencias de mayúsculas. En
 particular, `negro` es negro RGB puro y `azulOscuro` es el azul marino fijo
-`#001840`; ninguno depende de los equivalentes configurables del tema de la
+`#001840`; `verdeOscuro` es un viridiano oscuro fijo `#20604E`. Ninguno depende de los equivalentes configurables del tema de la
 terminal. `gris` representa el color ANSI base `Gray` y `blanco` el brillante
 `White`. `negrita` nunca se interpreta como una solicitud de color claro.
 
@@ -307,7 +308,7 @@ pueden aparecer juntas porque expresan intensidades contradictorias;
 ese fondo heredado. El RON no admite valores RGB o indexados arbitrarios,
 `Reset`, color de subrayado, parpadeo, texto oculto, cursiva, subrayado ni
 tachado en el primer incremento. Los RGB fijos asociados a `negro` y
-`azulOscuro` son decisiones del frontend y no permiten declarar valores RGB
+`azulOscuro` y `verdeOscuro` son decisiones del frontend y no permiten declarar valores RGB
 arbitrarios en el esquema editable.
 
 Estos datos nunca contienen secuencias ANSI o de control escritas libremente. Un
@@ -1359,7 +1360,7 @@ Pruebas automáticas:
   y cada glifo configurado ocupa exactamente una celda;
 - el catálogo admite entradas adicionales, pero rechaza duplicados, claves,
   glifos o estilos inválidos y una reserva ausente o distinta de `?`;
-- los diecisiete nombres de color se convierten a la variante exacta de Ratatui,
+- los dieciocho nombres de color se convierten a la variante exacta de Ratatui,
   incluidos `negro` como `Rgb(0, 0, 0)` y `azulOscuro` como
   `Rgb(0, 24, 64)`; `None` no sustituye el fondo de la capa existente y se
   rechazan `Reset`, valores RGB editables, índices, alias y nombres desconocidos;

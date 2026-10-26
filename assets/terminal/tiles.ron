@@ -8,56 +8,78 @@
         // También se puede conservar un solo símbolo usando glifo: 'x'.
         "arena": (
             patron: r#"
-.,..:...
-...:..,.
-.:... ..
-.....:..
+  ∵      ․
+ ․  ․  ⁚  
+  ․  ∵   ․
+․  ․  ․ ․ 
+  ․  ⁚ ∴  
 "#,
             estilo: (frente: "amarillo", fondo: Some("negro"), modificadores: []),
         ),
         "sueloArido": (
             patron: r#"
---..-:--
-.--,-.--
----..--.
--..--:--
+-  . ψ-    , .         .     .  
+   , .  .           .           
+   .  -    , .           , ¥   -
+.  ,    .           .,          
+                -           -   
+  .   - .  ,          -.     .  
+-            . ¥ ,        .     
+   , .  .          ,            
+            ,                  -
+.     -              ψ  .       
+    .    ¥      .          --   
+  .   ¥ . ¥,         .  -       
 "#,
             estilo: (frente: "rojo", fondo: Some("negro"), modificadores: ["tenue"]),
         ),
         "montana": (
             patron: r#"
-▲▲^▲∧▲^▲
-^▲▲∧▲▲▲^
-▲∧▲▲^▲∧▲
-∧▲^▲▲∧▲▲
+🯐🯓🯐𜰉𜰉🮧𜰉🯓
+🯐🯓-🯐𜰉🯑🯒🯓
+🯚╱╲🯐🯓🯑🯒-
+🯐𜰉🮧𜰉🮢🯐🯓🯢
 "#,
             estilo: (frente: "grisOscuro", fondo: Some("negro"), modificadores: ["negrita"]),
         ),
         "vegetacion": (
             patron: r#"
-∸.,∸'.,∸
-,∸∸.,'∸.
-.'∸,∸.∸,
-∸,.∸.,'∸
+⁘*⌁⁙*.⁙⁙
+⌁⁙⁙⸗∴⁙⁙*
+∴„*⁑∵‴⁙„
+∴*⁑⁙⁘*⌁∴
 "#,
             estilo: (frente: "verdeClaro", fondo: Some("negro"), modificadores: []),
         ),
         "bosque": (
             patron: r#"
-♣♠♣.♣♠♣.
-♠♣♠♣♣.♠♣
-♣.♣♠♣♠♣♠
-♠♣♣.♠♣♠♣
+⋎⋎⋎⋂ƞnv⋎⋂ƞn⋎ ⋎
+⋎ ⋎⋎⋎v⋎ ⋎vy ȹ⋎
+⋎vvny⋎ ȹ⋎⋎⋂ƞnv
+⋎⋂ƞn ⋎ ⋎vvn⋎⋎⋎
+⋎⋎⋎ Ǫ⋎⋎ v⋎⋎⋎⋎⋎
 "#,
-            estilo: (frente: "verde", fondo: Some("negro"), modificadores: ["negrita"]),
+            estilo: (frente: "verdeOscuro", fondo: Some("negro"), modificadores: ["negrita"]),
         ),
         "agua": (
             patron: r#"
-∿∿~∿≈∿~~
-~≈∿~~∿∿≈
-∿~~≈∿~∿∿
+◡◡ ◡◡◡◡ ◡◡◡◡◡◡◡◡◡◡◡◡◡◡
+◡◡◡◡◡◡◡◡◡ ◡◡◡◡◡◡ ◡◡◡◡◡
+◡◡◡◡ ◡◡◡◡◡◡◡◡◡◡◡◡◡ ◡◡◡
+◡ ◡◡◡◡◡ ◡◡◡◡◡◡◡◡◡◡◡◡◡◡
+◡◡◡◡ ◡◡◡ ◡◡◡◡◡◡◡◡◡◡◡ ◡
+◡ ◡◡◡◡◡◡◡◡◡◡◡◡◡◡◡◡◡◡◡◡
+◡ ◡◡◡◡◡◡◡◡◡◡◡◡◡ ◡◡◡◡◡◡
 "#,
-            estilo: (frente: "azulOscuro", fondo: Some("negro"), modificadores: []),
+            estilo: (frente: "azul", fondo: Some("negro"), modificadores: []),
+        ),
+        "aguaRio": (
+            patron: r#"
+∿∿∿
+∿∿∵
+∵∿∿
+"#,
+            estilo: (frente: "cianClaro", fondo: Some("negro"), modificadores: []),
         ),
         "bosqueQuemado": (
             patron: r#"
