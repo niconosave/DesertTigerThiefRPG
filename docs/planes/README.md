@@ -3,6 +3,10 @@
 Los planes convierten documentación técnica ya discutida en pasos de desarrollo
 pequeños, ordenados y verificables.
 
+La secuencia de Acampar, PLAN-2026-036 y PLAN-2026-037, está
+[completada](./completados/README.md#acción-general-acampar). Su comportamiento
+implementado se define en el [contrato técnico](../tecnica/acciones/07-acampar.md).
+
 La secuencia de refactor de `Viajar`, PLAN-2026-025 a PLAN-2026-031, está
 [completada](./completados/README.md#refactor-del-reglamento-de-viajar).
 El índice de [pendientes](./pendientes/README.md) conserva otros alcances y

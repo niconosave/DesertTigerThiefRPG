@@ -6,7 +6,11 @@ use std::{
     fmt,
     num::NonZeroUsize,
 };
+mod acampar;
 mod particulares;
+pub use acampar::{
+    Acampada, ErrorAcampada, ResultadoAcampada, finalizar_acampada, iniciar_acampada,
+};
 mod viajar;
 pub use particulares::chequeos::{
     AccionParticular, ModificadorAplicado, ResultadoChequeo, evaluar_capacidad, resolver_chequeo,

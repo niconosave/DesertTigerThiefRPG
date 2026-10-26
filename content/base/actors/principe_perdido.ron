@@ -1,5 +1,7 @@
 (
     clave: "principe_perdido",
+    nombre: "Príncipe Perdido",
+    biografia: "Un príncipe perdido que viaja junto a sus compañeros.",
     lugar_inicial: "zona_arida",
     caracteristicas: [],
     relaciones: [],

@@ -3,8 +3,12 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.24 |
+| Versión | 0.25 |
 | Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26: nombres y biografías de
+> Actores, catálogo de características y consultas de presentación se definen
+> en [Acampar, sección 4](../acciones/07-acampar.md#4-contenido-y-compatibilidad).
 
 ## Revisión implementada el 2026-10-24: Validación de contenido para Viajar
 
@@ -389,6 +393,7 @@ pub(crate) struct CatalogoPresentacion {
     mapa: PlantillaMapa,
     lugares: Vec<PresentacionLugar>,
     actores: Vec<PresentacionActor>,
+    caracteristicas: BTreeMap<String, DescripcionCaracteristica>,
 }
 
 struct PlantillaMapa {
@@ -409,6 +414,7 @@ pub(crate) struct PresentacionLugar {
 pub(crate) struct PresentacionActor {
     id: IdActor,
     nombre: String,
+    biografia: String,
     retrato: Option<RetratoActor>,
 }
 
@@ -443,9 +449,8 @@ impl PresentacionActor {
 }
 ```
 
-Los vectores conservan el orden canónico. Las búsquedas por ID son lineales en
-el primer incremento; no se mantiene un segundo índice sin una necesidad
-medida. `PresentacionActor` conserva el nombre validado del mismo archivo RON que
+Los vectores conservan el orden canónico. Las búsquedas por ID usan su índice
+comprobado y verifican la identidad, según el contrato de Acampar, sección 4.3. `PresentacionActor` conserva el nombre validado del mismo archivo RON que
 define al Actor. Ese nombre permite que la aplicación resuelva los participantes
 de una traza causal sin exponer la clave técnica ni pedirle al frontend que la
 transforme.
@@ -714,6 +719,7 @@ oficiales concretos permanecen en `content/base/`:
 (
     clave: "principe_perdido",
     nombre: "Príncipe Perdido",
+    biografia: "Un príncipe perdido que viaja junto a sus compañeros.",
     lugar_inicial: "zona_arida",
     caracteristicas: [],
     relaciones: [],
@@ -739,7 +745,8 @@ oficiales concretos permanecen en `content/base/`:
 )
 ```
 
-Todos sus campos son obligatorios. `nombre` es presentación y no puede estar
+Salvo `biografia`, que es opcional según el contrato de Acampar, sus campos
+son obligatorios. `nombre` es presentación y no puede estar
 vacío; admite texto Unicode, pero rechaza controles C0/C1 y secuencias de escape
 conforme a la regla general de texto visible. No exige caracteres de una sola
 columna porque no se escribe sobre una matriz de tiles. La carga no lo normaliza,

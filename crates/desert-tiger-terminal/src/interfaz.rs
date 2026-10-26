@@ -41,6 +41,7 @@ pub(crate) struct Interfaz {
     pagina: usize,
     pagina_antes_detalle: usize,
     fotograma: usize,
+    campamento: Option<crate::campamento::EstadoCampamento>,
 }
 
 impl Interfaz {
@@ -62,6 +63,7 @@ impl Interfaz {
             pagina: 0,
             pagina_antes_detalle: 0,
             fotograma: 0,
+            campamento: None,
         })
     }
 
@@ -97,6 +99,12 @@ impl Interfaz {
         }
         if normalizar_letra(evento.code) == Some('q') {
             self.confirmar_salida = true;
+            return;
+        }
+        if let Some(campamento) = &mut self.campamento {
+            if let Some(intencion) = campamento.manejar(evento.code, &self.partida) {
+                self.enviar(intencion);
+            }
             return;
         }
         if normalizar_letra(evento.code) == Some('d') && self.vista_tiene_detalle() {
@@ -144,6 +152,15 @@ impl Interfaz {
             return;
         }
         match &self.vista {
+            VistaSesion::Disponible(mundo)
+                if normalizar_letra(tecla) == Some('a')
+                    && mundo
+                        .acciones
+                        .iter()
+                        .any(|a| matches!(a, AccionDisponible::Acampar)) =>
+            {
+                self.enviar(IntencionFrontend::ComenzarCampamento);
+            }
             VistaSesion::Disponible(mundo) if normalizar_letra(tecla) == Some('v') => {
                 if let Some(destinos) =
                     destinos_viaje(mundo).filter(|destinos| !destinos.is_empty())
@@ -179,7 +196,8 @@ impl Interfaz {
                     });
                 }
             }
-            VistaSesion::Fatal(_)
+            VistaSesion::Acampando(_)
+            | VistaSesion::Fatal(_)
             | VistaSesion::Disponible(_)
             | VistaSesion::PresentandoAccion(_) => {}
         }
@@ -194,6 +212,16 @@ impl Interfaz {
                 self.pagina = 0;
                 self.pagina_antes_detalle = 0;
                 self.actualizar_mundo();
+                self.campamento = match &self.vista {
+                    VistaSesion::Acampando(v) => Some(crate::campamento::EstadoCampamento::nuevo(
+                        v.clone(),
+                        &self.partida,
+                    )),
+                    VistaSesion::Disponible(_)
+                    | VistaSesion::PresentandoAccion(_)
+                    | VistaSesion::EsperandoDecision(_)
+                    | VistaSesion::Fatal(_) => None,
+                };
             }
             Err(error) => self.error_recuperable = Some(texto_error_intencion(error)),
         }
@@ -223,7 +251,11 @@ impl Interfaz {
         }
         let mundo = &self.ultima_vista_mundo;
         let region_mundo = Rect::new(area.x, area.y, area.width, area.height - 2);
-        self.dibujar_mundo(frame, region_mundo, mundo, recursos);
+        if let Some(campamento) = &self.campamento {
+            campamento.dibujar(frame, region_mundo, mundo, recursos, self.fotograma);
+        } else {
+            self.dibujar_mundo(frame, region_mundo, mundo, recursos);
+        }
         let contextual = Rect::new(area.x, area.y + area.height - 2, area.width, 1);
         let acciones = Rect::new(area.x, area.y + area.height - 1, area.width, 1);
         frame.render_widget(
@@ -273,7 +305,7 @@ impl Interfaz {
             VistaSesion::Fatal(fatal) => {
                 self.dibujar_ventana(frame, region_mundo, "Error", &fatal.mensaje, None, recursos)
             }
-            VistaSesion::Disponible(_) => {}
+            VistaSesion::Disponible(_) | VistaSesion::Acampando(_) => {}
         }
         if self.confirmar_salida {
             self.dibujar_confirmacion(frame, region_mundo, recursos);
@@ -353,37 +385,7 @@ impl Interfaz {
         {
             poner_celda(frame, x, y, '@', recursos.ui.foco);
         }
-        let mut actores = Vec::with_capacity(mundo.companeros.len() + 1);
-        actores.extend(mundo.companeros.iter());
-        actores.push(&mundo.jugador);
-        let mut x = area.x;
-        let base_y = area.y + area.height;
-        let mut anterior: Option<usize> = None;
-        for actor in actores {
-            let retrato = &actor.retrato;
-            let base = retrato.base();
-            if let Some(ancho_anterior) = anterior {
-                let solapamiento = 1.max(ancho_anterior.min(base.ancho()) / 4);
-                x = x.saturating_add(
-                    u16::try_from(ancho_anterior - solapamiento).unwrap_or(u16::MAX),
-                );
-            }
-            let alto = u16::try_from(base.alto()).unwrap_or(u16::MAX);
-            let inicio_y = base_y.saturating_sub(alto);
-            for (origen, grafico) in retrato
-                .capas(
-                    actor.expresion.as_deref(),
-                    parpadeando(actor, self.fotograma),
-                )
-                .into_iter()
-                .flatten()
-            {
-                let px = x.saturating_add(u16::try_from(origen.x).unwrap_or(u16::MAX));
-                let py = inicio_y.saturating_add(u16::try_from(origen.y).unwrap_or(u16::MAX));
-                dibujar_grafico_retrato(frame, area, px, py, grafico, recursos);
-            }
-            anterior = Some(base.ancho());
-        }
+        dibujar_retratos(frame, area, area, mundo, recursos, self.fotograma);
     }
 
     fn objetivo_camara(&self, mundo: &VistaMundo) -> desert_tiger_app::CoordenadaMapa {
@@ -423,6 +425,11 @@ impl Interfaz {
         match &self.vista {
             VistaSesion::PresentandoAccion(fragmento) => texto_progreso(&fragmento.progreso),
             VistaSesion::EsperandoDecision(decision) => texto_progreso(&decision.progreso),
+            VistaSesion::Acampando(_) => self
+                .campamento
+                .as_ref()
+                .map(|c| c.contexto())
+                .unwrap_or_default(),
             VistaSesion::Fatal(_) => "La sesión encontró un error fatal.".to_owned(),
             VistaSesion::Disponible(mundo) => contexto_mundo(mundo),
         }
@@ -437,6 +444,9 @@ impl Interfaz {
     }
 
     fn texto_acciones(&self) -> String {
+        if self.campamento.is_some() && !self.confirmar_salida {
+            return " ←→ Grupo | ↑↓ Info | Enter Abrir/Salir | PgUp/PgDn Leer | Esc Salir | Q Juego".into();
+        }
         if self.confirmar_salida {
             return " [S] Sí  [N] No  [Esc] Cancelar".to_owned();
         }
@@ -446,8 +456,8 @@ impl Interfaz {
             }
             ModoLocal::Normal => match &self.vista {
                 VistaSesion::Disponible(mundo) => match destinos_viaje(mundo) {
-                    Some([]) => " Viajar (no disponible)  [Q] Salir".to_owned(),
-                    Some(_) => " [V] Viajar  [Q] Salir".to_owned(),
+                    Some([]) => " Viajar (no disponible)  [A] Acampar  [Q] Salir".to_owned(),
+                    Some(_) => " [V] Viajar  [A] Acampar  [Q] Salir".to_owned(),
                     None => " [Q] Salir".to_owned(),
                 },
                 VistaSesion::PresentandoAccion(fragmento) => {
@@ -507,7 +517,7 @@ impl Interfaz {
                     };
                     format!(" {opciones}{navegar}{detalle}  [Q] Salir")
                 }
-                VistaSesion::Fatal(_) => String::new(),
+                VistaSesion::Acampando(_) | VistaSesion::Fatal(_) => String::new(),
             },
         }
     }
@@ -603,9 +613,10 @@ impl Interfaz {
 }
 
 fn destinos_viaje(mundo: &VistaMundo) -> Option<&[IdLugar]> {
-    match mundo.acciones.first()? {
+    mundo.acciones.iter().find_map(|a| match a {
         AccionDisponible::Viajar { destinos } => Some(destinos.as_slice()),
-    }
+        AccionDisponible::Acampar => None,
+    })
 }
 
 fn atajos_decision(decision: &VistaDecision) -> Vec<(char, desert_tiger_app::IdOpcionVista)> {
@@ -778,6 +789,8 @@ fn texto_progreso(progreso: &desert_tiger_app::VistaProgresoViaje) -> String {
 
 fn texto_error_intencion(error: ErrorIntencion) -> String {
     match error {
+        ErrorIntencion::CampamentoNoVigente => "el campamento ya no está vigente",
+        ErrorIntencion::AcampadaRechazada(_) => "no se puede abrir el campamento",
         ErrorIntencion::FaseIncompatible => "esa orden no está disponible ahora",
         ErrorIntencion::FragmentoNoVigente => "esa viñeta ya no está vigente",
         ErrorIntencion::DecisionNoVigente => "esa decisión ya no está vigente",
@@ -821,6 +834,43 @@ fn proyectar(
     ))
 }
 
+pub(crate) fn dibujar_retratos(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    recorte: Rect,
+    mundo: &VistaMundo,
+    recursos: &RecursosVisuales,
+    paso: usize,
+) -> i64 {
+    let mut actores = Vec::with_capacity(mundo.companeros.len() + 1);
+    actores.extend(mundo.companeros.iter());
+    actores.push(&mundo.jugador);
+    let mut x = i64::from(area.x);
+    let base_y = i64::from(area.bottom());
+    let mut anterior: Option<usize> = None;
+    for actor in actores {
+        let retrato = &actor.retrato;
+        let base = retrato.base();
+        if let Some(ancho_anterior) = anterior {
+            let solapamiento = 1.max(ancho_anterior.min(base.ancho()) / 4);
+            x = x.saturating_add(i64::try_from(ancho_anterior - solapamiento).unwrap_or(i64::MAX));
+        }
+        let alto = i64::try_from(base.alto()).unwrap_or(i64::MAX);
+        let inicio_y = base_y.saturating_sub(alto);
+        for (origen, grafico) in retrato
+            .capas(actor.expresion.as_deref(), parpadeando(actor, paso))
+            .into_iter()
+            .flatten()
+        {
+            let px = x.saturating_add(i64::try_from(origen.x).unwrap_or(i64::MAX));
+            let py = inicio_y.saturating_add(i64::try_from(origen.y).unwrap_or(i64::MAX));
+            dibujar_grafico_retrato(frame, recorte, px, py, grafico, recursos);
+        }
+        anterior = Some(base.ancho());
+    }
+    x.saturating_add(anterior.and_then(|v| i64::try_from(v).ok()).unwrap_or(0))
+}
+
 fn parpadeando(actor: &VistaActor, paso: usize) -> bool {
     let Some(parpadeo) = actor.retrato.parpadeo() else {
         return false;
@@ -837,8 +887,8 @@ fn parpadeando(actor: &VistaActor, paso: usize) -> bool {
 fn dibujar_grafico_retrato(
     frame: &mut Frame<'_>,
     area: Rect,
-    x: u16,
-    y: u16,
+    x: i64,
+    y: i64,
     grafico: &GraficoRetrato,
     recursos: &RecursosVisuales,
 ) {
@@ -846,14 +896,20 @@ fn dibujar_grafico_retrato(
         if celda.glifo == ' ' {
             continue;
         }
-        let px = x.saturating_add(u16::try_from(indice % grafico.ancho()).unwrap_or(u16::MAX));
-        let py = y.saturating_add(u16::try_from(indice / grafico.ancho()).unwrap_or(u16::MAX));
-        if px >= area.x && px < area.right() && py >= area.y && py < area.bottom() {
+        let px = x.saturating_add(i64::try_from(indice % grafico.ancho()).unwrap_or(i64::MAX));
+        let py = y.saturating_add(i64::try_from(indice / grafico.ancho()).unwrap_or(i64::MAX));
+        if px >= i64::from(area.x)
+            && px < i64::from(area.right())
+            && py >= i64::from(area.y)
+            && py < i64::from(area.bottom())
+        {
             let estilo = celda
                 .estilo
                 .map(estilo_retrato)
                 .unwrap_or(recursos.ui.destacado);
-            poner_celda(frame, px, py, celda.glifo, estilo);
+            if let (Ok(px), Ok(py)) = (u16::try_from(px), u16::try_from(py)) {
+                poner_celda(frame, px, py, celda.glifo, estilo);
+            }
         }
     }
 }
@@ -903,6 +959,38 @@ mod pruebas {
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
 
+    #[test]
+    fn campamento_por_teclas_conserva_ficha_al_cancelar_q_y_vuelve_a_viajar() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        let mut interfaz = Interfaz::nueva(partida).unwrap();
+        let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
+        interfaz.manejar_tecla(tecla(KeyCode::Char('a')));
+        assert!(matches!(interfaz.vista, VistaSesion::Acampando(_)));
+        let antes = interfaz.texto_contextual();
+        interfaz.manejar_tecla(tecla(KeyCode::Char('q')));
+        assert!(interfaz.confirmar_salida);
+        interfaz.manejar_tecla(tecla(KeyCode::Char('n')));
+        assert_eq!(interfaz.texto_contextual(), antes);
+        let mut terminal = Terminal::new(TestBackend::new(79, 24)).unwrap();
+        terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
+        assert_eq!(interfaz.texto_contextual(), antes);
+        terminal.backend_mut().resize(80, 24);
+        terminal.resize(Rect::new(0, 0, 80, 24)).unwrap();
+        terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
+        assert!(interfaz.campamento.is_some());
+        interfaz.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(matches!(interfaz.vista, VistaSesion::Acampando(_)));
+        interfaz.manejar_tecla(tecla(KeyCode::Enter));
+        assert!(matches!(interfaz.vista, VistaSesion::Disponible(_)));
+        assert!(interfaz.campamento.is_none());
+        interfaz.manejar_tecla(tecla(KeyCode::Char('v')));
+        assert!(matches!(interfaz.modo, ModoLocal::Seleccion { .. }));
+    }
+
     fn partida_con_retrato_capas() -> Partida {
         use std::fs;
         use std::sync::atomic::{AtomicU64, Ordering};
@@ -937,7 +1025,7 @@ mod pruebas {
         fs::write(
             destino.join("actors/principe_perdido.ron"),
             r#"(
-            clave: "principe_perdido", lugar_inicial: "zona_arida",
+            clave: "principe_perdido", nombre: "Príncipe Perdido", lugar_inicial: "zona_arida",
             caracteristicas: [], relaciones: [], politica: Ninguna,
             retrato: Some((
                 paleta: {
@@ -1139,6 +1227,7 @@ mod pruebas {
                     })
                 }
                 VistaSesion::Disponible(_) => break,
+                VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                 VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
             }
         }

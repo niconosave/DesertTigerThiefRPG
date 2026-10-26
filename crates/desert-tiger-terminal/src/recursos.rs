@@ -56,6 +56,8 @@ pub(crate) struct RecursosVisuales {
     apariencias: BTreeMap<ClaveTipoTile, PatronTile>,
     pub ui: PaletaUi,
     escenas: Vec<(ClaveEscena, Vec<String>)>,
+    pub(crate) fogata: Vec<String>,
+    pub(crate) estilo_fogata: Style,
 }
 
 impl RecursosVisuales {
@@ -63,6 +65,11 @@ impl RecursosVisuales {
         let tiles: TilesDto = leer_ron(&raiz.join("tiles.ron"))?;
         let ui: UiDto = leer_ron(&raiz.join("ui.ron"))?;
         let escenas: EscenasDto = leer_ron(&raiz.join("scenes.ron"))?;
+        let campamento: CampamentoDto = leer_ron(&raiz.join("campamento.ron"))?;
+        let fogata = normalizar_arte(&campamento.fogata.arte)
+            .map_err(|e| ErrorRecursos(format!("campamento.ron: {e}")))?;
+        let estilo_fogata = convertir_estilo(campamento.fogata.estilo)
+            .map_err(|e| ErrorRecursos(format!("campamento.ron: {e}")))?;
         let reserva = convertir_apariencia(tiles.reserva)?;
         if reserva.glifo != '?' {
             return Err(ErrorRecursos(
@@ -100,6 +107,8 @@ impl RecursosVisuales {
             apariencias,
             ui: convertir_ui(ui)?,
             escenas: ilustraciones,
+            fogata,
+            estilo_fogata,
         })
     }
 
@@ -575,4 +584,16 @@ mod pruebas {
         assert_eq!(color("azulOscuro").unwrap(), Color::Rgb(0, 24, 64));
         assert_eq!(color("verdeOscuro").unwrap(), Color::Rgb(32, 96, 78));
     }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CampamentoDto {
+    fogata: FogataDto,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FogataDto {
+    arte: String,
+    estilo: EstiloDto,
 }

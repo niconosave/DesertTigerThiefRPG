@@ -1,5 +1,7 @@
 (
     clave: "nino_ladron",
+    nombre: "Niño Ladrón",
+    biografia: "Un joven ladrón que busca abrirse camino.",
     lugar_inicial: "zona_arida",
     caracteristicas: [],
     relaciones: [],

@@ -1,5 +1,7 @@
 (
     clave: "sirviente",
+    nombre: "Sirviente",
+    biografia: "Un sirviente que acompaña al príncipe en su viaje.",
     lugar_inicial: "zona_arida",
     caracteristicas: [],
     relaciones: [],

@@ -1,0 +1,11 @@
+(
+    fogata: (
+        arte: r#"
+  /\  
+ /██\ 
+  ██  
+ /__\ 
+"#,
+        estilo: (frente: "amarillo", fondo: None, modificadores: []),
+    ),
+)

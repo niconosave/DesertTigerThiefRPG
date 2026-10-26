@@ -1,5 +1,7 @@
 (
     clave: "mercader",
+    nombre: "Mercader",
+    biografia: "Un mercader de ropas coloridas y gran bigote.",
     lugar_inicial: "zona_arida",
     caracteristicas: [],
     relaciones: [],

@@ -4,6 +4,14 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Acampar terminado
+
+PLAN-2026-036 y PLAN-2026-037 están implementados, verificados y archivados en
+[completados](../completados/README.md#acción-general-acampar).
+El [contrato de Acampar](../../tecnica/acciones/07-acampar.md#12-verificación-de-la-implementación--2026-10-26)
+registra las pruebas y el recorrido manual del incremento. No quedan tareas de
+esta secuencia; los alcances anteriores conservan sus propios estados.
+
 ## Refactor del reglamento de Viajar terminado
 
 PLAN-2026-025 a PLAN-2026-031 están implementados, verificados y archivados en

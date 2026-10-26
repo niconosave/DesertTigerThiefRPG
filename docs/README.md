@@ -8,6 +8,7 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 | Ruta | Propósito |
 |---|---|
 | [`diseno-general.md`](./diseno-general.md) | Define qué juego se quiere construir, sus conceptos y sus restricciones. |
+| [`diseno/acampar.md`](./diseno/acampar.md) | Diseño revisado de Acampar: fichas, características, relaciones y navegación. |
 | [`metodologia-desarrollo.md`](./metodologia-desarrollo.md) | Define cómo se diseñan, implementan y verifican los incrementos. |
 | [`contenido/`](./contenido/) | Contiene briefs creativos del mundo sin duplicar los datos RON concretos. |
 | [`tecnica/`](./tecnica/) | Contiene la arquitectura general y los diseños técnicos específicos. |

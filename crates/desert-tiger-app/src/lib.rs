@@ -3,6 +3,13 @@
 mod contenido;
 mod contexto_viaje;
 mod fase_npc;
+mod fichas;
+pub use desert_tiger_core::acciones::ErrorAcampada;
+pub use desert_tiger_core::{ExtremoRelacion, IdRelacion, TipoRelacion};
+pub use fichas::{
+    EntradaFicha, ErrorConsultaFicha, ResumenElemento, SentidoRelacionFicha, VistaFicha,
+    VistaRelacionFicha,
+};
 mod lua;
 mod narracion_viaje;
 mod sesion;
@@ -30,3 +37,5 @@ pub use sesion::{
     VistaFragmento, VistaLugar, VistaMapa, VistaMundo, VistaOpcionDecision, VistaProgresoViaje,
     VistaSesion,
 };
+
+pub use sesion::{IdCampamento, IntegranteCampamento, VistaCampamento};

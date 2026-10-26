@@ -1,3 +1,4 @@
+mod campamento;
 mod interfaz;
 mod recursos;
 
@@ -236,6 +237,7 @@ mod pruebas {
             let destino = match &inicial {
                 VistaSesion::Disponible(mundo) => match &mundo.acciones[0] {
                     desert_tiger_app::AccionDisponible::Viajar { destinos } => destinos[0],
+                    desert_tiger_app::AccionDisponible::Acampar => panic!("se esperaba Viajar"),
                 },
                 _ => panic!("vista inicial inesperada"),
             };
@@ -266,6 +268,7 @@ mod pruebas {
                         assert_eq!(mundo.lugar_jugador, destino);
                         break;
                     }
+                    VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                     VistaSesion::Fatal(fatal) => panic!("sesión fatal: {}", fatal.mensaje),
                 };
             }

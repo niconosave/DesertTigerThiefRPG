@@ -28,13 +28,13 @@ identificador!(IdMapa);
 identificador!(IdRelacion);
 
 impl IdActor {
-    fn indice(self) -> Option<usize> {
+    pub fn indice(self) -> Option<usize> {
         usize::try_from(self.0).ok()
     }
 }
 
 impl IdLugar {
-    pub(crate) fn indice(self) -> Option<usize> {
+    pub fn indice(self) -> Option<usize> {
         usize::try_from(self.0).ok()
     }
 }

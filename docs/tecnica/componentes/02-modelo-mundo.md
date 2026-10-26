@@ -3,8 +3,12 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.13 |
-| Fecha | 2026-10-18 |
+| Versión | 0.14 |
+| Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26: el acceso público comprobado
+> a índices de Actor y Lugar se define en
+> [Acampar, sección 4.3](../acciones/07-acampar.md#43-consultas-eficientes).
 
 ## Revisión implementada el 2026-10-24: Grupo y conocimiento dinámico
 

@@ -65,3 +65,15 @@ se corregirán en incrementos posteriores.
 | Fecha | Plan | Resultado |
 |---|---|---|
 | 2026-10-25 | [PLAN-2026-035](./2026-10-25-35-importar-ilustraciones-viaje.md) | Cuatro dibujos del usuario incorporados a `scenes.ron`, con bloques Unicode de una columna. |
+
+
+## Acción general Acampar
+
+| Fecha | Plan | Resultado |
+|---|---|---|
+| 2026-10-26 | [PLAN-2026-036](./2026-10-26-36-preparar-contenido-regla-acampar.md) | Regla core, nombres, biografías y catálogo editable de características. |
+| 2026-10-26 | [PLAN-2026-037](./2026-10-26-37-integrar-acampar-fichas-terminal.md) | Fichas, navegación por relaciones, pantalla de campamento y cierre de un día con fase NPC. |
+
+Verificación conjunta: 96 pruebas, cinco controles generales satisfactorios y
+recorrido manual del ejecutable release en PTY 80×24. El detalle está en la
+[sección 12 del contrato](../../tecnica/acciones/07-acampar.md#12-verificación-de-la-implementación--2026-10-26).

@@ -58,12 +58,10 @@ pub(crate) fn reservas(r: &ReservasViaje) -> String {
 impl Narrador<'_> {
     pub fn actor(&self, id: IdActor) -> String {
         self.0
-            .claves()
-            .clave_actor(id)
-            .unwrap_or("viajero")
-            .split('_')
-            .collect::<Vec<_>>()
-            .join(" ")
+            .presentacion()
+            .actor(id)
+            .map(|a| a.nombre().to_owned())
+            .unwrap_or_else(|| "Viajero desconocido".into())
     }
     pub fn lugar(&self, id: IdLugar) -> String {
         self.0

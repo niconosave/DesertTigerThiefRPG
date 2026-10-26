@@ -3,8 +3,11 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.48 |
+| Versión | 0.49 |
 | Fecha | 2026-10-26 |
+
+> Ampliación implementada el 2026-10-26: focos, controles y vista de
+> campamento se definen en [Acampar, secciones 7–8](../acciones/07-acampar.md#7-estado-local-y-controles-de-terminal).
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
 
@@ -1021,6 +1024,10 @@ Si `acciones` está vacía y `causa_indisponibilidad` es
 únicamente `[Q] Salir` y la vista no abre una pantalla de muerte. El frontend
 decide entre estas presentaciones solo mediante los campos de `VistaMundo`; no
 inspecciona Características.
+
+Si `acciones` incluye `Acampar`, la barra agrega `[A] Acampar`, incluso cuando
+Viajar no tiene destinos. Su pantalla, controles y coste de salida se definen
+en el [contrato de Acampar](../acciones/07-acampar.md#7-estado-local-y-controles-de-terminal).
 
 La barra contextual aplica esta prioridad:
 

@@ -1,5 +1,7 @@
 (
     clave: "bandido",
+    nombre: "Bandido",
+    biografia: "Compañero del príncipe, familiarizado con los desiertos y los camellos.",
     lugar_inicial: "zona_arida",
     caracteristicas: ["fuerte", "guia", "camellero", "jinete", "conoceDesiertos", "conCamellos"],
     relaciones: [

@@ -391,6 +391,7 @@ pub(crate) struct CatalogoPresentacion {
     mapa: PlantillaMapa,
     lugares: Vec<PresentacionLugar>,
     actores: Vec<PresentacionActor>,
+    pub(crate) caracteristicas: BTreeMap<String, DescripcionCaracteristica>,
 }
 
 pub(crate) struct PresentacionLugar {
@@ -402,6 +403,8 @@ pub(crate) struct PresentacionLugar {
 
 pub(crate) struct PresentacionActor {
     id: IdActor,
+    nombre: String,
+    biografia: String,
     retrato: Option<RetratoActor>,
 }
 
@@ -415,10 +418,14 @@ impl CatalogoPresentacion {
     }
     #[allow(dead_code)]
     pub(crate) fn lugar(&self, id: IdLugar) -> Option<&PresentacionLugar> {
-        self.lugares.iter().find(|lugar| lugar.id == id)
+        self.lugares
+            .get(id.indice()?)
+            .filter(|lugar| lugar.id == id)
     }
     pub(crate) fn actor(&self, id: IdActor) -> Option<&PresentacionActor> {
-        self.actores.iter().find(|actor| actor.id == id)
+        self.actores
+            .get(id.indice()?)
+            .filter(|actor| actor.id == id)
     }
     fn instanciar_mapa(&self) -> EstadoMapa {
         EstadoMapa {
@@ -447,6 +454,12 @@ impl PresentacionLugar {
 }
 
 impl PresentacionActor {
+    pub(crate) fn nombre(&self) -> &str {
+        &self.nombre
+    }
+    pub(crate) fn biografia(&self) -> &str {
+        &self.biografia
+    }
     #[allow(dead_code)]
     pub(crate) fn id(&self) -> IdActor {
         self.id
@@ -665,6 +678,9 @@ struct CoordenadaDto {
 #[serde(deny_unknown_fields)]
 struct ActorDto {
     clave: String,
+    nombre: String,
+    #[serde(default)]
+    biografia: String,
     lugar_inicial: String,
     caracteristicas: Vec<String>,
     relaciones: Vec<DeclaracionRelacionDto>,
@@ -824,6 +840,111 @@ struct RelacionDeclarada {
     tipo_elemento: TipoElementoContenido,
     clave_elemento: String,
     posicion: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CatalogoCaracteristicasDto {
+    entradas: Vec<DescripcionCaracteristicaDto>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DescripcionCaracteristicaDto {
+    clave: String,
+    nombre: String,
+    descripcion: String,
+}
+pub(crate) struct DescripcionCaracteristica {
+    pub(crate) nombre: String,
+    pub(crate) descripcion: String,
+}
+
+fn validar_texto_presentacion(
+    texto: &str,
+    multilinea: bool,
+    requerido: bool,
+) -> Result<String, String> {
+    let normalizado = texto.replace("\r\n", "\n");
+    if normalizado
+        .chars()
+        .any(|c| c.is_control() && !(multilinea && c == '\n'))
+    {
+        return Err("contiene controles no permitidos".into());
+    }
+    if requerido && normalizado.trim().is_empty() {
+        return Err("no puede estar vacío".into());
+    }
+    Ok(normalizado)
+}
+
+fn error_catalogo(clase: ClaseDiagnosticoContenido, detalle: String) -> ErrorContenido {
+    ErrorContenido::uno(DiagnosticoContenido {
+        clase,
+        origen: OrigenDiagnosticoContenido::Archivo {
+            ruta_relativa: PathBuf::from("caracteristicas.ron"),
+        },
+        elemento: None,
+        posicion: None,
+        detalle: sanear(&detalle),
+    })
+}
+
+fn cargar_catalogo_caracteristicas(
+    raiz: &Path,
+) -> Result<BTreeMap<String, DescripcionCaracteristica>, ErrorContenido> {
+    let ruta = Path::new("caracteristicas.ron");
+    match fs::symlink_metadata(raiz.join(ruta)) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(BTreeMap::new()),
+        Err(e) => {
+            return Err(error_catalogo(
+                ClaseDiagnosticoContenido::AccesoFilesystem,
+                e.to_string(),
+            ));
+        }
+        Ok(_) => {}
+    }
+    let dto: CatalogoCaracteristicasDto = leer_ron(raiz, ruta, TipoElementoContenido::Mundo, None)
+        .map_err(|mut error| {
+            for d in &mut error.diagnosticos {
+                d.elemento = None;
+            }
+            error
+        })?;
+    validar_catalogo_caracteristicas(dto)
+}
+fn validar_catalogo_caracteristicas(
+    dto: CatalogoCaracteristicasDto,
+) -> Result<BTreeMap<String, DescripcionCaracteristica>, ErrorContenido> {
+    let mut resultado = BTreeMap::new();
+    for entrada in dto.entradas {
+        let error = |detalle| {
+            error_catalogo(
+                ClaseDiagnosticoContenido::ValorInvalido,
+                format!("característica {}: {detalle}", entrada.clave),
+            )
+        };
+        Caracteristica::nueva(entrada.clave.clone()).map_err(|e| error(e.to_string()))?;
+        let nombre = validar_texto_presentacion(&entrada.nombre, false, true).map_err(error)?;
+        let descripcion =
+            validar_texto_presentacion(&entrada.descripcion, true, true).map_err(error)?;
+        let clave = entrada.clave.clone();
+        if resultado
+            .insert(
+                entrada.clave,
+                DescripcionCaracteristica {
+                    nombre,
+                    descripcion,
+                },
+            )
+            .is_some()
+        {
+            return Err(error_catalogo(
+                ClaseDiagnosticoContenido::ValorInvalido,
+                format!("clave duplicada en caracteristicas.ron: {clave}"),
+            ));
+        }
+    }
+    Ok(resultado)
 }
 
 pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido> {
@@ -1008,6 +1129,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         interno: Arc::new(ContenidoValidadoInterno {
             plantilla_mundo: datos,
             presentacion: CatalogoPresentacion {
+                caracteristicas: cargar_catalogo_caracteristicas(&raiz_canonica)?,
                 mapa: mapa.plantilla,
                 lugares: lugares
                     .into_iter()
@@ -1372,6 +1494,26 @@ fn validar_actor(
     ruta: &Path,
 ) -> Result<ActorValidado, ErrorContenido> {
     validar_clave_y_archivo(&dto.clave, esperada, ruta, TipoElementoContenido::Actor)?;
+    let nombre = validar_texto_presentacion(&dto.nombre, false, true).map_err(|detalle| {
+        error_archivo(
+            ruta,
+            TipoElementoContenido::Actor,
+            Some(esperada),
+            ClaseDiagnosticoContenido::ValorInvalido,
+            None,
+            format!("nombre: {detalle}"),
+        )
+    })?;
+    let biografia = validar_texto_presentacion(&dto.biografia, true, false).map_err(|detalle| {
+        error_archivo(
+            ruta,
+            TipoElementoContenido::Actor,
+            Some(esperada),
+            ClaseDiagnosticoContenido::ValorInvalido,
+            None,
+            format!("biografia: {detalle}"),
+        )
+    })?;
     let lugar = claves
         .lugares_por_clave
         .get(&dto.lugar_inicial)
@@ -1437,7 +1579,12 @@ fn validar_actor(
             lugar,
             caracteristicas,
         },
-        presentacion: PresentacionActor { id, retrato },
+        presentacion: PresentacionActor {
+            id,
+            nombre,
+            biografia,
+            retrato,
+        },
         politica,
         relaciones,
     })
@@ -2154,6 +2301,126 @@ mod pruebas {
     use crate::lua::{ResultadoPoliticaLua, evaluar_politica};
     use desert_tiger_core::Duracion;
     use desert_tiger_core::acciones::SolicitudAccion;
+
+    #[test]
+    fn metadatos_de_actor_validan_texto_y_biografia_opcional() {
+        assert_eq!(
+            validar_texto_presentacion("una\r\notra", true, false).unwrap(),
+            "una\notra"
+        );
+        for texto in ["texto\rsolo", "texto\t", "texto\u{1b}[0m", "texto\u{85}"] {
+            assert!(validar_texto_presentacion(texto, true, false).is_err());
+        }
+        assert!(validar_texto_presentacion("a\nb", false, true).is_err());
+        assert!(validar_texto_presentacion("  ", false, true).is_err());
+        let texto = fs::read_to_string(raiz_base().join("actors/principe_perdido.ron")).unwrap();
+        let sin_bio = texto
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("biografia:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            ron::from_str::<ActorDto>(&sin_bio)
+                .unwrap()
+                .biografia
+                .is_empty()
+        );
+        let sin_nombre = sin_bio
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("nombre:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(ron::from_str::<ActorDto>(&sin_nombre).is_err());
+        let c = cargar_contenido(&raiz_base()).unwrap();
+        assert!(
+            c.presentacion()
+                .actor(IdActor::desde_posicion(999).unwrap())
+                .is_none()
+        );
+        assert!(
+            c.presentacion()
+                .lugar(IdLugar::desde_posicion(999).unwrap())
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn catalogo_rechaza_duplicados_claves_y_descripciones_invalidas() {
+        let entrada = || DescripcionCaracteristicaDto {
+            clave: "fuerte".into(),
+            nombre: "Fuerte".into(),
+            descripcion: "Una descripción".into(),
+        };
+        let duplicado = validar_catalogo_caracteristicas(CatalogoCaracteristicasDto {
+            entradas: vec![entrada(), entrada()],
+        })
+        .err()
+        .unwrap();
+        assert!(duplicado.diagnosticos()[0].detalle().contains("fuerte"));
+        assert!(duplicado.diagnosticos[0].elemento.is_none());
+        for (clave, nombre, descripcion) in [
+            ("Fuerte", "Fuerte", "x"),
+            ("fuerte", " ", "x"),
+            ("fuerte", "Fuerte", "  "),
+            ("fuerte", "Fuerte", "x\t"),
+        ] {
+            assert!(
+                validar_catalogo_caracteristicas(CatalogoCaracteristicasDto {
+                    entradas: vec![DescripcionCaracteristicaDto {
+                        clave: clave.into(),
+                        nombre: nombre.into(),
+                        descripcion: descripcion.into()
+                    }]
+                })
+                .is_err()
+            );
+        }
+        assert!(
+            validar_catalogo_caracteristicas(CatalogoCaracteristicasDto { entradas: vec![] })
+                .unwrap()
+                .is_empty()
+        );
+        let c = cargar_contenido(&raiz_base()).unwrap();
+        assert!(c.presentacion().caracteristicas.contains_key("cansado"));
+    }
+
+    #[test]
+    fn catalogo_opcional_distingue_ausencia_de_archivo_invalido_y_ruta_externa() {
+        static NUMERO: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        struct Temporal(PathBuf);
+        impl Drop for Temporal {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        let temp = Temporal(std::env::temp_dir().join(format!(
+            "desert-tiger-catalogo-{}-{}",
+            std::process::id(),
+            NUMERO.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        )));
+        fs::create_dir_all(temp.0.join("contenido")).unwrap();
+        let raiz = fs::canonicalize(temp.0.join("contenido")).unwrap();
+        assert!(cargar_catalogo_caracteristicas(&raiz).unwrap().is_empty());
+        let archivo = raiz.join("caracteristicas.ron");
+        fs::write(&archivo, "no es RON").unwrap();
+        assert!(cargar_catalogo_caracteristicas(&raiz).is_err());
+        fs::write(&archivo, "(entradas: [])").unwrap();
+        assert!(cargar_catalogo_caracteristicas(&raiz).unwrap().is_empty());
+        #[cfg(unix)]
+        {
+            fs::remove_file(&archivo).unwrap();
+            fs::write(temp.0.join("externo.ron"), "(entradas: [])").unwrap();
+            std::os::unix::fs::symlink(temp.0.join("externo.ron"), &archivo).unwrap();
+            let error = cargar_catalogo_caracteristicas(&raiz).err().unwrap();
+            assert_eq!(
+                error.diagnosticos[0].clase,
+                ClaseDiagnosticoContenido::RutaFueraDeRaiz
+            );
+            fs::remove_file(&archivo).unwrap();
+            std::os::unix::fs::symlink(temp.0.join("ausente.ron"), &archivo).unwrap();
+            assert!(cargar_catalogo_caracteristicas(&raiz).is_err());
+        }
+    }
 
     fn raiz_base() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base")
