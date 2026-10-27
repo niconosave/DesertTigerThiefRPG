@@ -10,6 +10,8 @@ mod fuentes;
 #[cfg(feature = "audio")]
 mod motor;
 mod paisaje;
+#[cfg(feature = "audio")]
+mod riachuelo;
 
 use configuracion::{ConfiguracionAmbientes, ConfiguracionAudio, ConfiguracionFogataAudio};
 use std::path::Path;

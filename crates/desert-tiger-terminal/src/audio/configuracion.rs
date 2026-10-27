@@ -12,6 +12,8 @@ pub(super) struct ConfiguracionAudio {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DatosAmbientes {
+    #[serde(default)]
+    tipo_rio: TipoRio,
     volumen: f32,
     viento: f32,
     ave_lejana: f32,
@@ -21,9 +23,17 @@ struct DatosAmbientes {
     ave_bosque_b: f32,
 }
 
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+pub(super) enum TipoRio {
+    #[default]
+    Corriente,
+    Riachuelo,
+}
+
 #[derive(Clone, Debug)]
 #[cfg_attr(not(feature = "audio"), allow(dead_code))]
 pub(super) struct ConfiguracionAmbientes {
+    tipo_rio: TipoRio,
     volumen: f32,
     niveles: [f32; 6],
 }
@@ -51,6 +61,7 @@ impl ConfiguracionAmbientes {
             }
         }
         Ok(Self {
+            tipo_rio: d.tipo_rio,
             volumen: d.volumen,
             niveles: [
                 d.viento,
@@ -63,6 +74,10 @@ impl ConfiguracionAmbientes {
         })
     }
 
+    #[cfg(feature = "audio")]
+    pub(super) fn tipo_rio(&self) -> TipoRio {
+        self.tipo_rio
+    }
     #[cfg(feature = "audio")]
     pub(super) fn volumen(&self) -> f32 {
         self.volumen
@@ -81,6 +96,12 @@ impl ConfiguracionAmbientes {
         let mut config = Self::fixture();
         config.volumen = 0.0;
         config
+    }
+
+    #[cfg(all(feature = "audio", test))]
+    pub(super) fn con_tipo_rio(mut self, tipo: TipoRio) -> Self {
+        self.tipo_rio = tipo;
+        self
     }
 }
 
@@ -179,6 +200,25 @@ pub(super) fn fixture(volumen: f32, brasa: f32, tasas: [f32; 2]) -> Configuracio
 mod pruebas {
     use super::*;
     const VALIDA: &str = "(volumen:0.25,nivel_brasa:0.18,chasquidos_por_segundo:8.0,crujidos_por_segundo:0.6,entrada_ms:200,salida_ms:250)";
+
+    #[test]
+    fn tipo_rio_es_opcional_conserva_corriente_y_rechaza_valores_desconocidos() {
+        let texto = "(volumen:0.5,viento:0.5,ave_lejana:0.5,rio:0.5,mar:0.5,ave_bosque_a:0.5,ave_bosque_b:0.5)";
+        assert_eq!(
+            ConfiguracionAmbientes::interpretar(texto).unwrap().tipo_rio,
+            TipoRio::Corriente
+        );
+        for tipo in ["Corriente", "Riachuelo"] {
+            let texto = texto.replacen('(', &format!("(tipo_rio:{tipo},"), 1);
+            assert!(ConfiguracionAmbientes::interpretar(&texto).is_ok());
+        }
+        let texto = texto.replacen('(', "(tipo_rio:Desconocido,", 1);
+        assert!(
+            ConfiguracionAmbientes::interpretar(&texto)
+                .unwrap_err()
+                .contains("Desconocido")
+        );
+    }
 
     #[test]
     fn ambientes_validan_todos_los_niveles_y_campos_estrictos() {

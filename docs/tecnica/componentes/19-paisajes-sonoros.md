@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
-| Versión | 1.0 |
+| Estado | Implementado; alternativa Riachuelo en verificación auditiva |
+| Versión | 1.1 |
 | Fecha | 2026-10-26 |
 
 ## 1. Alcance y contexto
@@ -47,12 +47,18 @@ indexados, sin recorrer el grafo entero por cuadro.
 ## 3. Datos y organización
 
 `assets/audio/ambientes.ron` se carga junto con `fogata.ron`, una sola vez antes
-de raw mode, salvo audio deshabilitado o compilación sin audio. Campos
-obligatorios, desconocidos o duplicados rechazados; todos son `f32` finitos
-en `[0,1]`. Cero silencia la capa; los errores indican ruta y campo.
+de raw mode, salvo audio deshabilitado o compilación sin audio. Los campos de
+nivel son obligatorios, `f32` finitos en `[0,1]`. Cero silencia la capa; los
+errores indican ruta y campo. Se rechazan desconocidos y duplicados.
+
+`tipo_rio` es opcional: `Corriente` conserva la receta original, `Riachuelo`
+selecciona la alternativa de agua entre piedras. Si falta se usa `Corriente`,
+para conservar el sonido de archivos anteriores. La selección se carga al
+inicio y utiliza la misma capa, condiciones, volumen y rampas del río.
 
 ```ron
 (
+    tipo_rio: Riachuelo,
     volumen: 0.35,
     viento: 0.10,
     ave_lejana: 0.18,
@@ -69,6 +75,8 @@ en `[0,1]`. Cero silencia la capa; los errores indican ruta y campo.
 `dispositivo.rs` conserva su responsabilidad de salida y saneamiento.
 `fuentes.rs` comparte filtros de ruido y azar cosmético con la fogata, sin
 modificar su receta ni compartir estados entre generadores.
+`riachuelo.rs` genera la alternativa fluvial; solo se construye al seleccionarla,
+antes de iniciar el callback.
 
 `AmbienteSonoro` pasa a ser un valor con banderas de exterior, río, mar, bosque
 y fogata. Se publica en una sola orden atómica `u8`: fogata=1, exterior=4,
@@ -81,8 +89,16 @@ Los nodos de ruido y filtros FunDSP se construyen y preasignan antes de iniciar
 el stream, con frecuencia real y semillas propias. No usan el RNG del juego.
 
 - Viento: ruido rosa filtrado entre 90 y 950 Hz, modulación lenta y suave.
-- Río: ruido blanco filtrado entre 180 y 4800 Hz; pequeñas variaciones continuas
+- Río `Corriente`: ruido blanco filtrado entre 180 y 4800 Hz; pequeñas variaciones continuas
   y una componente burbujeante suave. No produce golpes periódicos fuertes.
+- Río `Riachuelo`: fondo de ruido tenue entre 450 y 5200 Hz y gotas breves de
+  ruido filtrado con resonancia sinusoidal ascendente. Hasta ocho voces
+  preasignadas, duraciones de 30–95 ms y tonos iniciales de 300–1900 Hz.
+  Ataque suave de 1.5 ms y caída rápida para evitar campanitas sostenidas.
+  Agenda exponencial de media 32 eventos/s: si no hay voz libre se omite el
+  evento. Usa una semilla propia y conserva intactas las semillas y la receta
+  de las demás capas. Los nodos se preasignan y se limitan las frecuencias altas
+  según el muestreo, igual que en los demás generadores.
 - Mar: ruido rosa y blanco filtrado entre 70 y 2400 Hz; envolventes lentas de
   crecida y retirada, con periodos superpuestos distintos para evitar un pulso
   mecánico perfectamente uniforme.
@@ -146,6 +162,15 @@ resize, cierre y reapertura del campamento terminaron con restauración de
 terminal. También se verificaron audio deshabilitado, salida incompatible,
 compilación sin audio y cierre por fatal de calendario.
 
-La escucha de los nuevos ambientes queda pendiente del usuario; ninguna prueba
-numérica se presenta como valoración artística. La aceptación previa de la
-fogata se conserva por separado en el plan 041.
+El usuario aceptó el conjunto ambiental, incluida la mezcla de
+bosque y río. La alternativa `Riachuelo` es un retoque experimental posterior:
+conserva `Corriente` y queda pendiente de su propia escucha. Las pruebas del
+selector cubren el valor predeterminado y valores desconocidos; las pruebas
+de síntesis comparan ambas variantes y comprueban que las demás capas conservan
+su señal, que volumen cero silencia ambas y que la variante genera señal finita
+y reproducible en las cuatro frecuencias admitidas por las pruebas anteriores.
+
+El retoque pasa fmt, check, clippy, 157 pruebas con audio y 140 sin audio,
+y compilaciones release de ambas variantes. Una captura CPAL en bosque con
+río confirma salida finita y acotada, controles funcionales y restauración de
+terminal; no sustituye la escucha de esta nueva alternativa.

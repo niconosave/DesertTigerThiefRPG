@@ -10,7 +10,8 @@
 > define el audio opcional del frontend y su integración con el bucle. El
 > [contrato 18](./18-crepitar-fogata.md) define el primer efecto: el crepitar del
 > campamento, aceptado por el usuario. El [contrato 19](./19-paisajes-sonoros.md)
-> amplía el entorno sonoro del grupo y está pendiente de revisión auditiva.
+> amplía el entorno sonoro del grupo, aceptado por el usuario; su alternativa
+> de riachuelo está en prueba.
 > No cambia las reglas de Acampar ni su avance de tiempo.
 
 > La resolución de color, la consulta inicial y la opción `--color-scheme`

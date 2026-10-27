@@ -155,4 +155,4 @@ las dependencias sonoras.
   inicialmente pendiente y el usuario la completó al confirmar que el efecto
   funcionó muy bien, antes de solicitar los nuevos paisajes sonoros.
 - Trabajo posterior: los nuevos ambientes pertenecen al
-  [plan 042](../pendientes/2026-10-26-42-incorporar-paisajes-sonoros.md).
+  [plan 042](./2026-10-26-42-incorporar-paisajes-sonoros.md).

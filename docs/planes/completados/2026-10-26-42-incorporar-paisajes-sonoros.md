@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | PLAN-2026-042 |
-| Estado | Implementación funcional terminada; en verificación auditiva |
+| Estado | Completado |
 | Creado | 2026-10-26 |
 | Actualizado | 2026-10-26 |
 
@@ -37,7 +37,7 @@ audio espacial ni nuevas mecánicas de juego.
 5. [x] Ejecutar fmt, check, clippy y test de workspace, y compilación release,
        con features predeterminadas y con `--no-default-features`; comprobar
        recursos oficiales y recorrido del ejecutable con captura de salida.
-6. [ ] Actualizar documentación e índices, registrar resultados y revisión
+6. [x] Actualizar documentación e índices, registrar resultados y revisión
        auditiva; archivar al cumplir la
        [definición de terminado](../../metodologia-desarrollo.md#8-definición-de-terminado).
 
@@ -55,20 +55,26 @@ documenta primero en el contrato, sin introducirla únicamente en este plan.
       de compilación; controles de calidad y release sin advertencias.
 - [x] Captura CPAL en entorno inicial, bosque/río, costa, mar y vado; controles,
       cierre normal y fatal, recuperación sin audio y restauración de terminal.
-- [ ] Revisión auditiva y aceptación del usuario jugando, según el contrato 19.
-- [ ] Definición de terminado y archivo en `completados/`.
+- [x] Revisión auditiva y aceptación del usuario jugando, según el contrato 19.
+- [x] Definición de terminado y archivo en `completados/`.
 
 ## Resultado de la implementación
 
-- Fecha: desarrollo y verificación funcional terminados el 2026-10-26.
+- Fecha de finalización: 2026-10-26; desarrollo, verificaciones funcionales y
+  revisión auditiva completados.
 - Resultado: ambientes procedurales configurables, mezclados por capas durante
   el mapa, Viajar y Acampar; proyección neutral de datos y conexiones de Lugares.
 - Verificaciones: fmt, check, clippy sin advertencias, test y release con y sin
   audio. Pasan 154 pruebas con audio y 139 sin audio. Nueve recorridos PTY
   comprobaron cinco entornos, audio deshabilitado, salida incompatible,
   compilación sin audio y cierre fatal; todos restauraron la terminal.
+- Revisión auditiva: el usuario confirmó que los ambientes funcionaron muy bien
+  y describió haber escuchado varias combinaciones, incluida la de bosque y
+  río simultáneos. Esta aceptación cierra la revisión que había quedado
+  pendiente; no se le atribuyen las pruebas automáticas o PTY anteriores.
 - Desviaciones: ninguna de alcance; no hay dependencias nuevas. La fogata
-  aceptada se cerró y archivó en el plan 041. Este plan conserva su revisión
-  auditiva pendiente; documentación e instrucciones están actualizadas.
-- Trabajo posterior: escuchar los ambientes, ajustar sus niveles si hace falta
-  y registrar la aceptación antes de archivar el plan.
+  aceptada se cerró y archivó en el plan 041. Documentación e instrucciones
+  están actualizadas.
+- Trabajo posterior: el usuario solicitó experimentar con un riachuelo como
+  alternativa, conservando el sonido de río actual. Es un retoque posterior y
+  no una tarea pendiente de este incremento.

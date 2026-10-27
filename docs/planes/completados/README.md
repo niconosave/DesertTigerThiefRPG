@@ -111,3 +111,11 @@ registra pruebas, escenarios de terminal y revisión del ejecutable.
 
 [PLAN-2026-041](./2026-10-26-41-incorporar-audio-fogata.md) está completado:
 FunDSP, salida CPAL opcional y crepitar del campamento, aceptado por el usuario.
+
+## Paisajes sonoros del entorno
+
+[PLAN-2026-042](./2026-10-26-42-incorporar-paisajes-sonoros.md) está completado:
+viento, aves, río y mar según los Lugares y sus conexiones, durante el mapa,
+Viajar y Acampar. El usuario aceptó el resultado y confirmó combinaciones de
+ambientes como bosque y río. El plan conserva las verificaciones históricas
+de 154 pruebas con audio, 139 sin audio y nueve recorridos PTY.

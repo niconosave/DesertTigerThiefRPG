@@ -1,6 +1,7 @@
 (
-    volumen: 0.35,
-    viento: 0.10,
+    tipo_rio: Riachuelo,
+    volumen: 0.45,
+    viento: 0.16,
     ave_lejana: 0.18,
     rio: 0.30,
     mar: 0.26,

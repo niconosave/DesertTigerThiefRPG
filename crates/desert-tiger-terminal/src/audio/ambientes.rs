@@ -1,6 +1,7 @@
 use super::{
-    configuracion::ConfiguracionAmbientes,
+    configuracion::{ConfiguracionAmbientes, TipoRio},
     fuentes::{Azar, fuente},
+    riachuelo::GeneradorRiachuelo,
 };
 use fundsp::prelude32::{AudioUnit, sine};
 
@@ -99,6 +100,7 @@ impl Canto {
 }
 
 pub(super) struct GeneradorAmbientes {
+    riachuelo: Option<GeneradorRiachuelo>,
     ruidos: [Box<dyn AudioUnit>; 5],
     aves: [Canto; 3],
     fases: [f64; 6],
@@ -114,6 +116,10 @@ impl GeneradorAmbientes {
         }
         let mut azar = Azar(0x70616973616a6573);
         Ok(Self {
+            riachuelo: match config.tipo_rio() {
+                TipoRio::Corriente => None,
+                TipoRio::Riachuelo => Some(GeneradorRiachuelo::nuevo(frecuencia)),
+            },
             ruidos: [
                 fuente(true, 90.0, 950.0, frecuencia, azar.siguiente()),
                 fuente(false, 180.0, 4800.0, frecuencia, azar.siguiente()),
@@ -144,6 +150,9 @@ impl GeneradorAmbientes {
                     + self.aves[0].siguiente() * self.niveles[1]
             }
             1 => {
+                if let Some(riachuelo) = &mut self.riachuelo {
+                    return riachuelo.siguiente() * self.niveles[2] * self.volumen;
+                }
                 let burbujeo = 0.75 + 0.15 * self.onda(2, 0.17) + 0.1 * self.onda(3, 0.29);
                 (self.ruidos[1].get_mono() * 0.7 + self.ruidos[2].get_mono() * 0.3)
                     * burbujeo
@@ -169,6 +178,38 @@ impl GeneradorAmbientes {
 #[cfg(test)]
 mod pruebas {
     use super::*;
+
+    #[test]
+    fn cambiar_tipo_rio_conserva_las_otras_capas_y_el_volumen_cero() {
+        let crear = |tipo| {
+            GeneradorAmbientes::nuevo(ConfiguracionAmbientes::fixture().con_tipo_rio(tipo), 48000)
+                .unwrap()
+        };
+        let mut corriente = crear(TipoRio::Corriente);
+        let mut riachuelo = crear(TipoRio::Riachuelo);
+        let mut diferencias = 0;
+        for _ in 0..48000 * 3 {
+            for capa in 0..4 {
+                let a = corriente.siguiente(capa);
+                let b = riachuelo.siguiente(capa);
+                assert!(a.is_finite() && b.is_finite());
+                if capa == 1 {
+                    diferencias += usize::from(a != b);
+                } else {
+                    assert_eq!(a, b);
+                }
+            }
+        }
+        assert!(diferencias > 1000);
+        let mut silencio = GeneradorAmbientes::nuevo(
+            ConfiguracionAmbientes::fixture_silenciosa().con_tipo_rio(TipoRio::Riachuelo),
+            48000,
+        )
+        .unwrap();
+        for _ in 0..48000 {
+            assert_eq!(silencio.siguiente(1), 0.0);
+        }
+    }
 
     #[test]
     fn volumen_cero_silencia_todas_las_capas() {

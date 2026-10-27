@@ -4,13 +4,13 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
-## Paisajes sonoros
+## Paisajes sonoros terminados
 
-[PLAN-2026-042](./2026-10-26-42-incorporar-paisajes-sonoros.md) implementa el
+[PLAN-2026-042](../completados/2026-10-26-42-incorporar-paisajes-sonoros.md) implementa el
 [contrato 19](../../tecnica/componentes/19-paisajes-sonoros.md): viento, aves,
 río, mar y bosque durante el mapa, Viajar y Acampar. El desarrollo y las
-verificaciones funcionales están terminados; queda pendiente escuchar y
-aceptar los nuevos ambientes jugando.
+verificaciones están terminados; el usuario aceptó los ambientes al escucharlos
+jugando. El plan está archivado y no quedan tareas de este incremento.
 
 El [plan 041](../completados/2026-10-26-41-incorporar-audio-fogata.md) está
 completado y aceptado por el usuario; su código constituye la base de audio.

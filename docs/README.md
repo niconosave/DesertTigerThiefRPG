@@ -77,6 +77,10 @@ reiniciar. `volumen` controla el conjunto ambiental; los demás campos controlan
 cada sonido. El [contrato 19](./tecnica/componentes/19-paisajes-sonoros.md) define
 las condiciones y el formato. `--no-audio` silencia todos los efectos.
 
+En ese mismo archivo, `tipo_rio: Riachuelo` prueba agua entre piedras, con
+pequeños chapoteos y borboteos. `tipo_rio: Corriente` recupera el río original.
+Si se omite el campo se utiliza `Corriente`. Hay que reiniciar para cambiarlo.
+
 El sonido está habilitado por defecto y se escucha al acampar. Para desactivarlo:
 
 ```sh

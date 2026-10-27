@@ -29,8 +29,8 @@ La secuencia de refactor de `Viajar`, PLAN-2026-025 a PLAN-2026-031, está
 El índice de [pendientes](./pendientes/README.md) conserva otros alcances y
 antecedentes sustituidos sin atribuirles verificaciones del refactor nuevo.
 
-Los paisajes del entorno se desarrollan en el
-[plan 042](./pendientes/2026-10-26-42-incorporar-paisajes-sonoros.md), según el
+Los paisajes del entorno están completados y aceptados por el usuario en el
+[plan 042](./completados/2026-10-26-42-incorporar-paisajes-sonoros.md), según el
 [contrato 19](../tecnica/componentes/19-paisajes-sonoros.md).
 
 ## Flujo

@@ -25,7 +25,7 @@ Todos desarrollan el
 | [`16-paleta-terminal.md`](./16-paleta-terminal.md) | Implementado: paleta nativa consultada, colores desconocidos sin tintado y opción de colores fijos. |
 | [`17-audio-procedural.md`](./17-audio-procedural.md) | Implementado: FunDSP, salida CPAL opcional, contexto, transiciones y fallos recuperables. |
 | [`18-crepitar-fogata.md`](./18-crepitar-fogata.md) | Implementado y aceptado: síntesis del fuego, parámetros RON y verificación sin dispositivo. |
-| [`19-paisajes-sonoros.md`](./19-paisajes-sonoros.md) | Integrado; revisión auditiva pendiente: viento, aves, río y mar durante Viajar, mapa y Acampar. |
+| [`19-paisajes-sonoros.md`](./19-paisajes-sonoros.md) | Implementado y aceptado: viento, aves, río y mar; alternativa Riachuelo en prueba. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen
