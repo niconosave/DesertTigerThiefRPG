@@ -1,19 +1,56 @@
+#[cfg(feature = "audio")]
+mod ambientes;
 mod configuracion;
 #[cfg(feature = "audio")]
 mod dispositivo;
 #[cfg(feature = "audio")]
 mod fogata;
 #[cfg(feature = "audio")]
+mod fuentes;
+#[cfg(feature = "audio")]
 mod motor;
+mod paisaje;
 
-use configuracion::ConfiguracionFogataAudio;
+use configuracion::{ConfiguracionAmbientes, ConfiguracionAudio, ConfiguracionFogataAudio};
 use std::path::Path;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum AmbienteSonoro {
-    #[default]
-    Silencio,
-    Fogata,
+pub(crate) struct AmbienteSonoro {
+    pub exterior: bool,
+    pub fogata: bool,
+    pub rio: bool,
+    pub mar: bool,
+    pub bosque: bool,
+}
+
+impl AmbienteSonoro {
+    pub(crate) const SILENCIO: Self = Self {
+        exterior: false,
+        fogata: false,
+        rio: false,
+        mar: false,
+        bosque: false,
+    };
+    #[cfg(test)]
+    const FOGATA: Self = Self {
+        fogata: true,
+        ..Self::SILENCIO
+    };
+    pub(crate) fn del_lugar(
+        mundo: &desert_tiger_app::VistaMundo,
+        lugar: desert_tiger_app::IdLugar,
+        fogata: bool,
+    ) -> Self {
+        paisaje::seleccionar(mundo, lugar, fogata)
+    }
+    #[cfg(feature = "audio")]
+    fn codigo(self) -> u8 {
+        u8::from(self.fogata)
+            | (u8::from(self.exterior) << 2)
+            | (u8::from(self.rio) << 3)
+            | (u8::from(self.mar) << 4)
+            | (u8::from(self.bosque) << 5)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,12 +71,15 @@ impl AvisoAudio {
 }
 
 pub(crate) struct PreparacionAudio {
-    config: Option<ConfiguracionFogataAudio>,
+    config: Option<ConfiguracionAudio>,
 }
 
 pub(crate) fn preparar(habilitado: bool, raiz: &Path) -> Result<PreparacionAudio, String> {
     let config = if habilitado && cfg!(feature = "audio") {
-        Some(ConfiguracionFogataAudio::cargar(&raiz.join("fogata.ron"))?)
+        Some(ConfiguracionAudio {
+            fogata: ConfiguracionFogataAudio::cargar(&raiz.join("fogata.ron"))?,
+            ambientes: ConfiguracionAmbientes::cargar(&raiz.join("ambientes.ron"))?,
+        })
     } else {
         None
     };
@@ -75,7 +115,7 @@ impl ControlAudio {
             Err(aviso) => Self {
                 salida: None,
                 aviso: Some(aviso),
-                ambiente: AmbienteSonoro::Silencio,
+                ambiente: AmbienteSonoro::SILENCIO,
             },
         }
     }
@@ -90,10 +130,7 @@ impl ControlAudio {
             if self.ambiente != ambiente
                 && let Some(salida) = &self.salida
             {
-                salida.ordenar(match ambiente {
-                    AmbienteSonoro::Silencio => motor::SILENCIO,
-                    AmbienteSonoro::Fogata => motor::FOGATA,
-                });
+                salida.ordenar(ambiente.codigo());
             }
         }
         self.ambiente = ambiente;
@@ -108,7 +145,7 @@ impl ControlAudio {
         if let Some(salida) = self.salida.take() {
             salida.cerrar();
         }
-        self.ambiente = AmbienteSonoro::Silencio;
+        self.ambiente = AmbienteSonoro::SILENCIO;
     }
 }
 
@@ -127,8 +164,8 @@ mod pruebas {
         let preparacion = preparar(false, Path::new("/ruta/ausente")).unwrap();
         assert!(preparacion.config.is_none());
         let mut control = ControlAudio::iniciar(preparacion);
-        control.actualizar(AmbienteSonoro::Fogata);
-        control.actualizar(AmbienteSonoro::Fogata);
+        control.actualizar(AmbienteSonoro::FOGATA);
+        control.actualizar(AmbienteSonoro::FOGATA);
         assert!(control.tomar_aviso().is_none());
         control.cerrar();
         control.cerrar();
@@ -157,9 +194,9 @@ mod pruebas {
             let mut control = ControlAudio::desde_apertura(Err(aviso));
             assert_eq!(control.tomar_aviso(), Some(aviso));
             for ambiente in [
-                AmbienteSonoro::Fogata,
-                AmbienteSonoro::Silencio,
-                AmbienteSonoro::Fogata,
+                AmbienteSonoro::FOGATA,
+                AmbienteSonoro::SILENCIO,
+                AmbienteSonoro::FOGATA,
             ] {
                 control.actualizar(ambiente);
                 assert!(control.salida.is_none());

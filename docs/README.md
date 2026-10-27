@@ -66,6 +66,17 @@ y la interfaz, y los fondos explícitos de los retratos, se conservan.
 
 ## Sonido de la fogata
 
+El juego también genera viento suave y un ave lejana ocasional. En lugares
+fluviales o conectados a ellos se escucha corriente; en costas y mares, oleaje;
+en bosques, dos cantos de aves distintos. Los sonidos siguen el lugar confirmado
+del grupo durante Viajar y continúan al acampar, junto con la fogata.
+
+Los volúmenes se ajustan en
+[`assets/audio/ambientes.ron`](../assets/audio/ambientes.ron) y se cargan al
+reiniciar. `volumen` controla el conjunto ambiental; los demás campos controlan
+cada sonido. El [contrato 19](./tecnica/componentes/19-paisajes-sonoros.md) define
+las condiciones y el formato. `--no-audio` silencia todos los efectos.
+
 El sonido está habilitado por defecto y se escucha al acampar. Para desactivarlo:
 
 ```sh

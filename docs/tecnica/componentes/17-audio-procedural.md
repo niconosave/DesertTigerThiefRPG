@@ -2,13 +2,16 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
-| Versión | 1.1 |
+| Estado | Implementado |
+| Versión | 1.2 |
 | Fecha | 2026-10-26 |
 
-> Implementación funcional verificada el 2026-10-26. Se conserva este estado
-> hasta completar la revisión auditiva del timbre; el [plan 041](../../planes/pendientes/2026-10-26-41-incorporar-audio-fogata.md)
-> registra el trabajo realizado y esa verificación pendiente.
+> Implementación y escucha de la fogata aceptadas por el usuario; el
+> [plan 041](../../planes/completados/2026-10-26-41-incorporar-audio-fogata.md)
+> registra su cierre. El [contrato 19](./19-paisajes-sonoros.md) amplía la
+> selección de ambientes, las órdenes, la carga de recursos y la mezcla de las
+> secciones 2–6. Las demás reglas de dispositivo, errores y compilación siguen
+> vigentes. Las descripciones de un único efecto corresponden al incremento 041.
 
 ## 1. Propósito y alcance
 
@@ -284,6 +287,6 @@ conservan como `AvisoAudio`. Las dependencias y la CLI están integradas; `app`,
 - Un quinto recorrido provocó un fatal de calendario al cerrar Acampar con
   audio activo: terminó con código uno y restauró los atributos de terminal.
 
-La captura verifica la integración sin usar los parlantes. Quedan pendientes la
-escucha humana en una salida habitual y la valoración del timbre del contrato
-18; no se atribuye esa revisión a las pruebas numéricas ni a la captura.
+La captura verifica la integración sin usar los parlantes. El usuario completó
+la escucha jugando y aceptó el resultado antes de solicitar los paisajes del
+contrato 19; esa valoración no se atribuye a las pruebas numéricas.

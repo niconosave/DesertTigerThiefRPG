@@ -23,8 +23,9 @@ Todos desarrollan el
 | [`14-parentesco-actores-contexto.md`](./14-parentesco-actores-contexto.md) | Implementado: Actores fuera del escenario, filiación, hermanos deducidos y MatadoPor. |
 | [`15-fogata-procedural.md`](./15-fogata-procedural.md) | Implementado: llama RGB, chispas, iluminación de retratos y reloj visual compatible. |
 | [`16-paleta-terminal.md`](./16-paleta-terminal.md) | Implementado: paleta nativa consultada, colores desconocidos sin tintado y opción de colores fijos. |
-| [`17-audio-procedural.md`](./17-audio-procedural.md) | Integrado; revisión auditiva pendiente: FunDSP, salida CPAL opcional, contexto, transiciones y fallos recuperables. |
-| [`18-crepitar-fogata.md`](./18-crepitar-fogata.md) | Integrado; revisión auditiva pendiente: síntesis del fuego, parámetros RON y verificación sin dispositivo. |
+| [`17-audio-procedural.md`](./17-audio-procedural.md) | Implementado: FunDSP, salida CPAL opcional, contexto, transiciones y fallos recuperables. |
+| [`18-crepitar-fogata.md`](./18-crepitar-fogata.md) | Implementado y aceptado: síntesis del fuego, parámetros RON y verificación sin dispositivo. |
+| [`19-paisajes-sonoros.md`](./19-paisajes-sonoros.md) | Integrado; revisión auditiva pendiente: viento, aves, río y mar durante Viajar, mapa y Acampar. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen

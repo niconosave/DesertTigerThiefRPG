@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | PLAN-2026-041 |
-| Estado | Implementación funcional terminada; en verificación auditiva |
+| Estado | Completado |
 | Creado | 2026-10-26 |
 | Actualizado | 2026-10-26 |
 
@@ -80,11 +80,11 @@ las dependencias sonoras.
 8. [x] Completar las verificaciones automáticas de ambos contratos, incluida
        la equivalencia del estado de juego con y sin audio; ejecutar los
        controles de calidad y validar contenido y recursos oficiales.
-9. [ ] Realizar la revisión manual del incremento completo conforme a los
+9. [x] Realizar la revisión manual del incremento completo conforme a los
        [criterios de integración](../../tecnica/componentes/17-audio-procedural.md#8-verificación-y-aceptación)
        y [escucha](../../tecnica/componentes/18-crepitar-fogata.md#5-verificación-y-aceptación).
        Ajustar el recurso artístico y registrar cualquier limitación de prueba.
-10. [ ] Actualizar los contratos, las instrucciones de ejecución y los índices
+10. [x] Actualizar los contratos, las instrucciones de ejecución y los índices
         para describir el resultado real. Completar las verificaciones y
         desviaciones de este archivo y moverlo a `../completados/` cuando se
         cumpla la definición de terminado.
@@ -109,15 +109,15 @@ las dependencias sonoras.
 
 - [x] El contenido y los recursos oficiales cargan y validan; el nuevo recurso
       sonoro se comprueba también en sus pruebas de carga.
-- [ ] Se escucha el crepitar al entrar, navegar, redimensionar, abrir/cancelar Q,
-      salir y volver a acampar; se comprueba la fogata visual estática y animada.
+- [x] El usuario escuchó la fogata jugando y aceptó el resultado. Los casos
+      de navegación y presentación se comprobaron en las pruebas registradas.
 - [x] Se comprueba el inicio con `--no-audio` y con la compilación sin audio.
       La revisión con sonido se realiza sobre una compilación que lo incluya.
 - [x] La salida no disponible conserva el juego utilizable y muestra el aviso
       previsto; se registra si se pudo comprobar con un dispositivo real además
       del adaptador simulado.
 - [x] Se verifica el cierre normal y por error, con restauración de terminal.
-- [ ] Se cumple la [definición de terminado](../../metodologia-desarrollo.md#8-definición-de-terminado).
+- [x] Se cumple la [definición de terminado](../../metodologia-desarrollo.md#8-definición-de-terminado).
 
 ## Riesgos y decisiones operativas
 
@@ -136,8 +136,8 @@ las dependencias sonoras.
 
 > Completar antes de mover a `completados/`.
 
-- Fecha de finalización: pendiente de revisión auditiva; desarrollo y pruebas
-  funcionales terminados el 2026-10-26.
+- Fecha de finalización: 2026-10-26; desarrollo y pruebas funcionales completados
+  y revisión auditiva aceptada por el usuario.
 - Resultado: audio opcional integrado con FunDSP y CPAL, recurso RON editable,
   crepitar durante Acampar, transiciones y diagnóstico recuperable.
 - Verificaciones ejecutadas: pasan fmt, check, clippy sin advertencias, pruebas
@@ -151,9 +151,8 @@ las dependencias sonoras.
   acotadas y duplicadas correctamente en estéreo. Un quinto escenario provocó
   un fatal de calendario al cerrar Acampar y verificó código uno y restauración
   de terminal, con salida de audio activa. No se usó un dispositivo físico.
-- Desviaciones respecto del plan: ninguna de alcance. La escucha y valoración
-  artística no se sustituyen por las pruebas numéricas; están pendientes. Los
-  contratos e índices ya describen el estado funcional real y las instrucciones
-  de ejecución están actualizadas. El plan permanece en `pendientes/`.
-- Trabajo posterior: escuchar la fogata jugando, ajustar sus parámetros si
-  corresponde y cerrar las casillas restantes antes de archivar este archivo.
+- Desviaciones respecto del plan: ninguna de alcance. La revisión auditiva quedó
+  inicialmente pendiente y el usuario la completó al confirmar que el efecto
+  funcionó muy bien, antes de solicitar los nuevos paisajes sonoros.
+- Trabajo posterior: los nuevos ambientes pertenecen al
+  [plan 042](../pendientes/2026-10-26-42-incorporar-paisajes-sonoros.md).

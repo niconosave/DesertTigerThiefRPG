@@ -8,7 +8,7 @@ use cpal::{
 };
 
 use super::motor::{CERRAR, Comunicacion, FALLO_MUESTRA, FALLO_STREAM, MotorAudio};
-use super::{AvisoAudio, configuracion::ConfiguracionFogataAudio};
+use super::{AvisoAudio, configuracion::ConfiguracionAudio};
 
 pub(super) struct SalidaAudio {
     _stream: Stream,
@@ -123,7 +123,7 @@ fn construir<T: SizedSample + FromSample<f32>>(
 }
 
 impl SalidaAudio {
-    pub(super) fn abrir(config: ConfiguracionFogataAudio) -> Result<Self, AvisoAudio> {
+    pub(super) fn abrir(config: ConfiguracionAudio) -> Result<Self, AvisoAudio> {
         let dispositivo = cpal::default_host()
             .default_output_device()
             .ok_or(AvisoAudio::SinDispositivo)?;
@@ -136,8 +136,8 @@ impl SalidaAudio {
             .map_err(|_| AvisoAudio::Configuracion)?
             .collect();
         let (salida, formato) = elegir(&rangos, predeterminada).ok_or(AvisoAudio::Configuracion)?;
-        let motor =
-            MotorAudio::nuevo(config, salida.sample_rate).map_err(|_| AvisoAudio::Configuracion)?;
+        let motor = MotorAudio::con_configuracion(config, salida.sample_rate)
+            .map_err(|_| AvisoAudio::Configuracion)?;
         let comunicacion = Comunicacion::default();
         let stream = match formato {
             SampleFormat::F32 => construir::<f32>(&dispositivo, salida, &comunicacion, motor),

@@ -4,15 +4,16 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
-## Audio de la fogata
+## Paisajes sonoros
 
-[PLAN-2026-041](./2026-10-26-41-incorporar-audio-fogata.md) tiene el desarrollo
-funcional y las pruebas terminados; queda pendiente la revisión auditiva.
-Implementa los contratos
-[17](../../tecnica/componentes/17-audio-procedural.md) y
-[18](../../tecnica/componentes/18-crepitar-fogata.md). Permanece aquí hasta
-escuchar y aceptar el efecto completo. Los pendientes históricos no bloquean
-este incremento.
+[PLAN-2026-042](./2026-10-26-42-incorporar-paisajes-sonoros.md) implementa el
+[contrato 19](../../tecnica/componentes/19-paisajes-sonoros.md): viento, aves,
+río, mar y bosque durante el mapa, Viajar y Acampar. El desarrollo y las
+verificaciones funcionales están terminados; queda pendiente escuchar y
+aceptar los nuevos ambientes jugando.
+
+El [plan 041](../completados/2026-10-26-41-incorporar-audio-fogata.md) está
+completado y aceptado por el usuario; su código constituye la base de audio.
 
 ## Paleta nativa y colores fijos terminados
 

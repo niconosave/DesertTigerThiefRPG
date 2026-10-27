@@ -3,8 +3,8 @@
 Los planes convierten documentación técnica ya discutida en pasos de desarrollo
 pequeños, ordenados y verificables.
 
-El audio procedural de la fogata está integrado y en verificación auditiva en
-[PLAN-2026-041](./pendientes/2026-10-26-41-incorporar-audio-fogata.md), según los
+El audio procedural de la fogata está completado y aceptado por el usuario en
+[PLAN-2026-041](./completados/2026-10-26-41-incorporar-audio-fogata.md), según los
 [contratos 17](../tecnica/componentes/17-audio-procedural.md) y
 [18](../tecnica/componentes/18-crepitar-fogata.md).
 
@@ -28,6 +28,10 @@ La secuencia de refactor de `Viajar`, PLAN-2026-025 a PLAN-2026-031, está
 [completada](./completados/README.md#refactor-del-reglamento-de-viajar).
 El índice de [pendientes](./pendientes/README.md) conserva otros alcances y
 antecedentes sustituidos sin atribuirles verificaciones del refactor nuevo.
+
+Los paisajes del entorno se desarrollan en el
+[plan 042](./pendientes/2026-10-26-42-incorporar-paisajes-sonoros.md), según el
+[contrato 19](../tecnica/componentes/19-paisajes-sonoros.md).
 
 ## Flujo
 

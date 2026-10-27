@@ -2,12 +2,13 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
-| Versión | 1.1 |
+| Estado | Implementado |
+| Versión | 1.2 |
 | Fecha | 2026-10-26 |
 
-> El generador y el recurso están implementados y sus pruebas pasan. La
-> revisión auditiva sigue pendiente antes de cerrar el [plan 041](../../planes/pendientes/2026-10-26-41-incorporar-audio-fogata.md).
+> El generador y el recurso están implementados, las pruebas pasan y el usuario
+> aceptó la revisión auditiva. El [plan 041](../../planes/completados/2026-10-26-41-incorporar-audio-fogata.md)
+> registra su cierre. La mezcla con el entorno pertenece al [contrato 19](./19-paisajes-sonoros.md).
 
 ## 1. Propósito y límites
 
@@ -190,5 +191,5 @@ generador al quedar en silencio.
 
 La [verificación de integración](./17-audio-procedural.md#10-verificación-de-la-implementación--2026-10-26)
 comprueba la reproducción a través de CPAL. El recurso conserva los valores
-iniciales del diseño: su ajuste artístico y la aceptación del crepitar quedan
-pendientes de escucharlo jugando.
+iniciales del diseño. El usuario escuchó el crepitar jugando y aceptó el
+resultado antes de solicitar nuevos ambientes.

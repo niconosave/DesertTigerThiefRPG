@@ -81,11 +81,19 @@ impl Interfaz {
     }
 
     pub(crate) fn ambiente_sonoro(&self) -> AmbienteSonoro {
-        if !self.salir && matches!(self.vista, VistaSesion::Acampando(_)) {
-            AmbienteSonoro::Fogata
-        } else {
-            AmbienteSonoro::Silencio
+        if self.salir || matches!(self.vista, VistaSesion::Fatal(_)) {
+            return AmbienteSonoro::SILENCIO;
         }
+        let lugar = match &self.vista {
+            VistaSesion::PresentandoAccion(f) => f.progreso.lugar_confirmado,
+            VistaSesion::EsperandoDecision(d) => d.progreso.lugar_confirmado,
+            _ => self.ultima_vista_mundo.lugar_jugador,
+        };
+        AmbienteSonoro::del_lugar(
+            &self.ultima_vista_mundo,
+            lugar,
+            matches!(self.vista, VistaSesion::Acampando(_)),
+        )
     }
 
     pub(crate) fn recibir_aviso_audio(&mut self, aviso: AvisoAudio) {
@@ -1031,6 +1039,73 @@ mod pruebas {
     use std::path::PathBuf;
 
     #[test]
+    fn paisaje_del_viaje_sigue_lugar_confirmado_y_no_foco_o_siguiente_lugar() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let mut i = Interfaz::nueva(
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap(),
+        )
+        .unwrap();
+        let inicial = i.ambiente_sonoro();
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        assert_eq!(i.ambiente_sonoro(), inicial);
+        i.manejar_tecla(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+        let bosque = i
+            .ultima_vista_mundo
+            .lugares
+            .iter()
+            .find(|l| l.nombre == "Bosque de Tamrut")
+            .unwrap()
+            .id;
+        let mar = i
+            .ultima_vista_mundo
+            .lugares
+            .iter()
+            .find(|l| l.nombre == "Mar de Poniente")
+            .unwrap()
+            .id;
+        i.enviar(IntencionFrontend::ComenzarViaje { destino: mar });
+        let mut hubo_fragmento = false;
+        let mut hubo_decision = false;
+        for _ in 0..500 {
+            let vista_real = i.vista.clone();
+            match &mut i.vista {
+                VistaSesion::PresentandoAccion(f) => {
+                    f.progreso.lugar_confirmado = bosque;
+                    f.progreso.siguiente_lugar = Some(mar);
+                    hubo_fragmento = true;
+                }
+                VistaSesion::EsperandoDecision(d) => {
+                    d.progreso.lugar_confirmado = bosque;
+                    d.progreso.siguiente_lugar = Some(mar);
+                    hubo_decision = true;
+                }
+                _ => break,
+            }
+            let paisaje = i.ambiente_sonoro();
+            assert!(paisaje.exterior && paisaje.bosque && paisaje.rio && !paisaje.mar);
+            i.vista = vista_real;
+            if hubo_fragmento && hubo_decision {
+                break;
+            }
+            match i.vista.clone() {
+                VistaSesion::PresentandoAccion(f) => {
+                    i.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: f.id })
+                }
+                VistaSesion::EsperandoDecision(d) => {
+                    i.enviar(IntencionFrontend::ResponderDecision {
+                        decision: d.id,
+                        opcion: d.opciones[0].id,
+                    })
+                }
+                _ => break,
+            }
+        }
+        assert!(hubo_fragmento && hubo_decision);
+    }
+
+    #[test]
     fn aviso_audio_respeta_prioridades_y_solo_se_retira_despues_de_dibujarse() {
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
@@ -1064,7 +1139,7 @@ mod pruebas {
         assert_eq!(i.estilo_contextual(&recursos), recursos.ui.secundario);
         i.manejar_tecla(tecla(KeyCode::Right));
         assert!(i.aviso_audio.is_none());
-        assert_eq!(i.ambiente_sonoro(), AmbienteSonoro::Fogata);
+        assert!(i.ambiente_sonoro().fogata);
     }
 
     #[test]
@@ -1086,7 +1161,7 @@ mod pruebas {
             KeyCode::Down,
         ] {
             i.manejar_tecla(tecla(codigo));
-            assert_eq!(i.ambiente_sonoro(), AmbienteSonoro::Fogata);
+            assert!(i.ambiente_sonoro().fogata);
         }
         let id = match &i.vista {
             VistaSesion::Acampando(v) => v.id,
@@ -1096,17 +1171,17 @@ mod pruebas {
         i.enviar(IntencionFrontend::ComenzarCampamento);
         // Un token del campamento anterior no puede cerrar el actual.
         i.enviar(IntencionFrontend::AbandonarCampamento { campamento: id });
-        assert_eq!(i.ambiente_sonoro(), AmbienteSonoro::Fogata);
+        assert!(i.ambiente_sonoro().fogata);
         assert!(i.error_recuperable.is_some());
         i.manejar_tecla(tecla(KeyCode::Char('q')));
         i.manejar_tecla(tecla(KeyCode::Char('s')));
-        assert_eq!(i.ambiente_sonoro(), AmbienteSonoro::Silencio);
+        assert_eq!(i.ambiente_sonoro(), AmbienteSonoro::SILENCIO);
         i.salir = false;
         i.vista = VistaSesion::Fatal(desert_tiger_app::VistaFatal {
             codigo: desert_tiger_app::CodigoFatalSesion::Motor,
             mensaje: "fallo de prueba".into(),
         });
-        assert_eq!(i.ambiente_sonoro(), AmbienteSonoro::Silencio);
+        assert_eq!(i.ambiente_sonoro(), AmbienteSonoro::SILENCIO);
     }
 
     #[test]
@@ -1118,19 +1193,19 @@ mod pruebas {
             Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap();
         let mut interfaz = Interfaz::nueva(partida).unwrap();
         let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
-        assert_eq!(interfaz.ambiente_sonoro(), AmbienteSonoro::Silencio);
+        assert!(!interfaz.ambiente_sonoro().fogata);
         interfaz.manejar_tecla(tecla(KeyCode::Char('a')));
-        assert_eq!(interfaz.ambiente_sonoro(), AmbienteSonoro::Fogata);
+        assert!(interfaz.ambiente_sonoro().fogata);
         assert!(matches!(interfaz.vista, VistaSesion::Acampando(_)));
         let antes = interfaz.texto_contextual();
         interfaz.manejar_tecla(tecla(KeyCode::Char('q')));
         assert!(interfaz.confirmar_salida);
-        assert_eq!(interfaz.ambiente_sonoro(), AmbienteSonoro::Fogata);
+        assert!(interfaz.ambiente_sonoro().fogata);
         interfaz.manejar_tecla(tecla(KeyCode::Char('n')));
         assert_eq!(interfaz.texto_contextual(), antes);
         let mut terminal = Terminal::new(TestBackend::new(79, 24)).unwrap();
         terminal.draw(|f| interfaz.dibujar(f, &recursos)).unwrap();
-        assert_eq!(interfaz.ambiente_sonoro(), AmbienteSonoro::Fogata);
+        assert!(interfaz.ambiente_sonoro().fogata);
         assert_eq!(interfaz.texto_contextual(), antes);
         terminal.backend_mut().resize(80, 24);
         terminal.resize(Rect::new(0, 0, 80, 24)).unwrap();
@@ -1141,7 +1216,7 @@ mod pruebas {
         interfaz.manejar_tecla(tecla(KeyCode::Enter));
         assert!(matches!(interfaz.vista, VistaSesion::Disponible(_)));
         assert!(interfaz.campamento.is_none());
-        assert_eq!(interfaz.ambiente_sonoro(), AmbienteSonoro::Silencio);
+        assert!(!interfaz.ambiente_sonoro().fogata);
         interfaz.manejar_tecla(tecla(KeyCode::Char('v')));
         assert!(matches!(interfaz.modo, ModoLocal::Seleccion { .. }));
     }

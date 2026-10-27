@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; audio en verificación auditiva; detalles históricos señalados en sus componentes |
-| Versión | 0.18 |
+| Versión | 0.19 |
 | Fecha | 2026-10-26 |
 
 > El [contrato implementado de Viajar](./acciones/06-implementacion-viajar.md)
@@ -187,6 +187,7 @@ entrega rutas, bytes de arte ni una clave perteneciente a un frontend concreto.
 | Modos, entrada, layout, Ratatui y renderizado | [`09-frontend-terminal.md`](./componentes/09-frontend-terminal.md) |
 | Audio del frontend, dispositivo, activación y errores | [`17-audio-procedural.md`](./componentes/17-audio-procedural.md) |
 | Timbre y parámetros editables del crepitar de la fogata | [`18-crepitar-fogata.md`](./componentes/18-crepitar-fogata.md) |
+| Paisajes sonoros y selección por características y conexiones de Lugares | [`19-paisajes-sonoros.md`](./componentes/19-paisajes-sonoros.md) |
 | Relaciones, extremos, índices, consultas y semántica de `conectado` | [`10-relaciones.md`](./componentes/10-relaciones.md) |
 | Operaciones persistentes y lotes atómicos | [`11-operaciones-mundo.md`](./componentes/11-operaciones-mundo.md) |
 | Relación `Conoce` y proyección de hechos conocidos | [`12-conocimiento-lugares.md`](./componentes/12-conocimiento-lugares.md) |

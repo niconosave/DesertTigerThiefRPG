@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.23 |
+| Versión | 0.24 |
 | Fecha | 2026-10-26 |
 
 > Ampliación implementada el 2026-10-26: fichas, fase Acampando e
@@ -428,6 +428,12 @@ publica una Partida parcial.
 
 ## 7. Vistas y salidas
 
+La ampliación del [contrato 19](./19-paisajes-sonoros.md#2-selección-del-paisaje)
+expone características actuales de cada Lugar y sus vecinos directos del índice
+`Conectado`, incluidas las conexiones declaradas desde el otro extremo. Son
+datos neutrales: la aplicación no selecciona sonidos ni introduce tipos de
+audio. Los IDs y el orden de Lugares se conservan en la proyección.
+
 La fachada devuelve un `VistaSesion` poseído y discriminado por variante, no una
 estructura con campos opcionales para todas las fases:
 
@@ -484,6 +490,8 @@ pub struct VistaLugar {
     pub nombre: String,
     pub coordenada_central: CoordenadaMapa,
     pub coordenadas_rotulo: Vec<CoordenadaMapa>,
+    pub caracteristicas: Vec<String>,
+    pub conectados: Vec<IdLugar>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

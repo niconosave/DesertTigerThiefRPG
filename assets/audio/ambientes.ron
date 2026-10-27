@@ -1,0 +1,9 @@
+(
+    volumen: 0.35,
+    viento: 0.10,
+    ave_lejana: 0.18,
+    rio: 0.30,
+    mar: 0.26,
+    ave_bosque_a: 0.20,
+    ave_bosque_b: 0.16,
+)

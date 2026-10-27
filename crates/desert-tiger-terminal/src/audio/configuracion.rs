@@ -2,6 +2,88 @@ use std::path::Path;
 
 use serde::Deserialize;
 
+#[derive(Clone, Debug)]
+#[cfg_attr(not(feature = "audio"), allow(dead_code))]
+pub(super) struct ConfiguracionAudio {
+    pub fogata: ConfiguracionFogataAudio,
+    pub ambientes: ConfiguracionAmbientes,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DatosAmbientes {
+    volumen: f32,
+    viento: f32,
+    ave_lejana: f32,
+    rio: f32,
+    mar: f32,
+    ave_bosque_a: f32,
+    ave_bosque_b: f32,
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(not(feature = "audio"), allow(dead_code))]
+pub(super) struct ConfiguracionAmbientes {
+    volumen: f32,
+    niveles: [f32; 6],
+}
+
+impl ConfiguracionAmbientes {
+    pub(super) fn cargar(ruta: &Path) -> Result<Self, String> {
+        let texto =
+            std::fs::read_to_string(ruta).map_err(|e| format!("{}: {e}", ruta.display()))?;
+        Self::interpretar(&texto).map_err(|e| format!("{}: {e}", ruta.display()))
+    }
+
+    fn interpretar(texto: &str) -> Result<Self, String> {
+        let d: DatosAmbientes = ron::from_str(texto).map_err(|e| e.to_string())?;
+        for (campo, valor) in [
+            ("volumen", d.volumen),
+            ("viento", d.viento),
+            ("ave_lejana", d.ave_lejana),
+            ("rio", d.rio),
+            ("mar", d.mar),
+            ("ave_bosque_a", d.ave_bosque_a),
+            ("ave_bosque_b", d.ave_bosque_b),
+        ] {
+            if !valor.is_finite() || !(0.0..=1.0).contains(&valor) {
+                return Err(format!("{campo}: se espera un número finito entre 0 y 1"));
+            }
+        }
+        Ok(Self {
+            volumen: d.volumen,
+            niveles: [
+                d.viento,
+                d.ave_lejana,
+                d.rio,
+                d.mar,
+                d.ave_bosque_a,
+                d.ave_bosque_b,
+            ],
+        })
+    }
+
+    #[cfg(feature = "audio")]
+    pub(super) fn volumen(&self) -> f32 {
+        self.volumen
+    }
+    #[cfg(feature = "audio")]
+    pub(super) fn niveles(&self) -> [f32; 6] {
+        self.niveles
+    }
+    #[cfg(all(feature = "audio", test))]
+    pub(super) fn fixture() -> Self {
+        Self::interpretar("(volumen:0.35,viento:0.1,ave_lejana:0.18,rio:0.3,mar:0.26,ave_bosque_a:0.2,ave_bosque_b:0.16)").unwrap()
+    }
+
+    #[cfg(all(feature = "audio", test))]
+    pub(super) fn fixture_silenciosa() -> Self {
+        let mut config = Self::fixture();
+        config.volumen = 0.0;
+        config
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DatosFogata {
@@ -97,6 +179,40 @@ pub(super) fn fixture(volumen: f32, brasa: f32, tasas: [f32; 2]) -> Configuracio
 mod pruebas {
     use super::*;
     const VALIDA: &str = "(volumen:0.25,nivel_brasa:0.18,chasquidos_por_segundo:8.0,crujidos_por_segundo:0.6,entrada_ms:200,salida_ms:250)";
+
+    #[test]
+    fn ambientes_validan_todos_los_niveles_y_campos_estrictos() {
+        let raiz = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        assert!(ConfiguracionAmbientes::cargar(&raiz.join("assets/audio/ambientes.ron")).is_ok());
+        let valida = "(volumen:0.5,viento:0.5,ave_lejana:0.5,rio:0.5,mar:0.5,ave_bosque_a:0.5,ave_bosque_b:0.5)";
+        for campo in [
+            "volumen",
+            "viento",
+            "ave_lejana",
+            "rio",
+            "mar",
+            "ave_bosque_a",
+            "ave_bosque_b",
+        ] {
+            for invalido in ["-0.1", "1.1", "NaN", "inf"] {
+                let texto = valida.replace(&format!("{campo}:0.5"), &format!("{campo}:{invalido}"));
+                assert!(
+                    ConfiguracionAmbientes::interpretar(&texto)
+                        .unwrap_err()
+                        .contains(campo)
+                );
+            }
+        }
+        for texto in [
+            valida.replace("viento:0.5,", ""),
+            valida.replace("viento:0.5,", "viento:0.5,viento:0.2,"),
+            valida.replace("viento:0.5,", "otro:0.5,"),
+        ] {
+            assert!(ConfiguracionAmbientes::interpretar(&texto).is_err());
+        }
+        assert!(ConfiguracionAmbientes::interpretar(&valida.replace("0.5", "0.0")).is_ok());
+        assert!(ConfiguracionAmbientes::interpretar(&valida.replace("0.5", "1.0")).is_ok());
+    }
 
     #[test]
     fn valida_limites_y_campos_estrictos() {

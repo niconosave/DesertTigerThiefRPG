@@ -106,3 +106,8 @@ registra controles, pruebas y revisión del ejecutable.
 
 El [contrato 16](../../tecnica/componentes/16-paleta-terminal.md#7-verificación-de-la-implementación--2026-10-26)
 registra pruebas, escenarios de terminal y revisión del ejecutable.
+
+## Audio de la fogata
+
+[PLAN-2026-041](./2026-10-26-41-incorporar-audio-fogata.md) está completado:
+FunDSP, salida CPAL opcional y crepitar del campamento, aceptado por el usuario.

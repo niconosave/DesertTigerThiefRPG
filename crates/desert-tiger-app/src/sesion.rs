@@ -108,6 +108,8 @@ pub struct VistaLugar {
     pub nombre: String,
     pub coordenada_central: CoordenadaMapa,
     pub coordenadas_rotulo: Vec<CoordenadaMapa>,
+    pub caracteristicas: Vec<String>,
+    pub conectados: Vec<IdLugar>,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaActor {
@@ -665,13 +667,25 @@ fn proyectar_mundo(
             .presentacion()
             .lugares()
             .iter()
-            .map(|l| VistaLugar {
-                id: l.id(),
-                nombre: l.nombre().into(),
-                coordenada_central: l.coordenada_central(),
-                coordenadas_rotulo: l.coordenadas_rotulo().to_vec(),
+            .map(|l| {
+                Ok(VistaLugar {
+                    id: l.id(),
+                    nombre: l.nombre().into(),
+                    coordenada_central: l.coordenada_central(),
+                    coordenadas_rotulo: l.coordenadas_rotulo().to_vec(),
+                    caracteristicas: m
+                        .lugar(l.id())
+                        .ok_or("Lugar sin estado")?
+                        .caracteristicas()
+                        .map(|c| c.como_str().to_owned())
+                        .collect(),
+                    conectados: m
+                        .lugares_conectados(l.id())
+                        .ok_or("Lugar sin conexiones")?
+                        .to_vec(),
+                })
             })
-            .collect(),
+            .collect::<Result<_, String>>()?,
         lugar_jugador: m
             .ubicacion_actor(m.actor_jugador())
             .ok_or("jugador sin Lugar")?,

@@ -3,13 +3,15 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.56 |
+| Versión | 0.57 |
 | Fecha | 2026-10-26 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
 > define el audio opcional del frontend y su integración con el bucle. El
 > [contrato 18](./18-crepitar-fogata.md) define el primer efecto: el crepitar del
-> campamento. No cambia las reglas de Acampar ni su avance de tiempo.
+> campamento, aceptado por el usuario. El [contrato 19](./19-paisajes-sonoros.md)
+> amplía el entorno sonoro del grupo y está pendiente de revisión auditiva.
+> No cambia las reglas de Acampar ni su avance de tiempo.
 
 > La resolución de color, la consulta inicial y la opción `--color-scheme`
 > están implementadas según el [contrato 16](./16-paleta-terminal.md). Los
