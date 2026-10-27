@@ -1,6 +1,7 @@
 (
     clave: "senda_de_tamrut",
     nombre: "Senda de Tamrut",
+    nombre_abreviado: "Senda Tamrut",
     caracteristicas: ["sendero", "boscoso", "fluvial", "sombreado"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("valle_fertil")),

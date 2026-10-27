@@ -1,6 +1,7 @@
 (
     clave: "vado_de_tamrut",
     nombre: "Vado de Tamrut",
+    nombre_abreviado: "Vado Tamrut",
     caracteristicas: ["vado", "fluvial", "aguaDulce", "aguasSomeras", "corrienteRapida"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("bosque_de_tamrut")),

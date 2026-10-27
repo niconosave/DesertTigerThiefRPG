@@ -1,6 +1,7 @@
 (
     clave: "mar_boreal",
     nombre: "Mar Boreal",
+    nombre_abreviado: "Mar Boreal",
     caracteristicas: ["acuatico", "maritimo", "marAbierto", "aguaSalada"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("mar_de_levante")),

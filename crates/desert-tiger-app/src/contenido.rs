@@ -397,6 +397,7 @@ pub(crate) struct CatalogoPresentacion {
 pub(crate) struct PresentacionLugar {
     id: IdLugar,
     nombre: String,
+    nombre_abreviado: String,
     coordenada_central: CoordenadaMapa,
     coordenadas_rotulo: Vec<CoordenadaMapa>,
 }
@@ -444,6 +445,9 @@ impl PresentacionLugar {
     }
     pub(crate) fn nombre(&self) -> &str {
         &self.nombre
+    }
+    pub(crate) fn nombre_abreviado(&self) -> &str {
+        &self.nombre_abreviado
     }
     pub(crate) fn coordenada_central(&self) -> CoordenadaMapa {
         self.coordenada_central
@@ -661,6 +665,8 @@ impl<'de> Deserialize<'de> for LeyendaDto {
 struct LugarDto {
     clave: String,
     nombre: String,
+    #[serde(default)]
+    nombre_abreviado: String,
     caracteristicas: Vec<String>,
     relaciones: Vec<DeclaracionRelacionDto>,
     coordenada_central: CoordenadaDto,
@@ -1458,6 +1464,31 @@ fn validar_lugar(
             ));
         }
     }
+    let nombre_abreviado = if dto.nombre_abreviado.is_empty() {
+        dto.nombre.clone()
+    } else {
+        validar_texto_presentacion(&dto.nombre_abreviado, false, true)
+            .and_then(|nombre| {
+                if nombre
+                    .chars()
+                    .all(|c| UnicodeWidthChar::width(c) == Some(1))
+                {
+                    Ok(nombre)
+                } else {
+                    Err("todos los caracteres deben ocupar una columna".into())
+                }
+            })
+            .map_err(|detalle| {
+                error_archivo(
+                    ruta,
+                    TipoElementoContenido::Lugar,
+                    Some(esperada),
+                    ClaseDiagnosticoContenido::ValorInvalido,
+                    None,
+                    format!("nombre_abreviado: {detalle}"),
+                )
+            })?
+    };
     if dto.coordenadas_rotulo.len() != dto.nombre.chars().count() {
         return Err(error_archivo(
             ruta,
@@ -1522,6 +1553,7 @@ fn validar_lugar(
         presentacion: PresentacionLugar {
             id,
             nombre: dto.nombre,
+            nombre_abreviado,
             coordenada_central: central,
             coordenadas_rotulo: rotulo,
         },
@@ -2490,6 +2522,68 @@ mod pruebas {
                 .detalle
                 .contains("principe_perdido → rey → principe_perdido")
         );
+    }
+
+    #[test]
+    fn nombres_abreviados_de_lugar_validan_y_conservan_compatibilidad() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("places/paso_escarpado.ron");
+        let original = fs::read_to_string(&ruta).unwrap();
+        let sin_abreviado = original
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("nombre_abreviado:"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let escribir = |abreviado: Option<&str>| {
+            let texto = if let Some(nombre) = abreviado {
+                sin_abreviado.replacen(
+                    "    nombre:",
+                    &format!(
+                        "    nombre_abreviado: {},\n    nombre:",
+                        ron::to_string(nombre).unwrap()
+                    ),
+                    1,
+                )
+            } else {
+                sin_abreviado.clone()
+            };
+            fs::write(&ruta, texto).unwrap();
+        };
+        for (entrada, esperado) in [
+            (None, "Paso Escarpado"),
+            (Some(""), "Paso Escarpado"),
+            (Some("Paso Esc."), "Paso Esc."),
+        ] {
+            escribir(entrada);
+            let c = cargar_contenido(&fixture.0).unwrap();
+            let lugar = c
+                .presentacion()
+                .lugares()
+                .iter()
+                .find(|l| l.nombre() == "Paso Escarpado")
+                .unwrap();
+            assert_eq!(lugar.nombre_abreviado(), esperado);
+            assert_eq!(
+                lugar.coordenadas_rotulo().len(),
+                lugar.nombre().chars().count()
+            );
+            let p = crate::Partida::nueva(&c, crate::ConfiguracionPartida { semilla: Some(0) })
+                .unwrap();
+            let vista = p.mundo_visible();
+            let publico = vista.lugares.iter().find(|l| l.id == lugar.id()).unwrap();
+            assert_eq!(publico.nombre, "Paso Escarpado");
+            assert_eq!(publico.nombre_abreviado, esperado);
+        }
+        for invalido in ["  ", "Paso\nEsc.", "Paso\t", "\u{1b}[31m", "界", "a\u{301}"] {
+            escribir(Some(invalido));
+            let error = cargar_contenido(&fixture.0).err().unwrap();
+            assert!(
+                error
+                    .diagnosticos()
+                    .iter()
+                    .any(|d| d.detalle().contains("nombre_abreviado"))
+            );
+        }
     }
 
     #[test]

@@ -1,6 +1,7 @@
 (
     clave: "calzada_de_nahal",
     nombre: "Calzada de Nahal",
+    nombre_abreviado: "Calz. Nahal",
     caracteristicas: ["calzada", "terraplen", "pantanoso"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("marisma_verde")),

@@ -1,6 +1,7 @@
 (
     clave: "golfo_del_siroco",
     nombre: "Golfo del Siroco",
+    nombre_abreviado: "G. Siroco",
     caracteristicas: ["acuatico", "maritimo", "costero", "aguaSalada", "pecesAbundantes"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("isla_del_exilio")),

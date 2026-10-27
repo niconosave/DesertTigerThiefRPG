@@ -1,6 +1,7 @@
 (
     clave: "marisma_verde",
     nombre: "Marisma Verde",
+    nombre_abreviado: "Marisma V.",
     caracteristicas: ["pantanoso", "fluvial", "aguasSomeras", "peces"],
     relaciones: [],
     coordenada_central: (x: 166, y: 50),

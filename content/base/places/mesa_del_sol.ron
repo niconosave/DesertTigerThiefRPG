@@ -1,6 +1,7 @@
 (
     clave: "mesa_del_sol",
     nombre: "Mesa del Sol",
+    nombre_abreviado: "Mesa Sol",
     caracteristicas: ["arido", "elevado", "abierto", "rocoso"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("espinazo_gris")),

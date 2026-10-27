@@ -1,6 +1,7 @@
 (
     clave: "playa_dorada",
     nombre: "Playa Dorada",
+    nombre_abreviado: "Playa Dor.",
     caracteristicas: ["costero", "arenoso", "resguardado", "aguaSalada"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("sierra_quebrada")),

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.26 |
-| Fecha | 2026-10-26 |
+| Versión | 0.27 |
+| Fecha | 2026-10-27 |
 
 > Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
 
@@ -409,6 +409,7 @@ struct PlantillaMapa {
 pub(crate) struct PresentacionLugar {
     id: IdLugar,
     nombre: String,
+    nombre_abreviado: String,
     coordenada_central: CoordenadaMapa,
     coordenadas_rotulo: Vec<CoordenadaMapa>,
 }
@@ -438,6 +439,7 @@ impl CatalogoPresentacion {
 impl PresentacionLugar {
     pub(crate) fn id(&self) -> IdLugar;
     pub(crate) fn nombre(&self) -> &str;
+    pub(crate) fn nombre_abreviado(&self) -> &str;
     pub(crate) fn coordenada_central(&self) -> CoordenadaMapa;
     pub(crate) fn coordenadas_rotulo(
         &self,
@@ -677,6 +679,7 @@ coordenadas oficiales se fijarán en `content/base/` después de dibujar el mapa
 (
     clave: "zona_arida",
     nombre: "Zona Árida",
+    nombre_abreviado: "Z. Árida",
     caracteristicas: [],
     relaciones: [
         (
@@ -703,7 +706,15 @@ coordenadas oficiales se fijarán en `content/base/` después de dibujar el mapa
 )
 ```
 
-Todos sus campos son obligatorios. `nombre` no puede estar vacío.
+Salvo `nombre_abreviado`, sus campos son obligatorios. `nombre` no puede estar vacío.
+`nombre_abreviado` es un `String` opcional para etiquetas compactas de interfaz.
+Si se omite o es `""`, la carga usa el nombre completo. Si tiene contenido,
+debe ser una sola línea no compuesta únicamente por espacios, sin controles y
+con caracteres de una columna; no se exige unicidad ni una longitud menor al
+nombre completo. Este campo no requiere coordenadas de rótulo propias.
+`PresentacionLugar` conserva la abreviatura resuelta y la sesión la transmite
+como `VistaLugar::nombre_abreviado: String`. El nombre completo y las coordenadas
+del mapa conservan su significado; las abreviaturas no son identificadores.
 `caracteristicas` y `relaciones` son listas obligatorias que pueden estar vacías;
 las primeras no admiten duplicados y las segundas siguen el esquema y la
 normalización de [`10-relaciones.md`](./10-relaciones.md#41-esquema-normativo).

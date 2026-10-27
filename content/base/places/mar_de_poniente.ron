@@ -1,6 +1,7 @@
 (
     clave: "mar_de_poniente",
     nombre: "Mar de Poniente",
+    nombre_abreviado: "Mar Poniente",
     caracteristicas: ["acuatico", "maritimo", "marAbierto", "aguaSalada"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("mar_boreal")),

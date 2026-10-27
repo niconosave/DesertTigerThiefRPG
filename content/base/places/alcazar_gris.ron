@@ -1,6 +1,7 @@
 (
     clave: "alcazar_gris",
     nombre: "Alcázar Gris",
+    nombre_abreviado: "Alc. Gris",
     caracteristicas: ["poblado", "fortificado", "elevado"],
     relaciones: [],
     coordenada_central: (x: 118, y: 38),

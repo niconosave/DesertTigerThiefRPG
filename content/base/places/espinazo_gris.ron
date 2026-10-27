@@ -1,6 +1,7 @@
 (
     clave: "espinazo_gris",
     nombre: "Espinazo Gris",
+    nombre_abreviado: "Esp. Gris",
     caracteristicas: ["montanoso", "elevado", "empinado", "rocoso"],
     relaciones: [],
     coordenada_central: (x: 100, y: 20),

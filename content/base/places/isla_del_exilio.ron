@@ -1,6 +1,7 @@
 (
     clave: "isla_del_exilio",
     nombre: "Isla del Exilio",
+    nombre_abreviado: "Isla Exilio",
     caracteristicas: ["insular", "arido", "costero", "muelle", "puerto"],
     relaciones: [],
     coordenada_central: (x: 40, y: 56),

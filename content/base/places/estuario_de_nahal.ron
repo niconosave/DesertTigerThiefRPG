@@ -1,6 +1,7 @@
 (
     clave: "estuario_de_nahal",
     nombre: "Estuario de Nahal",
+    nombre_abreviado: "Est. Nahal",
     caracteristicas: ["acuatico", "maritimo", "fluvial", "costero", "aguaSalobre", "aguasSomeras", "canalNavegable"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("nahal")),

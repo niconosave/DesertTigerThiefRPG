@@ -1,6 +1,7 @@
 (
     clave: "mar_de_levante",
     nombre: "Mar de Levante",
+    nombre_abreviado: "Mar Levante",
     caracteristicas: ["acuatico", "maritimo", "marAbierto", "aguaSalada"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("golfo_del_siroco")),

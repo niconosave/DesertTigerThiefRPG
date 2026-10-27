@@ -211,8 +211,8 @@ impl Interfaz {
         }
         match &mut self.modo {
             ModoLocal::Seleccion { destinos, foco } => match evento.code {
-                KeyCode::Left => *foco = foco.saturating_sub(1),
-                KeyCode::Right if *foco + 1 < destinos.len() => *foco += 1,
+                KeyCode::Up => *foco = foco.saturating_sub(1),
+                KeyCode::Down if *foco + 1 < destinos.len() => *foco += 1,
                 KeyCode::Esc => {
                     self.modo = ModoLocal::Normal;
                     self.error_recuperable = None;
@@ -261,9 +261,28 @@ impl Interfaz {
                 if let Some(destinos) =
                     destinos_viaje(mundo).filter(|destinos| !destinos.is_empty())
                 {
+                    let mut destinos = destinos.to_vec();
+                    destinos.sort_by_cached_key(|id| {
+                        mundo
+                            .lugares
+                            .iter()
+                            .find(|l| l.id == *id)
+                            .map(|l| (l.nombre_abreviado.to_lowercase(), *id))
+                    });
                     self.modo = ModoLocal::Seleccion {
-                        destinos: destinos.to_vec(),
-                        foco: 0,
+                        foco: mundo
+                            .lugares
+                            .iter()
+                            .find(|lugar| lugar.id == mundo.lugar_jugador)
+                            .and_then(|lugar| {
+                                foco_mas_cercano(
+                                    &destinos,
+                                    &mundo.lugares,
+                                    lugar.coordenada_central,
+                                )
+                            })
+                            .unwrap_or(0),
+                        destinos,
                     };
                     self.error_recuperable = None;
                 }
@@ -361,6 +380,30 @@ impl Interfaz {
         let region_mundo = Rect::new(area.x, area.y, area.width, area.height - 2);
         if let Some(campamento) = &self.campamento {
             campamento.dibujar(frame, region_mundo, mundo, recursos, &self.reloj);
+        } else if let ModoLocal::Seleccion { destinos, foco } = &self.modo {
+            let ancho_nombre = destinos
+                .iter()
+                .filter_map(|id| mundo.lugares.iter().find(|l| l.id == *id))
+                .map(|l| l.nombre_abreviado.chars().count())
+                .max()
+                .unwrap_or(0);
+            let ancho_lista = (ancho_nombre + 4)
+                .clamp(18, usize::from((region_mundo.width / 3).clamp(26, 40)))
+                as u16;
+            let mapa = Rect::new(
+                region_mundo.x,
+                region_mundo.y,
+                region_mundo.width - ancho_lista,
+                region_mundo.height,
+            );
+            let lista = Rect::new(
+                mapa.right(),
+                region_mundo.y,
+                ancho_lista,
+                region_mundo.height,
+            );
+            self.dibujar_mundo(frame, mapa, mundo, recursos);
+            self.dibujar_destinos(frame, lista, destinos, *foco, recursos);
         } else {
             self.dibujar_mundo(frame, region_mundo, mundo, recursos);
         }
@@ -416,6 +459,51 @@ impl Interfaz {
         if self.confirmar_salida {
             self.dibujar_confirmacion(frame, region_mundo, recursos);
         }
+    }
+
+    fn dibujar_destinos(
+        &self,
+        frame: &mut Frame<'_>,
+        area: Rect,
+        destinos: &[IdLugar],
+        foco: usize,
+        recursos: &RecursosVisuales,
+    ) {
+        let bloque = Block::default()
+            .borders(Borders::ALL)
+            .title(" Destinos ")
+            .title_bottom(format!(" {}/{} ", foco + 1, destinos.len()))
+            .style(recursos.ui.pantalla)
+            .border_style(recursos.ui.marco)
+            .title_style(recursos.ui.titulo);
+        let interior = bloque.inner(area);
+        frame.render_widget(bloque, area);
+        let filas = usize::from(interior.height);
+        let inicio = foco
+            .saturating_sub(filas / 2)
+            .min(destinos.len().saturating_sub(filas));
+        let lineas = destinos
+            .iter()
+            .enumerate()
+            .skip(inicio)
+            .take(filas)
+            .map(|(indice, id)| {
+                let nombre = self
+                    .ultima_vista_mundo
+                    .lugares
+                    .iter()
+                    .find(|l| l.id == *id)
+                    .map(|l| l.nombre_abreviado.as_str())
+                    .unwrap_or("Lugar desconocido");
+                let (prefijo, estilo) = if indice == foco {
+                    ("> ", recursos.ui.foco)
+                } else {
+                    ("  ", recursos.ui.texto_normal)
+                };
+                Line::styled(format!("{prefijo}{nombre}"), estilo)
+            })
+            .collect::<Vec<_>>();
+        frame.render_widget(Paragraph::new(lineas), interior);
     }
 
     fn dibujar_mundo(
@@ -574,7 +662,7 @@ impl Interfaz {
         }
         match &self.modo {
             ModoLocal::Seleccion { .. } => {
-                " [←/→] Destino  [Enter] Confirmar  [Esc] Cancelar  [Q] Salir".to_owned()
+                " [↑/↓] Destino  [Enter] Confirmar  [Esc] Cancelar  [Q] Salir".to_owned()
             }
             ModoLocal::Normal => match &self.vista {
                 VistaSesion::Disponible(mundo) => match destinos_viaje(mundo) {
@@ -739,6 +827,30 @@ impl Interfaz {
             frame.area(),
         );
     }
+}
+
+// Las coordenadas solo ordenan el foco visual; los destinos permitidos siguen
+// siendo exactamente los que entregó la aplicación.
+fn foco_mas_cercano(
+    destinos: &[IdLugar],
+    lugares: &[desert_tiger_app::VistaLugar],
+    origen: desert_tiger_app::CoordenadaMapa,
+) -> Option<usize> {
+    destinos
+        .iter()
+        .enumerate()
+        .filter_map(|(indice, id)| {
+            let punto = lugares
+                .iter()
+                .find(|lugar| lugar.id == *id)?
+                .coordenada_central;
+            let dx = punto.x.abs_diff(origen.x) as f64;
+            let dy = punto.y.abs_diff(origen.y) as f64;
+            let distancia = dx * dx + dy * dy;
+            Some((indice, *id, distancia))
+        })
+        .min_by(|a, b| a.2.total_cmp(&b.2).then_with(|| a.1.cmp(&b.1)))
+        .map(|(indice, _, _)| indice)
 }
 
 fn destinos_viaje(mundo: &VistaMundo) -> Option<&[IdLugar]> {
@@ -1966,6 +2078,141 @@ mod pruebas {
             }
         }
         assert!(pasos > 4);
+    }
+
+    #[test]
+    fn lista_destinos_ordena_nombres_y_solo_confirma_al_pulsar_enter() {
+        use desert_tiger_app::CoordenadaMapa;
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let mut i = Interfaz::nueva(partida).unwrap();
+        let mut mundo = i.ultima_vista_mundo.clone();
+        let destinos = destinos_viaje(&mundo).unwrap()[..3].to_vec();
+        for ((id, nombre), (x, y)) in destinos
+            .iter()
+            .copied()
+            .zip(["Zoco", "Abadía", "Monte"])
+            .zip([(50, 50), (55, 50), (55, 55)])
+        {
+            let lugar = mundo.lugares.iter_mut().find(|l| l.id == id).unwrap();
+            lugar.nombre = format!("Nombre completo de {nombre}");
+            lugar.nombre_abreviado = nombre.into();
+            lugar.coordenada_central = CoordenadaMapa { x, y };
+        }
+        mundo
+            .lugares
+            .iter_mut()
+            .find(|l| l.id == mundo.lugar_jugador)
+            .unwrap()
+            .coordenada_central = CoordenadaMapa { x: 49, y: 50 };
+        mundo.acciones = vec![AccionDisponible::Viajar {
+            destinos: destinos.clone(),
+        }];
+        i.ultima_vista_mundo = mundo.clone();
+        i.vista = VistaSesion::Disponible(mundo);
+        let antes = i.partida.vista();
+        let tecla = |code| KeyEvent::new(code, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('v')));
+        let ordenados = vec![destinos[1], destinos[2], destinos[0]];
+        assert!(
+            matches!(&i.modo, ModoLocal::Seleccion { destinos, foco: 2 } if destinos == &ordenados)
+        );
+        assert!(i.texto_acciones().contains("↑/↓"));
+        for (direccion, esperado) in [
+            (KeyCode::Down, 2),
+            (KeyCode::Up, 1),
+            (KeyCode::Up, 0),
+            (KeyCode::Up, 0),
+            (KeyCode::Down, 1),
+        ] {
+            i.manejar_tecla(tecla(direccion));
+            assert!(matches!(i.modo, ModoLocal::Seleccion { foco, .. } if foco == esperado));
+            assert_eq!(i.partida.vista(), antes);
+            assert_eq!(
+                i.objetivo_camara(&i.ultima_vista_mundo),
+                i.ultima_vista_mundo
+                    .lugares
+                    .iter()
+                    .find(|l| l.id == ordenados[esperado])
+                    .unwrap()
+                    .coordenada_central
+            );
+        }
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(matches!(i.modo, ModoLocal::Normal));
+        assert_eq!(i.partida.vista(), antes);
+        i.manejar_tecla(tecla(KeyCode::Char('v')));
+        i.manejar_tecla(tecla(KeyCode::Up));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        let progreso = match &i.vista {
+            VistaSesion::PresentandoAccion(v) => &v.progreso,
+            VistaSesion::EsperandoDecision(v) => &v.progreso,
+            otra => panic!("vista inesperada: {otra:?}"),
+        };
+        assert_eq!(progreso.destino_final, destinos[2]);
+    }
+
+    #[test]
+    fn lista_lateral_desplaza_el_foco_y_conserva_mapa_y_barras_al_redimensionar() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let mut i = Interfaz::nueva(partida).unwrap();
+        let destinos = destinos_viaje(&i.ultima_vista_mundo).unwrap().to_vec();
+        assert!(
+            destinos.len() > 20,
+            "el contenido permite probar desplazamiento"
+        );
+        for (n, id) in destinos.iter().enumerate() {
+            let lugar = i
+                .ultima_vista_mundo
+                .lugares
+                .iter_mut()
+                .find(|l| l.id == *id)
+                .unwrap();
+            lugar.nombre = format!("Nombre completo del destino {n:02}");
+            lugar.nombre_abreviado = format!("Destino {n:02}");
+        }
+        i.modo = ModoLocal::Seleccion {
+            destinos: destinos.clone(),
+            foco: 0,
+        };
+        let antes = i.partida.vista();
+        for foco in 0..destinos.len() {
+            for (ancho, alto) in [(80, 24), (120, 35)] {
+                let cuadro = cuadro_campamento(&i, &recursos, ancho, alto);
+                let fila = |y| {
+                    (0..ancho)
+                        .map(|x| cuadro[(x, y)].symbol())
+                        .collect::<String>()
+                };
+                let inicio_lista = ancho - 18;
+                let lista = (0..alto - 2)
+                    .map(|y| {
+                        (inicio_lista..ancho)
+                            .map(|x| cuadro[(x, y)].symbol())
+                            .collect::<String>()
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                assert!(lista.contains(&format!("> Destino {foco:02}")), "{lista}");
+                assert!(!lista.contains("Nombre completo"));
+                assert!(lista.contains(&format!("{}/{}", foco + 1, destinos.len())));
+                assert!(fila(alto - 1).contains("[↑/↓] Destino"));
+                assert!(fila(alto - 2).contains(&format!("Nombre completo del destino {foco:02}")));
+                assert!(
+                    (0..alto - 2)
+                        .any(|y| (0..inicio_lista).any(|x| cuadro[(x, y)].symbol() != " "))
+                );
+            }
+            assert_eq!(i.partida.vista(), antes);
+            i.manejar_tecla(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        }
+        assert!(matches!(i.modo, ModoLocal::Seleccion { foco, .. } if foco == destinos.len() - 1));
     }
 
     #[test]

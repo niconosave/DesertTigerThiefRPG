@@ -1,6 +1,7 @@
 (
     clave: "paso_escarpado",
     nombre: "Paso Escarpado",
+    nombre_abreviado: "Paso Esc.",
     caracteristicas: ["empinado", "montanoso", "rocoso", "elevado"],
     relaciones: [
         (

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.59 |
+| Versión | 0.62 |
 | Fecha | 2026-10-27 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
@@ -1036,14 +1036,36 @@ Lugar, además de explicar que se está eligiendo adónde viajar. Cuando la
 aplicación aporta un pronóstico, añade su rango de días y describe por separado
 la exposición conocida y la incertidumbre. Solo puede decir `sin riesgos
 conocidos` cuando `exposicionConocida == 0`; esto no elimina ni oculta una
-incertidumbre positiva. En listas o menús
-futuros, la fila enfocada comenzará también con `>`. La lista de candidatos
+incertidumbre positiva. La lista de candidatos
 procede de la aplicación ya filtrada por conectividad y transitabilidad. Los
 lugares no disponibles siguen dibujados como parte del mundo, pero no reciben
 foco ni pueden confirmarse. El frontend no distingue si fueron excluidos por
-falta de ruta o por otra regla. El foco inicial y el orden de navegación usan la
-secuencia entregada por la aplicación; las flechas y el comportamiento en los
-extremos siguen el contrato de entrada de la sección 9.
+falta de ruta o por otra regla.
+
+Durante la selección, una lista con marco ocupa el costado derecho de la región
+mundial. Su ancho es el mayor nombre abreviado más cuatro columnas para prefijo
+y bordes, con mínimo de 18 y máximo igual al tercio del ancho limitado a 26–40.
+El mapa y los retratos se dibujan
+en el espacio restante a la izquierda; las dos barras inferiores conservan todo
+el ancho. Al cerrar el selector, el mapa recupera su región normal.
+
+La lista contiene exactamente los destinos ofrecidos, ordenados por nombre abreviado sin
+distinguir mayúsculas; los empates se resuelven por ID. Cada fila muestra un
+`VistaLugar::nombre_abreviado`; la seleccionada usa `> ` y el estilo `foco`.
+La carga resuelve el valor predeterminado según el [contrato de contenido](./03-contenido.md).
+Las etiquetas que exceden el ancho máximo se recortan visualmente; la barra
+contextual conserva el nombre completo del destino. Mapa, viñetas y fichas siguen
+usando el nombre completo. El marco muestra la posición `i/n`. La ventana de filas se desplaza
+automáticamente para mantener visible el foco, procurando centrarlo y ajustando
+los extremos para aprovechar la altura disponible.
+
+El foco inicial sigue siendo el destino disponible cuyo centro está más cerca
+del centro del Lugar del jugador, con desempate por ID. `↑` y `↓` recorren la
+lista sin envolver sus extremos; `←` y `→` no cambian la selección. La cámara
+sigue el centro del Lugar seleccionado y su rótulo continúa resaltado en el mapa.
+Redimensionar recalcula la distribución y las filas visibles sin cambiar el
+Lugar enfocado. La cercanía inicial y el seguimiento son exclusivamente
+visuales: no modifican rutas ni disponibilidad de gameplay.
 
 Al terminar la fase NPC se vuelve a `Vista del mundo`, con la disponibilidad
 declarada por la nueva `VistaMundo`. El resumen se muestra como texto breve en
@@ -1121,7 +1143,7 @@ jugador conozca convenciones particulares de editores o roguelikes:
 | Modo | Tecla | Resultado |
 |---|---|---|
 | Vista del mundo | atajo `[X]` antepuesto a una acción activa | Activa esa acción; `[V] Viajar` abre la selección solamente si su lista de destinos no está vacía. |
-| Selección de destino | `←` / `→` | Mueve el foco al destino anterior o siguiente según el orden recibido. |
+| Selección de destino | `↑` / `↓` | Recorre la lista lateral de destinos por nombre; mantiene el foco visible y la cámara centrada en él. |
 | Selección de destino | `Enter` | Confirma el destino enfocado y solicita `Viajar`. |
 | Selección de destino | `Esc` | Cancela solamente la selección visual y vuelve a la vista del mundo. |
 | Presentación de acción, detalle cerrado | `Enter` | Avanza la página narrativa local o, en su final, solicita continuar la presentación. |
@@ -1156,8 +1178,8 @@ La barra de acciones escribe también los nombres de las teclas especiales:
 flechas, `Enter` y `Esc` no quedan como controles ocultos. `[Q] Salir` ocupa la
 última posición de toda barra normal y se separa del control anterior mediante
 dos espacios. En `Terminal insuficiente` aparece dentro del aviso que sustituye
-las barras. Si se intenta avanzar más allá de un extremo de la lista de destinos,
-el foco permanece en el mismo lugar; la navegación no da la vuelta. `Esc` deja de
+las barras. Al alcanzar el principio o el final de la lista, el foco permanece
+en ese extremo; la navegación no da la vuelta. `Esc` deja de
 cancelar una selección una vez que la aplicación acepta el destino, porque la
 cancelación de una acción ya iniciada queda fuera del primer incremento; esto no
 impide abrir y cancelar la confirmación de salida durante su presentación.
@@ -1309,7 +1331,9 @@ Pruebas automáticas:
 - los atajos `[X]` funcionan con mayúsculas y minúsculas y nunca identifican dos
   comandos visibles a la vez; `Q` y `D` nunca se asignan dinámicamente y `S` o
   `N` siguen disponibles fuera de la confirmación;
-- `←` y `→` recorren destinos sin envolver los extremos, `Enter` confirma y
+- la lista lateral ordena destinos por nombre; `↑` y `↓` mantienen visible el
+  seleccionado sin envolver los extremos; el mapa y las barras permanecen
+  visibles a 80 × 24 y al redimensionar; `Enter` confirma y
   `Esc` cancela la selección solamente antes de iniciar la acción;
 - `Enter` pagina localmente un fragmento y solo envía su confirmación después de
   mostrar la última página;

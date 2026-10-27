@@ -1,6 +1,7 @@
 (
     clave: "sierra_quebrada",
     nombre: "Sierra Quebrada",
+    nombre_abreviado: "S. Quebrada",
     caracteristicas: ["montanoso", "rocoso", "boscoso", "empinado"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("bosque_de_tamrut")),

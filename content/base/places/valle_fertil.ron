@@ -1,6 +1,7 @@
 (
     clave: "valle_fertil",
     nombre: "Valle del Drâa",
+    nombre_abreviado: "Valle Drâa",
     caracteristicas: ["fertil", "fluvial", "aguaDulce", "vegetacionComestible", "faunaAbundante"],
     relaciones: [
         (

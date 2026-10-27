@@ -1,6 +1,7 @@
 (
     clave: "costa_ambar",
     nombre: "Costa Ámbar",
+    nombre_abreviado: "C. Ámbar",
     caracteristicas: ["costero", "arenoso", "abierto", "viento"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("llano_del_viento")),

@@ -1,6 +1,7 @@
 (
     clave: "bosque_de_tamrut",
     nombre: "Bosque de Tamrut",
+    nombre_abreviado: "Bosq. Tamrut",
     caracteristicas: ["boscoso", "sombreado", "aguaDulce", "fauna"],
     relaciones: [],
     coordenada_central: (x: 144, y: 34),

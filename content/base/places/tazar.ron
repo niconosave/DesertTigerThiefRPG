@@ -1,6 +1,7 @@
 (
     clave: "tazar",
     nombre: "Tazar",
+    nombre_abreviado: "Tazar",
     caracteristicas: ["poblado", "posada", "aguaDulce"],
     relaciones: [],
     coordenada_central: (x: 142, y: 20),

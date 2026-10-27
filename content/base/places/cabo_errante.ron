@@ -1,6 +1,7 @@
 (
     clave: "cabo_errante",
     nombre: "Cabo Errante",
+    nombre_abreviado: "C. Errante",
     caracteristicas: ["costero", "rocoso", "abierto", "viento"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("playa_dorada")),

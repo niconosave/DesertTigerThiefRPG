@@ -1,6 +1,7 @@
 (
     clave: "nahal",
     nombre: "Nahal",
+    nombre_abreviado: "Nahal",
     caracteristicas: ["poblado", "mercado", "puerto", "muelle"],
     relaciones: [],
     coordenada_central: (x: 172, y: 52),

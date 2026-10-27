@@ -3,7 +3,7 @@
         "recuerdo_del_hogar.ron",
         "hilo_del_camino_castellana.ron",
     ],
-    volumen: 0.50,
+    volumen: 0.42,
     espera_inicial_segundos: (60, 120),
     pausa_entre_piezas_segundos: (20, 180),
 )
