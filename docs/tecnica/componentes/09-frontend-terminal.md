@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.58 |
-| Fecha | 2026-10-26 |
+| Versión | 0.59 |
+| Fecha | 2026-10-27 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
 > define el audio opcional del frontend y su integración con el bucle. El
@@ -39,6 +39,11 @@
 ## Revisión implementada el 2026-10-24: Presentación por pasos
 
 El layout, arte, controles, transparencia y animación se conservan. La terminal recibe la proyección pública del paso actual; mundo_visible conserva sus participantes. Paginar, consultar detalle y redimensionar no ejecuta reglas. Se retiraron pronósticos previos al plan; el progreso usa el mismo tiempo exacto de la fecha final.
+
+Revisión del 2026-10-27: relato breve y desglose consultable en escenas y
+decisiones según la [sección 11 del contrato vigente](../acciones/06-implementacion-viajar.md#11-registros-semánticos-redacción-y-privacidad).
+La ventana crece para alojar la página y su ilustración; al consultar Detalles
+se omite la ilustración y se muestra únicamente el desarrollo paginado.
 
 La fuente vigente para estos cambios es el
 [contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).
@@ -845,8 +850,9 @@ En el primer vertical implementado, cada página visual de opciones contiene una
 sola opción completa. Es una subdivisión válida de los bloques lógicos de hasta
 24: prioriza que la etiqueta, los controles y su detalle sean legibles en
 `80 × 24`, y deja una optimización posterior agrupar varias opciones cuando el
-ancho disponible lo permita. La ventana conserva el texto común; al abrir `[D]`
-añade únicamente el desglose de la opción visible.
+ancho disponible lo permita. La ventana conserva la última página del relato;
+al abrir `[D]` la sustituye por el detalle común y, si existe, el desglose propio
+de la opción visible.
 
 Las opciones conservan el orden entregado por la aplicación. El frontend las
 parte primero en bloques lógicos contiguos de hasta 24, la cantidad de letras
@@ -878,21 +884,21 @@ bloques y páginas y no es un error.
 
 `D` queda reservada antes de asignar atajos dinámicos, igual que `Q`. En las
 páginas narrativas, `[D] Detalles` aparece únicamente si
-`VistaDecision::detalle` es `Some` y muestra sus líneas de contexto común. En la
+`VistaDecision::detalle` no está vacío y muestra sus líneas de contexto común. En la
 etapa de opciones aparece en todas sus páginas si existe ese detalle común o al
 menos un `VistaOpcionDecision::detalle` en la decisión. El panel expandido
 muestra primero el contexto común, si existe, y luego un bloque por cada opción
-de la página visible, en el mismo orden, encabezado por `[X] etiqueta`; un bloque
-sin detalle propio dice `Sin desglose adicional.`. Nunca muestra en esa página
+de la página visible que tenga detalle propio, en el mismo orden, encabezado por
+`[X] etiqueta`. Nunca muestra en esa página
 el detalle de opciones pertenecientes a otra página.
 
 El contenido expandido posee su propia paginación vertical. Mientras está
 abierto, `Enter` solo avanza esa paginación y se detiene en su última página;
 nunca avanza la narración ni elige una opción. `D` lo cierra. En la etapa de
-opciones, las flechas cambian la página visual y reinician el detalle en su
-primera página, manteniéndolo abierto; los atajos de las opciones visibles
-siguen activos porque el texto narrativo ya terminó. Antes de esa etapa no hay
-atajos de opción activos. Abrir, cerrar o paginar el detalle no llama a la
+opciones, las flechas recorren las páginas del desglose mientras permanece
+abierto y los atajos de opciones están inactivos. La barra ofrece lectura,
+cierre de Detalles y salida; al cerrar se restaura exactamente la página de
+opciones o de relato que se estaba leyendo. Abrir, cerrar o paginar el detalle no llama a la
 aplicación ni altera la partición, los IDs o los atajos.
 
 Todo detalle anterior a resolver muestra únicamente contexto, costes, ventajas,

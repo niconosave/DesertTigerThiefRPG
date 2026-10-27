@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.24 |
-| Fecha | 2026-10-26 |
+| Versión | 0.25 |
+| Fecha | 2026-10-27 |
 
 > Ampliación implementada el 2026-10-26: fichas, fase Acampando e
 > intenciones se definen en [Acampar](../acciones/07-acampar.md#5-proyección-de-fichas);
@@ -13,6 +13,10 @@
 ## Revisión implementada el 2026-10-24: Sesión y vistas del viaje activo
 
 Partida retiene EjecucionAccion e IdPaso en escenas y decisiones. La vista transmite tiempo_transcurrido como texto, fecha proyectada y participantes congelados. No publica pronosticos_viaje. Al finalizar confirma fecha y resto una vez y ejecuta una fase NPC.
+
+Desde el 2026-10-27 ambas vistas conservan también el relato breve y el detalle
+común por separado; sus tipos vigentes y la proyección se definen en la
+[sección 11 del contrato de Viajar](../acciones/06-implementacion-viajar.md#11-registros-semánticos-redacción-y-privacidad).
 
 La fuente vigente para estos cambios es el
 [contrato implementado de Viajar](../acciones/06-implementacion-viajar.md).

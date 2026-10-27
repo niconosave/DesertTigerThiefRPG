@@ -1,7 +1,7 @@
 # Reglamento de la acción general `Viajar`
 
 > Estado: implementado; revisión estética conjunta pendiente.
-> Versión: 1.1. Fecha: 2026-10-24.
+> Versión: 1.2. Fecha: 2026-10-27.
 > [Pendientes](#pendientes) indica el cierre actual; no deben añadirse reglas
 > por analogía con versiones anteriores.
 
@@ -514,10 +514,23 @@ su propio orden, tono y forma de presentar la información; puede adaptarlos
 sin modificar las demás. Las cantidades visibles proceden siempre de las
 cuentas del viaje y las unidades alimenticias permanecen ocultas.
 
-Cada viñeta explica qué ocurrió y por qué mediante la ficción y los datos útiles.
-Identifica circunstancias relevantes, responsable, intento, causas de facilidad
-o dificultad, tiempo, consumo y consecuencias. Evita valoraciones vagas cuando
-puede explicar la causa concreta.
+Cada viñeta tiene dos niveles de lectura:
+
+- **Relato principal:** entre una y tres oraciones en segunda persona, como un
+  narrador que te cuenta lo que vivís. Sitúa el intento, cuenta el acontecimiento
+  principal con su causa conocida y comunica el resultado o la decisión pendiente.
+  Mantiene el tono dramático del medio y las circunstancias, sin enumerar cuentas.
+- **Detalles, a petición del jugador:** desarrollo del recorrido, responsables,
+  tiradas, Características, tiempos, carga, consumo y reservas concretas. Conserva
+  la información revelable exigida por las tarjetas, organizada para consultar
+  cómo se produjo el resultado.
+
+El relato principal siempre comunica las consecuencias que cambian la situación:
+una separación y a quién afecta, una montura perdida, un naufragio, hambre, sed,
+reservas agotadas y el Lugar alcanzado o donde se interrumpe el viaje. Ante una
+decisión explica el problema y el sentido de las alternativas; las cantidades
+exactas y sus desgloses quedan en Detalles. Una tirada fallida no se narra como
+una llegada fallida si las reglas permitieron completar la conexión.
 
 Hace visibles la composición del Grupo y cualquier efecto de su cantidad de
 integrantes, las Características y la carga cuando alteren el resultado.
@@ -531,14 +544,13 @@ integrantes, las Características y la carga cuando alteren el resultado.
 | Chequeos | Cada tarjeta decide si revela dificultad, cara, bonos y total; siempre relaciona causas y resultado. Navegación exige el detalle indicado en su tarjeta. |
 | Incertidumbre inicial | Sin proponente no se revela la ruta ni su previsión. `VIA-APR-01` muestra responsable, capacidades y cantidades obtenidas, pero no la necesidad base ni si alcanzarán. |
 
-El criterio actual para los desplazamientos es narrarlos en segunda persona,
-desde el jugador, como un relato integrado y cronológico del recorrido,
-descubrimientos e incidentes. Estos se narran en el Lugar donde suceden.
-No se separa una descripción genérica de un informe numérico.
-Identifican a quienes viajaron y su cierre declara qué Lugar alcanzó el Grupo
-o dónde y por qué terminó el viaje.
+Los desplazamientos sitúan el incidente en el Lugar donde sucede y distinguen
+la elección pendiente del movimiento confirmado. El relato breve prioriza el
+suceso relevante; Detalles conserva el orden de las mitades, sus descubrimientos,
+participantes y todas las causas y consecuencias registradas. Esta jerarquía no
+elimina escenas, chequeos ni pasos de la simulación.
 
-El cierre reúne todo el consumo de la viñeta: enumera cada comida realmente
+En Detalles, el cierre reúne todo el consumo de la viñeta: enumera cada comida realmente
 consumida y el agua bebida, aclara que se consumieron durante el recorrido y
 muestra reservas finales. No interrumpe la narración en cada frontera de 24 horas.
 Indica cuántos períodos de consumo completó la viñeta; si no se completó ninguno,

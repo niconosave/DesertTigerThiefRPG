@@ -3,6 +3,8 @@ use crate::tiempo::formatear;
 use desert_tiger_core::acciones::*;
 use desert_tiger_core::{IdActor, IdLugar, TiempoAccion};
 
+mod resumen;
+
 pub(crate) struct Narrador<'a>(pub &'a ContenidoValidado);
 pub(crate) struct TextoEscena {
     pub titulo: String,
@@ -223,11 +225,12 @@ impl Narrador<'_> {
                 texto.push_str(&format!("\n{razon}"));
             }
         }
-        // El detalle comparte la misma proyección pública; nunca incluye el estado privado.
-        detalle.push(texto.clone());
+        // El desglose conserva el desarrollo completo, pero la lectura inicial
+        // prioriza lo ocurrido y sus consecuencias. Ambos respetan la privacidad.
+        detalle.push(texto);
         TextoEscena {
             titulo: titulo(r.tarjeta).into(),
-            texto,
+            texto: self.resumen(r),
             detalle,
             expresion: expresion_escena(&r.contenido),
         }
@@ -303,17 +306,17 @@ mod pruebas {
     use super::*;
     use desert_tiger_core::{FraccionDia, InstanteAccion};
 
-    #[test]
-    fn sobrecarga_oculta_prevision_y_monturas_conservan_relato_propio() {
-        struct Cero;
-        impl desert_tiger_core::azar::FuenteAzar for Cero {
-            fn elegir_indice(
-                &mut self,
-                _: std::num::NonZeroUsize,
-            ) -> Result<usize, desert_tiger_core::azar::ErrorFuenteAzar> {
-                Ok(0)
-            }
+    pub(super) struct Cero;
+    impl desert_tiger_core::azar::FuenteAzar for Cero {
+        fn elegir_indice(
+            &mut self,
+            _: std::num::NonZeroUsize,
+        ) -> Result<usize, desert_tiger_core::azar::ErrorFuenteAzar> {
+            Ok(0)
         }
+    }
+
+    pub(super) fn escenario() -> (ContenidoValidado, desert_tiger_core::Mundo, RegistroEscena) {
         let contenido = crate::cargar_contenido(
             &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
         )
@@ -336,11 +339,19 @@ mod pruebas {
             &mut Cero,
         )
         .unwrap();
-        let mut registro = match inicio.paso {
+        let registro = match inicio.paso {
             PasoAccion::Escena(r) => r,
             PasoAccion::Decision(d) => d.escena,
             _ => panic!(),
         };
+        (contenido, mundo, registro)
+    }
+
+    #[test]
+    fn sobrecarga_oculta_prevision_y_monturas_conservan_relato_propio() {
+        let (contenido, mundo, mut registro) = escenario();
+        let actor = mundo.actor_jugador();
+        let destino = destinos_disponibles(&mundo, actor).unwrap()[0];
         registro.plan_visible = false;
         registro.tarjeta = ClaveTarjeta::Sobrecarga;
         registro.contenido = ContenidoEscena::Sobrecarga {
@@ -367,7 +378,13 @@ mod pruebas {
         assert!(!texto.texto.contains("123 días"));
         assert!(!texto.detalle.join(" ").contains("Tiempo total previsto"));
         registro.plan_visible = true;
-        assert!(narrador.redactar(&registro).texto.contains("123 días"));
+        assert!(
+            narrador
+                .redactar(&registro)
+                .detalle
+                .join(" ")
+                .contains("123 días")
+        );
         let chequeo =
             resolver_chequeo(&mundo, actor, AccionParticular::Cabalgar, 15, &mut Cero).unwrap();
         let desplazamiento = Desplazamiento {
