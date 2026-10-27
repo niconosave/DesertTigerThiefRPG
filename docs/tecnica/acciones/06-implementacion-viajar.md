@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; revisión estética conjunta pendiente |
-| Versión | 1.1 |
-| Fecha | 2026-10-24 |
+| Versión | 1.2 |
+| Fecha | 2026-10-27 |
 | Implementación | Motor único activo; verificaciones en el informe enlazado al final |
 
 ## 1. Alcance y autoridad
@@ -637,10 +637,19 @@ mitad del incidente, consecuencias y desglose temporal; un registro de carga
 conserva configuraciones y lote ofrecido. No se infiere gameplay desde texto.
 
 `desert-tiger-app::narracion_viaje` resuelve nombres y redacta por tarjeta.
-Los requisitos de segunda persona, causas, tono, cierre, cantidades y brevedad
-de llegada proceden del reglamento y se verifican por tarjeta. La aplicación
-puede variar frases manteniendo los hechos; no necesita otra fuente de azar
-para la prosa de este alcance.
+La jerarquía narrativa se rige por la [sección 7 del reglamento](./borradores/05-viajar-redisenio.md#presentacion).
+`narracion_viaje/resumen.rs` redacta el relato inicial a partir del mismo
+`RegistroEscena`; el módulo principal conserva el desarrollo completo en
+`TextoEscena::detalle`. No se acorta una cadena por cantidad de caracteres ni
+se omiten acontecimientos del motor para cumplir la brevedad. La selección del
+suceso principal usa hechos confirmados; ante una separación pendiente no
+afirma la llegada antes de recibir la respuesta. No consume azar para redactar.
+
+`VistaFragmento` y `VistaDecision` entregan `texto: String` para el relato y
+`detalle: Vec<String>` para el desarrollo consultable. La sesión transfiere ambos
+campos incluso al esperar una decisión; los detalles propios de opciones siguen
+siendo independientes y opcionales. Los consumidores no reconstruyen el
+desglose desde el texto narrativo ni interpretan prosa para ejecutar reglas.
 
 La aplicación redacta solo los campos permitidos y no entrega registros crudos
 al frontend. La vista pública contiene texto, opciones y progreso:
@@ -657,8 +666,13 @@ al frontend. La vista pública contiene texto, opciones y progreso:
 La cámara y el marcador siguen el Lugar del registro presentado. Los retratos
 usan sus participantes congelados y se actualizan al confirmar el cierre. El
 frontend recibe texto, opciones y progreso ya proyectados; conserva su arte,
-animación, controles y paginado. Enter confirma un paso solo al cerrar su última
-página; abrir detalles o cambiar tamaño no reanuda la ejecución.
+animación, controles y paginado. La lectura principal conserva la ilustración;
+Detalles la sustituye por el desglose paginado, sin repetir el resumen. La
+ventana reserva alto suficiente para texto e ilustración dentro del área
+disponible. Enter confirma un paso solo al cerrar su última página narrativa;
+en Detalles solo recorre sus páginas y se detiene en la última. Las opciones
+no responden mientras el desglose está abierto; cerrarlo restaura la página
+desde donde se consultó. Abrir detalles o cambiar tamaño no reanuda la ejecución.
 
 ## 12. Contenido y validaciones
 
@@ -750,7 +764,7 @@ etiquetadas; repetir una semilla reproduce decisiones y consumos.
 | Persistencia | Conoce idempotente e índices coherentes; separación más traslado atómicos; costas distintas; ninguna Relación nueva; fallo no deja cambios parciales. |
 | Secuencia | Preparación con/sin APR-05; APR-03 inicial y posterior; una APR-02 por intervalo; llegada antes de búsqueda; toda cancelación conserva tiempo; sin límite de escenas. |
 | Cancelación por separación | Buscar en origen conserva tiempo y consumo completos de la conexión; Grupo y compañero quedan en el Lugar del incidente; se conservan ambos chequeos y sus conocimientos aplicables; sin llegada, segunda tirada ni tiempo añadido por la búsqueda. |
-| Presentación | Sin ruta o necesidad oculta en texto, vistas o detalles; mismos tiempos y reservas que simulación; retratos del momento correcto; paginado sin ejecutar reglas. |
+| Presentación | Sin ruta o necesidad oculta en texto, vistas o detalles; mismos tiempos y reservas que simulación; relatos de una a tres oraciones; incidentes, ubicación y consecuencias esenciales visibles; desglose conservado en escenas y decisiones; retratos del momento correcto; paginado sin ejecutar reglas ni responder opciones. |
 | NPC | Cero, uno y varios; compañero recién separado; política ausente; error recuperable; decisiones automáticas; fecha y resto mundial intactos. |
 
 Una prueba de integración recorre archivos oficiales, preparación, varias

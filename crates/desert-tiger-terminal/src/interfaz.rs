@@ -11,7 +11,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use desert_tiger_app::{
     AccionDisponible, CausaIndisponibilidad, ColorRetrato, EntradaResumenNpc, ErrorIntencion,
     EstiloCeldaRetrato, GraficoRetrato, IdLugar, IntencionFrontend, Partida, VistaActor,
-    VistaDecision, VistaMundo, VistaSesion,
+    VistaDecision, VistaFragmento, VistaMundo, VistaSesion,
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -205,9 +205,7 @@ impl Interfaz {
             } else {
                 self.mostrar_detalle = true;
                 self.pagina_antes_detalle = self.pagina;
-                if matches!(self.vista, VistaSesion::PresentandoAccion(_)) {
-                    self.pagina = 0;
-                }
+                self.pagina = 0;
             }
             return;
         }
@@ -242,6 +240,13 @@ impl Interfaz {
             self.pagina = (self.pagina + 1).min(paginas.saturating_sub(1));
             return;
         }
+        // Consultar el desglose nunca responde una decisión ni confirma una escena.
+        if self.mostrar_detalle {
+            if tecla == KeyCode::Enter {
+                self.pagina = (self.pagina + 1).min(self.paginas_vigentes().saturating_sub(1));
+            }
+            return;
+        }
         match &self.vista {
             VistaSesion::Disponible(mundo)
                 if normalizar_letra(tecla) == Some('a')
@@ -274,10 +279,16 @@ impl Interfaz {
                 }
             }
             VistaSesion::EsperandoDecision(decision) => {
+                let Some(inicio) = inicio_opciones_decision(decision, self.pagina) else {
+                    if tecla == KeyCode::Enter {
+                        self.pagina += 1;
+                    }
+                    return;
+                };
                 if let Some(letra) = normalizar_letra(tecla)
                     && let Some((_, opcion)) = atajos_decision(decision)
                         .into_iter()
-                        .skip(self.pagina * OPCIONES_POR_PAGINA)
+                        .skip(inicio)
                         .take(OPCIONES_POR_PAGINA)
                         .find(|(atajo, _)| *atajo == letra)
                 {
@@ -368,16 +379,7 @@ impl Interfaz {
         );
         match &self.vista {
             VistaSesion::PresentandoAccion(fragmento) => {
-                let texto_completo = if self.mostrar_detalle && !fragmento.detalle.is_empty() {
-                    format!(
-                        "{}\n\nDETALLES\n{}",
-                        fragmento.texto,
-                        fragmento.detalle.join("\n")
-                    )
-                } else {
-                    fragmento.texto.clone()
-                };
-                let paginas = paginar_texto(&texto_completo);
+                let paginas = paginas_fragmento(fragmento, self.mostrar_detalle);
                 let pagina = self.pagina.min(paginas.len().saturating_sub(1));
                 let titulo = titulo_paginado(&fragmento.titulo, pagina, paginas.len());
                 self.dibujar_ventana(
@@ -385,12 +387,16 @@ impl Interfaz {
                     region_mundo,
                     &titulo,
                     &paginas[pagina],
-                    fragmento.escena,
+                    fragmento.escena.filter(|_| !self.mostrar_detalle),
                     recursos,
                 )
             }
             VistaSesion::EsperandoDecision(decision) => {
-                let paginas = paginas_decision(decision, self.mostrar_detalle);
+                let paginas = if self.mostrar_detalle {
+                    paginas_detalle_decision(decision, self.pagina_antes_detalle)
+                } else {
+                    paginas_decision(decision)
+                };
                 let pagina = self.pagina.min(paginas.len().saturating_sub(1));
                 let titulo = titulo_paginado(&decision.titulo, pagina, paginas.len());
                 self.dibujar_ventana(
@@ -398,7 +404,7 @@ impl Interfaz {
                     region_mundo,
                     &titulo,
                     &paginas[pagina],
-                    decision.escena,
+                    decision.escena.filter(|_| !self.mostrar_detalle),
                     recursos,
                 )
             }
@@ -598,26 +604,24 @@ impl Interfaz {
                     format!(" {accion}{navegar}{detalle}  [Q] Salir")
                 }
                 VistaSesion::EsperandoDecision(decision) => {
-                    let opciones = atajos_decision(decision)
-                        .into_iter()
-                        .skip(self.pagina * OPCIONES_POR_PAGINA)
-                        .take(OPCIONES_POR_PAGINA)
-                        .zip(
-                            decision
-                                .opciones
-                                .iter()
-                                .skip(self.pagina * OPCIONES_POR_PAGINA),
-                        )
-                        .map(|((tecla, _), opcion)| {
-                            format!("[{}] {}", tecla.to_ascii_uppercase(), opcion.texto)
-                        })
-                        .collect::<Vec<_>>()
-                        .join("  ");
-                    let detalle = if decision
-                        .opciones
-                        .iter()
-                        .any(|opcion| opcion.detalle.is_some())
-                    {
+                    let inicio = inicio_opciones_decision(decision, self.pagina);
+                    let opciones = if self.mostrar_detalle {
+                        "[Enter] Página siguiente".to_owned()
+                    } else if let Some(inicio) = inicio {
+                        atajos_decision(decision)
+                            .into_iter()
+                            .skip(inicio)
+                            .take(OPCIONES_POR_PAGINA)
+                            .zip(decision.opciones.iter().skip(inicio))
+                            .map(|((tecla, _), opcion)| {
+                                format!("[{}] {}", tecla.to_ascii_uppercase(), opcion.texto)
+                            })
+                            .collect::<Vec<_>>()
+                            .join("  ")
+                    } else {
+                        "[Enter] Continuar".to_owned()
+                    };
+                    let detalle = if self.vista_tiene_detalle() {
                         if self.mostrar_detalle {
                             "  [D] Ocultar detalles"
                         } else {
@@ -641,10 +645,13 @@ impl Interfaz {
     fn vista_tiene_detalle(&self) -> bool {
         match &self.vista {
             VistaSesion::PresentandoAccion(fragmento) => !fragmento.detalle.is_empty(),
-            VistaSesion::EsperandoDecision(decision) => decision
-                .opciones
-                .iter()
-                .any(|opcion| opcion.detalle.is_some()),
+            VistaSesion::EsperandoDecision(decision) => {
+                !decision.detalle.is_empty()
+                    || decision
+                        .opciones
+                        .iter()
+                        .any(|opcion| opcion.detalle.is_some())
+            }
             _ => false,
         }
     }
@@ -652,19 +659,14 @@ impl Interfaz {
     fn paginas_vigentes(&self) -> usize {
         match &self.vista {
             VistaSesion::PresentandoAccion(fragmento) => {
-                let texto = if self.mostrar_detalle && !fragmento.detalle.is_empty() {
-                    format!(
-                        "{}\n\nDETALLES\n{}",
-                        fragmento.texto,
-                        fragmento.detalle.join("\n")
-                    )
-                } else {
-                    fragmento.texto.clone()
-                };
-                paginar_texto(&texto).len()
+                paginas_fragmento(fragmento, self.mostrar_detalle).len()
             }
             VistaSesion::EsperandoDecision(decision) => {
-                paginas_decision(decision, self.mostrar_detalle).len()
+                if self.mostrar_detalle {
+                    paginas_detalle_decision(decision, self.pagina_antes_detalle).len()
+                } else {
+                    paginas_decision(decision).len()
+                }
             }
             _ => 1,
         }
@@ -680,7 +682,14 @@ impl Interfaz {
         recursos: &RecursosVisuales,
     ) {
         let ancho = 72.min(area.width.saturating_sub(4)).max(40);
-        let alto = 12.min(area.height.saturating_sub(2)).max(7);
+        // Reservamos espacio real para las ocho líneas paginadas y el arte:
+        // una ventana fija de doce filas ocultaba las últimas líneas del relato.
+        let arte = escena.and_then(|clave| recursos.escena(clave));
+        let filas_arte = arte.map_or(0, |filas| filas.len() + 1);
+        let alto = (filas_arte + texto.lines().count() + 2)
+            .max(12)
+            .min(usize::from(area.height.saturating_sub(2)))
+            .max(7) as u16;
         let ventana = Rect::new(
             area.x + (area.width - ancho) / 2,
             area.y + (area.height - alto) / 2,
@@ -695,14 +704,18 @@ impl Interfaz {
         let interior = bloque.inner(ventana);
         frame.render_widget(bloque, ventana);
         let mut lineas = Vec::new();
-        if let Some(arte) = escena.and_then(|clave| recursos.escena(clave)) {
+        if let Some(arte) = arte {
             lineas.extend(
                 arte.iter()
                     .map(|fila| Line::styled(fila.clone(), recursos.ui.destacado)),
             );
             lineas.push(Line::default());
         }
-        lineas.push(Line::styled(texto.to_owned(), recursos.ui.texto_normal));
+        lineas.extend(
+            texto
+                .lines()
+                .map(|linea| Line::styled(linea.to_owned(), recursos.ui.texto_normal)),
+        );
         frame.render_widget(
             Paragraph::new(lineas).wrap(ratatui::widgets::Wrap { trim: false }),
             interior,
@@ -759,32 +772,58 @@ fn atajos_decision(decision: &VistaDecision) -> Vec<(char, desert_tiger_app::IdO
         .collect()
 }
 
-fn paginas_decision(decision: &VistaDecision, mostrar_detalle: bool) -> Vec<String> {
-    let atajos = atajos_decision(decision);
-    let mut paginas = Vec::new();
-    for (indice_pagina, opciones) in decision.opciones.chunks(OPCIONES_POR_PAGINA).enumerate() {
-        let inicio = indice_pagina * OPCIONES_POR_PAGINA;
-        let mut texto = decision.texto.clone();
-        if mostrar_detalle {
-            texto.push_str("\n\nDETALLES\n");
-            for (desplazamiento, opcion) in opciones.iter().enumerate() {
-                let tecla = atajos[inicio + desplazamiento].0.to_ascii_uppercase();
-                texto.push_str(&format!("[{tecla}] {}\n", opcion.texto));
-                match &opcion.detalle {
-                    Some(detalle) => {
-                        texto.push_str(detalle);
-                        texto.push('\n');
-                    }
-                    None => texto.push_str("Sin desglose adicional.\n"),
-                }
-            }
-        }
-        paginas.push(texto.trim_end().to_owned());
+fn paginas_fragmento(fragmento: &VistaFragmento, detalle: bool) -> Vec<String> {
+    if detalle {
+        paginar_texto(&format!("DETALLES\n{}", fragmento.detalle.join("\n\n")))
+    } else {
+        paginar_texto(&fragmento.texto)
     }
-    if paginas.is_empty() {
-        paginas.push(decision.texto.clone());
+}
+
+fn inicio_opciones_decision(decision: &VistaDecision, pagina: usize) -> Option<usize> {
+    let paginas_relato = paginar_texto(&decision.texto).len();
+    let inicio = pagina.checked_sub(paginas_relato.saturating_sub(1))? * OPCIONES_POR_PAGINA;
+    (inicio < decision.opciones.len()).then_some(inicio)
+}
+
+fn paginas_decision(decision: &VistaDecision) -> Vec<String> {
+    let mut paginas = paginar_texto(&decision.texto);
+    if let Some(ultima) = paginas.last().cloned() {
+        // La primera opción aparece al terminar de leer; las restantes conservan
+        // ese contexto, cada una con su página de la barra de acciones.
+        paginas.extend(std::iter::repeat_n(
+            ultima,
+            decision
+                .opciones
+                .len()
+                .div_ceil(OPCIONES_POR_PAGINA)
+                .saturating_sub(1),
+        ));
     }
     paginas
+}
+
+fn paginas_detalle_decision(decision: &VistaDecision, pagina_origen: usize) -> Vec<String> {
+    let mut texto = format!("DETALLES\n{}", decision.detalle.join("\n\n"));
+    if let Some(inicio) = inicio_opciones_decision(decision, pagina_origen) {
+        let atajos = atajos_decision(decision);
+        for (i, opcion) in decision
+            .opciones
+            .iter()
+            .enumerate()
+            .skip(inicio)
+            .take(OPCIONES_POR_PAGINA)
+        {
+            if let Some(detalle) = &opcion.detalle {
+                texto.push_str(&format!(
+                    "\n\n[{}] {}\n{detalle}",
+                    atajos[i].0.to_ascii_uppercase(),
+                    opcion.texto
+                ));
+            }
+        }
+    }
+    paginar_texto(&texto)
 }
 
 fn titulo_paginado(titulo: &str, pagina: usize, total: usize) -> String {
@@ -1765,6 +1804,103 @@ mod pruebas {
     }
 
     #[test]
+    fn decisiones_conservan_detalle_comun_paginan_y_restauran_su_opcion() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let mut i = Interfaz::nueva(partida).unwrap();
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        while let VistaSesion::PresentandoAccion(f) = i.vista.clone() {
+            i.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: f.id });
+        }
+        let VistaSesion::EsperandoDecision(d) = &i.vista else {
+            panic!("se esperaba decisión");
+        };
+        assert!(
+            !d.detalle.is_empty(),
+            "la aplicación conserva el detalle común"
+        );
+        assert!(d.opciones.iter().all(|o| o.detalle.is_none()));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        assert!(i.mostrar_detalle, "D funciona aun sin detalles de opciones");
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        let VistaSesion::EsperandoDecision(d) = &mut i.vista else {
+            panic!();
+        };
+        d.texto = (0..16)
+            .map(|n| format!("relato_{n:02}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        d.detalle = vec![
+            (0..24)
+                .map(|n| format!("factor_{n:02}"))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ];
+        d.opciones[0].detalle = Some("Detalle exclusivo de la primera alternativa".into());
+        d.opciones[1].detalle = Some("Detalle exclusivo de la segunda alternativa".into());
+        let atajo = atajos_decision(d)[1].0;
+        let paginas_relato = paginar_texto(&d.texto).len();
+        let vista = i.vista.clone();
+        let sesion = i.partida.vista();
+        // Antes de completar el relato, las teclas de opciones no actúan.
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char(atajo), KeyModifiers::NONE));
+        assert_eq!(i.vista, vista);
+        let mut leido = String::new();
+        for pagina in 0..paginas_relato {
+            i.pagina = pagina;
+            let cuadro = cuadro_campamento(&i, &recursos, 80, 24);
+            leido.extend(cuadro.content.iter().flat_map(|c| c.symbol().chars()));
+        }
+        assert!(
+            leido.contains("relato_15"),
+            "arte y texto caben en la ventana"
+        );
+        // Seleccionamos la segunda página de opciones sin responderla.
+        i.pagina = paginas_relato;
+        let pagina_opcion = i.pagina;
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        assert_eq!(i.pagina, 0);
+        assert!(!i.texto_acciones().contains("segunda alternativa"));
+        leido.clear();
+        for pagina in 0..i.paginas_vigentes() {
+            i.pagina = pagina;
+            for (ancho, alto) in [(80, 24), (110, 35)] {
+                let cuadro = cuadro_campamento(&i, &recursos, ancho, alto);
+                leido.extend(cuadro.content.iter().flat_map(|c| c.symbol().chars()));
+            }
+            i.manejar_tecla(KeyEvent::new(KeyCode::Char(atajo), KeyModifiers::NONE));
+            assert_eq!(i.vista, vista);
+            assert_eq!(i.partida.vista(), sesion);
+        }
+        for n in 0..24 {
+            assert!(leido.contains(&format!("factor_{n:02}")));
+        }
+        assert!(leido.contains("Detalle exclusivo de la segunda alternativa"));
+        assert!(!leido.contains("Detalle exclusivo de la primera alternativa"));
+        assert!(
+            !leido.contains("relato_00"),
+            "el desglose no duplica el relato"
+        );
+        let ultima = i.pagina;
+        i.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert_eq!(i.pagina, ultima);
+        assert_eq!(i.partida.vista(), sesion);
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        assert_eq!(i.pagina, pagina_opcion);
+        assert!(!i.mostrar_detalle);
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char(atajo), KeyModifiers::NONE));
+        assert_ne!(
+            i.partida.vista(),
+            sesion,
+            "el atajo recupera la opción correcta"
+        );
+    }
+
+    #[test]
     fn paginacion_de_texto_no_descarta_contenido() {
         let texto = (0..30)
             .map(|indice| format!("línea causal {indice}: intención, esfuerzo y consecuencia"))
@@ -1934,11 +2070,8 @@ mod pruebas {
         let ojo_x = (1..80_u16)
             .find(|&x| {
                 let ojo = &abierto_buffer[(x, 15)];
-                let borde = &abierto_buffer[(x - 1, 15)];
-                ojo.symbol() == "o"
-                    && ojo.fg == Color::Cyan
-                    && borde.symbol() == "("
-                    && borde.fg == Color::Black
+                // El contorno de la nariz es contenido artístico editable.
+                ojo.symbol() == "o" && ojo.fg == Color::Cyan
             })
             .expect("el ojo del príncipe es visible");
         let mundo = &interfaz.ultima_vista_mundo;

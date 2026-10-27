@@ -159,6 +159,7 @@ pub struct VistaDecision {
     pub rol: RolPresentacion,
     pub proyecto: Option<RegistroProyecto>,
     pub progreso: VistaProgresoViaje,
+    pub detalle: Vec<String>,
     pub opciones: Vec<VistaOpcionDecision>,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -578,6 +579,7 @@ impl Partida {
                 rol,
                 proyecto: None,
                 progreso,
+                detalle: texto.detalle,
                 opciones,
             })
         } else {
