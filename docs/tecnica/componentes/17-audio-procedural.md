@@ -12,6 +12,9 @@
 > selección de ambientes, las órdenes, la carga de recursos y la mezcla de las
 > secciones 2–6. Las demás reglas de dispositivo, errores y compilación siguen
 > vigentes. Las descripciones de un único efecto corresponden al incremento 041.
+> El [contrato 20](./20-musica-campamento.md) añade la preparación de música,
+> las solicitudes y su estado confirmado; amplía la carga y la sincronización
+> de las secciones 3–6 sin cambiar el tratamiento de fallos de dispositivo.
 
 ## 1. Propósito y alcance
 

@@ -7,6 +7,127 @@ use serde::Deserialize;
 pub(super) struct ConfiguracionAudio {
     pub fogata: ConfiguracionFogataAudio,
     pub ambientes: ConfiguracionAmbientes,
+    pub musica: ConfiguracionMusica,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DatosMusica {
+    partitura: Option<String>,
+    partituras: Option<Vec<String>>,
+    volumen: f32,
+    espera_inicial_segundos: (u32, u32),
+    pausa_entre_piezas_segundos: (u32, u32),
+}
+
+impl DatosMusica {
+    fn nombres(&self) -> Result<Vec<&str>, String> {
+        match (&self.partitura, &self.partituras) {
+            (Some(nombre), None) => Ok(vec![nombre.as_str()]),
+            (None, Some(nombres)) if !nombres.is_empty() && nombres.len() <= 16 => {
+                Ok(nombres.iter().map(String::as_str).collect())
+            }
+            _ => Err(
+                "se espera partitura o partituras (1–16 archivos), sin combinar ambos campos"
+                    .into(),
+            ),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(not(feature = "audio"), allow(dead_code))]
+pub(super) struct ConfiguracionMusica {
+    pub agenda: crate::musica_campamento::AgendaMusica,
+    pub volumen: f32,
+    #[cfg(feature = "audio")]
+    pub piezas: Vec<std::sync::Arc<[f32]>>,
+}
+
+impl ConfiguracionMusica {
+    pub(super) fn cargar(raiz: &Path) -> Result<Self, String> {
+        let ruta = raiz.join("campamento.ron");
+        let cargar = || -> Result<Self, String> {
+            let datos =
+                Self::interpretar(&std::fs::read_to_string(&ruta).map_err(|e| e.to_string())?)?;
+            #[cfg(feature = "audio")]
+            let piezas = {
+                let mut piezas = Vec::new();
+                let mut total = 0_usize;
+                for nombre in datos.nombres()? {
+                    let muestras = super::partitura::sintetizar_archivo(&raiz.join(nombre))?;
+                    total += muestras.len();
+                    if total > super::partitura::FRECUENCIA as usize * 600 {
+                        return Err(
+                            "partituras: el repertorio supera 10 minutos de audio preparado".into(),
+                        );
+                    }
+                    piezas.push(muestras);
+                }
+                piezas
+            };
+            Ok(Self {
+                agenda: crate::musica_campamento::AgendaMusica {
+                    inicial: datos.espera_inicial_segundos,
+                    pausa: datos.pausa_entre_piezas_segundos,
+                },
+                volumen: datos.volumen,
+                #[cfg(feature = "audio")]
+                piezas,
+            })
+        };
+        cargar().map_err(|e| format!("{}: {e}", ruta.display()))
+    }
+
+    fn interpretar(texto: &str) -> Result<DatosMusica, String> {
+        let datos: DatosMusica = ron::Options::default()
+            .with_default_extension(ron::extensions::Extensions::IMPLICIT_SOME)
+            .from_str(texto)
+            .map_err(|e| e.to_string())?;
+        let mut vistos = std::collections::BTreeSet::new();
+        for nombre in datos.nombres()? {
+            if nombre.is_empty()
+                || nombre.contains('/')
+                || nombre.contains('\\')
+                || Path::new(nombre).extension().and_then(|s| s.to_str()) != Some("ron")
+                || Path::new(nombre).file_name().and_then(|s| s.to_str()) != Some(nombre)
+            {
+                return Err(
+                    "partitura: se espera un nombre de archivo .ron sin directorios".into(),
+                );
+            }
+            if !vistos.insert(nombre) {
+                return Err(format!("partituras: archivo repetido {nombre}"));
+            }
+        }
+        if !datos.volumen.is_finite() || !(0.0..=1.0).contains(&datos.volumen) {
+            return Err("volumen: se espera un número finito entre 0 y 1".into());
+        }
+        for (campo, (min, max)) in [
+            ("espera_inicial_segundos", datos.espera_inicial_segundos),
+            (
+                "pausa_entre_piezas_segundos",
+                datos.pausa_entre_piezas_segundos,
+            ),
+        ] {
+            if min == 0 || min > max || max > 3600 {
+                return Err(format!("{campo}: se espera 1 <= mínimo <= máximo <= 3600"));
+            }
+        }
+        Ok(datos)
+    }
+
+    #[cfg(all(feature = "audio", test))]
+    pub(super) fn fixture() -> Self {
+        Self {
+            agenda: crate::musica_campamento::AgendaMusica {
+                inicial: (5, 10),
+                pausa: (40, 75),
+            },
+            volumen: 0.5,
+            piezas: vec![std::sync::Arc::from(vec![0.2; 4800])],
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -200,6 +321,85 @@ pub(super) fn fixture(volumen: f32, brasa: f32, tasas: [f32; 2]) -> Configuracio
 mod pruebas {
     use super::*;
     const VALIDA: &str = "(volumen:0.25,nivel_brasa:0.18,chasquidos_por_segundo:8.0,crujidos_por_segundo:0.6,entrada_ms:200,salida_ms:250)";
+
+    #[test]
+    fn musica_valida_rutas_intervalos_y_campos_estrictos() {
+        let base = "(partitura:\"pieza.ron\",volumen:0.5,espera_inicial_segundos:(5,10),pausa_entre_piezas_segundos:(40,75))";
+        assert!(ConfiguracionMusica::interpretar(base).is_ok());
+        for ruta in [
+            "../pieza.ron",
+            "/pieza.ron",
+            "sub/pieza.ron",
+            "sub\\\\pieza.ron",
+            "pieza.wav",
+            "",
+        ] {
+            assert!(ConfiguracionMusica::interpretar(&base.replace("pieza.ron", ruta)).is_err());
+        }
+        for texto in [
+            base.replace("0.5", "NaN"),
+            base.replace("0.5", "1.1"),
+            base.replace("(5,10)", "(10,5)"),
+            base.replace("(5,10)", "(0,10)"),
+            base.replace("(40,75)", "(40,3601)"),
+            base.replace("volumen:0.5,", ""),
+            base.replace("volumen:0.5,", "volumen:0.5,volumen:0.2,"),
+            base.replace("volumen:0.5,", "extra:1,volumen:0.5,"),
+        ] {
+            assert!(ConfiguracionMusica::interpretar(&texto).is_err(), "{texto}");
+        }
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn musica_oficial_se_sintetiza_antes_de_abrir_salida() {
+        let raiz = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/audio/musica");
+        let musica = ConfiguracionMusica::cargar(&raiz).unwrap();
+        assert!(
+            musica
+                .piezas
+                .iter()
+                .all(|p| !p.is_empty() && p.iter().all(|m| m.is_finite() && m.abs() <= 0.8))
+        );
+        assert!(
+            musica
+                .piezas
+                .iter()
+                .all(|p| p.iter().any(|m| m.abs() > 0.01))
+        );
+        assert!(musica.piezas.iter().all(|p| p.len() > 48000));
+    }
+
+    #[test]
+    fn repertorio_admite_lista_y_rechaza_vacios_duplicados_y_dos_formatos() {
+        let base = "(partitura:\"pieza.ron\",volumen:0.5,espera_inicial_segundos:(5,10),pausa_entre_piezas_segundos:(40,75))";
+        let lista = base.replace(
+            "partitura:\"pieza.ron\"",
+            "partituras:[\"una.ron\",\"otra.ron\"]",
+        );
+        assert_eq!(
+            ConfiguracionMusica::interpretar(&lista)
+                .unwrap()
+                .nombres()
+                .unwrap(),
+            ["una.ron", "otra.ron"]
+        );
+        for campo in [
+            "partituras:[]",
+            "partituras:[\"una.ron\",\"una.ron\"]",
+            "partituras:[\"../una.ron\"]",
+            "partitura:\"pieza.ron\",partituras:[\"otra.ron\"]",
+        ] {
+            assert!(
+                ConfiguracionMusica::interpretar(&base.replace("partitura:\"pieza.ron\"", campo))
+                    .is_err()
+            );
+        }
+        assert!(
+            ConfiguracionMusica::interpretar(&base.replace("partitura:\"pieza.ron\",", ""))
+                .is_err()
+        );
+    }
 
     #[test]
     fn tipo_rio_es_opcional_conserva_corriente_y_rechaza_valores_desconocidos() {

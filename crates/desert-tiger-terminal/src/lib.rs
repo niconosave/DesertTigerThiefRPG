@@ -5,6 +5,7 @@ mod colores;
 mod consulta_paleta;
 mod fogata;
 mod interfaz;
+mod musica_campamento;
 mod recursos;
 
 use std::error::Error;
@@ -40,6 +41,11 @@ impl Display for ErrorTerminal {
 }
 
 impl Error for ErrorTerminal {}
+
+#[cfg(feature = "audio")]
+pub fn previsualizar_melodia(entrada: &Path, salida: &Path) -> Result<f64, ErrorTerminal> {
+    audio::previsualizar(entrada, salida).map_err(ErrorTerminal)
+}
 
 pub fn ejecutar<I, S>(argumentos: I) -> Result<(), ErrorTerminal>
 where
@@ -166,12 +172,16 @@ fn ejecutar_interactivo(
     terminal.clear().map_err(error_io)?;
     let mut interfaz = Interfaz::nueva(partida).map_err(ErrorTerminal)?;
     let mut audio = audio::ControlAudio::iniciar(preparacion_audio);
+    let inicio_musica = Instant::now();
+    let ajustes_musica = audio.ajustes_musica();
     let mut ultimo_paso = Instant::now();
     loop {
-        audio.actualizar(interfaz.ambiente_sonoro());
-        if let Some(aviso) = audio.tomar_aviso() {
-            interfaz.recibir_aviso_audio(aviso);
-        }
+        sincronizar_audio(
+            &mut interfaz,
+            &mut audio,
+            inicio_musica.elapsed(),
+            ajustes_musica,
+        );
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .map_err(error_io)?;
@@ -200,10 +210,26 @@ fn ejecutar_interactivo(
                 _ => {}
             }
         }
-        audio.actualizar(interfaz.ambiente_sonoro());
-        if let Some(aviso) = audio.tomar_aviso() {
-            interfaz.recibir_aviso_audio(aviso);
-        }
+        sincronizar_audio(
+            &mut interfaz,
+            &mut audio,
+            inicio_musica.elapsed(),
+            ajustes_musica,
+        );
+    }
+}
+
+fn sincronizar_audio(
+    interfaz: &mut Interfaz,
+    audio: &mut audio::ControlAudio,
+    ahora: std::time::Duration,
+    ajustes: Option<musica_campamento::AgendaMusica>,
+) {
+    audio.actualizar(interfaz.ambiente_sonoro());
+    interfaz.actualizar_musica(ahora, audio.estado_musica(), audio.disponible(), ajustes);
+    audio.solicitar_musica(interfaz.solicitud_musica());
+    if let Some(aviso) = audio.tomar_aviso() {
+        interfaz.recibir_aviso_audio(aviso);
     }
 }
 

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.57 |
+| Versión | 0.58 |
 | Fecha | 2026-10-26 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
@@ -13,6 +13,11 @@
 > amplía el entorno sonoro del grupo, aceptado por el usuario; su alternativa
 > de riachuelo está en prueba.
 > No cambia las reglas de Acampar ni su avance de tiempo.
+
+> Música del campamento integrada según el [contrato 20](./20-musica-campamento.md):
+> agenda de presentación, músicos elegibles y notas que siguen la reproducción
+> confirmada. La geometría de retratos se comparte con esa superposición; el
+> motor no ejecuta acciones de RPG ni adelanta el tiempo al tocar.
 
 > La resolución de color, la consulta inicial y la opción `--color-scheme`
 > están implementadas según el [contrato 16](./16-paleta-terminal.md). Los

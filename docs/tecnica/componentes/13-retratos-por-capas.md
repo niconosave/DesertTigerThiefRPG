@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.4 |
+| Versión | 1.7 |
 | Fecha | 2026-10-26 |
 
 > Ampliación implementada el 2026-10-26: el
@@ -88,6 +88,12 @@ Los constructores son privados: la carga garantiza sus invariantes.
 El renderizador omite por completo los espacios de cualquier capa, incluidos
 sus estilos. En una celda visible, un fondo `None` conserva el fondo existente;
 `Some("negro")` lo reemplaza por negro puro. Un estilo ausente usa `destacado`.
+Los atributos del terreno o de otra capa no se heredan en los glifos visibles:
+se eliminan los modificadores ajenos antes de aplicar los propios del retrato.
+Esto incluye negrita, tenue e invertido; el estilo de respaldo `destacado`
+conserva su negrita explícita. Los espacios transparentes no se modifican y
+`fondo: None` conserva el color de fondo existente. Así un retrato mantiene
+sus tonos al pasar sobre montañas o bosques y al redimensionar la terminal.
 El frente `"negro"` usa el negro ANSI nativo (`Color::Black`), como los demás
 colores nominales; el modo fijo lo resuelve mediante su paleta RGB. Para que un
 ojo o bloque parcial herede el lienzo se utiliza `fondo: None`, también en el
@@ -117,6 +123,17 @@ expresión vuelve a la base. Al terminar o cancelar la acción, la vista normal
 se proyecta con `None`. Cambiar de página, abrir el detalle o confirmar la salida
 conserva la expresión de la viñeta vigente. No existe una variable global
 mutable ni un estado emocional persistente en el Mundo.
+
+### Señal local de interpretación musical
+
+El [contrato 20](./20-musica-campamento.md#4-notas-sobre-los-retratos) define una
+superposición temporal `music` para los integrantes del grupo mientras una
+interpretación esté confirmada en el campamento. Incluye a quienes escuchan,
+sin requerir `musico`. Se selecciona al componer cada retrato y conserva el
+parpadeo como última capa.
+No sustituye ni modifica la señal narrativa de `VistaActor.expresion`; al
+terminar, esa señal vuelve a dibujarse. Su ausencia en el RON conserva la
+expresión vigente del Actor.
 
 En Viajar, `narracion_viaje::expresion_escena` fija estas señales iniciales:
 
@@ -163,3 +180,14 @@ El contenido oficial se valida en conjunto. No hay decisiones pendientes.
 Las pruebas de sesión recorren un viaje y verifican que la señal alcanza al
 grupo y se limpia al terminar; las del narrador comprueban señales de éxito,
 fallo, carencia, llegada y retorno a una escena neutral.
+
+La regresión de atributos heredados compara el retrato aislado con el dibujado
+sobre agua, montaña, bosque, terreno árido y bosque quemado, en anchos 80, 97
+y 120, con paletas nativa y fija. Otra prueba conserva los espacios y fondos
+transparentes, los fondos explícitos y los modificadores propios del estilo de
+respaldo. Antes de corregir la composición, la primera prueba detectaba negrita
+del fondo en glifos que debían ser normales.
+
+La corrección pasa fmt, check, clippy sin advertencias, 176 pruebas con audio
+y 151 sin audio, además de ambas compilaciones release. Un recorrido del mapa
+en PTY con cinco cambios de ancho finaliza sin errores y restaura la terminal.

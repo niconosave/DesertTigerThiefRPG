@@ -15,7 +15,7 @@ use desert_tiger_app::{
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use unicode_width::UnicodeWidthChar;
@@ -47,6 +47,7 @@ pub(crate) struct Interfaz {
     pagina_antes_detalle: usize,
     reloj: RelojVisual,
     campamento: Option<crate::campamento::EstadoCampamento>,
+    musica: crate::musica_campamento::MusicaCampamento,
     aviso_audio: Option<AvisoAudio>,
     aviso_audio_mostrado: Cell<bool>,
 }
@@ -71,6 +72,7 @@ impl Interfaz {
             pagina_antes_detalle: 0,
             reloj: RelojVisual::default(),
             campamento: None,
+            musica: crate::musica_campamento::MusicaCampamento::default(),
             aviso_audio: None,
             aviso_audio_mostrado: Cell::new(false),
         })
@@ -94,6 +96,35 @@ impl Interfaz {
             lugar,
             matches!(self.vista, VistaSesion::Acampando(_)),
         )
+    }
+
+    pub(crate) fn actualizar_musica(
+        &mut self,
+        ahora: Duration,
+        progreso: Option<crate::musica_campamento::ProgresoMusica>,
+        disponible: bool,
+        ajustes: Option<crate::musica_campamento::AgendaMusica>,
+    ) {
+        use crate::musica_campamento::candidatos;
+        if let (VistaSesion::Acampando(vista), Some(ajustes)) = (&self.vista, ajustes)
+            && disponible
+            && !self.salir
+        {
+            if self.musica.campamento() != Some(vista.id) {
+                self.musica
+                    .abrir(vista.id, candidatos(&self.partida, vista), ahora, ajustes);
+            }
+            self.musica
+                .actualizar(ahora, progreso, self.confirmar_salida, ajustes);
+        } else {
+            self.musica.cancelar();
+        }
+        if let Some(campamento) = &mut self.campamento {
+            campamento.musica = self.musica.notas();
+        }
+    }
+    pub(crate) fn solicitud_musica(&self) -> u32 {
+        self.musica.solicitud()
     }
 
     pub(crate) fn recibir_aviso_audio(&mut self, aviso: AvisoAudio) {
@@ -131,7 +162,9 @@ impl Interfaz {
         if self.confirmar_salida {
             return PASO_ANIMACION;
         }
-        let intervalo = if self.campamento.is_some() && recursos.efecto_fogata.is_some() {
+        let intervalo = if self.campamento.is_some()
+            && (recursos.efecto_fogata.is_some() || self.musica.notas().is_some())
+        {
             PASO_FOGATA
         } else {
             PASO_ANIMACION
@@ -452,7 +485,15 @@ impl Interfaz {
         {
             poner_celda(frame, x, y, '@', recursos.ui.foco);
         }
-        dibujar_retratos(frame, area, area, mundo, recursos, self.reloj.paso_250_ms());
+        dibujar_retratos(
+            frame,
+            area,
+            area,
+            mundo,
+            recursos,
+            self.reloj.paso_250_ms(),
+            false,
+        );
     }
 
     fn objetivo_camara(&self, mundo: &VistaMundo) -> desert_tiger_app::CoordenadaMapa {
@@ -909,6 +950,30 @@ fn proyectar(
     ))
 }
 
+pub(crate) fn disposicion_retratos(
+    mundo: &VistaMundo,
+    area: Rect,
+) -> impl Iterator<Item = (&VistaActor, i64, i64)> {
+    mundo
+        .companeros
+        .iter()
+        .chain(std::iter::once(&mundo.jugador))
+        .scan(
+            (i64::from(area.x), None::<usize>),
+            move |(x, anterior), actor| {
+                let base = actor.retrato.base();
+                if let Some(ancho) = *anterior {
+                    let solapamiento = 1.max(ancho.min(base.ancho()) / 4);
+                    *x = x.saturating_add(i64::try_from(ancho - solapamiento).unwrap_or(i64::MAX));
+                }
+                *anterior = Some(base.ancho());
+                let y = i64::from(area.bottom())
+                    .saturating_sub(i64::try_from(base.alto()).unwrap_or(i64::MAX));
+                Some((actor, *x, y))
+            },
+        )
+}
+
 pub(crate) fn dibujar_retratos(
     frame: &mut Frame<'_>,
     area: Rect,
@@ -916,24 +981,13 @@ pub(crate) fn dibujar_retratos(
     mundo: &VistaMundo,
     recursos: &RecursosVisuales,
     paso: usize,
+    musica: bool,
 ) -> i64 {
-    let mut actores = Vec::with_capacity(mundo.companeros.len() + 1);
-    actores.extend(mundo.companeros.iter());
-    actores.push(&mundo.jugador);
-    let mut x = i64::from(area.x);
-    let base_y = i64::from(area.bottom());
-    let mut anterior: Option<usize> = None;
-    for actor in actores {
+    let mut fin = i64::from(area.x);
+    for (actor, x, inicio_y) in disposicion_retratos(mundo, area) {
         let retrato = &actor.retrato;
-        let base = retrato.base();
-        if let Some(ancho_anterior) = anterior {
-            let solapamiento = 1.max(ancho_anterior.min(base.ancho()) / 4);
-            x = x.saturating_add(i64::try_from(ancho_anterior - solapamiento).unwrap_or(i64::MAX));
-        }
-        let alto = i64::try_from(base.alto()).unwrap_or(i64::MAX);
-        let inicio_y = base_y.saturating_sub(alto);
         for (origen, grafico) in retrato
-            .capas(actor.expresion.as_deref(), parpadeando(actor, paso))
+            .capas(expresion_retrato(actor, musica), parpadeando(actor, paso))
             .into_iter()
             .flatten()
         {
@@ -941,9 +995,22 @@ pub(crate) fn dibujar_retratos(
             let py = inicio_y.saturating_add(i64::try_from(origen.y).unwrap_or(i64::MAX));
             dibujar_grafico_retrato(frame, recorte, px, py, grafico, recursos);
         }
-        anterior = Some(base.ancho());
+        fin = x.saturating_add(i64::try_from(retrato.base().ancho()).unwrap_or(i64::MAX));
     }
-    x.saturating_add(anterior.and_then(|v| i64::try_from(v).ok()).unwrap_or(0))
+    fin
+}
+
+fn expresion_retrato(actor: &VistaActor, musica: bool) -> Option<&str> {
+    if musica
+        && actor
+            .retrato
+            .rostro()
+            .is_some_and(|r| r.expresion("music").is_some())
+    {
+        Some("music")
+    } else {
+        actor.expresion.as_deref()
+    }
 }
 
 fn parpadeando(actor: &VistaActor, paso: usize) -> bool {
@@ -982,6 +1049,8 @@ fn dibujar_grafico_retrato(
                 .estilo
                 .map(estilo_retrato)
                 .unwrap_or(recursos.ui.destacado);
+            // El fondo puede ser transparente; la negrita/tenue del terreno no.
+            let estilo = estilo.remove_modifier(Modifier::all().difference(estilo.add_modifier));
             if let (Ok(px), Ok(py)) = (u16::try_from(px), u16::try_from(py)) {
                 poner_celda(frame, px, py, celda.glifo, estilo);
             }
@@ -1037,6 +1106,301 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    #[test]
+    fn retratos_conservan_color_y_modificadores_sobre_cada_terreno_al_redimensionar() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        let interfaz = Interfaz::nueva(partida).unwrap();
+        let mut recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        for fija in [false, true] {
+            recursos.paleta = if fija {
+                crate::colores::PaletaColores::fija()
+            } else {
+                crate::colores::PaletaColores::default()
+            };
+            for ancho in [80, 97, 120] {
+                let area = Rect::new(0, 0, ancho, 22);
+                let mut mundo = interfaz.ultima_vista_mundo.clone();
+                for lugar in &mut mundo.lugares {
+                    lugar.coordenadas_rotulo.clear();
+                }
+                let mut terminal = Terminal::new(TestBackend::new(ancho, 24)).unwrap();
+                terminal
+                    .draw(|f| {
+                        dibujar_retratos(f, area, area, &mundo, &recursos, 0, false);
+                        recursos.paleta.aplicar(f.buffer_mut());
+                    })
+                    .unwrap();
+                let retratos = terminal.backend().buffer().clone();
+                for tipo in ["agua", "montana", "bosque", "arido", "bosqueQuemado"] {
+                    let clave = desert_tiger_app::ClaveTipoTile::nueva(tipo.into()).unwrap();
+                    mundo.mapa.celdas.fill(clave);
+                    terminal
+                        .draw(|f| {
+                            interfaz.dibujar_mundo(f, area, &mundo, &recursos);
+                            recursos.paleta.aplicar(f.buffer_mut());
+                        })
+                        .unwrap();
+                    let mapa = terminal.backend().buffer();
+                    for y in 0..22 {
+                        for x in 0..ancho {
+                            let esperado = &retratos[(x, y)];
+                            if esperado.symbol() == " " {
+                                continue;
+                            }
+                            let actual = &mapa[(x, y)];
+                            assert_eq!(
+                                actual.symbol(),
+                                esperado.symbol(),
+                                "glifo en {tipo}, ancho {ancho}, ({x},{y})"
+                            );
+                            assert_eq!(
+                                actual.fg, esperado.fg,
+                                "color en {tipo}, ancho {ancho}, ({x},{y})"
+                            );
+                            assert_eq!(
+                                actual.modifier, esperado.modifier,
+                                "atributos en {tipo}, ancho {ancho}, ({x},{y})"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn retrato_no_hereda_atributos_pero_conserva_fondos_espacios_y_estilo_propio() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let p = Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        let mundo = p.mundo_visible();
+        let base = mundo
+            .companeros
+            .iter()
+            .find(|a| a.nombre == "Sirviente")
+            .unwrap()
+            .retrato
+            .base();
+        let sin_estilo = partida_con_retrato_capas().mundo_visible();
+        let sin_estilo = sin_estilo
+            .jugador
+            .retrato
+            .rostro()
+            .unwrap()
+            .expresion("sinEstilo")
+            .unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let heredados = Modifier::BOLD | Modifier::DIM | Modifier::REVERSED;
+        for grafico in [base, sin_estilo] {
+            let render = |modificadores| {
+                let mut t = Terminal::new(TestBackend::new(80, 24)).unwrap();
+                t.draw(|f| {
+                    for c in &mut f.buffer_mut().content {
+                        c.set_char('?').set_style(
+                            Style::default()
+                                .fg(Color::Green)
+                                .bg(Color::Blue)
+                                .add_modifier(modificadores),
+                        );
+                    }
+                    dibujar_grafico_retrato(f, Rect::new(0, 0, 80, 24), 0, 0, grafico, &recursos);
+                })
+                .unwrap();
+                t.backend().buffer().clone()
+            };
+            let plano = render(Modifier::empty());
+            let decorado = render(heredados);
+            for (i, celda) in grafico.celdas().iter().enumerate() {
+                let posicion = ((i % grafico.ancho()) as u16, (i / grafico.ancho()) as u16);
+                if celda.glifo == ' ' {
+                    assert_eq!(decorado[posicion].symbol(), "?");
+                    assert_eq!(decorado[posicion].modifier, heredados);
+                    assert_eq!(decorado[posicion].bg, Color::Blue);
+                } else {
+                    assert_eq!(decorado[posicion], plano[posicion]);
+                    match celda.estilo {
+                        None => {
+                            assert_eq!(
+                                decorado[posicion].modifier,
+                                recursos.ui.destacado.add_modifier
+                            );
+                            assert_eq!(decorado[posicion].bg, Color::Blue);
+                        }
+                        Some(estilo) if estilo.fondo.is_none() => {
+                            assert_eq!(decorado[posicion].bg, Color::Blue)
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn notas_musicales_siguen_al_sirviente_solo_con_audio_confirmado_y_respetan_recorte() {
+        use crate::musica_campamento::{AgendaMusica, ProgresoMusica};
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let c = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let mut i =
+            Interfaz::nueva(Partida::nueva(&c, ConfiguracionPartida { semilla: Some(7) }).unwrap())
+                .unwrap();
+        let mut r = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        r.efecto_fogata = None;
+        i.enviar(IntencionFrontend::ComenzarCampamento);
+        // Esta prueba aísla las notas: la misma cara musical en ambos cuadros.
+        for actor in i
+            .ultima_vista_mundo
+            .companeros
+            .iter_mut()
+            .chain(std::iter::once(&mut i.ultima_vista_mundo.jugador))
+        {
+            actor.expresion = Some("music".into());
+        }
+        let ajustes = Some(AgendaMusica {
+            inicial: (1, 1),
+            pausa: (2, 2),
+        });
+        i.actualizar_musica(Duration::ZERO, None, true, ajustes);
+        i.actualizar_musica(Duration::from_secs(1), None, true, ajustes);
+        let evento = i.solicitud_musica();
+        assert!(evento > 0 && i.musica.notas().is_none());
+        let base = cuadro_campamento(&i, &r, 80, 24);
+        let mut vistos = 0;
+        let mut cuadros = Vec::new();
+        for ms in [0, 450, 900, 1400] {
+            i.actualizar_musica(
+                Duration::from_secs(2),
+                Some(ProgresoMusica {
+                    evento,
+                    transcurrido: Duration::from_millis(ms),
+                    finalizada: false,
+                }),
+                true,
+                ajustes,
+            );
+            let notas = i.musica.notas().unwrap();
+            assert_eq!(
+                i.ultima_vista_mundo
+                    .companeros
+                    .iter()
+                    .find(|a| a.id == notas.actor)
+                    .unwrap()
+                    .nombre,
+                "Sirviente"
+            );
+            let cuadro = cuadro_campamento(&i, &r, 80, 24);
+            for y in 0..24 {
+                for x in 0..80 {
+                    if cuadro[(x, y)] != base[(x, y)] {
+                        assert_eq!(base[(x, y)].symbol(), " ");
+                        assert_eq!(cuadro[(x, y)].bg, base[(x, y)].bg);
+                        assert!(["♪", "♫", "♩"].contains(&cuadro[(x, y)].symbol()));
+                        assert!((6..22).contains(&y));
+                        vistos += 1;
+                    }
+                }
+            }
+            cuadros.push(cuadro);
+            let _ = cuadro_campamento(&i, &r, 79, 23);
+        }
+        assert!(
+            vistos > 0,
+            "debe verse alguna nota en los retratos oficiales"
+        );
+        assert_ne!(cuadros[0], cuadros[2]);
+        for glifo in ['♪', '♫', '♩'] {
+            assert_eq!(UnicodeWidthChar::width(glifo), Some(1));
+        }
+        i.actualizar_musica(Duration::from_secs(3), None, false, ajustes);
+        assert!(i.musica.notas().is_none() && i.solicitud_musica() == 0);
+        assert_eq!(base, cuadro_campamento(&i, &r, 80, 24));
+    }
+
+    #[test]
+    fn rostro_music_es_para_todo_el_grupo_y_restaura_las_expresiones_previas() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let c = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let p = Partida::nueva(&c, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        let antes = p.vista();
+        let mut mundo = p.mundo_visible();
+        for actor in mundo
+            .companeros
+            .iter_mut()
+            .chain(std::iter::once(&mut mundo.jugador))
+        {
+            actor.expresion = Some("angry".into());
+        }
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let paso = (0..40)
+            .find(|&p| {
+                mundo
+                    .companeros
+                    .iter()
+                    .chain(std::iter::once(&mundo.jugador))
+                    .all(|a| !parpadeando(a, p))
+            })
+            .unwrap();
+        let render = |mundo: &VistaMundo, musica| {
+            let mut t = Terminal::new(TestBackend::new(80, 24)).unwrap();
+            t.draw(|f| {
+                let area = f.area();
+                dibujar_retratos(f, area, area, mundo, &recursos, paso, musica);
+            })
+            .unwrap();
+            t.backend().buffer().clone()
+        };
+        let base = render(&mundo, false);
+        let disfrutando = render(&mundo, true);
+        let rectangulos: Vec<_> = disposicion_retratos(&mundo, Rect::new(0, 0, 80, 24))
+            .map(|(actor, x, y)| {
+                let rostro = actor.retrato.rostro().unwrap();
+                let grafico = rostro
+                    .expresion("music")
+                    .expect("el grupo inicial tiene cara musical");
+                (
+                    x + rostro.origen().x as i64,
+                    y + rostro.origen().y as i64,
+                    grafico.ancho() as i64,
+                    grafico.alto() as i64,
+                )
+            })
+            .collect();
+        for &(x, y, ancho, alto) in &rectangulos {
+            assert!((y..y + alto).any(|py| {
+                (x..x + ancho)
+                    .any(|px| base[(px as u16, py as u16)] != disfrutando[(px as u16, py as u16)])
+            }));
+        }
+        for py in 0..24 {
+            for px in 0..80 {
+                if base[(px, py)] != disfrutando[(px, py)] {
+                    assert!(
+                        rectangulos
+                            .iter()
+                            .any(|&(x, y, w, h)| (x..x + w).contains(&i64::from(px))
+                                && (y..y + h).contains(&i64::from(py)))
+                    );
+                }
+            }
+        }
+        assert_eq!(render(&mundo, false), base);
+        assert!(
+            mundo
+                .companeros
+                .iter()
+                .chain(std::iter::once(&mundo.jugador))
+                .all(|a| a.expresion.as_deref() == Some("angry"))
+        );
+        let mut sin_variante = partida_con_retrato_capas().mundo_visible();
+        sin_variante.companeros.clear();
+        sin_variante.jugador.expresion = Some("enojado".into());
+        assert_eq!(render(&sin_variante, true), render(&sin_variante, false));
+        assert_eq!(p.vista(), antes);
+    }
 
     #[test]
     fn paisaje_del_viaje_sigue_lugar_confirmado_y_no_foco_o_siguiente_lugar() {
@@ -1266,6 +1630,7 @@ mod pruebas {
                 base: (arte: "abcd\nefgh\nijkl", estilos: Some("bbbb\nbbbb\nbbbb")),
                 rostro: Some((origen: (x: 0, y: 0), expresiones: {
                     "enojado": (arte: "X ZW\n Q  ", estilos: Some("eeee\neeee")),
+                    "sinEstilo": (arte: "a b", estilos: None),
                 })),
                 parpadeo: Some((origen: (x: 1, y: 0), intervalo_ms: 1000, duracion_ms: 250,
                     ojo_cerrado: (arte: " C ", estilos: Some("ppp")),

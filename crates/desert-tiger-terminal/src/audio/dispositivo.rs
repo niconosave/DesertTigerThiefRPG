@@ -91,12 +91,21 @@ fn escribir<T: SizedSample + FromSample<f32>>(
 ) {
     let orden = comunicacion.orden.load(Ordering::Acquire);
     motor.ordenar(orden);
+    motor.ordenar_musica(comunicacion.orden_musica.load(Ordering::Acquire));
     let mut fallo = comunicacion.fallo.load(Ordering::Acquire) != 0;
     for cuadro in datos.chunks_mut(canales) {
         let muestra = if fallo { 0.0 } else { motor.siguiente() };
         let muestra = muestra_segura(muestra, comunicacion, &mut fallo);
         cuadro.fill(T::from_sample(muestra));
     }
+    comunicacion.estado_musica.store(
+        if fallo || comunicacion.fallo.load(Ordering::Acquire) != 0 {
+            0
+        } else {
+            motor.estado_musica()
+        },
+        Ordering::Release,
+    );
     // Solo se confirma la orden final observada, nunca un silencio anterior.
     if orden == CERRAR && (motor.en_silencio() || fallo) {
         comunicacion.silencio.store(1, Ordering::Release);
@@ -123,6 +132,14 @@ fn construir<T: SizedSample + FromSample<f32>>(
 }
 
 impl SalidaAudio {
+    pub(super) fn solicitar_musica(&self, evento: u32) {
+        self.comunicacion
+            .orden_musica
+            .store(evento, Ordering::Release);
+    }
+    pub(super) fn estado_musica(&self) -> Option<crate::musica_campamento::ProgresoMusica> {
+        super::reproductor::decodificar(self.comunicacion.estado_musica.load(Ordering::Acquire))
+    }
     pub(super) fn abrir(config: ConfiguracionAudio) -> Result<Self, AvisoAudio> {
         let dispositivo = cpal::default_host()
             .default_output_device()

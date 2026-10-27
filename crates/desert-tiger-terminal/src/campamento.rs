@@ -18,6 +18,7 @@ pub(crate) struct EstadoCampamento {
     pagina: Cell<usize>,
     dimensiones_detalle: Cell<(u16, u16)>,
     error: Option<String>,
+    pub(crate) musica: Option<crate::musica_campamento::NotasMusicales>,
 }
 
 impl EstadoCampamento {
@@ -31,6 +32,7 @@ impl EstadoCampamento {
             pagina: Cell::new(0),
             dimensiones_detalle: Cell::new((53, 6)),
             error: None,
+            musica: None,
         };
         estado.seleccionar(horizontal, partida);
         estado
@@ -225,8 +227,25 @@ impl EstadoCampamento {
             .min(area.height.saturating_sub(6));
         let ficha_alto = area.height - alto_arte;
         let arte = Rect::new(area.x, area.y + ficha_alto, area.width, alto_arte);
-        let fin_retratos =
-            dibujar_retratos(frame, area, arte, mundo, recursos, reloj.paso_250_ms());
+        let fin_retratos = dibujar_retratos(
+            frame,
+            area,
+            arte,
+            mundo,
+            recursos,
+            reloj.paso_250_ms(),
+            self.musica.is_some(),
+        );
+        if let Some(musica) = self.musica {
+            crate::musica_campamento::dibujar_notas(
+                frame,
+                area,
+                arte,
+                mundo,
+                musica,
+                recursos.ui.destacado,
+            );
+        }
         let fogata_x = fin_retratos.saturating_add(1);
         let fogata_y = i64::from(area.bottom())
             .saturating_sub(i64::try_from(recursos.alto_fogata()).unwrap_or(i64::MAX));

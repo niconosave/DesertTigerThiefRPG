@@ -4,6 +4,14 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Música de los integrantes del campamento terminada
+
+[PLAN-2026-043](../completados/2026-10-26-43-integrar-musicos-campamento.md)
+está completado y aceptado por el usuario. El
+[contrato 20](../../tecnica/componentes/20-musica-campamento.md) conserva sus
+verificaciones y el retoque posterior de rostro musical. La futura banda no
+forma parte del alcance actual.
+
 ## Paisajes sonoros terminados
 
 [PLAN-2026-042](../completados/2026-10-26-42-incorporar-paisajes-sonoros.md) implementa el

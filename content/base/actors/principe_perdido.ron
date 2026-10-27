@@ -63,6 +63,20 @@
         rostro: Some((
             origen: (x: 12, y: 6),
             expresiones: {
+                "music": (
+                    arte: r#"
+████
+█▀▀█
+████
+██-█
+"#,
+                    estilos: Some(r#"
+1344
+4BB6
+6666
+66E6
+"#),
+                ),
                 "scared": (
                     arte: r#"
 ██🯐███

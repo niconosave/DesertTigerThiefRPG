@@ -11,9 +11,17 @@ mod fuentes;
 mod motor;
 mod paisaje;
 #[cfg(feature = "audio")]
+mod partitura;
+#[cfg(feature = "audio")]
+mod reproductor;
+#[cfg(feature = "audio")]
 mod riachuelo;
+#[cfg(feature = "audio")]
+mod transicion;
 
-use configuracion::{ConfiguracionAmbientes, ConfiguracionAudio, ConfiguracionFogataAudio};
+use configuracion::{
+    ConfiguracionAmbientes, ConfiguracionAudio, ConfiguracionFogataAudio, ConfiguracionMusica,
+};
 use std::path::Path;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -81,6 +89,7 @@ pub(crate) fn preparar(habilitado: bool, raiz: &Path) -> Result<PreparacionAudio
         Some(ConfiguracionAudio {
             fogata: ConfiguracionFogataAudio::cargar(&raiz.join("fogata.ron"))?,
             ambientes: ConfiguracionAmbientes::cargar(&raiz.join("ambientes.ron"))?,
+            musica: ConfiguracionMusica::cargar(&raiz.join("musica"))?,
         })
     } else {
         None
@@ -94,13 +103,23 @@ pub(crate) struct ControlAudio {
     salida: Option<dispositivo::SalidaAudio>,
     aviso: Option<AvisoAudio>,
     ambiente: AmbienteSonoro,
+    ajustes_musica: Option<crate::musica_campamento::AgendaMusica>,
 }
 
 impl ControlAudio {
     pub(crate) fn iniciar(preparacion: PreparacionAudio) -> Self {
         #[cfg(feature = "audio")]
         if let Some(config) = preparacion.config {
-            return Self::desde_apertura(dispositivo::SalidaAudio::abrir(config));
+            let ajustes = (config.musica.volumen > 0.0
+                && config
+                    .musica
+                    .piezas
+                    .iter()
+                    .any(|p| p.iter().any(|m| *m != 0.0)))
+            .then_some(config.musica.agenda);
+            let mut control = Self::desde_apertura(dispositivo::SalidaAudio::abrir(config));
+            control.ajustes_musica = ajustes;
+            return control;
         }
         #[cfg(not(feature = "audio"))]
         let _ = preparacion.config;
@@ -118,6 +137,7 @@ impl ControlAudio {
                 salida: None,
                 aviso: Some(aviso),
                 ambiente: AmbienteSonoro::SILENCIO,
+                ajustes_musica: None,
             },
         }
     }
@@ -142,6 +162,41 @@ impl ControlAudio {
         self.aviso.take()
     }
 
+    pub(crate) fn ajustes_musica(&self) -> Option<crate::musica_campamento::AgendaMusica> {
+        self.ajustes_musica
+    }
+
+    pub(crate) fn disponible(&self) -> bool {
+        #[cfg(feature = "audio")]
+        {
+            self.salida.is_some()
+        }
+        #[cfg(not(feature = "audio"))]
+        {
+            false
+        }
+    }
+
+    pub(crate) fn solicitar_musica(&self, evento: u32) {
+        #[cfg(feature = "audio")]
+        if let Some(salida) = &self.salida {
+            salida.solicitar_musica(evento);
+        }
+        #[cfg(not(feature = "audio"))]
+        let _ = evento;
+    }
+
+    pub(crate) fn estado_musica(&self) -> Option<crate::musica_campamento::ProgresoMusica> {
+        #[cfg(feature = "audio")]
+        {
+            self.salida.as_ref().and_then(|s| s.estado_musica())
+        }
+        #[cfg(not(feature = "audio"))]
+        {
+            None
+        }
+    }
+
     pub(crate) fn cerrar(&mut self) {
         #[cfg(feature = "audio")]
         if let Some(salida) = self.salida.take() {
@@ -149,6 +204,11 @@ impl ControlAudio {
         }
         self.ambiente = AmbienteSonoro::SILENCIO;
     }
+}
+
+#[cfg(feature = "audio")]
+pub(crate) fn previsualizar(entrada: &Path, salida: &Path) -> Result<f64, String> {
+    partitura::previsualizar(entrada, salida)
 }
 
 impl Drop for ControlAudio {

@@ -3,7 +3,7 @@
     nombre: "Sirviente",
     biografia: "Un sirviente que acompaña al príncipe en su viaje.",
     ubicacion_inicial: EnLugar("zona_arida"),
-    caracteristicas: [],
+    caracteristicas: ["musico"],
     relaciones: [
         (tipo: Sirviente, destino: Actor("principe_perdido")),
     ],
@@ -62,6 +62,20 @@ BBBBBBBBBBBBBBBB
         rostro: Some((
             origen: (x: 9, y: 6),
             expresiones: {
+                "music": (
+                    arte: r#"
+▀▀▄▀▀
+█▀▀█ 
+██𜰽█▀
+████ 
+"#,
+                    estilos: Some(r#"
+77873
+AAAA0
+AAEAA
+AAAA0
+"#),
+                ),
                 "scared": (
                     arte: r#"
 ▀▀🯐▀▀ 

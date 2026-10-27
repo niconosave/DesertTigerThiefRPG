@@ -119,3 +119,9 @@ viento, aves, río y mar según los Lugares y sus conexiones, durante el mapa,
 Viajar y Acampar. El usuario aceptó el resultado y confirmó combinaciones de
 ambientes como bosque y río. El plan conserva las verificaciones históricas
 de 154 pruebas con audio, 139 sin audio y nueve recorridos PTY.
+
+## Músicos del campamento
+
+[PLAN-2026-043](./2026-10-26-43-integrar-musicos-campamento.md) está completado:
+reproducción ocasional, sirviente músico y notas coordinadas con el audio,
+probados y aceptados por el usuario.

@@ -64,6 +64,32 @@ cargo run --release --bin desert-tiger-terminal -- -B
 `-B` se puede combinar con las otras opciones. Los fondos coloreados del mapa
 y la interfaz, y los fondos explícitos de los retratos, se conservan.
 
+## Música del campamento
+
+La melodía de prueba “Hilo del camino” y las instrucciones para generar su
+previsualización están en [música](../assets/audio/musica/README.md).
+Usa cuerdas pulsadas sintetizadas con FunDSP y notas editables en RON. Al
+acampar, un integrante vivo con `musico` puede tocar la versión grave aceptada;
+el sirviente inicial tiene esa característica. Aparecen notas animadas junto a
+su retrato mientras toca.
+
+Solo interpreta un músico a la vez. Mientras suena, todos los integrantes con
+la expresión `music` la muestran, también quienes escuchan, y recuperan sus
+caras anteriores al terminar. El grupo inicial incluye esa variante. Las
+notas animadas salen únicamente del intérprete. La banda queda aplazada.
+
+El repertorio incluye la versión grave de “Hilo del camino” y la nueva
+“Recuerdo del hogar”, de alrededor de un minuto. Se alternan para evitar que
+suene siempre la misma; la lista `partituras` en `campamento.ron` permite
+añadir otras piezas. El primer archivo de la lista suena primero.
+
+La primera pieza espera entre 60 y 120 segundos. Entre interpretaciones hay
+pausas de 20–180 segundos. El volumen y esos intervalos se editan en
+[`campamento.ron`](../assets/audio/musica/campamento.ron) y se cargan al reiniciar.
+Cambiar de ficha no reinicia la música. `--no-audio` también deshabilita sus
+notas animadas. El [contrato 20](./tecnica/componentes/20-musica-campamento.md)
+define su integración con los retratos y el resto del audio.
+
 ## Sonido de la fogata
 
 El juego también genera viento suave y un ave lejana ocasional. En lugares

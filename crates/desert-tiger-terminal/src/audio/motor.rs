@@ -4,7 +4,7 @@ use super::configuracion::ConfiguracionFogataAudio;
 use super::{ambientes::GeneradorAmbientes, fogata::GeneradorFogata};
 use std::sync::{
     Arc,
-    atomic::{AtomicU8, Ordering},
+    atomic::{AtomicU8, AtomicU32, AtomicU64, Ordering},
 };
 
 pub(super) const SILENCIO: u8 = 0;
@@ -22,6 +22,8 @@ pub(super) struct Comunicacion {
     pub orden: Arc<AtomicU8>,
     pub fallo: Arc<AtomicU8>,
     pub silencio: Arc<AtomicU8>,
+    pub orden_musica: Arc<AtomicU32>,
+    pub estado_musica: Arc<AtomicU64>,
 }
 impl Comunicacion {
     pub(super) fn informar_fallo(&self, codigo: u8) {
@@ -31,40 +33,12 @@ impl Comunicacion {
     }
 }
 
-#[derive(Clone, Copy, Default)]
-struct Rampa {
-    ganancia: f32,
-    origen: f32,
-    destino: f32,
-    paso: u64,
-    duracion: u64,
-}
-impl Rampa {
-    fn dirigir(&mut self, activo: bool, ms: u32, frecuencia: u32) {
-        self.origen = self.ganancia;
-        self.destino = if activo { 1.0 } else { 0.0 };
-        self.paso = 0;
-        self.duracion = (ms as u64 * frecuencia as u64).div_ceil(1000);
-    }
-    fn avanzar(&mut self) -> f32 {
-        if self.paso < self.duracion {
-            self.paso += 1;
-            self.ganancia = if self.paso == self.duracion {
-                self.destino
-            } else {
-                self.origen + (self.destino - self.origen) * self.paso as f32 / self.duracion as f32
-            };
-        }
-        self.ganancia
-    }
-    fn silencio(&self) -> bool {
-        self.ganancia == 0.0 && self.destino == 0.0
-    }
-}
+use super::{reproductor::ReproductorMusica, transicion::Rampa};
 
 pub(super) struct MotorAudio {
     generador: GeneradorFogata,
     ambientes: GeneradorAmbientes,
+    musica: ReproductorMusica,
     frecuencia: u32,
     entrada_ms: u32,
     salida_ms: u32,
@@ -81,8 +55,10 @@ impl MotorAudio {
         let salida_ms = config.fogata.salida_ms();
         let generador = GeneradorFogata::nuevo(config.fogata, frecuencia, 0x6465736572746669)?;
         let ambientes = GeneradorAmbientes::nuevo(config.ambientes, frecuencia)?;
+        let musica = ReproductorMusica::nuevo(config.musica, frecuencia);
         Ok(Self {
             generador,
+            musica,
             ambientes,
             frecuencia,
             entrada_ms,
@@ -98,6 +74,7 @@ impl MotorAudio {
             ConfiguracionAudio {
                 fogata: config,
                 ambientes: super::configuracion::ConfiguracionAmbientes::fixture(),
+                musica: super::configuracion::ConfiguracionMusica::fixture(),
             },
             frecuencia,
         )
@@ -109,6 +86,11 @@ impl MotorAudio {
         let anterior = self.orden;
         self.orden = orden;
         let cierre = orden == CERRAR;
+        if cierre {
+            self.musica.cancelar(20);
+        } else if orden & FOGATA == 0 {
+            self.musica.ordenar(0);
+        }
         if cierre || (orden & FOGATA != anterior & FOGATA) {
             let activo = !cierre && orden & FOGATA != 0;
             let ms = if cierre {
@@ -130,6 +112,15 @@ impl MotorAudio {
             }
         }
     }
+    pub(super) fn ordenar_musica(&mut self, id: u32) {
+        if self.orden != CERRAR {
+            self.musica
+                .ordenar(if self.orden & FOGATA != 0 { id } else { 0 });
+        }
+    }
+    pub(super) fn estado_musica(&self) -> u64 {
+        self.musica.estado()
+    }
     pub(super) fn siguiente(&mut self) -> f32 {
         let ganancia = self.fogata.avanzar();
         let mut suma = if self.fogata.silencio() {
@@ -143,16 +134,50 @@ impl MotorAudio {
                 suma += self.ambientes.siguiente(i) * ganancia;
             }
         }
+        suma += self.musica.siguiente();
         0.8 * (suma / 0.8).tanh()
     }
     pub(super) fn en_silencio(&self) -> bool {
-        self.fogata.silencio() && self.capas.iter().all(Rampa::silencio)
+        self.fogata.silencio()
+            && self.capas.iter().all(Rampa::silencio)
+            && self.musica.en_silencio()
     }
 }
 #[cfg(test)]
 mod pruebas {
     use super::super::configuracion::fixture;
     use super::*;
+
+    #[test]
+    fn musica_solo_en_campamento_y_se_cancela_al_salir() {
+        let mut m = MotorAudio::nuevo(fixture(0.0, 0.0, [0.0, 0.0]), 48000).unwrap();
+        m.ordenar_musica(1);
+        assert_eq!(m.estado_musica(), 0);
+        m.ordenar(FOGATA);
+        m.ordenar_musica(1);
+        for _ in 0..1000 {
+            assert!(m.siguiente().abs() <= 0.8);
+        }
+        assert_ne!(m.estado_musica(), 0);
+        m.ordenar(SILENCIO);
+        m.ordenar_musica(1);
+        for _ in 0..15000 {
+            m.siguiente();
+        }
+        assert!(m.en_silencio());
+        assert_eq!(m.estado_musica(), 0);
+        m.ordenar(FOGATA);
+        m.ordenar_musica(2);
+        for _ in 0..1000 {
+            m.siguiente();
+        }
+        m.ordenar(CERRAR);
+        m.ordenar_musica(2);
+        for _ in 0..960 {
+            m.siguiente();
+        }
+        assert!(m.en_silencio());
+    }
 
     #[test]
     fn cambiar_entorno_no_reinicia_capas_comunes_y_el_cierre_silencia_todo() {

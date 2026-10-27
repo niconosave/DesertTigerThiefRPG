@@ -35,6 +35,11 @@ Los paisajes del entorno están completados y aceptados por el usuario en el
 
 ## Flujo
 
+La música ocasional y las notas animadas del campamento están completadas y
+aceptadas por el usuario en
+[PLAN-2026-043](./completados/2026-10-26-43-integrar-musicos-campamento.md), según
+el [contrato 20](../tecnica/componentes/20-musica-campamento.md).
+
 1. Copiar [`PLANTILLA.md`](./PLANTILLA.md) a
    `pendientes/AAAA-MM-DD-NN-nombre.md`, usando el siguiente ID y ordinal
    disponibles.

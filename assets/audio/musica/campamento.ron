@@ -1,0 +1,9 @@
+(
+    partituras: [
+        "recuerdo_del_hogar.ron",
+        "hilo_del_camino_castellana.ron",
+    ],
+    volumen: 0.50,
+    espera_inicial_segundos: (60, 120),
+    pausa_entre_piezas_segundos: (20, 180),
+)

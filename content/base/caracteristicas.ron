@@ -1,6 +1,11 @@
 (
     entradas: [
         (
+            clave: "musico",
+            nombre: "Músico",
+            descripcion: "Sabe tocar música y puede interpretar una melodía para sus compañeros durante el campamento.",
+        ),
+        (
             clave: "abierto",
             nombre: "Abierto",
             descripcion: "Terreno abierto, con pocas barreras que oculten el horizonte.",
