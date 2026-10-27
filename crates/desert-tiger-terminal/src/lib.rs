@@ -171,17 +171,15 @@ fn ejecutar_interactivo(
     let mut terminal = Terminal::new(backend).map_err(error_io)?;
     terminal.clear().map_err(error_io)?;
     let mut interfaz = Interfaz::nueva(partida).map_err(ErrorTerminal)?;
+    // El mapa ya es visible cuando se abre audio y empieza la síntesis diferida.
+    terminal
+        .draw(|frame| interfaz.dibujar(frame, &recursos))
+        .map_err(error_io)?;
     let mut audio = audio::ControlAudio::iniciar(preparacion_audio);
     let inicio_musica = Instant::now();
-    let ajustes_musica = audio.ajustes_musica();
     let mut ultimo_paso = Instant::now();
     loop {
-        sincronizar_audio(
-            &mut interfaz,
-            &mut audio,
-            inicio_musica.elapsed(),
-            ajustes_musica,
-        );
+        sincronizar_audio(&mut interfaz, &mut audio, inicio_musica.elapsed());
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
             .map_err(error_io)?;
@@ -210,12 +208,7 @@ fn ejecutar_interactivo(
                 _ => {}
             }
         }
-        sincronizar_audio(
-            &mut interfaz,
-            &mut audio,
-            inicio_musica.elapsed(),
-            ajustes_musica,
-        );
+        sincronizar_audio(&mut interfaz, &mut audio, inicio_musica.elapsed());
     }
 }
 
@@ -223,10 +216,14 @@ fn sincronizar_audio(
     interfaz: &mut Interfaz,
     audio: &mut audio::ControlAudio,
     ahora: std::time::Duration,
-    ajustes: Option<musica_campamento::AgendaMusica>,
 ) {
     audio.actualizar(interfaz.ambiente_sonoro());
-    interfaz.actualizar_musica(ahora, audio.estado_musica(), audio.disponible(), ajustes);
+    interfaz.actualizar_musica(
+        ahora,
+        audio.estado_musica(),
+        audio.disponible(),
+        audio.ajustes_musica(),
+    );
     audio.solicitar_musica(interfaz.solicitud_musica());
     if let Some(aviso) = audio.tomar_aviso() {
         interfaz.recibir_aviso_audio(aviso);

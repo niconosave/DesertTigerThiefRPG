@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.2 |
-| Fecha | 2026-10-26 |
+| Versión | 1.3 |
+| Fecha | 2026-10-27 |
 
 > Implementación y escucha de la fogata aceptadas por el usuario; el
 > [plan 041](../../planes/completados/2026-10-26-41-incorporar-audio-fogata.md)
@@ -146,7 +146,9 @@ La confirmación Q conserva el ambiente del campamento. El audio continúa aunqu
 el reloj visual esté congelado; no sincroniza chasquidos con chispas concretas.
 
 El bucle crea `ControlAudio` una sola vez, después de inicializar la interfaz y
-antes del primer cuadro. Antes de esperar entrada y después de procesarla,
+dibujar el primer cuadro. La preparación musical en segundo plano se rige por
+el [contrato 20](./20-musica-campamento.md#2-datos-y-preparación).
+Antes de esperar entrada y después de procesarla,
 transmite el ambiente actual y recoge avisos. `dibujar` nunca inicia, cambia ni
 detiene audio. Un cálculo de juego o un vencimiento visual tardío no interrumpe
 el callback de sonido.

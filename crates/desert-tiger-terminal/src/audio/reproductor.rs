@@ -5,7 +5,7 @@ use super::{
 pub(super) const FINALIZADA: u32 = 1 << 31;
 
 pub(super) struct ReproductorMusica {
-    piezas: Vec<std::sync::Arc<[f32]>>,
+    piezas: super::preparacion_musica::RepertorioCompartido,
     seleccion: usize,
     anterior: Option<usize>,
     azar: Azar,
@@ -40,11 +40,16 @@ impl ReproductorMusica {
         if evento == self.ultima_orden {
             return;
         }
+        let piezas = self.piezas.get().and_then(|r| r.as_ref().ok());
+        if evento != 0 && piezas.is_none_or(|r| r.piezas.is_empty() || !r.audible) {
+            return;
+        }
         self.ultima_orden = evento;
         if evento == 0 {
             self.cancelar(150);
         } else {
-            self.seleccion = match (self.piezas.len(), self.anterior) {
+            let cantidad = piezas.map_or(0, |r| r.piezas.len());
+            self.seleccion = match (cantidad, self.anterior) {
                 (0 | 1, _) | (_, None) => 0,
                 (cantidad, Some(anterior)) => {
                     let elegida = (self.azar.siguiente() % (cantidad - 1) as u64) as usize;
@@ -76,7 +81,12 @@ impl ReproductorMusica {
             return 0.0;
         }
         let indice = self.posicion as usize;
-        let Some(muestras) = self.piezas.get(self.seleccion) else {
+        let Some(muestras) = self
+            .piezas
+            .get()
+            .and_then(|r| r.as_ref().ok())
+            .and_then(|r| r.piezas.get(self.seleccion))
+        else {
             self.finalizada = true;
             return 0.0;
         };
@@ -131,11 +141,13 @@ mod pruebas {
     fn repertorio_varia_sin_repetir_y_no_cambia_durante_una_pieza() {
         for cantidad in [2, 3] {
             let mut config = ConfiguracionMusica::fixture();
-            config.piezas = [0.1, -0.2, 0.3]
-                .into_iter()
-                .take(cantidad)
-                .map(|amplitud| std::sync::Arc::from(vec![amplitud; 4800]))
-                .collect();
+            config.piezas = super::super::preparacion_musica::Repertorio::listo(
+                [0.1, -0.2, 0.3]
+                    .into_iter()
+                    .take(cantidad)
+                    .map(|amplitud| std::sync::Arc::from(vec![amplitud; 4800]))
+                    .collect(),
+            );
             let mut r = ReproductorMusica::nuevo(config, 48000);
             let mut anterior = None;
             for evento in 1..=16 {

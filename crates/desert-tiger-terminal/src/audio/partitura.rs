@@ -1,13 +1,19 @@
 //! Prueba musical offline: genera un WAV sin abrir el dispositivo de audio.
 use fundsp::prelude32::{AttoHash, AudioUnit, highpass_hz, lowpass_hz, pluck, zero};
 use serde::Deserialize;
-use std::{error::Error, fs, io::Write, path::Path};
+use std::{
+    error::Error,
+    fs,
+    io::Write,
+    path::Path,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 pub(super) const FRECUENCIA: u32 = 48000;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Melodia {
+pub(super) struct Melodia {
     titulo: String,
     tempo: f32,
     volumen: f32,
@@ -42,6 +48,26 @@ fn altura(nota: &str) -> Result<u8, String> {
 }
 
 impl Melodia {
+    pub(super) fn cargar(ruta: &Path) -> Result<Self, String> {
+        let cargar = || -> Result<Self, String> {
+            let texto = fs::read_to_string(ruta).map_err(|e| e.to_string())?;
+            let melodia: Self = ron::from_str(&texto).map_err(|e| e.to_string())?;
+            melodia.validar()?;
+            Ok(melodia)
+        };
+        cargar().map_err(|e| format!("{}: {e}", ruta.display()))
+    }
+
+    pub(super) fn cantidad_muestras(&self) -> usize {
+        let pulso = 60.0 / f64::from(self.tempo);
+        let final_pulsos = self
+            .notas
+            .iter()
+            .map(|(inicio, _, duracion, _)| inicio + duracion)
+            .fold(0.0_f32, f32::max);
+        ((f64::from(final_pulsos) * pulso + 0.5) * f64::from(FRECUENCIA)).ceil() as usize
+    }
+
     fn validar(&self) -> Result<(), String> {
         if self.titulo.trim().is_empty() || self.titulo.chars().any(char::is_control) {
             return Err("titulo: se espera texto visible".into());
@@ -74,19 +100,24 @@ impl Melodia {
     }
 
     fn renderizar(&self) -> Result<Vec<f32>, String> {
+        self.renderizar_cancelable(&AtomicBool::new(false))?
+            .ok_or_else(|| "síntesis cancelada".into())
+    }
+
+    pub(super) fn renderizar_cancelable(
+        &self,
+        cancelado: &AtomicBool,
+    ) -> Result<Option<Vec<f32>>, String> {
         self.validar()?;
+        if cancelado.load(Ordering::Relaxed) {
+            return Ok(None);
+        }
         let pulso = 60.0 / f64::from(self.tempo);
-        let final_pulsos = self
-            .notas
-            .iter()
-            .map(|(inicio, _, duracion, _)| inicio + duracion)
-            .fold(0.0_f32, f32::max);
-        let mut salida = vec![
-            0.0;
-            ((f64::from(final_pulsos) * pulso + 0.5) * f64::from(FRECUENCIA)).ceil()
-                as usize
-        ];
+        let mut salida = vec![0.0; self.cantidad_muestras()];
         for (i, (inicio, nota, duracion, intensidad)) in self.notas.iter().enumerate() {
+            if cancelado.load(Ordering::Relaxed) {
+                return Ok(None);
+            }
             let midi = altura(nota)?;
             let frecuencia = 440.0 * 2.0_f32.powf((f32::from(midi) - 69.0) / 12.0);
             let mut cuerda = zero() >> pluck(frecuencia, 0.45, self.amortiguacion);
@@ -96,6 +127,12 @@ impl Melodia {
             let inicio = (f64::from(*inicio) * pulso * f64::from(FRECUENCIA)).round() as usize;
             let duracion = (f64::from(*duracion) * pulso * f64::from(FRECUENCIA)).round() as usize;
             for (j, celda) in salida.iter_mut().skip(inicio).take(duracion).enumerate() {
+                if j.is_multiple_of(4096) {
+                    if cancelado.load(Ordering::Relaxed) {
+                        return Ok(None);
+                    }
+                    std::thread::yield_now();
+                }
                 let ataque = (j as f32 / (FRECUENCIA as f32 * 0.003)).min(1.0);
                 let retirada = ((duracion - j) as f32 / (FRECUENCIA as f32 * 0.09)).min(1.0);
                 *celda += cuerda.get_mono() * intensidad * ataque * retirada;
@@ -106,15 +143,21 @@ impl Melodia {
             Box::new(highpass_hz(65.0, q) >> lowpass_hz(6500.0, q));
         filtro.set_sample_rate(f64::from(FRECUENCIA));
         filtro.allocate();
-        for muestra in &mut salida {
-            let mut filtrada = [0.0];
-            filtro.tick(&[*muestra], &mut filtrada);
-            *muestra = 0.8 * (filtrada[0] * self.volumen / 0.8).tanh();
-            if !muestra.is_finite() {
-                return Err("muestra musical no finita".into());
+        for bloque in salida.chunks_mut(4096) {
+            if cancelado.load(Ordering::Relaxed) {
+                return Ok(None);
             }
+            for muestra in bloque {
+                let mut filtrada = [0.0];
+                filtro.tick(&[*muestra], &mut filtrada);
+                *muestra = 0.8 * (filtrada[0] * self.volumen / 0.8).tanh();
+                if !muestra.is_finite() {
+                    return Err("muestra musical no finita".into());
+                }
+            }
+            std::thread::yield_now();
         }
-        Ok(salida)
+        Ok(Some(salida))
     }
 }
 
@@ -144,12 +187,11 @@ fn escribir_wav(ruta: &Path, muestras: &[f32]) -> Result<(), Box<dyn Error>> {
 }
 
 pub(super) fn sintetizar_archivo(ruta: &Path) -> Result<std::sync::Arc<[f32]>, String> {
-    let resultado = || -> Result<_, String> {
-        let texto = fs::read_to_string(ruta).map_err(|e| e.to_string())?;
-        let melodia: Melodia = ron::from_str(&texto).map_err(|e| e.to_string())?;
-        Ok(std::sync::Arc::from(melodia.renderizar()?))
-    };
-    resultado().map_err(|e| format!("{}: {e}", ruta.display()))
+    let melodia = Melodia::cargar(ruta)?;
+    melodia
+        .renderizar()
+        .map(std::sync::Arc::from)
+        .map_err(|e| format!("{}: {e}", ruta.display()))
 }
 
 pub(super) fn previsualizar(entrada: &Path, salida: &Path) -> Result<f64, String> {
@@ -186,6 +228,29 @@ mod pruebas {
         melodia.notas[0].0 = f32::NAN;
         assert!(melodia.validar().is_err());
     }
+    #[test]
+    fn cancelacion_previa_no_produce_buffer_y_el_tamano_previsto_coincide() {
+        let melodia = Melodia {
+            titulo: "Prueba".into(),
+            tempo: 92.0,
+            volumen: 0.8,
+            amortiguacion: 0.15,
+            notas: vec![(0.0, "A3".into(), 0.1, 0.5)],
+        };
+        assert!(
+            melodia
+                .renderizar_cancelable(&AtomicBool::new(true))
+                .unwrap()
+                .is_none()
+        );
+        let muestras = melodia
+            .renderizar_cancelable(&AtomicBool::new(false))
+            .unwrap()
+            .unwrap();
+        assert_eq!(muestras.len(), melodia.cantidad_muestras());
+        assert_eq!(muestras, melodia.renderizar().unwrap());
+    }
+
     #[test]
     fn render_musical_reproducible_acotado_y_silenciable() {
         let mut melodia = Melodia {

@@ -14,7 +14,8 @@ cada acción.
 | [`06-implementacion-viajar.md`](./06-implementacion-viajar.md) | Contrato implementado del refactor: módulos, cálculos, ejecución por escenas e integración. |
 | [`07-acampar.md`](./07-acampar.md) | Contrato implementado: acampada, fichas, navegación, contenido y vista terminal. |
 | [`borradores/05-viajar-redisenio.md`](./borradores/05-viajar-redisenio.md) | Reglamento aprobado de `Viajar`, conservado en su ruta para mantener referencias. |
-| [`borradores/CONTEXTO-viajar-redisenio.md`](./borradores/CONTEXTO-viajar-redisenio.md) | Traspaso breve para continuar el rediseño en otra conversación. |
+| [`borradores/CONTEXTO-viajar-redisenio.md`](./borradores/CONTEXTO-viajar-redisenio.md) | Traspaso histórico de la etapa anterior al motor actual. |
+| [`borradores/CONTEXTO-viajar-territorio-segunda-iteracion.md`](./borradores/CONTEXTO-viajar-territorio-segunda-iteracion.md) | Traspaso activo para diseñar una segunda iteración de Viajar y Lugares, centrada en territorio y planificación. |
 | [`particulares/`](./particulares/README.md) | Índice vigente de las cinco pruebas y archivos históricos sustituidos. |
 
 Para el motor implementado, las mecánicas pertenecen al reglamento de

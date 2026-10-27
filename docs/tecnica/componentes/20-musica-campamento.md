@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Implementado; expresión del intérprete en verificación estética |
-| Versión | 1.3 |
-| Fecha | 2026-10-26 |
+| Estado | Implementado; preparación diferida verificada |
+| Versión | 1.4 |
+| Fecha | 2026-10-27 |
 
 > La música y las notas fueron aceptadas por el usuario. El [plan 043](../../planes/completados/2026-10-26-43-integrar-musicos-campamento.md)
 > conserva su cierre. La expresión del intérprete es un retoque posterior.
@@ -56,19 +56,42 @@ finito en `[0,1]`. Cada intervalo es un par `u32`, mínimo 1, máximo 3600 y
 primer valor menor o igual al segundo. La pausa se cuenta desde el fin de la
 pieza, no desde su comienzo.
 
-La preparación de audio valida este archivo y la partitura antes de raw mode;
+La preparación de audio lee y valida este archivo y las partituras antes de raw mode;
 deshabilitar el audio o compilar sin él omite todos estos recursos. Los errores
 identifican archivo y contexto. La partitura usa el formato experimental
 [documentado junto al recurso](../../../assets/audio/musica/README.md).
 
 `audio/partitura.rs` comparte con la previsualización la lectura, validación y
-síntesis FunDSP. Genera una sola vez buffers mono a 48000 Hz con las piezas
-completas. No se carga un WAV. Los buffers inmutables se comparten mediante `Arc`
+síntesis FunDSP. Calcula el tamaño previsto sin sintetizar y rechaza repertorios
+que superen diez minutos a 48000 Hz antes de abrir la terminal.
+
+Tras dibujar el primer cuadro y abrir la salida de audio, un único hilo de
+`audio/preparacion_musica.rs` sintetiza secuencialmente las partituras ya leídas.
+No relee los archivos durante el juego ni usa el azar de la Partida. La síntesis
+cede ejecución y comprueba cancelación entre bloques de muestras. El hilo de
+interfaz nunca espera su resultado mientras se juega. Deshabilitar audio, no
+poder abrir el dispositivo o configurar volumen musical cero evita este trabajo.
+
+Genera una sola vez buffers mono a 48000 Hz con las piezas completas. No se
+carga un WAV. Publica el repertorio completo e inmutable mediante un
+`Arc<OnceLock<Result<Repertorio, String>>>`; `get` permite consultarlo sin esperar
+ni bloquear. Los buffers se comparten mediante `Arc`
 con el procesador, que adapta su velocidad a la frecuencia del dispositivo
 mediante interpolación lineal. No crea, resetea ni reserva voces en el callback.
 Se conservan las muestras y el timbre de la previsualización aprobada.
-La duración total preparada no puede superar 10 minutos; se rechaza el recurso
-si excede ese presupuesto de memoria, antes de abrir el dispositivo.
+
+La fogata y los ambientes funcionan desde el comienzo. Hasta que el repertorio
+esté listo y contenga música audible, la agenda musical permanece deshabilitada:
+acampar inmediatamente sigue funcionando, sin intérprete, notas ni caras musicales
+ficticias. Al quedar listo, un campamento abierto inicia su espera inicial desde
+ese momento; uno posterior la inicia al abrirse. El bucle consulta la disponibilidad
+actual, no una copia tomada al arrancar.
+
+Un fallo de síntesis o del hilo deshabilita únicamente la música y genera un
+aviso breve una vez; conserva los demás sonidos. No se reintenta automáticamente.
+Al cerrar el programa o perder la salida de audio se cancela la preparación y
+se recoge el hilo; no se espera la síntesis completa. La previsualización WAV
+continúa siendo una operación síncrona explícita fuera del juego.
 
 La primera solicitud interpreta el primer archivo de la lista. En cada nueva
 solicitud, el reproductor elige entre las otras piezas mediante un azar
@@ -140,6 +163,9 @@ columna según el repertorio de ancho utilizado por el frontend.
 
 - Configuración, rutas, partitura oficial y valores inválidos; compilación sin
   audio y recursos omitidos cuando corresponde.
+- Preparación diferida: carga sin síntesis, presupuesto previo, publicación única,
+  espera sin bloquear, fallo aislado y cancelación por bloques. Campamento antes
+  y después de disponibilidad; ninguna nota ni solicitud antes del repertorio.
 - Agenda controlada: sin músicos, uno/varios, muerto excluido, intervalos,
   selección, ID estable, Q, cancelación, reapertura y fin confirmado tardío.
 - Motor offline: mezcla, remuestreo a frecuencias admitidas, inicio/fin una sola
@@ -216,3 +242,19 @@ notas, navegación y restauración de terminal; usa una copia temporal del
 contenido de audio con espera de un segundo para acelerar la comprobación.
 Los intervalos oficiales 60–120 y 20–180 se conservan intactos y se verifican
 con reloj virtual, sin esperar varios minutos en las pruebas.
+
+## 7. Preparación diferida — 2026-10-27
+
+Pasan los controles de calidad, 188 pruebas con audio y 158 sin él, y ambas
+compilaciones release. Las pruebas incluyen publicación del repertorio,
+cancelación, fallo del hilo, presupuesto previo y campamento abierto antes de
+tener música. La previsualización de la pieza castellana produce un WAV idéntico
+byte por byte al generado antes del cambio.
+
+En PTY con salida CPAL de prueba, el primer cuadro aparece a los 0,054 segundos
+en desarrollo, mientras el sintetizador sigue activo. El campamento funciona
+con fogata audible y el programa cierra en 0,312 segundos, incluyendo las pausas
+del guion de prueba, sin completar las canciones. En release se confirman
+reproducción y notas tras la preparación. También se verifican `--no-audio`,
+el binario sin esa feature y la restauración de la terminal en los cuatro casos.
+Los tiempos son mediciones locales de arranque del ejecutable, sin compilación.

@@ -13,6 +13,8 @@ mod paisaje;
 #[cfg(feature = "audio")]
 mod partitura;
 #[cfg(feature = "audio")]
+mod preparacion_musica;
+#[cfg(feature = "audio")]
 mod reproductor;
 #[cfg(feature = "audio")]
 mod riachuelo;
@@ -72,11 +74,15 @@ pub(crate) enum AvisoAudio {
     Arranque,
     Flujo,
     MuestraNoFinita,
+    Musica,
 }
 
 impl AvisoAudio {
     pub(crate) fn mensaje(self) -> &'static str {
-        "Audio no disponible. El juego continúa sin sonido."
+        match self {
+            Self::Musica => "Música no disponible. Los demás sonidos continúan.",
+            _ => "Audio no disponible. El juego continúa sin sonido.",
+        }
     }
 }
 
@@ -101,6 +107,10 @@ pub(crate) fn preparar(habilitado: bool, raiz: &Path) -> Result<PreparacionAudio
 pub(crate) struct ControlAudio {
     #[cfg(feature = "audio")]
     salida: Option<dispositivo::SalidaAudio>,
+    #[cfg(feature = "audio")]
+    preparacion_musica: Option<preparacion_musica::TrabajoMusica>,
+    #[cfg(feature = "audio")]
+    repertorio: Option<preparacion_musica::RepertorioCompartido>,
     aviso: Option<AvisoAudio>,
     ambiente: AmbienteSonoro,
     ajustes_musica: Option<crate::musica_campamento::AgendaMusica>,
@@ -109,16 +119,19 @@ pub(crate) struct ControlAudio {
 impl ControlAudio {
     pub(crate) fn iniciar(preparacion: PreparacionAudio) -> Self {
         #[cfg(feature = "audio")]
-        if let Some(config) = preparacion.config {
-            let ajustes = (config.musica.volumen > 0.0
-                && config
-                    .musica
-                    .piezas
-                    .iter()
-                    .any(|p| p.iter().any(|m| *m != 0.0)))
-            .then_some(config.musica.agenda);
+        if let Some(mut config) = preparacion.config {
+            let ajustes = (config.musica.volumen > 0.0).then_some(config.musica.agenda);
+            let repertorio = config.musica.piezas.clone();
+            let pendientes = std::mem::take(&mut config.musica.pendientes);
             let mut control = Self::desde_apertura(dispositivo::SalidaAudio::abrir(config));
             control.ajustes_musica = ajustes;
+            control.repertorio = Some(repertorio.clone());
+            if control.salida.is_some() && ajustes.is_some() && !pendientes.is_empty() {
+                match preparacion_musica::TrabajoMusica::iniciar(pendientes, repertorio) {
+                    Ok(trabajo) => control.preparacion_musica = Some(trabajo),
+                    Err(_) => control.aviso = Some(AvisoAudio::Musica),
+                }
+            }
             return control;
         }
         #[cfg(not(feature = "audio"))]
@@ -128,18 +141,12 @@ impl ControlAudio {
 
     #[cfg(feature = "audio")]
     fn desde_apertura(apertura: Result<dispositivo::SalidaAudio, AvisoAudio>) -> Self {
+        let mut control = Self::default();
         match apertura {
-            Ok(salida) => Self {
-                salida: Some(salida),
-                ..Self::default()
-            },
-            Err(aviso) => Self {
-                salida: None,
-                aviso: Some(aviso),
-                ambiente: AmbienteSonoro::SILENCIO,
-                ajustes_musica: None,
-            },
+            Ok(salida) => control.salida = Some(salida),
+            Err(aviso) => control.aviso = Some(aviso),
         }
+        control
     }
 
     pub(crate) fn actualizar(&mut self, ambiente: AmbienteSonoro) {
@@ -147,7 +154,13 @@ impl ControlAudio {
         {
             if let Some(fallo) = self.salida.as_ref().and_then(|s| s.fallo()) {
                 self.salida = None;
+                self.preparacion_musica = None;
                 self.aviso = Some(fallo);
+            }
+            if let Some(trabajo) = &mut self.preparacion_musica
+                && let Some(Err(_)) = trabajo.revisar()
+            {
+                self.aviso = Some(AvisoAudio::Musica);
             }
             if self.ambiente != ambiente
                 && let Some(salida) = &self.salida
@@ -163,7 +176,16 @@ impl ControlAudio {
     }
 
     pub(crate) fn ajustes_musica(&self) -> Option<crate::musica_campamento::AgendaMusica> {
-        self.ajustes_musica
+        #[cfg(feature = "audio")]
+        {
+            self.salida.as_ref()?;
+            let repertorio = self.repertorio.as_ref()?.get()?.as_ref().ok()?;
+            repertorio.audible.then_some(self.ajustes_musica?)
+        }
+        #[cfg(not(feature = "audio"))]
+        {
+            self.ajustes_musica
+        }
     }
 
     pub(crate) fn disponible(&self) -> bool {
@@ -199,10 +221,15 @@ impl ControlAudio {
 
     pub(crate) fn cerrar(&mut self) {
         #[cfg(feature = "audio")]
+        {
+            self.preparacion_musica = None;
+        }
+        #[cfg(feature = "audio")]
         if let Some(salida) = self.salida.take() {
             salida.cerrar();
         }
         self.ambiente = AmbienteSonoro::SILENCIO;
+        self.ajustes_musica = None;
     }
 }
 

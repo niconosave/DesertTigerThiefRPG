@@ -90,6 +90,10 @@ Cambiar de ficha no reinicia la música. `--no-audio` también deshabilita sus
 notas animadas. El [contrato 20](./tecnica/componentes/20-musica-campamento.md)
 define su integración con los retratos y el resto del audio.
 
+Las canciones se sintetizan en segundo plano después de mostrar el juego.
+Si acampás antes de que estén listas, la fogata y los ambientes suenan normalmente;
+la espera inicial de música comienza cuando termina la preparación.
+
 ## Sonido de la fogata
 
 El juego también genera viento suave y un ave lejana ocasional. En lugares

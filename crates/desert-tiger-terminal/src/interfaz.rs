@@ -1857,6 +1857,46 @@ mod pruebas {
     }
 
     #[test]
+    fn acampar_antes_de_preparar_musica_espera_sin_notas_y_arranca_la_agenda_al_estar_lista() {
+        use crate::musica_campamento::{AgendaMusica, ProgresoMusica};
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let mut i = Interfaz::nueva(partida).unwrap();
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE));
+        let estado = i.partida.vista();
+        for segundos in [0, 1, 5, 10] {
+            i.actualizar_musica(Duration::from_secs(segundos), None, true, None);
+            assert_eq!(i.solicitud_musica(), 0);
+            assert!(i.musica.notas().is_none());
+            assert!(i.ambiente_sonoro().fogata);
+        }
+        let agenda = Some(AgendaMusica {
+            inicial: (1, 1),
+            pausa: (20, 180),
+        });
+        i.actualizar_musica(Duration::from_secs(10), None, true, agenda);
+        assert_eq!(i.solicitud_musica(), 0);
+        i.actualizar_musica(Duration::from_secs(11), None, true, agenda);
+        let evento = i.solicitud_musica();
+        assert_ne!(evento, 0);
+        assert!(i.musica.notas().is_none());
+        i.actualizar_musica(
+            Duration::from_millis(11100),
+            Some(ProgresoMusica {
+                evento,
+                transcurrido: Duration::from_millis(100),
+                finalizada: false,
+            }),
+            true,
+            agenda,
+        );
+        assert!(i.musica.notas().is_some());
+        assert_eq!(i.partida.vista(), estado);
+    }
+
+    #[test]
     fn confirmacion_congela_y_reanuda_la_animacion() {
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let contenido = cargar_contenido(&raiz.join("content/base")).expect("contenido válido");

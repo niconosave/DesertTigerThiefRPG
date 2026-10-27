@@ -95,7 +95,8 @@ Se rechazan campos ausentes, desconocidos y duplicados. El sintetizador usa el
 generador `pluck` de FunDSP con semillas estables, ataque y retirada suaves,
 filtrado y limitación de amplitud. Renderiza las notas offline, donde puede
 preparar cada cuerda antes de sumarla. El juego comparte este sintetizador con
-la previsualización: prepara la pieza una vez y el callback mezcla su buffer
+la previsualización: prepara las piezas una vez en segundo plano, después de
+mostrar el juego, y el callback mezcla su buffer
 inmutable, sin crear instrumentos durante la reproducción. Los disparadores,
 la coordinación de notas y los límites de configuración se definen en el
 [contrato 20](../../../docs/tecnica/componentes/20-musica-campamento.md).

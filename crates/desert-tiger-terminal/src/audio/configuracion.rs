@@ -41,7 +41,9 @@ pub(super) struct ConfiguracionMusica {
     pub agenda: crate::musica_campamento::AgendaMusica,
     pub volumen: f32,
     #[cfg(feature = "audio")]
-    pub piezas: Vec<std::sync::Arc<[f32]>>,
+    pub piezas: super::preparacion_musica::RepertorioCompartido,
+    #[cfg(feature = "audio")]
+    pub pendientes: Vec<(std::path::PathBuf, super::partitura::Melodia)>,
 }
 
 impl ConfiguracionMusica {
@@ -51,20 +53,21 @@ impl ConfiguracionMusica {
             let datos =
                 Self::interpretar(&std::fs::read_to_string(&ruta).map_err(|e| e.to_string())?)?;
             #[cfg(feature = "audio")]
-            let piezas = {
-                let mut piezas = Vec::new();
+            let pendientes = {
+                let mut pendientes = Vec::new();
                 let mut total = 0_usize;
                 for nombre in datos.nombres()? {
-                    let muestras = super::partitura::sintetizar_archivo(&raiz.join(nombre))?;
-                    total += muestras.len();
+                    let ruta = raiz.join(nombre);
+                    let melodia = super::partitura::Melodia::cargar(&ruta)?;
+                    total += melodia.cantidad_muestras();
                     if total > super::partitura::FRECUENCIA as usize * 600 {
                         return Err(
                             "partituras: el repertorio supera 10 minutos de audio preparado".into(),
                         );
                     }
-                    piezas.push(muestras);
+                    pendientes.push((ruta, melodia));
                 }
-                piezas
+                pendientes
             };
             Ok(Self {
                 agenda: crate::musica_campamento::AgendaMusica {
@@ -73,7 +76,9 @@ impl ConfiguracionMusica {
                 },
                 volumen: datos.volumen,
                 #[cfg(feature = "audio")]
-                piezas,
+                piezas: Default::default(),
+                #[cfg(feature = "audio")]
+                pendientes,
             })
         };
         cargar().map_err(|e| format!("{}: {e}", ruta.display()))
@@ -125,7 +130,10 @@ impl ConfiguracionMusica {
                 pausa: (40, 75),
             },
             volumen: 0.5,
-            piezas: vec![std::sync::Arc::from(vec![0.2; 4800])],
+            piezas: super::preparacion_musica::Repertorio::listo(vec![std::sync::Arc::from(
+                vec![0.2; 4800],
+            )]),
+            pendientes: Vec::new(),
         }
     }
 }
@@ -352,22 +360,39 @@ mod pruebas {
 
     #[cfg(feature = "audio")]
     #[test]
-    fn musica_oficial_se_sintetiza_antes_de_abrir_salida() {
+    fn presupuesto_de_musica_se_valida_antes_de_generar_muestras() {
+        let raiz =
+            std::env::temp_dir().join(format!("desert-tiger-musica-larga-{}", std::process::id()));
+        std::fs::create_dir_all(&raiz).unwrap();
+        std::fs::write(raiz.join("campamento.ron"), r#"(partitura:"larga.ron",volumen:0.5,espera_inicial_segundos:(1,1),pausa_entre_piezas_segundos:(1,1))"#).unwrap();
+        std::fs::write(raiz.join("larga.ron"), r#"(titulo:"Larga",tempo:40.0,volumen:0.5,amortiguacion:0.28,notas:[(512.0,"A3",16.0,0.5)])"#).unwrap();
+        let error = ConfiguracionMusica::cargar(&raiz).unwrap_err();
+        std::fs::remove_dir_all(&raiz).unwrap();
+        assert!(error.contains("10 minutos"), "{error}");
+    }
+
+    #[cfg(feature = "audio")]
+    #[test]
+    fn musica_oficial_se_valida_sin_sintetizar_y_se_prepara_aparte() {
         let raiz = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/audio/musica");
         let musica = ConfiguracionMusica::cargar(&raiz).unwrap();
+        assert!(musica.piezas.get().is_none());
+        assert_eq!(musica.pendientes.len(), 2);
+        let mut trabajo = super::super::preparacion_musica::TrabajoMusica::iniciar(
+            musica.pendientes,
+            musica.piezas.clone(),
+        )
+        .unwrap();
+        // Esta prueba offline espera explícitamente; el bucle del juego no lo hace.
+        trabajo.esperar();
+        let piezas = &musica.piezas.get().unwrap().as_ref().unwrap().piezas;
         assert!(
-            musica
-                .piezas
+            piezas
                 .iter()
                 .all(|p| !p.is_empty() && p.iter().all(|m| m.is_finite() && m.abs() <= 0.8))
         );
-        assert!(
-            musica
-                .piezas
-                .iter()
-                .all(|p| p.iter().any(|m| m.abs() > 0.01))
-        );
-        assert!(musica.piezas.iter().all(|p| p.len() > 48000));
+        assert!(piezas.iter().all(|p| p.iter().any(|m| m.abs() > 0.01)));
+        assert!(piezas.iter().all(|p| p.len() > 48000));
     }
 
     #[test]
