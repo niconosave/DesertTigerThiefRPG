@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.65 |
+| Versión | 0.69 |
 | Fecha | 2026-10-28 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
@@ -927,8 +927,9 @@ ancho de una columna y no intenta normalizarlos, redistribuirlos ni permitir que
 un carácter ocupe una coordenada adicional. La posición exacta de un actor sobre
 el mapa es estética y nunca se devuelve a la aplicación.
 
-La composición no contiene una capa de rutas o conexiones. Durante la selección
-solo cambia el foco del rótulo y la cámara; los tiles situados entre el origen y
+La composición habitual no muestra rutas ni conexiones; la herramienta de
+desarrollo descrita al final de esta sección permite inspeccionar Conectado.
+Durante la selección solo cambia el foco del rótulo y la cámara; los tiles situados entre el origen y
 el destino se dibujan igual que en la vista normal. Durante una expedición se
 dibuja un único marcador ilustrativo `@` sobre la coordenada central del Lugar
 confirmado por el progreso vigente y se resalta ese rótulo. El marcador no
@@ -1684,3 +1685,44 @@ Ninguna en este componente.
 - [`Modifier` de Ratatui](https://docs.rs/ratatui/latest/ratatui/style/struct.Modifier.html)
 - [`TestBackend` de Ratatui](https://docs.rs/ratatui/latest/ratatui/backend/struct.TestBackend.html)
 - [Eventos de Crossterm](https://docs.rs/crossterm/latest/crossterm/event/)
+
+
+## Herramientas de desarrollo — implementadas el 2026-10-28
+
+El módulo privado `desarrollo` de `desert-tiger-terminal` contiene el menú y la
+rasterización del grafo. `Interfaz` conserva dos booleanos: menú abierto y
+conexiones visibles. Ambos comienzan en falso y no se serializan.
+
+En `VistaSesion::Disponible`, tanto en modo normal como en selección, `D` abre
+el menú sobre el mapa. `Enter`, `Espacio` o `C` alternan el único ajuste actual;
+`Esc` o `D` cierran el menú. Mientras está abierto consume las teclas para que no
+se confirme un destino ni comience otra acción. `Q` conserva la confirmación de
+salida habitual. Abrir, cerrar o alternar no envía intenciones al backend ni
+altera el foco de selección. En las viñetas, `D` sigue consultando detalles;
+el campamento conserva sus controles.
+
+La capa opcional se dibuja entre los tiles y los rótulos, también durante la
+selección y en el mapa de fondo de un viaje. Consulta exclusivamente
+`VistaLugar.conectados`, omite regiones y dibuja cada par simétrico una vez.
+Une los centros mediante líneas de puntos `.` con un color común que cambia
+cada 250 ms, usando el reloj visual existente. Recorre cíclicamente rojo,
+amarillo, verde, cian, azul y magenta en sus variantes claras. Todos los puntos
+comparten el color del instante, sin franjas de colores a lo largo de una línea.
+Después de trazar todas las conexiones, dibuja una `O` en cada centro de Lugar
+conectado, con el mismo color animado. Así, otra línea que cruce ese centro no
+lo reemplaza por un punto.
+No heredan negrita o atenuación de los tiles. Mover la cámara o redibujar en el
+mismo instante no reinicia el ciclo ni cambia su velocidad. Usa coordenadas globales y el mismo proyector de la
+cámara que los rótulos: recorta los puntos fuera de la vista, incluso si ambos
+extremos están fuera. Nombres, marcador del grupo, retratos y ventanas se
+superponen normalmente.
+
+Estas líneas muestran el grafo declarado, no una ruta elegida, un sendero sobre
+los tiles ni límites regionales. No interpretan Abarca, no leen archivos nuevos
+y no modifican mapa o reglas. La paleta fija procesa el arcoíris mediante el
+mismo mecanismo que los demás colores nominales.
+
+Las pruebas verifican líneas en todas las direcciones, recorte de conexiones que
+cruzan la cámara, exclusión de regiones, color independiente del tile y controles
+del menú con conservación del foco y del estado de la partida. Una prueba de
+renderizado comprueba el menú y el indicador de opción activada.

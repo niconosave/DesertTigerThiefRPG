@@ -33,6 +33,15 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 La [metodología de desarrollo](./metodologia-desarrollo.md) gobierna este flujo,
 los estándares de implementación, las pruebas y la definición de terminado.
 
+## Herramientas de desarrollo
+
+Desde el mapa o la selección de destino, `D` abre el menú de desarrollo.
+`Enter`, `Espacio` o `C` alternan «Mostrar conexiones de lugares»; `Esc` o `D`
+cierran el menú. La opción une los centros de los Lugares conectados con puntos
+que cambian de color en un ciclo de arcoíris cada 250 ms, debajo de sus nombres. Los centros de los Lugares conectados se marcan con `O`.
+Las regiones y sus relaciones Abarca no se incluyen. Comienza desactivada y se conserva durante esa ejecución del juego.
+Durante las viñetas, `D` mantiene su función de mostrar detalles.
+
 ## Elegir los colores al jugar
 
 El modo predeterminado conserva la paleta de la terminal. Si puede consultarla,

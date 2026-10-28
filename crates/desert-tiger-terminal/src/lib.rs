@@ -3,6 +3,7 @@ mod audio;
 mod campamento;
 mod colores;
 mod consulta_paleta;
+mod desarrollo;
 mod fogata;
 mod interfaz;
 mod musica_campamento;

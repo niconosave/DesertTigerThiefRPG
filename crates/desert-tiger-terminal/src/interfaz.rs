@@ -39,6 +39,8 @@ pub(crate) struct Interfaz {
     vista: VistaSesion,
     ultima_vista_mundo: VistaMundo,
     modo: ModoLocal,
+    menu_desarrollo: bool,
+    mostrar_conexiones: bool,
     confirmar_salida: bool,
     salir: bool,
     error_recuperable: Option<String>,
@@ -64,6 +66,8 @@ impl Interfaz {
             vista,
             ultima_vista_mundo,
             modo: ModoLocal::Normal,
+            menu_desarrollo: false,
+            mostrar_conexiones: false,
             confirmar_salida: false,
             salir: false,
             error_recuperable: None,
@@ -136,6 +140,7 @@ impl Interfaz {
 
     fn aviso_audio_visible(&self) -> bool {
         self.aviso_audio.is_some()
+            && !self.menu_desarrollo
             && !self.confirmar_salida
             && self.error_recuperable.is_none()
             && matches!(self.modo, ModoLocal::Normal)
@@ -190,6 +195,26 @@ impl Interfaz {
         }
         if normalizar_letra(evento.code) == Some('q') {
             self.confirmar_salida = true;
+            return;
+        }
+        if self.menu_desarrollo {
+            match evento.code {
+                KeyCode::Enter | KeyCode::Char(' ') => {
+                    self.mostrar_conexiones = !self.mostrar_conexiones
+                }
+                KeyCode::Esc => self.menu_desarrollo = false,
+                _ => match normalizar_letra(evento.code) {
+                    Some('c') => self.mostrar_conexiones = !self.mostrar_conexiones,
+                    Some('d') => self.menu_desarrollo = false,
+                    _ => {}
+                },
+            }
+            return;
+        }
+        if normalizar_letra(evento.code) == Some('d')
+            && matches!(self.vista, VistaSesion::Disponible(_))
+        {
+            self.menu_desarrollo = true;
             return;
         }
         if let Some(campamento) = &mut self.campamento {
@@ -456,6 +481,9 @@ impl Interfaz {
             }
             VistaSesion::Disponible(_) | VistaSesion::Acampando(_) => {}
         }
+        if self.menu_desarrollo {
+            crate::desarrollo::dibujar_menu(frame, region_mundo, self.mostrar_conexiones, recursos);
+        }
         if self.confirmar_salida {
             self.dibujar_confirmacion(frame, region_mundo, recursos);
         }
@@ -545,6 +573,14 @@ impl Interfaz {
                     apariencia.estilo,
                 );
             }
+        }
+        if self.mostrar_conexiones {
+            crate::desarrollo::dibujar_conexiones(
+                frame,
+                mundo,
+                self.reloj.paso_250_ms(),
+                |coordenada| proyectar(coordenada, area, origen_x, origen_y, margen_x, margen_y),
+            );
         }
         let foco = match &self.modo {
             ModoLocal::Seleccion { destinos, foco } => destinos.get(*foco).copied(),
@@ -671,6 +707,9 @@ impl Interfaz {
     }
 
     fn texto_acciones(&self) -> String {
+        if self.menu_desarrollo && !self.confirmar_salida {
+            return " [Enter/Espacio/C] Conexiones  [Esc/D] Cerrar  [Q] Salir".into();
+        }
         if self.campamento.is_some() && !self.confirmar_salida {
             return " ←→ Grupo | ↑↓ Info | Enter Abrir/Salir | PgUp/PgDn Leer | Esc Salir | Q Juego".into();
         }
@@ -679,13 +718,16 @@ impl Interfaz {
         }
         match &self.modo {
             ModoLocal::Seleccion { .. } => {
-                " [↑/↓] Destino  [Enter] Confirmar  [Esc] Cancelar  [Q] Salir".to_owned()
+                " [↑/↓] Destino  [Enter] Confirmar  [Esc] Cancelar  [D] Desarrollo  [Q] Salir"
+                    .to_owned()
             }
             ModoLocal::Normal => match &self.vista {
                 VistaSesion::Disponible(mundo) => match destinos_viaje(mundo) {
-                    Some([]) => " Viajar (no disponible)  [A] Acampar  [Q] Salir".to_owned(),
-                    Some(_) => " [V] Viajar  [A] Acampar  [Q] Salir".to_owned(),
-                    None => " [Q] Salir".to_owned(),
+                    Some([]) => {
+                        " Viajar (no disponible)  [A] Acampar  [D] Desarrollo  [Q] Salir".to_owned()
+                    }
+                    Some(_) => " [V] Viajar  [A] Acampar  [D] Desarrollo  [Q] Salir".to_owned(),
+                    None => " [D] Desarrollo  [Q] Salir".to_owned(),
                 },
                 VistaSesion::PresentandoAccion(fragmento) => {
                     let detalle = if fragmento.detalle.is_empty() {
@@ -1274,6 +1316,55 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    #[test]
+    fn menu_de_desarrollo_alterna_conexiones_sin_jugar_y_conserva_la_seleccion() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let mut i = Interfaz::nueva(partida).unwrap();
+        let antes = i.partida.vista();
+        let tecla = |code| KeyEvent::new(code, KeyModifiers::NONE);
+        assert!(!i.mostrar_conexiones);
+        i.manejar_tecla(tecla(KeyCode::Char('D')));
+        assert!(i.menu_desarrollo);
+        i.manejar_tecla(tecla(KeyCode::Char('v')));
+        assert!(matches!(i.modo, ModoLocal::Normal));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert!(i.mostrar_conexiones);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(!i.menu_desarrollo);
+        i.manejar_tecla(tecla(KeyCode::Char('v')));
+        let ModoLocal::Seleccion { destinos, foco } = &i.modo else {
+            panic!("debe seleccionar destino");
+        };
+        let seleccion = (destinos.clone(), *foco);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        i.manejar_tecla(tecla(KeyCode::Char(' ')));
+        assert!(!i.mostrar_conexiones);
+        i.manejar_tecla(tecla(KeyCode::Char('c')));
+        assert!(i.mostrar_conexiones);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        assert!(!i.menu_desarrollo);
+        assert!(
+            matches!(&i.modo, ModoLocal::Seleccion { destinos, foco } if (destinos, *foco) == (&seleccion.0, seleccion.1))
+        );
+        assert_eq!(i.partida.vista(), antes);
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        terminal.draw(|frame| i.dibujar(frame, &recursos)).unwrap();
+        let texto: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        assert!(texto.contains("Desarrollo"));
+        assert!(texto.contains("[x] Mostrar conexiones de lugares"));
+    }
 
     #[test]
     fn regiones_quedan_tenues_detras_de_los_lugares_sin_heredar_negrita_del_tile() {
