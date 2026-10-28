@@ -267,6 +267,7 @@ pub enum TipoRelacion {
     Madre,
     MatadoPor,
     Conectado,
+    Abarca,
     Conoce,
 }
 
@@ -342,6 +343,10 @@ pub struct Lugar {
 impl Lugar {
     pub fn id(&self) -> IdLugar {
         self.id
+    }
+
+    pub fn es_region(&self) -> bool {
+        self.caracteristicas().any(|c| c.como_str() == "region")
     }
 
     pub fn tiene_caracteristica(&self, caracteristica: &Caracteristica) -> bool {
@@ -592,7 +597,25 @@ impl Mundo {
                     extremo: inicial.origen,
                 });
             }
+            if inicial.tipo == TipoRelacion::Conectado {
+                for extremo in [inicial.origen, inicial.destino] {
+                    if let ExtremoRelacion::Lugar(lugar) = extremo
+                        && resolver_lugar(&lugares, lugar).is_some_and(Lugar::es_region)
+                    {
+                        return Err(ErrorConstruirMundo::ConexionConRegion { posicion, lugar });
+                    }
+                }
+            }
+            if inicial.tipo == TipoRelacion::Abarca
+                && let ExtremoRelacion::Lugar(lugar) = inicial.origen
+                && !resolver_lugar(&lugares, lugar).is_some_and(Lugar::es_region)
+            {
+                return Err(ErrorConstruirMundo::OrigenAbarcaNoEsRegion { posicion, lugar });
+            }
             let clave_duplicado = match (inicial.tipo, inicial.origen, inicial.destino) {
+                (TipoRelacion::Abarca, ExtremoRelacion::Lugar(_), ExtremoRelacion::Lugar(_)) => {
+                    (inicial.tipo, inicial.origen, inicial.destino)
+                }
                 (
                     TipoRelacion::Conectado,
                     ExtremoRelacion::Lugar(origen),
@@ -655,6 +678,14 @@ impl Mundo {
             relaciones_vistas.insert(clave_duplicado, id);
 
             match (inicial.tipo, inicial.origen, inicial.destino) {
+                (
+                    TipoRelacion::Abarca,
+                    ExtremoRelacion::Lugar(origen),
+                    ExtremoRelacion::Lugar(destino),
+                ) => {
+                    relaciones_por_lugar[origen.indice().expect("Lugar validado")].push(id);
+                    relaciones_por_lugar[destino.indice().expect("Lugar validado")].push(id);
+                }
                 (
                     TipoRelacion::Conectado,
                     ExtremoRelacion::Lugar(origen),
@@ -1233,6 +1264,14 @@ pub enum ErrorConstruirMundo {
         tipo: TipoRelacion,
         origen: ExtremoRelacion,
         destino: ExtremoRelacion,
+    },
+    ConexionConRegion {
+        posicion: usize,
+        lugar: IdLugar,
+    },
+    OrigenAbarcaNoEsRegion {
+        posicion: usize,
+        lugar: IdLugar,
     },
     RelacionReflexiva {
         posicion: usize,
@@ -1864,6 +1903,65 @@ mod pruebas {
                 destino: ExtremoRelacion::Lugar(id_lugar(1)),
             }],
         }
+    }
+
+    #[test]
+    fn abarcar_indexa_ambos_extremos_sin_crear_rutas_para_jugador_ni_npcs() {
+        let mut datos = datos_validos();
+        datos.lugares.push(LugarInicial {
+            id: id_lugar(2),
+            caracteristicas: vec![caracteristica("region")],
+        });
+        datos.relaciones.push(RelacionInicial {
+            tipo: TipoRelacion::Abarca,
+            origen: ExtremoRelacion::Lugar(id_lugar(2)),
+            destino: ExtremoRelacion::Lugar(id_lugar(0)),
+        });
+        let mundo = Mundo::nuevo(datos.clone()).unwrap();
+        let id = IdRelacion::desde_posicion(1).unwrap();
+        assert!(mundo.lugar(id_lugar(2)).unwrap().es_region());
+        assert_eq!(mundo.lugares_conectados(id_lugar(2)), Some([].as_slice()));
+        assert_eq!(
+            mundo.relaciones_de(ExtremoRelacion::Lugar(id_lugar(2))),
+            Some([id].as_slice())
+        );
+        assert!(
+            mundo
+                .relaciones_de(ExtremoRelacion::Lugar(id_lugar(0)))
+                .unwrap()
+                .contains(&id)
+        );
+        assert_eq!(
+            crate::acciones::destinos_disponibles(&mundo, id_actor(0)).unwrap(),
+            vec![id_lugar(1)]
+        );
+        assert_eq!(
+            crate::acciones::destinos_disponibles(&mundo, id_actor(2)).unwrap(),
+            vec![id_lugar(0)]
+        );
+        for (a, b) in [(0, 2), (2, 0)] {
+            let mut invalido = datos.clone();
+            invalido.relaciones.push(RelacionInicial {
+                tipo: TipoRelacion::Conectado,
+                origen: ExtremoRelacion::Lugar(id_lugar(a)),
+                destino: ExtremoRelacion::Lugar(id_lugar(b)),
+            });
+            assert!(matches!(
+                Mundo::nuevo(invalido),
+                Err(ErrorConstruirMundo::ConexionConRegion { .. })
+            ));
+        }
+        let mut invalido = datos.clone();
+        invalido.relaciones[1].origen = ExtremoRelacion::Lugar(id_lugar(1));
+        assert!(matches!(
+            Mundo::nuevo(invalido),
+            Err(ErrorConstruirMundo::OrigenAbarcaNoEsRegion { .. })
+        ));
+        datos.relaciones.push(datos.relaciones[1].clone());
+        assert!(matches!(
+            Mundo::nuevo(datos),
+            Err(ErrorConstruirMundo::RelacionDuplicada { .. })
+        ));
     }
 
     #[test]

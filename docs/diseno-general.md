@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Base inicial aprobada |
-| Versión | 0.19 |
-| Fecha | 2026-10-26 |
+| Versión | 0.20 |
+| Fecha | 2026-10-28 |
 
 ## 1. Propósito
 
@@ -118,6 +118,11 @@ forma cualitativa sin convertir todavía cada embarcación en un Objeto.
 
 Esas posibilidades no son subtipos: todos usan el mismo elemento Lugar. Su
 naturaleza concreta procede de su contenido y de sus Características.
+
+Los Lugares con la Característica `region` agrupan otros Lugares mediante
+Relaciones `Abarca`. Carecen de conexiones transitables y no son destinos de
+viaje. Sus nombres se dibujan con un color discreto detrás de los demás rótulos.
+Abarcar un Lugar no cambia la ubicación de sus Actores ni transmite Características.
 
 Un camino, paso, vado o accidente semejante se convierte en Lugar cuando puede
 ser destino o parada, contener Actores, servir como escenario o conservar la

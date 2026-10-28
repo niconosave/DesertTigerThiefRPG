@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.7 |
-| Fecha | 2026-10-25 |
+| Versión | 0.8 |
+| Fecha | 2026-10-28 |
 
 ## 1. Propósito
 
@@ -249,3 +249,18 @@ Se aprobaron para esta primera versión:
 - la selección de quince Lugares continentales, cuatro marítimos y uno insular;
 - la posición narrativa de Tazar, Alcázar Gris y Nahal;
 - la legibilidad del conjunto completo de rótulos sobre el mapa.
+
+## 10. Regiones cartográficas
+
+Se incorporan doce regiones como Lugares sin conexiones transitables, con
+Relaciones Abarca hacia los Lugares existentes. Cubren las tierras áridas,
+las costas, ambas cordilleras, la cuenca fértil, el bosque, las tierras bajas,
+la isla y los cuatro sectores marítimos. El Descenso del Drâa pertenece tanto
+al conjunto montañoso como a la cuenca: estas agrupaciones pueden solaparse.
+
+Los nombres son provisionales y editables. Sus rótulos siguen recorridos
+horizontales, diagonales o verticales acordes a cada región y se presentan con
+menor intensidad que los Lugares transitables. Su autoría concreta —nombres,
+coordenadas y pertenencias— reside únicamente en `content/base/places/`.
+El [contrato de Regiones y Abarca](../tecnica/componentes/10-relaciones.md#12-regiones-y-abarca--implementadas-el-2026-10-28)
+define su significado. Esta ampliación conserva la red de viajes existente.

@@ -820,6 +820,7 @@ enum TipoRelacionDto {
     Madre,
     MatadoPor,
     Conectado,
+    Abarca,
     Conoce,
 }
 
@@ -1169,6 +1170,28 @@ fn diagnosticar_modelo(
     claves: &CatalogoClaves,
 ) -> ErrorContenido {
     use desert_tiger_core::ErrorConstruirMundo as E;
+    let region_invalida = match &error {
+        E::ConexionConRegion { lugar, .. } => {
+            Some((*lugar, "una región no admite relaciones Conectado"))
+        }
+        E::OrigenAbarcaNoEsRegion { lugar, .. } => Some((
+            *lugar,
+            "el origen de Abarca debe tener la característica region",
+        )),
+        _ => None,
+    };
+    if let Some((lugar, detalle)) = region_invalida
+        && let Some(clave) = claves.clave_lugar(lugar)
+    {
+        return error_archivo(
+            &PathBuf::from("places").join(format!("{clave}.ron")),
+            TipoElementoContenido::Lugar,
+            Some(clave),
+            ClaseDiagnosticoContenido::InvarianteDominio,
+            None,
+            detalle.to_owned(),
+        );
+    }
     let actor = match &error {
         E::ProgenitorMultiplicado { actor, .. }
         | E::ProgenitoresNoDistintos { actor, .. }
@@ -1690,6 +1713,7 @@ fn validar_relaciones(
             TipoRelacionDto::Madre => TipoRelacion::Madre,
             TipoRelacionDto::MatadoPor => TipoRelacion::MatadoPor,
             TipoRelacionDto::Conectado => TipoRelacion::Conectado,
+            TipoRelacionDto::Abarca => TipoRelacion::Abarca,
             TipoRelacionDto::Conoce => TipoRelacion::Conoce,
         };
         let destino = match declaracion.destino {
@@ -1751,7 +1775,7 @@ fn validar_relaciones(
         let extremos_validos = matches!(
             (tipo, origen, destino),
             (
-                TipoRelacion::Conectado,
+                TipoRelacion::Conectado | TipoRelacion::Abarca,
                 ExtremoRelacion::Lugar(_),
                 ExtremoRelacion::Lugar(_)
             ) | (
@@ -1774,6 +1798,7 @@ fn validar_relaciones(
                 | TipoRelacion::MatadoPor
                 | TipoRelacion::Sirviente => "esta relación exige dos Actores",
                 TipoRelacion::Conectado => "Conectado exige dos Lugares",
+                TipoRelacion::Abarca => "Abarca exige dos Lugares, con una región de origen",
                 TipoRelacion::Conoce => "Conoce exige un Actor de origen y un Lugar de destino",
             };
             return Err(error_archivo(
@@ -1830,6 +1855,7 @@ fn normalizar_relaciones<'a>(
             }
             (
                 TipoRelacion::Conoce
+                | TipoRelacion::Abarca
                 | TipoRelacion::Padre
                 | TipoRelacion::Madre
                 | TipoRelacion::MatadoPor
@@ -2711,6 +2737,55 @@ mod pruebas {
     }
 
     #[test]
+    fn regiones_oficiales_cubren_el_atlas_sin_agregar_destinos_y_validan_sus_relaciones() {
+        let contenido = cargar_contenido(&raiz_base()).unwrap();
+        let (mundo, _) = contenido.instanciar_estado().unwrap();
+        let regiones: Vec<_> = mundo.lugares().iter().filter(|l| l.es_region()).collect();
+        assert_eq!(regiones.len(), 12);
+        let destinos =
+            desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
+                .unwrap();
+        assert_eq!(destinos.len(), 25);
+        for region in regiones {
+            assert!(!destinos.contains(&region.id()));
+            assert!(mundo.lugares_conectados(region.id()).unwrap().is_empty());
+            assert!(
+                mundo
+                    .relaciones_de(ExtremoRelacion::Lugar(region.id()))
+                    .unwrap()
+                    .iter()
+                    .all(|&id| mundo.relacion(id).unwrap().tipo() == TipoRelacion::Abarca)
+            );
+        }
+        for lugar in mundo.lugares().iter().filter(|l| !l.es_region()) {
+            assert!(
+                mundo
+                    .relaciones_de(ExtremoRelacion::Lugar(lugar.id()))
+                    .unwrap()
+                    .iter()
+                    .any(|&id| mundo.relacion(id).unwrap().tipo() == TipoRelacion::Abarca)
+            );
+        }
+        let fixture = fixture_temporal();
+        let archivo = fixture.0.join("places/tierras_de_sahran.ron");
+        let original = fs::read_to_string(&archivo).unwrap();
+        fs::write(
+            &archivo,
+            original.replacen("tipo: Abarca", "tipo: Conectado", 1),
+        )
+        .unwrap();
+        let error = cargar_contenido(&fixture.0).err().unwrap();
+        assert!(
+            error.diagnosticos[0]
+                .detalle
+                .contains("una región no admite")
+        );
+        fs::write(&archivo, original.replace("\"region\", ", "")).unwrap();
+        let error = cargar_contenido(&fixture.0).err().unwrap();
+        assert!(error.diagnosticos[0].detalle.contains("origen de Abarca"));
+    }
+
+    #[test]
     fn carga_e_instancia_el_fixture_oficial() {
         assert_eq!(
             color_retrato("grisMuyOscuro"),
@@ -2733,7 +2808,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 51);
+        assert_eq!(mundo.relaciones().len(), 78);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -2747,7 +2822,7 @@ mod pruebas {
                 .as_slice()
             )
         );
-        assert_eq!(contenido.presentacion().lugares().len(), 26);
+        assert_eq!(contenido.presentacion().lugares().len(), 38);
         for (origen, intermedio, destino) in [
             (0, 20, 1),
             (1, 21, 2),

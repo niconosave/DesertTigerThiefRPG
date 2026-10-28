@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.62 |
-| Fecha | 2026-10-27 |
+| Versión | 0.65 |
+| Fecha | 2026-10-28 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
 > define el audio opcional del frontend y su integración con el bucle. El
@@ -417,8 +417,9 @@ resuelto respecto del directorio de trabajo y validado antes de activar el modo
 raw. No contiene apariencias de tiles ni ilustraciones y `--content` no lo
 reemplaza.
 
-El archivo declara una estructura fija con todos estos roles obligatorios y los
-valores aprobados:
+El archivo declara los siguientes roles. `region` es opcional para conservar
+compatibilidad con recursos anteriores; si falta, utiliza amarillo con el
+modificador `tenue` y sin fondo propio. Los demás roles son obligatorios:
 
 ```ron
 (
@@ -436,6 +437,11 @@ valores aprobados:
         frente: "blanco",
         fondo: None,
         modificadores: ["negrita"],
+    ),
+    region: (
+        frente: "amarillo",
+        fondo: None,
+        modificadores: ["tenue"],
     ),
     secundario: (
         frente: "grisOscuro",
@@ -928,8 +934,32 @@ dibuja un único marcador ilustrativo `@` sobre la coordenada central del Lugar
 confirmado por el progreso vigente y se resalta ese rótulo. El marcador no
 indica un tile de gameplay ni se devuelve a la aplicación.
 
-Los rótulos se recorren en el orden canónico recibido en `VistaMundo`. Solo se
-dibujan sus caracteres cuyas coordenadas caen dentro de la cámara; los restantes
+Primero se dibujan los rótulos de Lugares con `region`, usando el rol `ui.region`.
+El color de frente se consulta en las apariencias cargadas de `tiles.ron`,
+según la primera Característica aplicable en esta tabla; no se duplican colores
+en el código ni en los archivos de regiones:
+
+| Característica, en orden de prioridad | Tile del que toma el color |
+|---|---|
+| `acuatico` | `agua` |
+| `montanoso` | `montana` |
+| `boscoso` | `bosque` |
+| `arenoso` | `arena` |
+| `arido` | `sueloArido` |
+| `fertil` o `pantanoso` | `vegetacion` |
+| `fluvial` | `aguaRio` |
+
+Se conservan la atenuación y el fondo del rol regional, sin copiar otros
+atributos del tile. Si falta la apariencia o ninguna marca coincide, se conserva
+`ui.region`. Los recursos se cargan al iniciar el juego: editar `tiles.ron`
+cambia ambos colores en el siguiente inicio, sin recompilar ni editar regiones.
+Después se dibujan los demás Lugares, con su estilo habitual. Dentro de cada grupo se
+conserva el orden canónico de `VistaMundo`. Así, un nombre normal tiene prioridad
+sobre uno regional aunque la región esté al final de `world.ron`.
+`VistaLugar::es_region()` consulta la Característica proyectada. Cada rótulo fija
+sus modificadores de intensidad: elimina la negrita o atenuación heredadas del
+tile antes de aplicar su estilo, conservando el fondo cuando no especifica uno.
+Solo se dibujan sus caracteres cuyas coordenadas caen dentro de la cámara; los restantes
 se omiten sin mover, envolver ni abreviar el nombre. No se buscan colisiones entre
 rótulos ni se intenta resolverlas. Si dos caracteres ocupan la misma celda, el
 Lugar dibujado después reemplaza visualmente al anterior. Esto no invalida el

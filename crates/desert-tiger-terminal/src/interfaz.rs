@@ -550,17 +550,34 @@ impl Interfaz {
             ModoLocal::Seleccion { destinos, foco } => destinos.get(*foco).copied(),
             ModoLocal::Normal => None,
         };
-        for lugar in &mundo.lugares {
+        // Las regiones son rótulos de fondo; los nombres de lugares tienen prioridad.
+        for lugar in mundo
+            .lugares
+            .iter()
+            .filter(|l| l.es_region())
+            .chain(mundo.lugares.iter().filter(|l| !l.es_region()))
+        {
+            let estilo = if foco == Some(lugar.id) {
+                recursos.ui.foco
+            } else if lugar.es_region() {
+                recursos.estilo_region(&lugar.caracteristicas)
+            } else {
+                recursos.ui.destacado
+            };
             for (caracter, coordenada) in lugar.nombre.chars().zip(&lugar.coordenadas_rotulo) {
                 if let Some((x, y)) =
                     proyectar(*coordenada, area, origen_x, origen_y, margen_x, margen_y)
                 {
-                    let estilo = if foco == Some(lugar.id) {
-                        recursos.ui.foco
-                    } else {
-                        recursos.ui.destacado
-                    };
-                    poner_celda(frame, x, y, caracter, estilo);
+                    // Un tile puede aportar negrita o tenue: el rótulo decide sus modificadores.
+                    poner_celda(
+                        frame,
+                        x,
+                        y,
+                        caracter,
+                        estilo
+                            .remove_modifier(Modifier::BOLD | Modifier::DIM)
+                            .add_modifier(estilo.add_modifier),
+                    );
                 }
             }
         }
@@ -1257,6 +1274,66 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    #[test]
+    fn regiones_quedan_tenues_detras_de_los_lugares_sin_heredar_negrita_del_tile() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        let interfaz = Interfaz::nueva(partida).unwrap();
+        let mut mundo = interfaz.ultima_vista_mundo.clone();
+        let clave = desert_tiger_app::ClaveTipoTile::nueva("montana".into()).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal"))
+            .unwrap()
+            .con_fotogramas_prueba(clave.clone(), &["^"]);
+        mundo.mapa.celdas.fill(clave);
+        for lugar in &mut mundo.lugares {
+            lugar.coordenadas_rotulo.clear();
+        }
+        let coordenada = |x| desert_tiger_app::CoordenadaMapa { x, y: 8 };
+        mundo.lugares[0].nombre = "L".into();
+        mundo.lugares[0].coordenadas_rotulo = vec![coordenada(20)];
+        mundo.lugares[26].nombre = "RR".into();
+        mundo.lugares[26].coordenadas_rotulo = vec![coordenada(20), coordenada(21)];
+        let mut terminal = Terminal::new(TestBackend::new(192, 66)).unwrap();
+        // El tile de montaña de prueba es verde: verifica que el color se consulta
+        // en el catálogo y no queda fijado a gris en el código del rótulo.
+        for (marcas, tile) in [
+            (vec!["region"], None),
+            (vec!["region", "acuatico"], Some("agua")),
+            (vec!["region", "montanoso"], Some("montana")),
+            (vec!["region", "boscoso"], Some("bosque")),
+            (vec!["region", "arenoso"], Some("arena")),
+            (vec!["region", "arido"], Some("sueloArido")),
+            (vec!["region", "fertil"], Some("vegetacion")),
+            (vec!["region", "pantanoso"], Some("vegetacion")),
+            (vec!["region", "fluvial"], Some("aguaRio")),
+            (vec!["region", "montanoso", "acuatico"], Some("agua")),
+        ] {
+            let frente = tile
+                .and_then(|nombre: &str| {
+                    let clave = desert_tiger_app::ClaveTipoTile::nueva(nombre.into()).unwrap();
+                    recursos.tile(&clave, 0, 0, 0).estilo.fg
+                })
+                .unwrap_or_else(|| recursos.ui.region.fg.unwrap());
+            mundo.lugares[26].caracteristicas = marcas.into_iter().map(str::to_owned).collect();
+            terminal
+                .draw(|frame| {
+                    interfaz.dibujar_mundo(frame, Rect::new(0, 0, 192, 64), &mundo, &recursos)
+                })
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            assert_eq!(buffer[(20, 8)].symbol(), "L");
+            assert_eq!(buffer[(20, 8)].fg, recursos.ui.destacado.fg.unwrap());
+            assert!(buffer[(20, 8)].modifier.contains(Modifier::BOLD));
+            assert!(!buffer[(20, 8)].modifier.contains(Modifier::DIM));
+            assert_eq!(buffer[(21, 8)].symbol(), "R");
+            assert_eq!(buffer[(21, 8)].fg, frente);
+            assert!(buffer[(21, 8)].modifier.contains(Modifier::DIM));
+            assert!(!buffer[(21, 8)].modifier.contains(Modifier::BOLD));
+        }
+    }
 
     #[test]
     fn retratos_conservan_color_y_modificadores_sobre_cada_terreno_al_redimensionar() {

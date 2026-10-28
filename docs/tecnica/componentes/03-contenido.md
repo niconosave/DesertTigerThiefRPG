@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.27 |
-| Fecha | 2026-10-27 |
+| Versión | 0.28 |
+| Fecha | 2026-10-28 |
 
 > Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
 
@@ -22,6 +22,10 @@ Los apartados del cuerpo original incompatibles con esta revisión se conservan
 como historial, no como especificación alternativa. Los demás contratos del
 componente mantienen su alcance. Las verificaciones están en el
 [informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
+> Ampliación implementada el 2026-10-28: los RON de Lugar admiten la marca
+> `region` y el tipo dirigido `Abarca`, según el [contrato 10, sección 12](./10-relaciones.md#12-regiones-y-abarca--implementadas-el-2026-10-28).
+> Se registran en `world.ron` como los demás Lugares y conservan el mismo formato.
 
 ## 1. Propósito y alcance
 

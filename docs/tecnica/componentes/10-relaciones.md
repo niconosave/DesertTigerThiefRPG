@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.3 |
-| Fecha | 2026-10-26 |
+| Versión | 0.4 |
+| Fecha | 2026-10-28 |
 
 > Ampliación implementada el 2026-10-26. Filiación, MatadoPor e índices familiares: [contrato 14, secciones 4–5](./14-parentesco-actores-contexto.md#5-almacenamiento-índices-y-consultas-familiares).
 
@@ -122,6 +122,7 @@ pub enum TipoRelacion {
     Madre,
     MatadoPor,
     Conectado,
+    Abarca,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -688,3 +689,40 @@ cardinalidad adicional ni modifica parentesco, pertenencia al Grupo o conducta.
 El contenido oficial declara este vínculo desde Bandido y Sirviente hacia el
 Príncipe Perdido. Las pruebas de fichas comprueban las dos lecturas y que no
 se deduzca hermandad a partir de esta relación.
+
+## 12. Regiones y Abarca — implementadas el 2026-10-28
+
+Una región es un Lugar con la Característica `region`. `Lugar::es_region()`
+consulta esa marca; no se introduce un subtipo ni un archivo de formato distinto.
+La Relación dirigida `Abarca` vincula una región de origen con un Lugar de destino:
+
+```ron
+// Dentro de un Lugar con caracteristicas: ["region"].
+relaciones: [
+    (tipo: Abarca, destino: Lugar("zona_arida")),
+],
+```
+
+Se declara una vez en el RON de la región. Se almacena como una única Relación y
+se indexa en `relaciones_por_lugar` para ambos extremos; nunca se incorpora a
+`conectados_por_lugar`. Las fichas muestran «Abarca: {destino}» desde la región
+y «Dentro de: {origen}» desde el Lugar incluido. Los enlaces pueden explorarse
+en el campamento mediante el mecanismo habitual.
+
+El núcleo y la carga rechazan extremos inexistentes o distintos de Lugar,
+autorreferencias, declaraciones duplicadas y un origen sin `region`.
+`Conectado` rechaza una región en cualquiera de sus extremos, aunque esa región
+no declare ninguna Relación Abarca. El diagnóstico identifica el Lugar afectado.
+
+Abarca expresa inclusión declarada, sin calcular polígonos a partir de los tiles,
+heredar Características, deducir otras Relaciones ni trasladar Actores.
+Un Lugar puede pertenecer a más de una región. No se calcula cierre transitivo;
+las consultas de fichas muestran exclusivamente los vínculos declarados.
+Los destinos y ambas búsquedas de ruta conservan el grafo exclusivo de Conectado,
+por lo que las regiones no ofrecen atajos ni pasan a integrar los viajes de NPC.
+
+Las pruebas del núcleo verifican índices en ambos extremos, destinos de jugador
+y NPC, conexiones prohibidas en ambos sentidos y validación de origen/duplicados.
+Las de contenido verifican el atlas completo y los diagnósticos; las de fichas,
+las dos lecturas navegables. La composición visual se especifica en el
+[frontend de terminal](./09-frontend-terminal.md).

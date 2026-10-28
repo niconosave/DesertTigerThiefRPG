@@ -168,6 +168,30 @@ impl RecursosVisuales {
         self.apariencias.contains_key(clave)
     }
 
+    pub(crate) fn estilo_region(&self, caracteristicas: &[String]) -> Style {
+        let Some(tipo) = [
+            ("acuatico", "agua"),
+            ("montanoso", "montana"),
+            ("boscoso", "bosque"),
+            ("arenoso", "arena"),
+            ("arido", "sueloArido"),
+            ("fertil", "vegetacion"),
+            ("pantanoso", "vegetacion"),
+            ("fluvial", "aguaRio"),
+        ]
+        .into_iter()
+        .find_map(|(marca, tile)| caracteristicas.iter().any(|c| c == marca).then_some(tile)) else {
+            return self.ui.region;
+        };
+        let frente = self.apariencias.iter().find_map(|(clave, patron)| {
+            (clave.como_str() == tipo)
+                .then_some(patron.estilo.fg)
+                .flatten()
+        });
+        // Conserva la atenuación del rótulo, sin copiar fondo ni negrita del terreno.
+        frente.map_or(self.ui.region, |color| self.ui.region.fg(color))
+    }
+
     #[cfg(test)]
     pub(crate) fn con_fotogramas_prueba(
         mut self,
@@ -195,6 +219,7 @@ pub(crate) struct PaletaUi {
     pub pantalla: Style,
     pub texto_normal: Style,
     pub destacado: Style,
+    pub region: Style,
     #[allow(dead_code)]
     pub secundario: Style,
     pub marco: Style,
@@ -285,6 +310,8 @@ struct UiDto {
     pantalla: EstiloDto,
     texto_normal: EstiloDto,
     destacado: EstiloDto,
+    #[serde(default = "estilo_region")]
+    region: EstiloDto,
     secundario: EstiloDto,
     marco: EstiloDto,
     titulo: EstiloDto,
@@ -372,11 +399,20 @@ fn convertir_patron(dto: DefinicionTileDto) -> Result<PatronTile, ErrorRecursos>
     })
 }
 
+fn estilo_region() -> EstiloDto {
+    EstiloDto {
+        frente: "amarillo".into(),
+        fondo: None,
+        modificadores: vec!["tenue".into()],
+    }
+}
+
 fn convertir_ui(dto: UiDto) -> Result<PaletaUi, ErrorRecursos> {
     Ok(PaletaUi {
         pantalla: convertir_estilo(dto.pantalla)?,
         texto_normal: convertir_estilo(dto.texto_normal)?,
         destacado: convertir_estilo(dto.destacado)?,
+        region: convertir_estilo(dto.region)?,
         secundario: convertir_estilo(dto.secundario)?,
         marco: convertir_estilo(dto.marco)?,
         titulo: convertir_estilo(dto.titulo)?,

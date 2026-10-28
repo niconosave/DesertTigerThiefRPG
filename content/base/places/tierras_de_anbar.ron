@@ -1,0 +1,27 @@
+(
+    clave: "tierras_de_anbar",
+    nombre: "Tierras de Anbar",
+    caracteristicas: ["region", "arido"],
+    relaciones: [
+        (tipo: Abarca, destino: Lugar("isla_del_exilio")),
+    ],
+    coordenada_central: (x: 37, y: 55),
+    coordenadas_rotulo: [
+        (x: 28, y: 56),
+        (x: 29, y: 56),
+        (x: 30, y: 56),
+        (x: 31, y: 56),
+        (x: 32, y: 56),
+        (x: 33, y: 56),
+        (x: 34, y: 56),
+        (x: 35, y: 56),
+        (x: 36, y: 56),
+        (x: 37, y: 57),
+        (x: 38, y: 57),
+        (x: 39, y: 57),
+        (x: 40, y: 57),
+        (x: 41, y: 57),
+        (x: 42, y: 57),
+        (x: 43, y: 57),
+    ],
+)

@@ -112,6 +112,11 @@ pub struct VistaLugar {
     pub caracteristicas: Vec<String>,
     pub conectados: Vec<IdLugar>,
 }
+impl VistaLugar {
+    pub fn es_region(&self) -> bool {
+        self.caracteristicas.iter().any(|c| c == "region")
+    }
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaActor {
     pub nombre: String,

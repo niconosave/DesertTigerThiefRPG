@@ -200,6 +200,10 @@ pub(crate) fn proyectar(
             }
             TipoRelacion::Sirviente => (SentidoRelacionFicha::Entrante, "Servido por:"),
             TipoRelacion::Conectado => (SentidoRelacionFicha::Simetrica, "Conectado con"),
+            TipoRelacion::Abarca if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Abarca:")
+            }
+            TipoRelacion::Abarca => (SentidoRelacionFicha::Entrante, "Dentro de:"),
             TipoRelacion::Conoce if relacion.origen() == elemento => {
                 (SentidoRelacionFicha::Saliente, "Conoce")
             }
@@ -300,6 +304,21 @@ pub(crate) fn proyectar(
 mod pruebas {
     use super::*;
     #[test]
+    fn fichas_permiten_explorar_abarca_y_dentro_de_en_ambos_sentidos() {
+        let c = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mundo, _) = c.instanciar_estado().unwrap();
+        let hamada = ExtremoRelacion::Lugar(IdLugar::desde_posicion(0).unwrap());
+        let region = ExtremoRelacion::Lugar(IdLugar::desde_posicion(26).unwrap());
+        let ficha_region = proyectar(&mundo, &c, region).unwrap();
+        assert!(ficha_region.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.etiqueta == "Abarca: Hamada Roja" && r.referencia.elemento == hamada)));
+        let ficha_hamada = proyectar(&mundo, &c, hamada).unwrap();
+        assert!(ficha_hamada.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.etiqueta == "Dentro de: Tierras de Sahran" && r.referencia.elemento == region)));
+    }
+
+    #[test]
     fn familia_del_principe_expone_hechos_y_deducciones_sin_ids_ficticios() {
         let c = crate::cargar_contenido(
             &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
@@ -379,6 +398,6 @@ mod pruebas {
             );
         }
         assert_eq!(mundo, antes);
-        assert_eq!(mundo.relaciones().len(), 51);
+        assert_eq!(mundo.relaciones().len(), 78);
     }
 }

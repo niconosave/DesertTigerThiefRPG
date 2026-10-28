@@ -16,6 +16,7 @@ cada acción.
 | [`borradores/05-viajar-redisenio.md`](./borradores/05-viajar-redisenio.md) | Reglamento aprobado de `Viajar`, conservado en su ruta para mantener referencias. |
 | [`borradores/CONTEXTO-viajar-redisenio.md`](./borradores/CONTEXTO-viajar-redisenio.md) | Traspaso histórico de la etapa anterior al motor actual. |
 | [`borradores/CONTEXTO-viajar-territorio-segunda-iteracion.md`](./borradores/CONTEXTO-viajar-territorio-segunda-iteracion.md) | Traspaso activo para diseñar una segunda iteración de Viajar y Lugares, centrada en territorio y planificación. |
+| [`borradores/INVESTIGACION-viajes-territorio-relatos-miticos.md`](./borradores/INVESTIGACION-viajes-territorio-relatos-miticos.md) | Borrador independiente sobre territorio, paisaje y viajes largos en cuatro relatos míticos; no define reglas del juego. |
 | [`particulares/`](./particulares/README.md) | Índice vigente de las cinco pruebas y archivos históricos sustituidos. |
 
 Para el motor implementado, las mecánicas pertenecen al reglamento de

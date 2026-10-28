@@ -1,0 +1,28 @@
+(
+    clave: "cuenca_del_draa",
+    nombre: "Cuenca del Drâa",
+    caracteristicas: ["region", "fertil"],
+    relaciones: [
+        (tipo: Abarca, destino: Lugar("valle_fertil")),
+        (tipo: Abarca, destino: Lugar("tazar")),
+        (tipo: Abarca, destino: Lugar("descenso_del_draa")),
+    ],
+    coordenada_central: (x: 130, y: 12),
+    coordenadas_rotulo: [
+        (x: 116, y: 7),
+        (x: 117, y: 7),
+        (x: 118, y: 7),
+        (x: 119, y: 7),
+        (x: 120, y: 7),
+        (x: 121, y: 6),
+        (x: 122, y: 6),
+        (x: 123, y: 6),
+        (x: 124, y: 6),
+        (x: 125, y: 6),
+        (x: 126, y: 7),
+        (x: 127, y: 7),
+        (x: 128, y: 7),
+        (x: 129, y: 7),
+        (x: 130, y: 7),
+    ],
+)

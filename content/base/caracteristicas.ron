@@ -1,6 +1,11 @@
 (
     entradas: [
         (
+            clave: "region",
+            nombre: "Región",
+            descripcion: "Agrupa lugares mediante relaciones Abarca. Su nombre se muestra de fondo en el mapa; no tiene conexiones transitables ni es un destino de viaje.",
+        ),
+        (
             clave: "musico",
             nombre: "Músico",
             descripcion: "Sabe tocar música y puede interpretar una melodía para sus compañeros durante el campamento.",
