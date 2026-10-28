@@ -1,6 +1,6 @@
 (
     clave: "tierras_de_anbar",
-    nombre: "Tierras de Anbar",
+    nombre: "TIERRAS DE ANBAR",
     caracteristicas: ["region", "arido"],
     relaciones: [
         (tipo: Abarca, destino: Lugar("isla_del_exilio")),

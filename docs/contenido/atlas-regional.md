@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.8 |
+| Versión | 0.9 |
 | Fecha | 2026-10-28 |
 
 ## 1. Propósito
@@ -258,7 +258,11 @@ las costas, ambas cordilleras, la cuenca fértil, el bosque, las tierras bajas,
 la isla y los cuatro sectores marítimos. El Descenso del Drâa pertenece tanto
 al conjunto montañoso como a la cuenca: estas agrupaciones pueden solaparse.
 
-Los nombres son provisionales y editables. Sus rótulos siguen recorridos
+Los nombres son provisionales y editables, escritos en mayúsculas. En las
+regiones grandes se separan las coordenadas de las letras para extender el
+rótulo sobre su territorio; en regiones pequeñas se conserva una composición
+compacta. El espaciado se edita en los RON, sin insertar letras o espacios
+adicionales en el nombre. Sus rótulos siguen recorridos
 horizontales, diagonales o verticales acordes a cada región y se presentan con
 menor intensidad que los Lugares transitables. Su autoría concreta —nombres,
 coordenadas y pertenencias— reside únicamente en `content/base/places/`.

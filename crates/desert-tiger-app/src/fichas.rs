@@ -315,7 +315,7 @@ mod pruebas {
         let ficha_region = proyectar(&mundo, &c, region).unwrap();
         assert!(ficha_region.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.etiqueta == "Abarca: Hamada Roja" && r.referencia.elemento == hamada)));
         let ficha_hamada = proyectar(&mundo, &c, hamada).unwrap();
-        assert!(ficha_hamada.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.etiqueta == "Dentro de: Tierras de Sahran" && r.referencia.elemento == region)));
+        assert!(ficha_hamada.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.etiqueta == "Dentro de: TIERRAS DE SAHRAN" && r.referencia.elemento == region)));
     }
 
     #[test]
