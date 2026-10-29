@@ -1,0 +1,25 @@
+(
+    clave: "pico_de_izir",
+    nombre: "Pico de Izir",
+    nombre_abreviado: "P. Izir",
+    caracteristicas: ["montanoso", "elevado", "empinado", "rocoso"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("espinazo_gris")),
+        (tipo: Conectado, destino: Lugar("risco_de_adrar")),
+    ],
+    coordenada_central: (x: 110, y: 5),
+    coordenadas_rotulo: [
+        (x: 110, y: 3),
+        (x: 111, y: 3),
+        (x: 112, y: 3),
+        (x: 113, y: 3),
+        (x: 114, y: 3),
+        (x: 115, y: 3),
+        (x: 116, y: 3),
+        (x: 117, y: 3),
+        (x: 118, y: 3),
+        (x: 119, y: 3),
+        (x: 120, y: 3),
+        (x: 121, y: 3),
+    ],
+)

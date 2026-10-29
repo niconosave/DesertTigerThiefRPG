@@ -1,6 +1,11 @@
 (
     entradas: [
         (
+            clave: "caudaloso",
+            nombre: "Caudaloso",
+            descripcion: "El cauce lleva un volumen abundante de agua.",
+        ),
+        (
             clave: "civilizado",
             nombre: "Civilizado",
             descripcion: "Lugar construido o urbanizado por personas, como un asentamiento o una calzada.",

@@ -1,0 +1,27 @@
+(
+    clave: "punta_de_namar",
+    nombre: "Punta de Namar",
+    nombre_abreviado: "P. Namar",
+    caracteristicas: ["costero", "arido", "rocoso", "viento"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("cabo_errante")),
+        (tipo: Conectado, destino: Lugar("playa_dorada")),
+    ],
+    coordenada_central: (x: 70, y: 56),
+    coordenadas_rotulo: [
+        (x: 64, y: 54),
+        (x: 65, y: 54),
+        (x: 66, y: 54),
+        (x: 67, y: 54),
+        (x: 68, y: 54),
+        (x: 69, y: 54),
+        (x: 70, y: 54),
+        (x: 71, y: 54),
+        (x: 72, y: 54),
+        (x: 73, y: 54),
+        (x: 74, y: 54),
+        (x: 75, y: 54),
+        (x: 76, y: 54),
+        (x: 77, y: 54),
+    ],
+)

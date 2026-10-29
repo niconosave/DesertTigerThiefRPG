@@ -2830,11 +2830,11 @@ mod pruebas {
         let contenido = cargar_contenido(&raiz_base()).unwrap();
         let (mundo, _) = contenido.instanciar_estado().unwrap();
         let regiones: Vec<_> = mundo.lugares().iter().filter(|l| l.es_region()).collect();
-        assert_eq!(regiones.len(), 11);
+        assert_eq!(regiones.len(), 13);
         let destinos =
             desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
                 .unwrap();
-        assert_eq!(destinos.len(), 24);
+        assert_eq!(destinos.len(), 29);
         for region in regiones {
             assert!(!destinos.contains(&region.id()));
             assert!(mundo.lugares_conectados(region.id()).unwrap().is_empty());
@@ -2852,10 +2852,12 @@ mod pruebas {
                 .unwrap()
                 .iter()
                 .any(|&id| mundo.relacion(id).unwrap().tipo() == TipoRelacion::Abarca);
-            // Costa Ámbar queda sin región tras retirar Costas de Sahil.
+            // Costa Ámbar no tiene región; los tres ríos nuevos esperan su modelo de relaciones.
             assert_eq!(
                 tiene_region,
-                lugar.id() != IdLugar::desde_posicion(3).unwrap()
+                ![3, 39, 40, 41]
+                    .into_iter()
+                    .any(|i| lugar.id() == IdLugar::desde_posicion(i).unwrap())
             );
         }
         let fixture = fixture_temporal();
@@ -2900,7 +2902,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 73);
+        assert_eq!(mundo.relaciones().len(), 87);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -2913,7 +2915,7 @@ mod pruebas {
                 .as_slice()
             )
         );
-        assert_eq!(contenido.presentacion().lugares().len(), 36);
+        assert_eq!(contenido.presentacion().lugares().len(), 46);
         for (origen, intermedio, destino) in [
             (0, 20, 5),
             (1, 21, 2),

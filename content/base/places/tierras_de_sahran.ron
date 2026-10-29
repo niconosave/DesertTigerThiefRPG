@@ -3,12 +3,9 @@
     nombre: "TIERRAS DE SAHRAN",
     caracteristicas: ["region", "arido"],
     relaciones: [
-        (tipo: Abarca, destino: Lugar("cabo_errante")),
-        (tipo: Abarca, destino: Lugar("playa_dorada")),
+        (tipo: Abarca, destino: Lugar("lomas_de_anir")),
         (tipo: Abarca, destino: Lugar("zona_arida")),
         (tipo: Abarca, destino: Lugar("mar_del_viento")),
-        (tipo: Abarca, destino: Lugar("mesa_del_sol")),
-        (tipo: Abarca, destino: Lugar("hamada_de_zahrun")),
     ],
     coordenada_central: (x: 58, y: 22),
     coordenadas_rotulo: [

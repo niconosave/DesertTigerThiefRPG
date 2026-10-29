@@ -398,6 +398,6 @@ mod pruebas {
             );
         }
         assert_eq!(mundo, antes);
-        assert_eq!(mundo.relaciones().len(), 73);
+        assert_eq!(mundo.relaciones().len(), 87);
     }
 }

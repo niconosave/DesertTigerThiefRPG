@@ -1,0 +1,25 @@
+(
+    clave: "lomas_de_anir",
+    nombre: "Lomas de Anir",
+    nombre_abreviado: "L. Anir",
+    caracteristicas: ["arido", "rocoso", "elevado"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("costa_ambar")),
+    ],
+    coordenada_central: (x: 40, y: 14),
+    coordenadas_rotulo: [
+        (x: 34, y: 12),
+        (x: 35, y: 12),
+        (x: 36, y: 12),
+        (x: 37, y: 12),
+        (x: 38, y: 12),
+        (x: 39, y: 12),
+        (x: 40, y: 12),
+        (x: 41, y: 12),
+        (x: 42, y: 12),
+        (x: 43, y: 12),
+        (x: 44, y: 12),
+        (x: 45, y: 12),
+        (x: 46, y: 12),
+    ],
+)

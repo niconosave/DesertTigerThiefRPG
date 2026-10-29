@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.14 |
-| Fecha | 2026-10-28 |
+| Versión | 0.15 |
+| Fecha | 2026-10-29 |
 
 ## 1. Propósito
 
@@ -287,3 +287,21 @@ transitables vigentes se declaran únicamente en los RON.
 
 La región antes llamada Tierras de Tamrut se denomina ahora Bosque de Tamrut.
 Bosque oscuro identifica el Lugar transitable dentro de esa región.
+
+
+### Ampliación de Sahran y cabeceras fluviales
+
+Península de Sahir agrupa Cabo Errante, Playa Dorada y la nueva Punta de Namar.
+Tierras de Zahrun agrupa Hamada de Zahrun y Mesa del Sol. Los cuatro lugares
+preexistentes dejan de estar abarcados directamente por Tierras de Sahran.
+Lomas de Anir ocupa la tierra al noreste de Costa Ámbar y pertenece a Sahran.
+
+Monte Tazir, Pico de Izir y Risco de Adrar pertenecen a la Cordillera de Azrum;
+los tres se conectan entre sí y con Espinazo Gris. Punta de Namar conecta con
+Cabo Errante y Playa Dorada; Lomas de Anir conecta con Costa Ámbar.
+
+La intención geográfica es que Río Tazir nazca en Monte Tazir y Río Izir en
+Pico de Izir, y que ambos alimenten Río Tamrut, de mayor caudal, que atraviesa
+el bosque. **Estos vínculos están pendientes de definir un tipo de relación**:
+los tres ríos se incorporan sin relaciones ni conexiones de viaje. La
+característica `caudaloso` describe el tercer río; no añade reglas nuevas.

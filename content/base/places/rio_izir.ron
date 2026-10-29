@@ -1,0 +1,18 @@
+(
+    clave: "rio_izir",
+    nombre: "Río Izir",
+    caracteristicas: ["acuatico", "fluvial", "aguaDulce", "corrienteRapida"],
+    relaciones: [
+    ],
+    coordenada_central: (x: 121, y: 9),
+    coordenadas_rotulo: [
+        (x: 119, y: 7),
+        (x: 120, y: 7),
+        (x: 121, y: 7),
+        (x: 122, y: 7),
+        (x: 123, y: 7),
+        (x: 124, y: 7),
+        (x: 125, y: 7),
+        (x: 126, y: 7),
+    ],
+)
