@@ -4,13 +4,13 @@
     nombre_abreviado: "Mesa Sol",
     caracteristicas: ["arido", "elevado", "abierto", "rocoso"],
     relaciones: [
-        (tipo: Conectado, destino: Lugar("espinazo_gris")),
+        (tipo: Conectado, destino: Lugar("camino_de_los_mojones")),
         (tipo: Conectado, destino: Lugar("mar_boreal")),
     ],
-    coordenada_central: (x: 68, y: 6),
+    coordenada_central: (x: 68, y: 8),
     coordenadas_rotulo: [
-        (x: 63, y: 4), (x: 64, y: 4), (x: 65, y: 4), (x: 66, y: 4),
-        (x: 67, y: 4), (x: 68, y: 4), (x: 69, y: 4), (x: 70, y: 4),
-        (x: 71, y: 4), (x: 72, y: 4), (x: 73, y: 4), (x: 74, y: 4),
+        (x: 63, y: 6), (x: 64, y: 6), (x: 65, y: 6), (x: 66, y: 6),
+        (x: 67, y: 6), (x: 68, y: 6), (x: 69, y: 6), (x: 70, y: 6),
+        (x: 71, y: 6), (x: 72, y: 6), (x: 73, y: 6), (x: 74, y: 6),
     ],
 )

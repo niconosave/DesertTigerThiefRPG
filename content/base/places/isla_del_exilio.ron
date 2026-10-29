@@ -4,12 +4,12 @@
     nombre_abreviado: "Isla Exilio",
     caracteristicas: ["insular", "arido", "costero", "muelle", "puerto"],
     relaciones: [],
-    coordenada_central: (x: 40, y: 56),
+    coordenada_central: (x: 37, y: 53),
     coordenadas_rotulo: [
-        (x: 33, y: 50), (x: 34, y: 50), (x: 35, y: 50),
-        (x: 36, y: 50), (x: 37, y: 50), (x: 38, y: 50),
-        (x: 39, y: 50), (x: 40, y: 50), (x: 41, y: 50),
-        (x: 42, y: 50), (x: 43, y: 50), (x: 44, y: 50),
-        (x: 45, y: 50), (x: 46, y: 50), (x: 47, y: 50),
+        (x: 30, y: 51), (x: 31, y: 51), (x: 32, y: 51),
+        (x: 33, y: 51), (x: 34, y: 51), (x: 35, y: 51),
+        (x: 36, y: 51), (x: 37, y: 51), (x: 38, y: 51),
+        (x: 39, y: 51), (x: 40, y: 51), (x: 41, y: 51),
+        (x: 42, y: 51), (x: 43, y: 51), (x: 44, y: 51),
     ],
 )

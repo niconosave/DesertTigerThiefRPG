@@ -2741,7 +2741,7 @@ mod pruebas {
         let contenido = cargar_contenido(&raiz_base()).unwrap();
         let (mundo, _) = contenido.instanciar_estado().unwrap();
         let regiones: Vec<_> = mundo.lugares().iter().filter(|l| l.es_region()).collect();
-        assert_eq!(regiones.len(), 12);
+        assert_eq!(regiones.len(), 11);
         let destinos =
             desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
                 .unwrap();
@@ -2758,12 +2758,15 @@ mod pruebas {
             );
         }
         for lugar in mundo.lugares().iter().filter(|l| !l.es_region()) {
-            assert!(
-                mundo
-                    .relaciones_de(ExtremoRelacion::Lugar(lugar.id()))
-                    .unwrap()
-                    .iter()
-                    .any(|&id| mundo.relacion(id).unwrap().tipo() == TipoRelacion::Abarca)
+            let tiene_region = mundo
+                .relaciones_de(ExtremoRelacion::Lugar(lugar.id()))
+                .unwrap()
+                .iter()
+                .any(|&id| mundo.relacion(id).unwrap().tipo() == TipoRelacion::Abarca);
+            // Costa Ámbar queda sin región tras retirar Costas de Sahil.
+            assert_eq!(
+                tiene_region,
+                lugar.id() != IdLugar::desde_posicion(3).unwrap()
             );
         }
         let fixture = fixture_temporal();
@@ -2808,7 +2811,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 78);
+        assert_eq!(mundo.relaciones().len(), 76);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -2816,15 +2819,14 @@ mod pruebas {
                     IdLugar::desde_posicion(6).expect("ID válido"),
                     IdLugar::desde_posicion(9).expect("ID válido"),
                     IdLugar::desde_posicion(13).expect("ID válido"),
-                    IdLugar::desde_posicion(20).expect("ID válido"),
                     IdLugar::desde_posicion(21).expect("ID válido"),
                 ]
                 .as_slice()
             )
         );
-        assert_eq!(contenido.presentacion().lugares().len(), 38);
+        assert_eq!(contenido.presentacion().lugares().len(), 37);
         for (origen, intermedio, destino) in [
-            (0, 20, 1),
+            (0, 20, 5),
             (1, 21, 2),
             (2, 22, 10),
             (10, 23, 11),

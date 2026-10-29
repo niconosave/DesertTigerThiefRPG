@@ -371,10 +371,16 @@ mod pruebas {
                 .expect("partida válida");
             let inicial = partida.vista();
             let destino = match &inicial {
-                VistaSesion::Disponible(mundo) => match &mundo.acciones[0] {
-                    desert_tiger_app::AccionDisponible::Viajar { destinos } => destinos[0],
-                    desert_tiger_app::AccionDisponible::Acampar => panic!("se esperaba Viajar"),
-                },
+                // El bandido conoce este recorrido y ofrecerá una decisión de plan.
+                // Elegir el primer destino del atlas dependía de incidentes aleatorios.
+                VistaSesion::Disponible(mundo) => {
+                    mundo
+                        .lugares
+                        .iter()
+                        .find(|lugar| lugar.nombre == "Camino de los Mojones")
+                        .expect("el contenido oficial incluye el camino conocido")
+                        .id
+                }
                 _ => panic!("vista inicial inesperada"),
             };
             let mut vistas = vec![inicial];
@@ -382,7 +388,8 @@ mod pruebas {
                 .procesar(desert_tiger_app::IntencionFrontend::ComenzarViaje { destino })
                 .expect("inicio aceptado");
             let mut hubo_decision = false;
-            for _ in 0..12 {
+            let mut termino = false;
+            for _ in 0..128 {
                 vistas.push(actual.clone());
                 actual = match actual {
                     VistaSesion::PresentandoAccion(fragmento) => partida
@@ -401,14 +408,34 @@ mod pruebas {
                     }
                     VistaSesion::Disponible(mundo) => {
                         assert!(mundo.resumen_npc_reciente.is_some());
-                        assert_eq!(mundo.lugar_jugador, destino);
+                        // Un incidente puede terminar el viaje antes del destino.
+                        // La vista final debe conservar el último lugar confirmado.
+                        let confirmado = vistas
+                            .iter()
+                            .rev()
+                            .find_map(|vista| match vista {
+                                VistaSesion::PresentandoAccion(f) => {
+                                    Some(f.progreso.lugar_confirmado)
+                                }
+                                VistaSesion::EsperandoDecision(d) => {
+                                    Some(d.progreso.lugar_confirmado)
+                                }
+                                _ => None,
+                            })
+                            .expect("el viaje presentó su progreso");
+                        assert_eq!(mundo.lugar_jugador, confirmado);
+                        termino = true;
                         break;
                     }
                     VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                     VistaSesion::Fatal(fatal) => panic!("sesión fatal: {}", fatal.mensaje),
                 };
             }
-            assert!(hubo_decision, "la semilla 0 debe cubrir una decisión");
+            assert!(
+                hubo_decision,
+                "el recorrido conocido debe ofrecer una decisión"
+            );
+            assert!(termino, "el recorrido de humo debe terminar");
             vistas.push(partida.vista());
             vistas
         }

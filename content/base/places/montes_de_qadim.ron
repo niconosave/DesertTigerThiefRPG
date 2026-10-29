@@ -3,7 +3,7 @@
     nombre: "MONTES DE QADIM",
     caracteristicas: ["region", "montanoso"],
     relaciones: [
-        (tipo: Abarca, destino: Lugar("sierra_quebrada")),
+        (tipo: Abarca, destino: Lugar("valle_gris")),
         (tipo: Abarca, destino: Lugar("alcazar_gris")),
     ],
     coordenada_central: (x: 122, y: 40),

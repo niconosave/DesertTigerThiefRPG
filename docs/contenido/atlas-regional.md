@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.9 |
+| Versión | 0.12 |
 | Fecha | 2026-10-28 |
 
 ## 1. Propósito
@@ -71,7 +71,6 @@ poseen regla.
 | Nombre | Naturaleza y posición visual | Vocabulario editorial | Posibilidades futuras |
 |---|---|---|---|
 | Costa Ámbar | Costa arenosa del borde occidental. | `costero`, `arenoso`, `ventoso` | Exposición, restos arrastrados por el mar, embarque futuro. |
-| Llano del Viento | Llanura abierta del noroeste interior. | `arido`, `abierto`, `ventoso` | Orientación, persecuciones y falta de refugio. |
 | Mesa del Sol | Elevación árida del extremo norte. | `arido`, `elevado`, `expuesto` | Ascenso, observación y señales a distancia. |
 | Hamada Roja | Desierto rocoso del centro occidental; reemplaza visualmente a `Zona Árida`. | `arido`, `rocoso`, `expuesto` | Punto inicial, rastreo, calor y escasez de refugio. |
 | Cabo Errante | Península árida del sudoeste. | `costero`, `rocoso`, `ventoso` | Rodeos, campamentos expuestos y temporales. |
@@ -83,7 +82,7 @@ poseen regla.
 |---|---|---|---|
 | Espinazo Gris | Cordillera principal, estrecha y alargada de norte a sur. | `montanoso`, `elevado`, `empinado` | Escalada, desprendimientos, visibilidad y clima. |
 | Paso Escarpado | Cruce estrecho entre la Hamada y el oriente fértil. | `empinado`, `estrecho` | Complicación ya diseñada para `Viajar`. |
-| Sierra Quebrada | Ramal montañoso diagonal que limita con el bosque. | `montanoso`, `quebrado`, `boscoso` | Elección entre roca y vegetación, emboscadas y extravío. |
+| Valle Gris | Valle con vegetación al pie de Alcázar Gris; reemplaza a Sierra Quebrada. | `fertil`, `resguardado` | Paso por el fondo del valle y refugio bajo las montañas. |
 
 ### Oriente fértil
 
@@ -101,7 +100,7 @@ en este atlas y, cuando haga falta para una regla, en Características.
 | Nombre | Naturaleza y posición visual | Vocabulario editorial | Posibilidades futuras |
 |---|---|---|---|
 | Tazar | Pueblo del Valle del Drâa. | `civilizado`, `poblado`, `acogedor` | Descanso, reclutamiento, ayuda y rumores. |
-| Alcázar Gris | Fortaleza que controla el paso central. | `civilizado`, `fortificado`, `controlado` | Permisos, asilo, engaño y conflicto político. |
+| Alcázar Gris | Fortaleza en la elevación montañosa sobre Valle Gris. | `civilizado`, `fortificado`, `controlado` | Permisos, asilo, engaño y conflicto político. |
 | Nahal | Puerto pequeño en el borde de la marisma. | `civilizado`, `portuario`, `costero` | Comercio y punto de partida para navegación futura. |
 
 La colección contiene quince Lugares terrestres. Es una cantidad suficiente
@@ -125,6 +124,7 @@ todos continúan siendo Lugares ordinarios del mismo grafo.
 
 | Nombre | Naturaleza y posición visual | Vocabulario editorial | Posibilidades futuras |
 |---|---|---|---|
+| Mar del Viento | Entrada de mar al noroeste interior, reemplaza al antiguo Llano del Viento. | `maritimo`, `aguaSalada`, `viento` | Navegación entre Hamada Roja, Camino de los Mojones, Costa Ámbar y Mar de Poniente. |
 | Mar de Poniente | Mar abierto al oeste de la masa árida. | `maritimo`, `abierto`, `ventoso` | Temporales, pérdida de rumbo y llegada a la isla. |
 | Mar Boreal | Aguas del borde norte del mapa. | `maritimo`, `abierto`, `profundo` | Corrientes, niebla y navegación costera. |
 | Mar de Levante | Mar que bordea el bosque y la marisma por el este. | `maritimo`, `abierto`, `humedo` | Tormentas, navegación junto a la costa y acceso a Nahal. |
@@ -252,9 +252,9 @@ Se aprobaron para esta primera versión:
 
 ## 10. Regiones cartográficas
 
-Se incorporan doce regiones como Lugares sin conexiones transitables, con
+Se mantienen once regiones como Lugares sin conexiones transitables, con
 Relaciones Abarca hacia los Lugares existentes. Cubren las tierras áridas,
-las costas, ambas cordilleras, la cuenca fértil, el bosque, las tierras bajas,
+ambas cordilleras, la cuenca fértil, el bosque, las tierras bajas,
 la isla y los cuatro sectores marítimos. El Descenso del Drâa pertenece tanto
 al conjunto montañoso como a la cuenca: estas agrupaciones pueden solaparse.
 
@@ -267,4 +267,6 @@ horizontales, diagonales o verticales acordes a cada región y se presentan con
 menor intensidad que los Lugares transitables. Su autoría concreta —nombres,
 coordenadas y pertenencias— reside únicamente en `content/base/places/`.
 El [contrato de Regiones y Abarca](../tecnica/componentes/10-relaciones.md#12-regiones-y-abarca--implementadas-el-2026-10-28)
-define su significado. Esta ampliación conserva la red de viajes existente.
+define su significado. Se retiró Costas de Sahil: Costa Ámbar queda sin región,
+y Cabo Errante y Playa Dorada pasan a Tierras de Sahran. Las conexiones
+transitables vigentes se declaran únicamente en los RON.

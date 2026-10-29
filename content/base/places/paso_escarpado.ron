@@ -10,7 +10,7 @@
         ),
         (
             tipo: Conectado,
-            destino: Lugar("sierra_quebrada"),
+            destino: Lugar("valle_gris"),
         ),
         (
             tipo: Conectado,

@@ -2,7 +2,7 @@
     clave: "alcazar_gris",
     nombre: "Alcázar Gris",
     nombre_abreviado: "Alc. Gris",
-    caracteristicas: ["poblado", "fortificado", "elevado"],
+    caracteristicas: ["poblado", "fortificado", "elevado", "montanoso", "rocoso"],
     relaciones: [],
     coordenada_central: (x: 118, y: 38),
     coordenadas_rotulo: [

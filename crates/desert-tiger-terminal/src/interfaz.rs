@@ -1731,7 +1731,7 @@ mod pruebas {
         .unwrap();
         let inicial = i.ambiente_sonoro();
         i.manejar_tecla(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
-        i.manejar_tecla(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
         assert_eq!(i.ambiente_sonoro(), inicial);
         i.manejar_tecla(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
         let bosque = i
@@ -1748,7 +1748,16 @@ mod pruebas {
             .find(|l| l.nombre == "Mar de Poniente")
             .unwrap()
             .id;
-        i.enviar(IntencionFrontend::ComenzarViaje { destino: mar });
+        // El bandido conoce este recorrido: habrá una decisión de plan sin
+        // depender de incidentes aleatorios o de la topología de los mares.
+        let camino = i
+            .ultima_vista_mundo
+            .lugares
+            .iter()
+            .find(|l| l.nombre == "Camino de los Mojones")
+            .unwrap()
+            .id;
+        i.enviar(IntencionFrontend::ComenzarViaje { destino: camino });
         let mut hubo_fragmento = false;
         let mut hubo_decision = false;
         for _ in 0..500 {
