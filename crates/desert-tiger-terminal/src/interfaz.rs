@@ -2200,7 +2200,7 @@ mod pruebas {
             .ultima_vista_mundo
             .lugares
             .iter()
-            .find(|l| l.nombre == "Mar de Poniente")
+            .find(|l| l.nombre == "Aguas de Ámbar")
             .unwrap()
             .id;
         // El bandido conoce este recorrido: habrá una decisión de plan sin
@@ -2715,7 +2715,7 @@ mod pruebas {
             .ultima_vista_mundo
             .lugares
             .iter()
-            .find(|l| l.nombre == "Mar de Levante")
+            .find(|l| l.nombre == "Aguas de Tamrut")
             .unwrap()
             .id;
         interfaz.enviar(IntencionFrontend::ComenzarViaje { destino });

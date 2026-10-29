@@ -59,7 +59,7 @@ mod pruebas {
                 && ambiente.fogata
                 && !ambiente.mar
         );
-        for nombre in ["Costa Ámbar", "Mar de Poniente"] {
+        for nombre in ["Costa Ámbar", "Aguas de Ámbar"] {
             assert!(seleccionar(&m, lugar(nombre).id, false).mar);
         }
         assert!(seleccionar(&m, vado.id, false).rio);
