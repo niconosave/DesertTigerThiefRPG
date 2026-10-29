@@ -2,11 +2,11 @@
     clave: "tazar",
     nombre: "Tazar",
     nombre_abreviado: "Tazar",
-    caracteristicas: ["poblado", "posada", "aguaDulce"],
+    caracteristicas: ["civilizado", "poblado", "posada", "aguaDulce"],
     relaciones: [],
-    coordenada_central: (x: 142, y: 20),
+    coordenada_central: (x: 126, y: 17),
     coordenadas_rotulo: [
-        (x: 140, y: 18), (x: 141, y: 18), (x: 142, y: 18),
-        (x: 143, y: 18), (x: 144, y: 18),
+        (x: 124, y: 15), (x: 125, y: 15), (x: 126, y: 15),
+        (x: 127, y: 15), (x: 128, y: 15),
     ],
 )

@@ -11,6 +11,11 @@
 > [reglamento vigente de Viajar](../tecnica/acciones/borradores/05-viajar-redisenio.md).
 > No se añaden etiquetas abstractas de dificultad a Lugares ni a Relaciones.
 
+> Revisión de contenido del 2026-10-28: el antiguo Camino de los Mojones se
+> convirtió en Hamada de Zahrun, un territorio árido entre la cordillera y Mar
+> del Viento, sin la Característica `camino`. Los recorridos de este brief
+> conservan el diseño inicial; las conexiones vigentes pertenecen a los RON.
+
 ## 1. Propósito y autoridad
 
 Este documento define la intención creativa del primer lote de Lugares que

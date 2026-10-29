@@ -8,7 +8,7 @@
         (tipo: Abarca, destino: Lugar("zona_arida")),
         (tipo: Abarca, destino: Lugar("mar_del_viento")),
         (tipo: Abarca, destino: Lugar("mesa_del_sol")),
-        (tipo: Abarca, destino: Lugar("camino_de_los_mojones")),
+        (tipo: Abarca, destino: Lugar("hamada_de_zahrun")),
     ],
     coordenada_central: (x: 58, y: 22),
     coordenadas_rotulo: [

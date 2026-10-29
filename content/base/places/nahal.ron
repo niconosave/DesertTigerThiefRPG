@@ -2,11 +2,11 @@
     clave: "nahal",
     nombre: "Nahal",
     nombre_abreviado: "Nahal",
-    caracteristicas: ["poblado", "mercado", "puerto", "muelle"],
+    caracteristicas: ["civilizado", "poblado", "mercado", "puerto", "muelle"],
     relaciones: [],
-    coordenada_central: (x: 172, y: 52),
+    coordenada_central: (x: 159, y: 55),
     coordenadas_rotulo: [
-        (x: 170, y: 50), (x: 171, y: 50), (x: 172, y: 50),
-        (x: 173, y: 50), (x: 174, y: 50),
+        (x: 157, y: 53), (x: 158, y: 53), (x: 159, y: 53),
+        (x: 160, y: 53), (x: 161, y: 53),
     ],
 )

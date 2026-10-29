@@ -4,12 +4,12 @@
     nombre_abreviado: "Marisma V.",
     caracteristicas: ["pantanoso", "fluvial", "aguasSomeras", "peces"],
     relaciones: [],
-    coordenada_central: (x: 166, y: 50),
+    coordenada_central: (x: 161, y: 49),
     coordenadas_rotulo: [
-        (x: 160, y: 45), (x: 161, y: 45), (x: 162, y: 45),
-        (x: 163, y: 45), (x: 164, y: 45), (x: 165, y: 46),
-        (x: 166, y: 46), (x: 167, y: 46), (x: 168, y: 46),
-        (x: 169, y: 47), (x: 170, y: 47), (x: 171, y: 47),
-        (x: 172, y: 47),
+        (x: 155, y: 44), (x: 156, y: 44), (x: 157, y: 44),
+        (x: 158, y: 44), (x: 159, y: 44), (x: 160, y: 45),
+        (x: 161, y: 45), (x: 162, y: 45), (x: 163, y: 45),
+        (x: 164, y: 46), (x: 165, y: 46), (x: 166, y: 46),
+        (x: 167, y: 46),
     ],
 )

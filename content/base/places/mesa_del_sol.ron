@@ -4,7 +4,7 @@
     nombre_abreviado: "Mesa Sol",
     caracteristicas: ["arido", "elevado", "abierto", "rocoso"],
     relaciones: [
-        (tipo: Conectado, destino: Lugar("camino_de_los_mojones")),
+        (tipo: Conectado, destino: Lugar("hamada_de_zahrun")),
         (tipo: Conectado, destino: Lugar("mar_boreal")),
     ],
     coordenada_central: (x: 68, y: 8),

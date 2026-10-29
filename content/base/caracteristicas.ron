@@ -1,6 +1,11 @@
 (
     entradas: [
         (
+            clave: "civilizado",
+            nombre: "Civilizado",
+            descripcion: "Lugar construido o urbanizado por personas, como un asentamiento o una calzada.",
+        ),
+        (
             clave: "region",
             nombre: "Región",
             descripcion: "Agrupa lugares mediante relaciones Abarca. Su nombre se muestra de fondo en el mapa; no tiene conexiones transitables ni es un destino de viaje.",

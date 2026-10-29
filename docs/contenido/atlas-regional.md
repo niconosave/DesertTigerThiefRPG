@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.12 |
+| Versión | 0.13 |
 | Fecha | 2026-10-28 |
 
 ## 1. Propósito
@@ -73,6 +73,7 @@ poseen regla.
 | Costa Ámbar | Costa arenosa del borde occidental. | `costero`, `arenoso`, `ventoso` | Exposición, restos arrastrados por el mar, embarque futuro. |
 | Mesa del Sol | Elevación árida del extremo norte. | `arido`, `elevado`, `expuesto` | Ascenso, observación y señales a distancia. |
 | Hamada Roja | Desierto rocoso del centro occidental; reemplaza visualmente a `Zona Árida`. | `arido`, `rocoso`, `expuesto` | Punto inicial, rastreo, calor y escasez de refugio. |
+| Hamada de Zahrun | Franja de territorio árido y rocoso entre la cordillera y Mar del Viento; reemplaza al antiguo Camino de los Mojones. | `arido`, `rocoso`, `abierto` | Desplazamientos por el piedemonte y reconocimiento del terreno. |
 | Cabo Errante | Península árida del sudoeste. | `costero`, `rocoso`, `ventoso` | Rodeos, campamentos expuestos y temporales. |
 | Playa Dorada | Franja de arena en la costa del golfo interior. | `costero`, `arenoso`, `resguardado` | Descanso, búsqueda y acceso marítimo futuro. |
 
@@ -124,7 +125,7 @@ todos continúan siendo Lugares ordinarios del mismo grafo.
 
 | Nombre | Naturaleza y posición visual | Vocabulario editorial | Posibilidades futuras |
 |---|---|---|---|
-| Mar del Viento | Entrada de mar al noroeste interior, reemplaza al antiguo Llano del Viento. | `maritimo`, `aguaSalada`, `viento` | Navegación entre Hamada Roja, Camino de los Mojones, Costa Ámbar y Mar de Poniente. |
+| Mar del Viento | Entrada de mar al noroeste interior, reemplaza al antiguo Llano del Viento. | `maritimo`, `aguaSalada`, `viento` | Navegación entre Hamada Roja, Hamada de Zahrun, Costa Ámbar y Mar de Poniente. |
 | Mar de Poniente | Mar abierto al oeste de la masa árida. | `maritimo`, `abierto`, `ventoso` | Temporales, pérdida de rumbo y llegada a la isla. |
 | Mar Boreal | Aguas del borde norte del mapa. | `maritimo`, `abierto`, `profundo` | Corrientes, niebla y navegación costera. |
 | Mar de Levante | Mar que bordea el bosque y la marisma por el este. | `maritimo`, `abierto`, `humedo` | Tormentas, navegación junto a la costa y acceso a Nahal. |
@@ -177,7 +178,7 @@ El corredor oriental implementado por el brief de
 [trayectos de viaje](./trayectos-viaje.md) es:
 
 ```text
-Hamada Roja → Camino de los Mojones → Paso Escarpado
+Hamada Roja → Hamada de Zahrun → Paso Escarpado
 → Descenso del Drâa → Valle del Drâa → Senda de Tamrut
 → Bosque de Tamrut → Vado de Tamrut → Marisma Verde
 → Calzada de Nahal → Nahal → Estuario de Nahal → Mar de Levante

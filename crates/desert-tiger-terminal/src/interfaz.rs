@@ -701,7 +701,7 @@ impl Interfaz {
             } else if lugar.es_region() {
                 recursos.estilo_region(&lugar.caracteristicas)
             } else {
-                recursos.ui.destacado
+                recursos.estilo_lugar(&lugar.caracteristicas)
             };
             for (caracter, coordenada) in lugar.nombre.chars().zip(&lugar.coordenadas_rotulo) {
                 if let Some((x, y)) =
@@ -1752,14 +1752,38 @@ mod pruebas {
                 .unwrap();
             let buffer = terminal.backend().buffer();
             assert_eq!(buffer[(20, 8)].symbol(), "L");
-            assert_eq!(buffer[(20, 8)].fg, recursos.ui.destacado.fg.unwrap());
-            assert!(buffer[(20, 8)].modifier.contains(Modifier::BOLD));
+            assert_eq!(buffer[(20, 8)].fg, recursos.ui.lugar_geografico.fg.unwrap());
+            assert!(!buffer[(20, 8)].modifier.contains(Modifier::BOLD));
             assert!(!buffer[(20, 8)].modifier.contains(Modifier::DIM));
             assert_eq!(buffer[(21, 8)].symbol(), "R");
             assert_eq!(buffer[(21, 8)].fg, frente);
             assert!(buffer[(21, 8)].modifier.contains(Modifier::DIM));
             assert!(!buffer[(21, 8)].modifier.contains(Modifier::BOLD));
         }
+        mundo.lugares[0].caracteristicas.push("civilizado".into());
+        terminal
+            .draw(|frame| {
+                interfaz.dibujar_mundo(frame, Rect::new(0, 0, 192, 64), &mundo, &recursos)
+            })
+            .unwrap();
+        let civilizado = &terminal.backend().buffer()[(20, 8)];
+        assert_eq!(civilizado.fg, recursos.ui.lugar_civilizado.fg.unwrap());
+        assert!(civilizado.modifier.contains(Modifier::BOLD));
+        assert!(!civilizado.modifier.contains(Modifier::DIM));
+        let mut interfaz = interfaz;
+        interfaz.modo = ModoLocal::Seleccion {
+            destinos: vec![mundo.lugares[0].id],
+            foco: 0,
+        };
+        terminal
+            .draw(|frame| {
+                interfaz.dibujar_mundo(frame, Rect::new(0, 0, 192, 64), &mundo, &recursos)
+            })
+            .unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(20, 8)].fg,
+            recursos.ui.foco.fg.unwrap()
+        );
     }
 
     #[test]
@@ -2086,14 +2110,16 @@ mod pruebas {
             .id;
         // El bandido conoce este recorrido: habrá una decisión de plan sin
         // depender de incidentes aleatorios o de la topología de los mares.
-        let camino = i
+        let destino_conocido = i
             .ultima_vista_mundo
             .lugares
             .iter()
-            .find(|l| l.nombre == "Camino de los Mojones")
+            .find(|l| l.nombre == "Hamada de Zahrun")
             .unwrap()
             .id;
-        i.enviar(IntencionFrontend::ComenzarViaje { destino: camino });
+        i.enviar(IntencionFrontend::ComenzarViaje {
+            destino: destino_conocido,
+        });
         let mut hubo_fragmento = false;
         let mut hubo_decision = false;
         for _ in 0..500 {

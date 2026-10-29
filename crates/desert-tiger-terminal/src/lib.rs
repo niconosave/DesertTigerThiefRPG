@@ -395,8 +395,8 @@ mod pruebas {
                     mundo
                         .lugares
                         .iter()
-                        .find(|lugar| lugar.nombre == "Camino de los Mojones")
-                        .expect("el contenido oficial incluye el camino conocido")
+                        .find(|lugar| lugar.nombre == "Hamada de Zahrun")
+                        .expect("el contenido oficial incluye el territorio conocido")
                         .id
                 }
                 _ => panic!("vista inicial inesperada"),

@@ -2,16 +2,16 @@
     clave: "calzada_de_nahal",
     nombre: "Calzada de Nahal",
     nombre_abreviado: "Calz. Nahal",
-    caracteristicas: ["calzada", "terraplen", "pantanoso"],
+    caracteristicas: ["civilizado", "calzada", "terraplen", "pantanoso"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("marisma_verde")),
         (tipo: Conectado, destino: Lugar("nahal")),
     ],
-    coordenada_central: (x: 168, y: 52),
+    coordenada_central: (x: 171, y: 48),
     coordenadas_rotulo: [
-        (x: 157, y: 54), (x: 158, y: 54), (x: 159, y: 54), (x: 160, y: 54),
-        (x: 161, y: 54), (x: 162, y: 54), (x: 163, y: 54), (x: 164, y: 54),
-        (x: 165, y: 54), (x: 166, y: 54), (x: 167, y: 54), (x: 168, y: 54),
-        (x: 169, y: 54), (x: 170, y: 54), (x: 171, y: 54), (x: 172, y: 54),
+        (x: 160, y: 50), (x: 161, y: 50), (x: 162, y: 50), (x: 163, y: 50),
+        (x: 164, y: 50), (x: 165, y: 50), (x: 166, y: 50), (x: 167, y: 50),
+        (x: 168, y: 50), (x: 169, y: 50), (x: 170, y: 50), (x: 171, y: 50),
+        (x: 172, y: 50), (x: 173, y: 50), (x: 174, y: 50), (x: 175, y: 50),
     ],
 )

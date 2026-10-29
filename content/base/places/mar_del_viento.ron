@@ -5,7 +5,7 @@
     caracteristicas: ["acuatico", "maritimo", "aguaSalada", "viento"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("zona_arida")),
-        (tipo: Conectado, destino: Lugar("camino_de_los_mojones")),
+        (tipo: Conectado, destino: Lugar("hamada_de_zahrun")),
         (tipo: Conectado, destino: Lugar("mar_de_poniente")),
     ],
     coordenada_central: (x: 68, y: 16),

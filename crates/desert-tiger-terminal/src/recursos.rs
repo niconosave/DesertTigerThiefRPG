@@ -168,6 +168,14 @@ impl RecursosVisuales {
         self.apariencias.contains_key(clave)
     }
 
+    pub(crate) fn estilo_lugar(&self, caracteristicas: &[String]) -> Style {
+        if caracteristicas.iter().any(|c| c == "civilizado") {
+            self.ui.lugar_civilizado
+        } else {
+            self.ui.lugar_geografico
+        }
+    }
+
     pub(crate) fn estilo_region(&self, caracteristicas: &[String]) -> Style {
         let Some(tipo) = [
             ("acuatico", "agua"),
@@ -219,6 +227,8 @@ pub(crate) struct PaletaUi {
     pub pantalla: Style,
     pub texto_normal: Style,
     pub destacado: Style,
+    pub lugar_geografico: Style,
+    pub lugar_civilizado: Style,
     pub region: Style,
     #[allow(dead_code)]
     pub secundario: Style,
@@ -310,6 +320,10 @@ struct UiDto {
     pantalla: EstiloDto,
     texto_normal: EstiloDto,
     destacado: EstiloDto,
+    #[serde(default = "estilo_lugar_geografico")]
+    lugar_geografico: EstiloDto,
+    #[serde(default = "estilo_lugar_civilizado")]
+    lugar_civilizado: EstiloDto,
     #[serde(default = "estilo_region")]
     region: EstiloDto,
     secundario: EstiloDto,
@@ -407,11 +421,29 @@ fn estilo_region() -> EstiloDto {
     }
 }
 
+fn estilo_lugar_geografico() -> EstiloDto {
+    EstiloDto {
+        frente: "amarillo".into(),
+        fondo: None,
+        modificadores: Vec::new(),
+    }
+}
+
+fn estilo_lugar_civilizado() -> EstiloDto {
+    EstiloDto {
+        frente: "blanco".into(),
+        fondo: None,
+        modificadores: vec!["negrita".into()],
+    }
+}
+
 fn convertir_ui(dto: UiDto) -> Result<PaletaUi, ErrorRecursos> {
     Ok(PaletaUi {
         pantalla: convertir_estilo(dto.pantalla)?,
         texto_normal: convertir_estilo(dto.texto_normal)?,
         destacado: convertir_estilo(dto.destacado)?,
+        lugar_geografico: convertir_estilo(dto.lugar_geografico)?,
+        lugar_civilizado: convertir_estilo(dto.lugar_civilizado)?,
         region: convertir_estilo(dto.region)?,
         secundario: convertir_estilo(dto.secundario)?,
         marco: convertir_estilo(dto.marco)?,

@@ -7,7 +7,7 @@
     relaciones: [
         (tipo: Sirviente, destino: Actor("principe_perdido")),
         (tipo: Conoce, destino: Lugar("zona_arida")),
-        (tipo: Conoce, destino: Lugar("camino_de_los_mojones")),
+        (tipo: Conoce, destino: Lugar("hamada_de_zahrun")),
         (tipo: Conoce, destino: Lugar("paso_escarpado")),
         (tipo: Conoce, destino: Lugar("descenso_del_draa")),
     ],
