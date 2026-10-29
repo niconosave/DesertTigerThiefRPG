@@ -36,11 +36,23 @@ los estándares de implementación, las pruebas y la definición de terminado.
 ## Herramientas de desarrollo
 
 Desde el mapa o la selección de destino, `D` abre el menú de desarrollo.
-`Enter`, `Espacio` o `C` alternan «Mostrar conexiones de lugares»; `Esc` o `D`
-cierran el menú. La opción une los centros de los Lugares conectados con puntos
-que cambian de color en un ciclo de arcoíris cada 250 ms, debajo de sus nombres. Los centros de los Lugares conectados se marcan con `O`.
-Las regiones y sus relaciones Abarca no se incluyen. Comienza desactivada y se conserva durante esa ejecución del juego.
-Durante las viñetas, `D` mantiene su función de mostrar detalles.
+Usá `↑/↓` para elegir una opción y `Enter` o `Espacio` para alternarla.
+`C` alterna directamente las conexiones e `I` el inspector de coordenadas.
+`Esc` o `D` cierran el menú. Ambas opciones comienzan apagadas.
+
+- **Mostrar conexiones de lugares:** une los centros con puntos que recorren el
+  arcoíris cada 250 ms, marca los centros con `O` y excluye las relaciones Abarca.
+- **Inspeccionar coordenadas:** al pasar el mouse sobre el mapa, resalta el tile
+  y muestra `Mapa: X=…, Y=…` en la barra contextual. Son las coordenadas de los
+  RON: comienzan en cero, X aumenta hacia la derecha e Y hacia abajo.
+  Un clic izquierdo fija el punto; otro elige uno nuevo. El clic derecho libera
+  la coordenada y vuelve al seguimiento del mouse.
+
+El inspector respeta la cámara y excluye márgenes, barras, retratos, ventanas y
+lista de destinos. La captura del mouse se activa únicamente con el inspector
+encendido y el mapa disponible; se suspende al viajar, acampar o confirmar la
+salida. Se restaura al regresar al mapa. Durante las viñetas, `D` sigue mostrando
+detalles. Estos ajustes no se guardan entre ejecuciones.
 
 ## Elegir los colores al jugar
 

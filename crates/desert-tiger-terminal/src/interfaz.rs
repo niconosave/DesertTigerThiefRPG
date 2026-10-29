@@ -7,7 +7,7 @@ use std::time::Duration;
 use crate::animacion::{PASO_ANIMACION, PASO_FOGATA, RelojVisual};
 use crate::audio::{AmbienteSonoro, AvisoAudio};
 
-use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
 use desert_tiger_app::{
     AccionDisponible, CausaIndisponibilidad, ColorRetrato, EntradaResumenNpc, ErrorIntencion,
     EstiloCeldaRetrato, GraficoRetrato, IdLugar, IntencionFrontend, Partida, VistaActor,
@@ -40,7 +40,10 @@ pub(crate) struct Interfaz {
     ultima_vista_mundo: VistaMundo,
     modo: ModoLocal,
     menu_desarrollo: bool,
+    foco_desarrollo: usize,
     mostrar_conexiones: bool,
+    inspector: crate::desarrollo::InspectorCoordenadas,
+    geometria_mapa: Cell<Option<GeometriaMapa>>,
     confirmar_salida: bool,
     salir: bool,
     error_recuperable: Option<String>,
@@ -67,7 +70,10 @@ impl Interfaz {
             ultima_vista_mundo,
             modo: ModoLocal::Normal,
             menu_desarrollo: false,
+            foco_desarrollo: 0,
             mostrar_conexiones: false,
+            inspector: crate::desarrollo::InspectorCoordenadas::default(),
+            geometria_mapa: Cell::new(None),
             confirmar_salida: false,
             salir: false,
             error_recuperable: None,
@@ -84,6 +90,65 @@ impl Interfaz {
 
     pub(crate) fn debe_salir(&self) -> bool {
         self.salir
+    }
+
+    pub(crate) fn capturar_mouse(&self) -> bool {
+        self.inspector.activo
+            && !self.confirmar_salida
+            && !self.salir
+            && matches!(self.vista, VistaSesion::Disponible(_))
+    }
+
+    pub(crate) fn invalidar_geometria_mouse(&mut self) {
+        self.geometria_mapa.set(None);
+        self.inspector.puntero = None;
+    }
+
+    fn coordenada_bajo_mouse(&self) -> Option<desert_tiger_app::CoordenadaMapa> {
+        let (x, y) = self.inspector.puntero?;
+        let geometria = self.geometria_mapa.get()?;
+        let sobre_retrato = disposicion_retratos(&self.ultima_vista_mundo, geometria.area).any(
+            |(actor, rx, ry)| {
+                let base = actor.retrato.base();
+                let ancho = i64::try_from(base.ancho()).unwrap_or(i64::MAX);
+                let alto = i64::try_from(base.alto()).unwrap_or(i64::MAX);
+                (rx..rx.saturating_add(ancho)).contains(&i64::from(x))
+                    && (ry..ry.saturating_add(alto)).contains(&i64::from(y))
+            },
+        );
+        if sobre_retrato {
+            None
+        } else {
+            geometria.a_mapa(x, y)
+        }
+    }
+
+    fn coordenada_inspeccion(&self) -> Option<desert_tiger_app::CoordenadaMapa> {
+        if !self.capturar_mouse() || self.menu_desarrollo {
+            return None;
+        }
+        self.inspector
+            .fijada
+            .or_else(|| self.coordenada_bajo_mouse())
+    }
+
+    pub(crate) fn manejar_mouse(&mut self, evento: MouseEvent) {
+        if !self.capturar_mouse() || self.menu_desarrollo {
+            return;
+        }
+        if self.aviso_audio_mostrado.replace(false) {
+            self.aviso_audio = None;
+        }
+        self.inspector.puntero = Some((evento.column, evento.row));
+        match evento.kind {
+            MouseEventKind::Down(MouseButton::Left) => {
+                if let Some(coordenada) = self.coordenada_bajo_mouse() {
+                    self.inspector.fijada = Some(coordenada);
+                }
+            }
+            MouseEventKind::Down(MouseButton::Right) => self.inspector.fijada = None,
+            _ => {}
+        }
     }
 
     pub(crate) fn ambiente_sonoro(&self) -> AmbienteSonoro {
@@ -181,6 +246,7 @@ impl Interfaz {
         if evento.kind != KeyEventKind::Press {
             return;
         }
+        self.geometria_mapa.set(None);
         if self.aviso_audio_mostrado.replace(false) {
             self.aviso_audio = None;
         }
@@ -195,16 +261,30 @@ impl Interfaz {
         }
         if normalizar_letra(evento.code) == Some('q') {
             self.confirmar_salida = true;
+            self.inspector.puntero = None;
             return;
         }
         if self.menu_desarrollo {
             match evento.code {
                 KeyCode::Enter | KeyCode::Char(' ') => {
-                    self.mostrar_conexiones = !self.mostrar_conexiones
+                    if self.foco_desarrollo == 0 {
+                        self.mostrar_conexiones = !self.mostrar_conexiones;
+                    } else {
+                        self.inspector.alternar();
+                    }
                 }
+                KeyCode::Up => self.foco_desarrollo = 0,
+                KeyCode::Down => self.foco_desarrollo = 1,
                 KeyCode::Esc => self.menu_desarrollo = false,
                 _ => match normalizar_letra(evento.code) {
-                    Some('c') => self.mostrar_conexiones = !self.mostrar_conexiones,
+                    Some('c') => {
+                        self.foco_desarrollo = 0;
+                        self.mostrar_conexiones = !self.mostrar_conexiones;
+                    }
+                    Some('i') => {
+                        self.foco_desarrollo = 1;
+                        self.inspector.alternar();
+                    }
                     Some('d') => self.menu_desarrollo = false,
                     _ => {}
                 },
@@ -215,6 +295,8 @@ impl Interfaz {
             && matches!(self.vista, VistaSesion::Disponible(_))
         {
             self.menu_desarrollo = true;
+            self.foco_desarrollo = 0;
+            self.inspector.puntero = None;
             return;
         }
         if let Some(campamento) = &mut self.campamento {
@@ -353,6 +435,9 @@ impl Interfaz {
         match self.partida.procesar(intencion) {
             Ok(vista) => {
                 self.vista = vista;
+                if !matches!(self.vista, VistaSesion::Disponible(_)) {
+                    self.inspector.puntero = None;
+                }
                 self.error_recuperable = None;
                 self.mostrar_detalle = false;
                 self.pagina = 0;
@@ -387,6 +472,7 @@ impl Interfaz {
     }
 
     fn dibujar_contenido(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
+        self.geometria_mapa.set(None);
         let area = frame.area();
         let fondo = recursos.paleta.fondo_pantalla(recursos.ui.pantalla.bg);
         frame.render_widget(Block::default().style(recursos.ui.pantalla.bg(fondo)), area);
@@ -482,7 +568,14 @@ impl Interfaz {
             VistaSesion::Disponible(_) | VistaSesion::Acampando(_) => {}
         }
         if self.menu_desarrollo {
-            crate::desarrollo::dibujar_menu(frame, region_mundo, self.mostrar_conexiones, recursos);
+            crate::desarrollo::dibujar_menu(
+                frame,
+                region_mundo,
+                self.mostrar_conexiones,
+                self.inspector.activo,
+                self.foco_desarrollo,
+                recursos,
+            );
         }
         if self.confirmar_salida {
             self.dibujar_confirmacion(frame, region_mundo, recursos);
@@ -546,6 +639,16 @@ impl Interfaz {
             origen_eje(mundo.mapa.ancho, usize::from(area.width), objetivo.x);
         let (origen_y, margen_y) =
             origen_eje(mundo.mapa.alto, usize::from(area.height), objetivo.y);
+        let geometria = GeometriaMapa {
+            area,
+            origen_x,
+            origen_y,
+            margen_x,
+            margen_y,
+            ancho: mundo.mapa.ancho,
+            alto: mundo.mapa.alto,
+        };
+        self.geometria_mapa.set(Some(geometria));
         for vy in 0..usize::from(area.height) {
             for vx in 0..usize::from(area.width) {
                 let Some(mx) = vx
@@ -632,6 +735,12 @@ impl Interfaz {
         {
             poner_celda(frame, x, y, '@', recursos.ui.foco);
         }
+        if let Some(coordenada) = self.coordenada_inspeccion()
+            && let Some(posicion) = geometria.a_pantalla(coordenada)
+            && let Some(celda) = frame.buffer_mut().cell_mut(posicion)
+        {
+            celda.set_style(Style::default().add_modifier(Modifier::REVERSED));
+        }
         dibujar_retratos(
             frame,
             area,
@@ -672,6 +781,21 @@ impl Interfaz {
         if let Some(error) = &self.error_recuperable {
             return format!("Error: {error}");
         }
+        if self.capturar_mouse() && !self.menu_desarrollo {
+            return if let Some(c) = self.coordenada_inspeccion() {
+                let estado = if self.inspector.fijada.is_some() {
+                    " (fijada)"
+                } else {
+                    ""
+                };
+                format!(
+                    "Mapa: X={}, Y={}{}. Clic: fijar | Clic derecho: liberar",
+                    c.x, c.y, estado
+                )
+            } else {
+                "Mueve el mouse sobre el mapa. Clic: fijar | Clic derecho: liberar".into()
+            };
+        }
         if let ModoLocal::Seleccion { destinos, foco } = &self.modo {
             let nombre = self
                 .ultima_vista_mundo
@@ -708,7 +832,7 @@ impl Interfaz {
 
     fn texto_acciones(&self) -> String {
         if self.menu_desarrollo && !self.confirmar_salida {
-            return " [Enter/Espacio/C] Conexiones  [Esc/D] Cerrar  [Q] Salir".into();
+            return " [↑/↓] Opción  [Enter/Espacio] Alternar  [C/I] Atajos  [Esc/D] Cerrar".into();
         }
         if self.campamento.is_some() && !self.confirmar_salida {
             return " ←→ Grupo | ↑↓ Info | Enter Abrir/Salir | PgUp/PgDn Leer | Esc Salir | Q Juego".into();
@@ -1133,6 +1257,44 @@ fn normalizar_letra(tecla: KeyCode) -> Option<char> {
     }
 }
 
+#[derive(Clone, Copy)]
+struct GeometriaMapa {
+    area: Rect,
+    origen_x: usize,
+    origen_y: usize,
+    margen_x: usize,
+    margen_y: usize,
+    ancho: usize,
+    alto: usize,
+}
+
+impl GeometriaMapa {
+    fn a_mapa(self, x: u16, y: u16) -> Option<desert_tiger_app::CoordenadaMapa> {
+        let vx = usize::from(x.checked_sub(self.area.x)?);
+        let vy = usize::from(y.checked_sub(self.area.y)?);
+        if vx >= usize::from(self.area.width) || vy >= usize::from(self.area.height) {
+            return None;
+        }
+        let x = vx.checked_sub(self.margen_x)?.checked_add(self.origen_x)?;
+        let y = vy.checked_sub(self.margen_y)?.checked_add(self.origen_y)?;
+        (x < self.ancho && y < self.alto).then_some(desert_tiger_app::CoordenadaMapa { x, y })
+    }
+
+    fn a_pantalla(self, coordenada: desert_tiger_app::CoordenadaMapa) -> Option<(u16, u16)> {
+        if coordenada.x >= self.ancho || coordenada.y >= self.alto {
+            return None;
+        }
+        proyectar(
+            coordenada,
+            self.area,
+            self.origen_x,
+            self.origen_y,
+            self.margen_x,
+            self.margen_y,
+        )
+    }
+}
+
 fn origen_eje(mapa: usize, vista: usize, objetivo: usize) -> (usize, usize) {
     if mapa <= vista {
         (0, (vista - mapa) / 2)
@@ -1316,6 +1478,180 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    fn preparar_inspector() -> (Interfaz, RecursosVisuales, Terminal<TestBackend>) {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let i = Interfaz::nueva(partida).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        (
+            i,
+            recursos,
+            Terminal::new(TestBackend::new(120, 50)).unwrap(),
+        )
+    }
+
+    fn raton(kind: MouseEventKind, x: u16, y: u16) -> MouseEvent {
+        MouseEvent {
+            kind,
+            column: x,
+            row: y,
+            modifiers: KeyModifiers::NONE,
+        }
+    }
+
+    #[test]
+    fn geometria_mouse_respeta_camara_margenes_y_limites_del_mapa() {
+        for (ancho, alto, area, objetivo) in [
+            (192, 64, Rect::new(7, 5, 80, 22), (0, 0)),
+            (192, 64, Rect::new(7, 5, 80, 22), (100, 32)),
+            (192, 64, Rect::new(7, 5, 80, 22), (191, 63)),
+            (20, 10, Rect::new(7, 5, 80, 22), (10, 5)),
+        ] {
+            let (origen_x, margen_x) = origen_eje(ancho, usize::from(area.width), objetivo.0);
+            let (origen_y, margen_y) = origen_eje(alto, usize::from(area.height), objetivo.1);
+            let g = GeometriaMapa {
+                area,
+                origen_x,
+                origen_y,
+                margen_x,
+                margen_y,
+                ancho,
+                alto,
+            };
+            for y in area.y..area.bottom() {
+                for x in area.x..area.right() {
+                    if let Some(c) = g.a_mapa(x, y) {
+                        assert!(c.x < ancho && c.y < alto);
+                        assert_eq!(g.a_pantalla(c), Some((x, y)));
+                    }
+                }
+            }
+            assert_eq!(g.a_mapa(area.x - 1, area.y), None);
+            assert_eq!(g.a_mapa(area.right(), area.y), None);
+            assert_eq!(g.a_mapa(area.x, area.bottom()), None);
+            if ancho == 20 {
+                assert_eq!(g.a_mapa(area.x, area.y), None);
+                assert_eq!(
+                    g.a_mapa(area.x + 30, area.y + 6),
+                    Some(desert_tiger_app::CoordenadaMapa { x: 0, y: 0 })
+                );
+                assert_eq!(g.a_mapa(area.x + 50, area.y + 6), None);
+            }
+        }
+    }
+
+    #[test]
+    fn inspector_seguimiento_fijado_y_liberacion_no_modifican_la_partida() {
+        let (mut i, recursos, mut terminal) = preparar_inspector();
+        let antes = i.partida.vista();
+        let tecla = |code| KeyEvent::new(code, KeyModifiers::NONE);
+        assert!(!i.capturar_mouse());
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        i.manejar_tecla(tecla(KeyCode::Down));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert!(i.inspector.activo && !i.mostrar_conexiones);
+        i.manejar_mouse(raton(MouseEventKind::Moved, 60, 2));
+        assert!(i.inspector.puntero.is_none(), "el menú consume el mouse");
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let celda = terminal.backend().buffer()[(60, 2)].clone();
+        let esperado = i.geometria_mapa.get().unwrap().a_mapa(60, 2).unwrap();
+        i.manejar_mouse(raton(MouseEventKind::Moved, 60, 2));
+        assert_eq!(i.coordenada_inspeccion(), Some(esperado));
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let resaltada = &terminal.backend().buffer()[(60, 2)];
+        assert_eq!(resaltada.symbol(), celda.symbol());
+        assert!(resaltada.modifier.contains(Modifier::REVERSED));
+        assert!(
+            i.texto_contextual()
+                .contains(&format!("X={}, Y={}", esperado.x, esperado.y))
+        );
+        i.manejar_mouse(raton(MouseEventKind::Down(MouseButton::Left), 60, 2));
+        i.manejar_mouse(raton(MouseEventKind::Moved, 70, 3));
+        assert_eq!(i.coordenada_inspeccion(), Some(esperado));
+        assert!(i.texto_contextual().contains("fijada"));
+        i.manejar_mouse(raton(MouseEventKind::Down(MouseButton::Left), 70, 3));
+        let nueva = i.geometria_mapa.get().unwrap().a_mapa(70, 3).unwrap();
+        assert_ne!(nueva, esperado);
+        assert_eq!(i.coordenada_inspeccion(), Some(nueva));
+        i.manejar_mouse(raton(MouseEventKind::Down(MouseButton::Right), 119, 49));
+        assert!(i.inspector.fijada.is_none());
+        assert!(
+            i.coordenada_inspeccion().is_none(),
+            "las barras no son mapa"
+        );
+        i.manejar_mouse(raton(MouseEventKind::Down(MouseButton::Left), 0, 47));
+        assert!(
+            i.inspector.fijada.is_none(),
+            "el retrato no es un tile seleccionable"
+        );
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(60, 2)].modifier,
+            celda.modifier
+        );
+        assert_eq!(i.partida.vista(), antes);
+        i.manejar_tecla(tecla(KeyCode::Char('q')));
+        assert!(!i.capturar_mouse());
+        assert!(i.inspector.puntero.is_none());
+        i.manejar_tecla(tecla(KeyCode::Char('n')));
+        assert!(i.capturar_mouse());
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        i.manejar_tecla(tecla(KeyCode::Char('i')));
+        assert!(!i.inspector.activo && !i.capturar_mouse());
+        assert!(i.inspector.puntero.is_none() && i.inspector.fijada.is_none());
+    }
+
+    #[test]
+    fn inspector_usa_viewport_del_selector_y_se_invalida_al_redimensionar() {
+        let (mut i, recursos, mut terminal) = preparar_inspector();
+        let tecla = |code| KeyEvent::new(code, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        i.manejar_tecla(tecla(KeyCode::Char('i')));
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        i.manejar_tecla(tecla(KeyCode::Char('v')));
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let g = i.geometria_mapa.get().unwrap();
+        assert!(g.area.width < 120);
+        i.manejar_mouse(raton(
+            MouseEventKind::Down(MouseButton::Left),
+            g.area.right(),
+            2,
+        ));
+        assert!(i.inspector.fijada.is_none(), "la lista lateral no es mapa");
+        i.manejar_mouse(raton(MouseEventKind::Moved, 10, 2));
+        assert_eq!(i.coordenada_inspeccion(), g.a_mapa(10, 2));
+        i.manejar_tecla(tecla(KeyCode::Down));
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(
+            i.coordenada_inspeccion(),
+            i.geometria_mapa.get().unwrap().a_mapa(10, 2)
+        );
+        i.manejar_mouse(raton(MouseEventKind::Down(MouseButton::Left), 10, 2));
+        let fijada = i.inspector.fijada;
+        assert!(fijada.is_some());
+        i.invalidar_geometria_mouse();
+        assert!(i.geometria_mapa.get().is_none() && i.inspector.puntero.is_none());
+        assert_eq!(i.inspector.fijada, fijada);
+        terminal.backend_mut().resize(90, 30);
+        terminal.resize(Rect::new(0, 0, 90, 30)).unwrap();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(i.coordenada_inspeccion(), fijada);
+        i.manejar_mouse(raton(MouseEventKind::Down(MouseButton::Right), 10, 2));
+        assert_eq!(
+            i.coordenada_inspeccion(),
+            i.geometria_mapa.get().unwrap().a_mapa(10, 2)
+        );
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        i.manejar_tecla(tecla(KeyCode::Char('a')));
+        assert!(!i.capturar_mouse());
+        assert!(i.inspector.puntero.is_none());
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert!(i.geometria_mapa.get().is_none());
+    }
 
     #[test]
     fn menu_de_desarrollo_alterna_conexiones_sin_jugar_y_conserva_la_seleccion() {

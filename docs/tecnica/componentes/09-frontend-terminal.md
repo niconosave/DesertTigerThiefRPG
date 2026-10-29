@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.69 |
+| Versión | 0.70 |
 | Fecha | 2026-10-28 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
@@ -1690,12 +1690,14 @@ Ninguna en este componente.
 ## Herramientas de desarrollo — implementadas el 2026-10-28
 
 El módulo privado `desarrollo` de `desert-tiger-terminal` contiene el menú y la
-rasterización del grafo. `Interfaz` conserva dos booleanos: menú abierto y
-conexiones visibles. Ambos comienzan en falso y no se serializan.
+rasterización del grafo y el estado `InspectorCoordenadas`. `Interfaz` conserva
+el menú, su foco y ambas opciones, inicialmente desactivadas. Este estado no se
+serializa ni forma parte de la Partida.
 
 En `VistaSesion::Disponible`, tanto en modo normal como en selección, `D` abre
-el menú sobre el mapa. `Enter`, `Espacio` o `C` alternan el único ajuste actual;
-`Esc` o `D` cierran el menú. Mientras está abierto consume las teclas para que no
+el menú sobre el mapa, con foco inicial en conexiones. `↑/↓` eligen entre
+conexiones e inspección; `Enter` o `Espacio` alternan la opción enfocada.
+`C` e `I` enfocan y alternan sus respectivas opciones. `Esc` o `D` cierran el menú. Mientras está abierto consume las teclas para que no
 se confirme un destino ni comience otra acción. `Q` conserva la confirmación de
 salida habitual. Abrir, cerrar o alternar no envía intenciones al backend ni
 altera el foco de selección. En las viñetas, `D` sigue consultando detalles;
@@ -1726,3 +1728,44 @@ Las pruebas verifican líneas en todas las direcciones, recorte de conexiones qu
 cruzan la cámara, exclusión de regiones, color independiente del tile y controles
 del menú con conservación del foco y del estado de la partida. Una prueba de
 renderizado comprueba el menú y el indicador de opción activada.
+
+
+### Inspector de coordenadas
+
+`InspectorCoordenadas` conserva activación, posición del puntero en pantalla y
+una coordenada global fijada opcional. Alternar su activación limpia puntero y
+fijación. `Interfaz::manejar_mouse` recibe eventos de Crossterm sin emitir
+intenciones al backend. El movimiento actualiza el puntero; un clic izquierdo
+válido fija o sustituye el punto y el derecho libera la fijación. Mientras esté
+fijado, mover el mouse no cambia la coordenada mostrada.
+
+`dibujar_mundo` conserva una `GeometriaMapa` del último mapa dibujado: rectángulo
+real, origen de cámara, márgenes de centrado y dimensiones del mapa. Su inversa
+traduce posiciones de pantalla a coordenadas RON de base cero, comprobando límites
+y márgenes. En selección usa el rectángulo reducido por la lista lateral.
+La coordenada bajo el puntero se recalcula al dibujar, por lo que sigue los
+cambios de cámara aun si el mouse no se mueve. Se excluyen los rectángulos de los
+retratos. Una fijación conserva su coordenada global al mover cámara o cambiar
+el tamaño de ventana, aunque temporalmente quede fuera de la vista.
+
+El tile seleccionado se resalta mediante `REVERSED`, conservando su carácter;
+la capa de retratos permanece encima. La barra contextual muestra
+`Mapa: X={x}, Y={y}` y añade «fijada» cuando corresponde. Sin un punto válido
+muestra instrucciones. Los avisos y errores conservan su prioridad habitual.
+El menú, las viñetas, el campamento y la confirmación de salida bloquean la
+inspección. Cambiar tamaño invalida la geometría y el puntero; el siguiente
+fotograma construye la geometría nueva antes de aceptar otro clic.
+
+`Interfaz::capturar_mouse` solicita captura solo con la opción activa y una
+vista Disponible, fuera de confirmación o salida. `GuardiaTerminal` sincroniza
+EnableMouseCapture/DisableMouseCapture únicamente al cambiar ese estado.
+Su Drop deshabilita siempre la captura antes de restaurar la terminal, incluso
+si se sale por un error. El bucle deriva Mouse hacia el inspector y Resize
+hacia su invalidación. La captura permanece suspendida durante acciones y
+campamento, sin perder el ajuste. No se añaden dependencias.
+
+Las pruebas comprueban ida y vuelta de coordenadas con cámara desplazada,
+márgenes y límites; seguimiento, fijación, sustitución y liberación; bloqueo de
+barras, retratos, menú y lista lateral; resaltado sin reemplazar el carácter;
+redimensionamiento y conservación del estado del backend. La verificación en
+PTY comprueba eventos SGR reales y activación/desactivación de la captura.

@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use crossterm::cursor::{Hide, Show};
-use crossterm::event::Event;
+use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
 use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
@@ -164,7 +164,7 @@ fn ejecutar_interactivo(
     fondo_negro: bool,
     preparacion_audio: audio::PreparacionAudio,
 ) -> Result<(), ErrorTerminal> {
-    let _guardia = GuardiaTerminal::entrar()?;
+    let mut guardia = GuardiaTerminal::entrar()?;
     let (mut paleta, mut entrada) = EntradaTerminal::consultar(esquema);
     paleta.forzar_fondo_negro(fondo_negro);
     recursos.paleta = paleta;
@@ -180,6 +180,7 @@ fn ejecutar_interactivo(
     let inicio_musica = Instant::now();
     let mut ultimo_paso = Instant::now();
     loop {
+        guardia.actualizar_mouse(interfaz.capturar_mouse())?;
         sincronizar_audio(&mut interfaz, &mut audio, inicio_musica.elapsed());
         terminal
             .draw(|frame| interfaz.dibujar(frame, &recursos))
@@ -205,7 +206,8 @@ fn ejecutar_interactivo(
         if let Some(evento) = evento {
             match evento {
                 Event::Key(tecla) => interfaz.manejar_tecla(tecla),
-                Event::Resize(_, _) => {}
+                Event::Mouse(mouse) => interfaz.manejar_mouse(mouse),
+                Event::Resize(_, _) => interfaz.invalidar_geometria_mouse(),
                 _ => {}
             }
         }
@@ -231,7 +233,9 @@ fn sincronizar_audio(
     }
 }
 
-struct GuardiaTerminal;
+struct GuardiaTerminal {
+    captura_mouse: bool,
+}
 
 impl GuardiaTerminal {
     fn entrar() -> Result<Self, ErrorTerminal> {
@@ -240,13 +244,27 @@ impl GuardiaTerminal {
             let _ = disable_raw_mode();
             return Err(error_io(error));
         }
-        Ok(Self)
+        Ok(Self {
+            captura_mouse: false,
+        })
+    }
+
+    fn actualizar_mouse(&mut self, activar: bool) -> Result<(), ErrorTerminal> {
+        if activar != self.captura_mouse {
+            if activar {
+                execute!(stdout(), EnableMouseCapture).map_err(error_io)?;
+            } else {
+                execute!(stdout(), DisableMouseCapture).map_err(error_io)?;
+            }
+            self.captura_mouse = activar;
+        }
+        Ok(())
     }
 }
 
 impl Drop for GuardiaTerminal {
     fn drop(&mut self) {
-        let _ = execute!(stdout(), Show, LeaveAlternateScreen);
+        let _ = execute!(stdout(), DisableMouseCapture, Show, LeaveAlternateScreen);
         let _ = disable_raw_mode();
     }
 }

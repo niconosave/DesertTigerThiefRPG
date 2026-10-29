@@ -10,6 +10,21 @@ use ratatui::{
 
 use crate::recursos::RecursosVisuales;
 
+#[derive(Default)]
+pub(crate) struct InspectorCoordenadas {
+    pub activo: bool,
+    pub puntero: Option<(u16, u16)>,
+    pub fijada: Option<CoordenadaMapa>,
+}
+
+impl InspectorCoordenadas {
+    pub fn alternar(&mut self) {
+        self.activo = !self.activo;
+        self.puntero = None;
+        self.fijada = None;
+    }
+}
+
 const ARCOIRIS: [Color; 6] = [
     Color::LightRed,
     Color::LightYellow,
@@ -23,10 +38,12 @@ pub(crate) fn dibujar_menu(
     frame: &mut Frame<'_>,
     area: Rect,
     conexiones: bool,
+    coordenadas: bool,
+    foco: usize,
     recursos: &RecursosVisuales,
 ) {
-    let ancho = 62.min(area.width);
-    let alto = 8.min(area.height);
+    let ancho = 68.min(area.width);
+    let alto = 10.min(area.height);
     let ventana = Rect::new(
         area.x + (area.width - ancho) / 2,
         area.y + (area.height - alto) / 2,
@@ -41,8 +58,12 @@ pub(crate) fn dibujar_menu(
     let interior = bloque.inner(ventana);
     frame.render_widget(bloque, ventana);
     let marca = if conexiones { "x" } else { " " };
+    let marca_coordenadas = if coordenadas { "x" } else { " " };
+    let cursor = |opcion| if foco == opcion { ">" } else { " " };
     let texto = format!(
-        "[{marca}] Mostrar conexiones de lugares\n\nEnter / Espacio / C: activar o desactivar\nEsc / D: volver al mapa"
+        "{} [{marca}] Mostrar conexiones de lugares [C]\n{} [{marca_coordenadas}] Inspeccionar coordenadas [I]\n\n↑/↓: elegir | Enter / Espacio: alternar\nEsc / D: volver al mapa",
+        cursor(0),
+        cursor(1),
     );
     frame.render_widget(
         Paragraph::new(texto).style(recursos.ui.texto_normal),
