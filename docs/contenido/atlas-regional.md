@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.13 |
+| Versión | 0.14 |
 | Fecha | 2026-10-28 |
 
 ## 1. Propósito
@@ -90,7 +90,7 @@ poseen regla.
 | Nombre | Naturaleza y posición visual | Vocabulario editorial | Posibilidades futuras |
 |---|---|---|---|
 | Valle del Drâa | Valle fértil del nordeste; reemplaza visualmente a `Valle Fértil`. | `fertil`, `fluvial`, `resguardado` | Descanso, ayuda, recursos y crecidas. |
-| Bosque de Tamrut | Gran bosque oriental atravesado por cursos de agua. | `boscoso`, `cerrado`, `humedo` | Orientación, caza, ocultamiento y encuentros. |
+| Bosque oscuro | Sector umbrío dentro de la región Bosque de Tamrut. | `boscoso`, `cerrado`, `humedo` | Orientación, caza, ocultamiento y encuentros. |
 | Marisma Verde | Tierras bajas y húmedas del sudeste. | `pantanoso`, `humedo`, `fluvial` | Demoras, vadeo, enfermedades y rastros difíciles. |
 
 ### Lugares civilizados
@@ -135,7 +135,7 @@ todos continúan siendo Lugares ordinarios del mismo grafo.
 No se añade además un `Mar Austral`: el Golfo del Siroco ocupa la región
 meridional útil y otro rótulo saturaría esa parte del mapa. El río visible se
 considera por ahora contexto cartográfico y fluvial del Valle del Drâa, el
-Bosque de Tamrut y la Marisma Verde. Podrá convertirse en uno o varios Lugares
+Bosque oscuro y la Marisma Verde. Podrá convertirse en uno o varios Lugares
 cuando una acción diferencie vados, confluencias o navegación fluvial.
 
 ## 6. Estructura creativa de la red
@@ -155,7 +155,7 @@ Hamada Roja — Cabo Errante — Playa Dorada — Sierra Quebrada
       └────────────── Paso Escarpado ──────────────┘
 
 Circuito oriental:
-Paso Escarpado — Valle del Drâa — Bosque de Tamrut — Sierra Quebrada
+Paso Escarpado — Valle del Drâa — Bosque oscuro — Sierra Quebrada
                        │                 │
                      Tazar         Marisma Verde — Nahal
 
@@ -180,7 +180,7 @@ El corredor oriental implementado por el brief de
 ```text
 Hamada Roja → Hamada de Zahrun → Paso Escarpado
 → Descenso del Drâa → Valle del Drâa → Senda de Tamrut
-→ Bosque de Tamrut → Vado de Tamrut → Marisma Verde
+→ Bosque oscuro → Vado de Tamrut → Marisma Verde
 → Calzada de Nahal → Nahal → Estuario de Nahal → Mar de Levante
 ```
 
@@ -271,3 +271,6 @@ El [contrato de Regiones y Abarca](../tecnica/componentes/10-relaciones.md#12-re
 define su significado. Se retiró Costas de Sahil: Costa Ámbar queda sin región,
 y Cabo Errante y Playa Dorada pasan a Tierras de Sahran. Las conexiones
 transitables vigentes se declaran únicamente en los RON.
+
+La región antes llamada Tierras de Tamrut se denomina ahora Bosque de Tamrut.
+Bosque oscuro identifica el Lugar transitable dentro de esa región.

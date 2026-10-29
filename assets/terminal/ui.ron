@@ -2,7 +2,7 @@
     pantalla: (frente: "gris", fondo: None, modificadores: []),
     texto_normal: (frente: "gris", fondo: None, modificadores: []),
     destacado: (frente: "blanco", fondo: None, modificadores: ["negrita"]),
-    lugar_geografico: (frente: "amarillo", fondo: None, modificadores: []),
+    lugar_geografico: (frente: "gris", fondo: None, modificadores: []),
     lugar_civilizado: (frente: "blanco", fondo: None, modificadores: ["negrita"]),
     region: (frente: "amarillo", fondo: None, modificadores: ["tenue"]),
     secundario: (frente: "grisOscuro", fondo: None, modificadores: []),

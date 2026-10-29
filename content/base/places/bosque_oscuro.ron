@@ -1,0 +1,23 @@
+(
+    clave: "bosque_oscuro",
+    nombre: "Bosque oscuro",
+    nombre_abreviado: "Bosq. oscuro",
+    caracteristicas: ["boscoso", "sombreado", "aguaDulce", "fauna"],
+    relaciones: [],
+    coordenada_central: (x: 142, y: 32),
+    coordenadas_rotulo: [
+        (x: 131, y: 30),
+        (x: 133, y: 30),
+        (x: 135, y: 30),
+        (x: 137, y: 30),
+        (x: 139, y: 30),
+        (x: 141, y: 30),
+        (x: 143, y: 30),
+        (x: 145, y: 30),
+        (x: 147, y: 30),
+        (x: 149, y: 30),
+        (x: 151, y: 30),
+        (x: 153, y: 30),
+        (x: 155, y: 30),
+    ],
+)

@@ -11,7 +11,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent,
 use desert_tiger_app::{
     AccionDisponible, CausaIndisponibilidad, ColorRetrato, EntradaResumenNpc, ErrorIntencion,
     EstiloCeldaRetrato, GraficoRetrato, IdLugar, IntencionFrontend, Partida, VistaActor,
-    VistaDecision, VistaFragmento, VistaMundo, VistaSesion,
+    VistaDecision, VistaFragmento, VistaLugar, VistaMundo, VistaSesion,
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -677,6 +677,23 @@ impl Interfaz {
                 );
             }
         }
+        let foco = match &self.modo {
+            ModoLocal::Seleccion { destinos, foco } => destinos.get(*foco).copied(),
+            ModoLocal::Normal => None,
+        };
+        for lugar in &mundo.lugares {
+            if let Some(simbolo) = lugar.simbolo
+                && let Some((x, y)) = geometria.a_pantalla(lugar.coordenada_central)
+            {
+                poner_celda(
+                    frame,
+                    x,
+                    y,
+                    simbolo,
+                    estilo_lugar_mapa(lugar, foco, recursos),
+                );
+            }
+        }
         if self.mostrar_conexiones {
             crate::desarrollo::dibujar_conexiones(
                 frame,
@@ -685,10 +702,6 @@ impl Interfaz {
                 |coordenada| proyectar(coordenada, area, origen_x, origen_y, margen_x, margen_y),
             );
         }
-        let foco = match &self.modo {
-            ModoLocal::Seleccion { destinos, foco } => destinos.get(*foco).copied(),
-            ModoLocal::Normal => None,
-        };
         // Las regiones son rótulos de fondo; los nombres de lugares tienen prioridad.
         for lugar in mundo
             .lugares
@@ -696,27 +709,12 @@ impl Interfaz {
             .filter(|l| l.es_region())
             .chain(mundo.lugares.iter().filter(|l| !l.es_region()))
         {
-            let estilo = if foco == Some(lugar.id) {
-                recursos.ui.foco
-            } else if lugar.es_region() {
-                recursos.estilo_region(&lugar.caracteristicas)
-            } else {
-                recursos.estilo_lugar(&lugar.caracteristicas)
-            };
+            let estilo = estilo_lugar_mapa(lugar, foco, recursos);
             for (caracter, coordenada) in lugar.nombre.chars().zip(&lugar.coordenadas_rotulo) {
                 if let Some((x, y)) =
                     proyectar(*coordenada, area, origen_x, origen_y, margen_x, margen_y)
                 {
-                    // Un tile puede aportar negrita o tenue: el rótulo decide sus modificadores.
-                    poner_celda(
-                        frame,
-                        x,
-                        y,
-                        caracter,
-                        estilo
-                            .remove_modifier(Modifier::BOLD | Modifier::DIM)
-                            .add_modifier(estilo.add_modifier),
-                    );
+                    poner_celda(frame, x, y, caracter, estilo);
                 }
             }
         }
@@ -1257,6 +1255,24 @@ fn normalizar_letra(tecla: KeyCode) -> Option<char> {
     }
 }
 
+fn estilo_lugar_mapa(
+    lugar: &VistaLugar,
+    foco: Option<IdLugar>,
+    recursos: &RecursosVisuales,
+) -> Style {
+    let estilo = if foco == Some(lugar.id) {
+        recursos.ui.foco
+    } else if lugar.es_region() {
+        recursos.estilo_region(&lugar.caracteristicas)
+    } else {
+        recursos.estilo_lugar(&lugar.caracteristicas)
+    };
+    // Símbolo y rótulo controlan su intensidad, sin heredar la del tile.
+    estilo
+        .remove_modifier(Modifier::BOLD | Modifier::DIM)
+        .add_modifier(estilo.add_modifier)
+}
+
 #[derive(Clone, Copy)]
 struct GeometriaMapa {
     area: Rect,
@@ -1703,6 +1719,85 @@ mod pruebas {
     }
 
     #[test]
+    fn simbolo_central_respeta_color_foco_camara_y_prioridad_de_marcadores() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let c = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let p = Partida::nueva(&c, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let mut i = Interfaz::nueva(p).unwrap();
+        let antes = i.partida.vista();
+        let mut mundo = i.ultima_vista_mundo.clone();
+        for lugar in &mut mundo.lugares {
+            lugar.coordenadas_rotulo.clear();
+        }
+        let clave = desert_tiger_app::ClaveTipoTile::nueva("montana".into()).unwrap();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal"))
+            .unwrap()
+            .con_fotogramas_prueba(clave.clone(), &["^"]);
+        mundo.mapa.celdas.fill(clave);
+        mundo.lugares[1].coordenada_central = desert_tiger_app::CoordenadaMapa { x: 40, y: 8 };
+        let mut terminal = Terminal::new(TestBackend::new(192, 66)).unwrap();
+        let area = Rect::new(0, 0, 192, 64);
+        terminal
+            .draw(|f| i.dibujar_mundo(f, area, &mundo, &recursos))
+            .unwrap();
+        assert_eq!(terminal.backend().buffer()[(40, 8)].symbol(), "^");
+        mundo.lugares[1].simbolo = Some('H');
+        terminal
+            .draw(|f| i.dibujar_mundo(f, area, &mundo, &recursos))
+            .unwrap();
+        let simbolo = &terminal.backend().buffer()[(40, 8)];
+        assert_eq!(simbolo.symbol(), "H");
+        assert_eq!(simbolo.fg, recursos.ui.lugar_geografico.fg.unwrap());
+        assert!(!simbolo.modifier.intersects(Modifier::BOLD | Modifier::DIM));
+        mundo.lugares[1].caracteristicas.push("civilizado".into());
+        terminal
+            .draw(|f| i.dibujar_mundo(f, area, &mundo, &recursos))
+            .unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(40, 8)].fg,
+            recursos.ui.lugar_civilizado.fg.unwrap()
+        );
+        i.modo = ModoLocal::Seleccion {
+            destinos: vec![mundo.lugares[1].id],
+            foco: 0,
+        };
+        terminal
+            .draw(|f| i.dibujar_mundo(f, area, &mundo, &recursos))
+            .unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(40, 8)].bg,
+            recursos.ui.foco.bg.unwrap()
+        );
+        i.modo = ModoLocal::Normal;
+        let mut pequena = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        pequena
+            .draw(|f| i.dibujar_mundo(f, Rect::new(0, 0, 80, 22), &mundo, &recursos))
+            .unwrap();
+        let fuera = pequena.backend().buffer().clone();
+        mundo.lugares[1].simbolo = None;
+        pequena
+            .draw(|f| i.dibujar_mundo(f, Rect::new(0, 0, 80, 22), &mundo, &recursos))
+            .unwrap();
+        assert_eq!(
+            pequena.backend().buffer(),
+            &fuera,
+            "el símbolo fuera de cámara no escribe celdas"
+        );
+        mundo.lugares[1].simbolo = Some('H');
+        i.mostrar_conexiones = true;
+        terminal
+            .draw(|f| i.dibujar_mundo(f, area, &mundo, &recursos))
+            .unwrap();
+        assert_eq!(terminal.backend().buffer()[(40, 8)].symbol(), "O");
+        mundo.lugar_jugador = mundo.lugares[1].id;
+        terminal
+            .draw(|f| i.dibujar_mundo(f, area, &mundo, &recursos))
+            .unwrap();
+        assert_eq!(terminal.backend().buffer()[(40, 8)].symbol(), "@");
+        assert_eq!(i.partida.vista(), antes);
+    }
+
+    #[test]
     fn regiones_quedan_tenues_detras_de_los_lugares_sin_heredar_negrita_del_tile() {
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
@@ -2098,7 +2193,7 @@ mod pruebas {
             .ultima_vista_mundo
             .lugares
             .iter()
-            .find(|l| l.nombre == "Bosque de Tamrut")
+            .find(|l| l.nombre == "Bosque oscuro")
             .unwrap()
             .id;
         let mar = i

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.25 |
-| Fecha | 2026-10-27 |
+| Versión | 0.26 |
+| Fecha | 2026-10-28 |
 
 > Ampliación implementada el 2026-10-26: fichas, fase Acampando e
 > intenciones se definen en [Acampar](../acciones/07-acampar.md#5-proyección-de-fichas);
@@ -24,6 +24,10 @@ Los apartados del cuerpo original incompatibles con esta revisión se conservan
 como historial, no como especificación alternativa. Los demás contratos del
 componente mantienen su alcance. Las verificaciones están en el
 [informe del refactor](../acciones/verificacion-viajar-reglamento.md).
+
+> Ampliación implementada el 2026-10-28: `VistaLugar.simbolo: Option<char>`
+> conserva el símbolo opcional validado por el [contrato de contenido](./03-contenido.md).
+> Es presentación; el estado reglado de Lugar no cambia.
 
 ## 1. Propósito y autoridad
 
@@ -492,6 +496,8 @@ pub struct VistaMapa {
 pub struct VistaLugar {
     pub id: IdLugar,
     pub nombre: String,
+    pub nombre_abreviado: String,
+    pub simbolo: Option<char>,
     pub coordenada_central: CoordenadaMapa,
     pub coordenadas_rotulo: Vec<CoordenadaMapa>,
     pub caracteristicas: Vec<String>,

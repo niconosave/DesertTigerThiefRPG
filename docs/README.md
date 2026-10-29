@@ -54,6 +54,19 @@ encendido y el mapa disponible; se suspende al viajar, acampar o confirmar la
 salida. Se restaura al regresar al mapa. Durante las viñetas, `D` sigue mostrando
 detalles. Estos ajustes no se guardan entre ejecuciones.
 
+## Símbolos de lugares
+
+En el RON de un Lugar podés añadir, por ejemplo:
+
+```ron
+simbolo: "⌂",
+```
+
+Se dibuja en el centro del Lugar con el mismo color que su nombre. Debe ser un
+único carácter visible de una columna. Omitir el campo o usar `simbolo: ""`
+no agrega ningún símbolo. El `@` del grupo y las `O` de desarrollo conservan
+prioridad. Se carga al iniciar la partida, junto con los demás datos del Lugar.
+
 ## Elegir los colores al jugar
 
 El modo predeterminado conserva la paleta de la terminal. Si puede consultarla,

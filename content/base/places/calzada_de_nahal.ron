@@ -2,7 +2,7 @@
     clave: "calzada_de_nahal",
     nombre: "Calzada de Nahal",
     nombre_abreviado: "Calz. Nahal",
-    caracteristicas: ["civilizado", "calzada", "terraplen", "pantanoso"],
+    caracteristicas: [ "calzada", "terraplen", "pantanoso"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("marisma_verde")),
         (tipo: Conectado, destino: Lugar("nahal")),

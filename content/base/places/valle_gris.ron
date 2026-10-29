@@ -1,0 +1,22 @@
+(
+    clave: "valle_gris",
+    nombre: "Valle Gris",
+    nombre_abreviado: "Valle Gris",
+    caracteristicas: ["fertil", "resguardado"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("alcazar_gris")),
+    ],
+    coordenada_central: (x: 110, y: 41),
+    coordenadas_rotulo: [
+        (x: 107, y: 39),
+        (x: 108, y: 39),
+        (x: 109, y: 40),
+        (x: 110, y: 40),
+        (x: 111, y: 41),
+        (x: 112, y: 41),
+        (x: 113, y: 41),
+        (x: 114, y: 42),
+        (x: 115, y: 42),
+        (x: 116, y: 42),
+    ],
+)

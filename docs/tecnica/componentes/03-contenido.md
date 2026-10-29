@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.28 |
+| Versión | 0.29 |
 | Fecha | 2026-10-28 |
 
 > Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
@@ -414,6 +414,7 @@ pub(crate) struct PresentacionLugar {
     id: IdLugar,
     nombre: String,
     nombre_abreviado: String,
+    simbolo: Option<char>,
     coordenada_central: CoordenadaMapa,
     coordenadas_rotulo: Vec<CoordenadaMapa>,
 }
@@ -444,6 +445,7 @@ impl PresentacionLugar {
     pub(crate) fn id(&self) -> IdLugar;
     pub(crate) fn nombre(&self) -> &str;
     pub(crate) fn nombre_abreviado(&self) -> &str;
+    pub(crate) fn simbolo(&self) -> Option<char>;
     pub(crate) fn coordenada_central(&self) -> CoordenadaMapa;
     pub(crate) fn coordenadas_rotulo(
         &self,
@@ -684,6 +686,7 @@ coordenadas oficiales se fijarán en `content/base/` después de dibujar el mapa
     clave: "zona_arida",
     nombre: "Zona Árida",
     nombre_abreviado: "Z. Árida",
+    simbolo: "",
     caracteristicas: [],
     relaciones: [
         (
@@ -710,7 +713,7 @@ coordenadas oficiales se fijarán en `content/base/` después de dibujar el mapa
 )
 ```
 
-Salvo `nombre_abreviado`, sus campos son obligatorios. `nombre` no puede estar vacío.
+Salvo `nombre_abreviado` y `simbolo`, sus campos son obligatorios. `nombre` no puede estar vacío.
 `nombre_abreviado` es un `String` opcional para etiquetas compactas de interfaz.
 Si se omite o es `""`, la carga usa el nombre completo. Si tiene contenido,
 debe ser una sola línea no compuesta únicamente por espacios, sin controles y
@@ -719,6 +722,17 @@ nombre completo. Este campo no requiere coordenadas de rótulo propias.
 `PresentacionLugar` conserva la abreviatura resuelta y la sesión la transmite
 como `VistaLugar::nombre_abreviado: String`. El nombre completo y las coordenadas
 del mapa conservan su significado; las abreviaturas no son identificadores.
+`simbolo` es una cadena opcional de presentación, por ejemplo `simbolo: "⌂"`.
+Omitirla o escribir `simbolo: ""` produce ausencia. Si tiene contenido debe
+contener exactamente un carácter Unicode visible, sin controles ni espacios,
+de ancho terminal uno según `unicode-width`. Se rechazan cadenas de varios
+caracteres, combinaciones de ancho cero y glifos de ancho dos con un diagnóstico
+`ValorInvalido` que identifica el archivo y el campo `simbolo`.
+Se convierte a `Option<char>` en `PresentacionLugar` y se proyecta sin cambios a
+`VistaLugar.simbolo`. No se añade a `LugarInicial` ni a sus Características;
+no afecta reglas, conexiones o coordenadas, y no modifica la matriz del mapa.
+La [terminal](./09-frontend-terminal.md) define su color y orden de dibujo.
+
 `caracteristicas` y `relaciones` son listas obligatorias que pueden estar vacías;
 las primeras no admiten duplicados y las segundas siguen el esquema y la
 normalización de [`10-relaciones.md`](./10-relaciones.md#41-esquema-normativo).

@@ -7,7 +7,7 @@
     relaciones: [
         (tipo: Conoce, destino: Lugar("valle_fertil")),
         (tipo: Conoce, destino: Lugar("senda_de_tamrut")),
-        (tipo: Conoce, destino: Lugar("bosque_de_tamrut")),
+        (tipo: Conoce, destino: Lugar("bosque_oscuro")),
         (tipo: Conoce, destino: Lugar("vado_de_tamrut")),
     ],
     retrato: None,
