@@ -4,6 +4,7 @@
     nombre_abreviado: "P. Izir",
     caracteristicas: ["montanoso", "elevado", "empinado", "rocoso"],
     relaciones: [
+        (tipo: OrigenDe, destino: Lugar("rio_izir")),
         (tipo: Conectado, destino: Lugar("espinazo_gris")),
         (tipo: Conectado, destino: Lugar("risco_de_adrar")),
     ],

@@ -4,6 +4,7 @@
     nombre_abreviado: "R. Adrar",
     caracteristicas: ["montanoso", "elevado", "empinado", "rocoso"],
     relaciones: [
+        (tipo: Bloquea, destino: Lugar("zona_arida")),
         (tipo: Conectado, destino: Lugar("espinazo_gris")),
     ],
     coordenada_central: (x: 89, y: 32),

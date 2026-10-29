@@ -204,6 +204,18 @@ pub(crate) fn proyectar(
                 (SentidoRelacionFicha::Saliente, "Abarca:")
             }
             TipoRelacion::Abarca => (SentidoRelacionFicha::Entrante, "Dentro de:"),
+            TipoRelacion::OrigenDe if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Origen de:")
+            }
+            TipoRelacion::OrigenDe => (SentidoRelacionFicha::Entrante, "Nace de:"),
+            TipoRelacion::AfluenteDe if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Afluente de:")
+            }
+            TipoRelacion::AfluenteDe => (SentidoRelacionFicha::Entrante, "Recibe al afluente:"),
+            TipoRelacion::Bloquea if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Bloquea:")
+            }
+            TipoRelacion::Bloquea => (SentidoRelacionFicha::Entrante, "Bloqueado por:"),
             TipoRelacion::Conoce if relacion.origen() == elemento => {
                 (SentidoRelacionFicha::Saliente, "Conoce")
             }
@@ -319,6 +331,121 @@ mod pruebas {
     }
 
     #[test]
+    fn geografia_se_explora_en_ambos_sentidos_sin_crear_destinos_fluviales() {
+        let c = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mundo, _) = c.instanciar_estado().unwrap();
+        let id = |nombre: &str| {
+            c.presentacion()
+                .lugares()
+                .iter()
+                .find(|l| l.nombre() == nombre)
+                .unwrap()
+                .id()
+        };
+        for (tipo, origen, destino, ida, vuelta) in [
+            (
+                TipoRelacion::OrigenDe,
+                "Monte Tazir",
+                "Río Tazir",
+                "Origen de:",
+                "Nace de:",
+            ),
+            (
+                TipoRelacion::OrigenDe,
+                "Pico de Izir",
+                "Río Izir",
+                "Origen de:",
+                "Nace de:",
+            ),
+            (
+                TipoRelacion::AfluenteDe,
+                "Río Izir",
+                "Río Tamrut",
+                "Afluente de:",
+                "Recibe al afluente:",
+            ),
+            (
+                TipoRelacion::AfluenteDe,
+                "Río Tazir",
+                "Río Tamrut",
+                "Afluente de:",
+                "Recibe al afluente:",
+            ),
+            (
+                TipoRelacion::Bloquea,
+                "Espinazo Gris",
+                "Hamada de Zahrun",
+                "Bloquea:",
+                "Bloqueado por:",
+            ),
+            (
+                TipoRelacion::Bloquea,
+                "Risco de Adrar",
+                "Hamada Roja",
+                "Bloquea:",
+                "Bloqueado por:",
+            ),
+            (
+                TipoRelacion::Bloquea,
+                "Alcázar Gris",
+                "Valle Gris",
+                "Bloquea:",
+                "Bloqueado por:",
+            ),
+            (
+                TipoRelacion::Bloquea,
+                "Monte Tazir",
+                "Valle del Drâa",
+                "Bloquea:",
+                "Bloqueado por:",
+            ),
+        ] {
+            let mut ids = Vec::new();
+            for (desde, hacia, prefijo, sentido) in [
+                (origen, destino, ida, SentidoRelacionFicha::Saliente),
+                (destino, origen, vuelta, SentidoRelacionFicha::Entrante),
+            ] {
+                let ficha = proyectar(&mundo, &c, ExtremoRelacion::Lugar(id(desde))).unwrap();
+                let encontrados: Vec<_> = ficha
+                    .entradas
+                    .iter()
+                    .filter_map(|e| match e {
+                        EntradaFicha::Relacion(r) if r.etiqueta == format!("{prefijo} {hacia}") => {
+                            Some(r)
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                assert_eq!(encontrados.len(), 1, "{desde}: {prefijo} {hacia}");
+                let r = encontrados[0];
+                assert_eq!(r.referencia.elemento, ExtremoRelacion::Lugar(id(hacia)));
+                match r.vinculo {
+                    VinculoFicha::Registrado {
+                        id,
+                        tipo: t,
+                        sentido: s,
+                    } => {
+                        assert_eq!((t, s), (tipo, sentido));
+                        ids.push(id);
+                    }
+                    _ => panic!("la relación geográfica debe estar registrada"),
+                }
+            }
+            assert_eq!(ids[0], ids[1], "ambas fichas consultan la misma relación");
+        }
+        let destinos =
+            desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
+                .unwrap();
+        for nombre in ["Río Izir", "Río Tazir", "Río Tamrut"] {
+            assert!(mundo.lugares_conectados(id(nombre)).unwrap().is_empty());
+            assert!(!destinos.contains(&id(nombre)));
+        }
+    }
+
+    #[test]
     fn familia_del_principe_expone_hechos_y_deducciones_sin_ids_ficticios() {
         let c = crate::cargar_contenido(
             &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
@@ -398,6 +525,6 @@ mod pruebas {
             );
         }
         assert_eq!(mundo, antes);
-        assert_eq!(mundo.relaciones().len(), 87);
+        assert_eq!(mundo.relaciones().len(), 95);
     }
 }

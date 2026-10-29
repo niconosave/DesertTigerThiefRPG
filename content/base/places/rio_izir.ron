@@ -3,6 +3,7 @@
     nombre: "Río Izir",
     caracteristicas: ["acuatico", "fluvial", "aguaDulce", "corrienteRapida"],
     relaciones: [
+        (tipo: AfluenteDe, destino: Lugar("rio_tamrut")),
     ],
     coordenada_central: (x: 121, y: 9),
     coordenadas_rotulo: [

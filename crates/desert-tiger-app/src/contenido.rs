@@ -827,6 +827,9 @@ enum TipoRelacionDto {
     MatadoPor,
     Conectado,
     Abarca,
+    OrigenDe,
+    AfluenteDe,
+    Bloquea,
     Conoce,
 }
 
@@ -1746,6 +1749,9 @@ fn validar_relaciones(
             TipoRelacionDto::MatadoPor => TipoRelacion::MatadoPor,
             TipoRelacionDto::Conectado => TipoRelacion::Conectado,
             TipoRelacionDto::Abarca => TipoRelacion::Abarca,
+            TipoRelacionDto::OrigenDe => TipoRelacion::OrigenDe,
+            TipoRelacionDto::AfluenteDe => TipoRelacion::AfluenteDe,
+            TipoRelacionDto::Bloquea => TipoRelacion::Bloquea,
             TipoRelacionDto::Conoce => TipoRelacion::Conoce,
         };
         let destino = match declaracion.destino {
@@ -1807,7 +1813,11 @@ fn validar_relaciones(
         let extremos_validos = matches!(
             (tipo, origen, destino),
             (
-                TipoRelacion::Conectado | TipoRelacion::Abarca,
+                TipoRelacion::Conectado
+                    | TipoRelacion::Abarca
+                    | TipoRelacion::OrigenDe
+                    | TipoRelacion::AfluenteDe
+                    | TipoRelacion::Bloquea,
                 ExtremoRelacion::Lugar(_),
                 ExtremoRelacion::Lugar(_)
             ) | (
@@ -1830,6 +1840,9 @@ fn validar_relaciones(
                 | TipoRelacion::MatadoPor
                 | TipoRelacion::Sirviente => "esta relación exige dos Actores",
                 TipoRelacion::Conectado => "Conectado exige dos Lugares",
+                TipoRelacion::OrigenDe => "OrigenDe exige dos Lugares",
+                TipoRelacion::AfluenteDe => "AfluenteDe exige dos Lugares",
+                TipoRelacion::Bloquea => "Bloquea exige dos Lugares",
                 TipoRelacion::Abarca => "Abarca exige dos Lugares, con una región de origen",
                 TipoRelacion::Conoce => "Conoce exige un Actor de origen y un Lugar de destino",
             };
@@ -1888,6 +1901,9 @@ fn normalizar_relaciones<'a>(
             (
                 TipoRelacion::Conoce
                 | TipoRelacion::Abarca
+                | TipoRelacion::OrigenDe
+                | TipoRelacion::AfluenteDe
+                | TipoRelacion::Bloquea
                 | TipoRelacion::Padre
                 | TipoRelacion::Madre
                 | TipoRelacion::MatadoPor
@@ -2852,7 +2868,7 @@ mod pruebas {
                 .unwrap()
                 .iter()
                 .any(|&id| mundo.relacion(id).unwrap().tipo() == TipoRelacion::Abarca);
-            // Costa Ámbar no tiene región; los tres ríos nuevos esperan su modelo de relaciones.
+            // Costa Ámbar y los tres ríos no tienen una región declarada.
             assert_eq!(
                 tiene_region,
                 ![3, 39, 40, 41]
@@ -2902,7 +2918,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 87);
+        assert_eq!(mundo.relaciones().len(), 95);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -3197,6 +3213,70 @@ mod pruebas {
         let desconocido = ClaveTipoTile::nueva("nieve".to_owned()).expect("clave válida");
         assert!(mapa.cambiar_tipo(coordenada, desconocido).is_err());
         assert_eq!(mapa.tipo_en(coordenada), Some(&antes));
+    }
+
+    #[test]
+    fn relaciones_geograficas_ron_validan_extremos_y_preservan_direccion() {
+        let contenido = cargar_contenido(&raiz_base()).unwrap();
+        let claves = contenido.claves();
+        let origen = ExtremoRelacion::Lugar(claves.lugares_por_clave["monte_tazir"]);
+        let destino = ExtremoRelacion::Lugar(claves.lugares_por_clave["rio_tazir"]);
+        let actor = ExtremoRelacion::Actor(claves.actores_por_clave["principe_perdido"]);
+        for tipo in ["OrigenDe", "AfluenteDe", "Bloquea"] {
+            let validar = |desde, hacia: &str| {
+                let declaracion: DeclaracionRelacionDto =
+                    ron::from_str(&format!("(tipo: {tipo}, destino: {hacia})")).unwrap();
+                validar_relaciones(
+                    vec![declaracion],
+                    desde,
+                    claves,
+                    Path::new("places/monte_tazir.ron"),
+                    TipoElementoContenido::Lugar,
+                    "monte_tazir",
+                )
+            };
+            let primera = validar(origen, "Lugar(\"rio_tazir\")").unwrap();
+            let inversa = validar(destino, "Lugar(\"monte_tazir\")").unwrap();
+            assert_eq!(
+                normalizar_relaciones(primera.iter().chain(inversa.iter()))
+                    .unwrap()
+                    .len(),
+                2
+            );
+            assert_eq!(
+                normalizar_relaciones(primera.iter().chain(primera.iter()))
+                    .unwrap_err()
+                    .diagnosticos()[0]
+                    .clase(),
+                ClaseDiagnosticoContenido::Duplicado
+            );
+            for (desde, hacia, clase) in [
+                (
+                    actor,
+                    "Lugar(\"rio_tazir\")",
+                    ClaseDiagnosticoContenido::ValorInvalido,
+                ),
+                (
+                    origen,
+                    "Actor(\"principe_perdido\")",
+                    ClaseDiagnosticoContenido::ValorInvalido,
+                ),
+                (
+                    origen,
+                    "Lugar(\"monte_tazir\")",
+                    ClaseDiagnosticoContenido::ValorInvalido,
+                ),
+                (
+                    origen,
+                    "Lugar(\"rio_inexistente\")",
+                    ClaseDiagnosticoContenido::ReferenciaInvalida,
+                ),
+            ] {
+                let error = validar(desde, hacia).err().expect("declaración inválida");
+                assert_eq!(error.diagnosticos()[0].clase(), clase, "{tipo} {hacia}");
+                assert!(error.diagnosticos()[0].detalle.contains("relaciones[0]"));
+            }
+        }
     }
 
     #[test]

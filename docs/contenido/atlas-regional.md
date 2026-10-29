@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.15 |
+| Versión | 0.16 |
 | Fecha | 2026-10-29 |
 
 ## 1. Propósito
@@ -266,7 +266,7 @@ Se aprobaron para esta primera versión:
 
 ## 10. Regiones cartográficas
 
-Se mantienen once regiones como Lugares sin conexiones transitables, con
+Se mantienen trece regiones como Lugares sin conexiones transitables, con
 Relaciones Abarca hacia los Lugares existentes. Cubren las tierras áridas,
 ambas cordilleras, la cuenca fértil, el bosque, las tierras bajas,
 la isla y los cuatro sectores marítimos. El Descenso del Drâa pertenece tanto
@@ -282,7 +282,7 @@ menor intensidad que los Lugares transitables. Su autoría concreta —nombres,
 coordenadas y pertenencias— reside únicamente en `content/base/places/`.
 El [contrato de Regiones y Abarca](../tecnica/componentes/10-relaciones.md#12-regiones-y-abarca--implementadas-el-2026-10-28)
 define su significado. Se retiró Costas de Sahil: Costa Ámbar queda sin región,
-y Cabo Errante y Playa Dorada pasan a Tierras de Sahran. Las conexiones
+y Cabo Errante y Playa Dorada pertenecen a Península de Sahir. Las conexiones
 transitables vigentes se declaran únicamente en los RON.
 
 La región antes llamada Tierras de Tamrut se denomina ahora Bosque de Tamrut.
@@ -300,8 +300,13 @@ Monte Tazir, Pico de Izir y Risco de Adrar pertenecen a la Cordillera de Azrum;
 los tres se conectan entre sí y con Espinazo Gris. Punta de Namar conecta con
 Cabo Errante y Playa Dorada; Lomas de Anir conecta con Costa Ámbar.
 
-La intención geográfica es que Río Tazir nazca en Monte Tazir y Río Izir en
-Pico de Izir, y que ambos alimenten Río Tamrut, de mayor caudal, que atraviesa
-el bosque. **Estos vínculos están pendientes de definir un tipo de relación**:
-los tres ríos se incorporan sin relaciones ni conexiones de viaje. La
-característica `caudaloso` describe el tercer río; no añade reglas nuevas.
+Río Tazir nace en Monte Tazir y Río Izir en Pico de Izir; ambos son afluentes de
+Río Tamrut, de mayor caudal, que atraviesa el bosque. Estos vínculos se declaran
+con `OrigenDe` y `AfluenteDe`. La característica `caudaloso` describe el tercer
+río; no añade reglas nuevas. Los tres ríos siguen sin conexiones de viaje.
+
+Los límites geográficos se expresan con `Bloquea`: Espinazo Gris frente a Hamada
+de Zahrun, Risco de Adrar frente a Hamada Roja, Alcázar Gris frente a Valle Gris
+y Monte Tazir frente a Valle del Drâa. Estos vínculos no modifican el tránsito
+actual; su contrato se define en
+[Relaciones, sección 13](../tecnica/componentes/10-relaciones.md#13-nacimiento-afluentes-y-bloqueo--implementados-el-2026-10-29).

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.29 |
-| Fecha | 2026-10-28 |
+| Versión | 0.30 |
+| Fecha | 2026-10-29 |
 
 > Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
 
@@ -26,6 +26,12 @@ componente mantienen su alcance. Las verificaciones están en el
 > Ampliación implementada el 2026-10-28: los RON de Lugar admiten la marca
 > `region` y el tipo dirigido `Abarca`, según el [contrato 10, sección 12](./10-relaciones.md#12-regiones-y-abarca--implementadas-el-2026-10-28).
 > Se registran en `world.ron` como los demás Lugares y conservan el mismo formato.
+
+> Ampliación implementada el 2026-10-29: `relaciones` en los RON de Lugar admite
+> `OrigenDe`, `AfluenteDe` y `Bloquea`, con destino `Lugar("clave")`. Su autoría,
+> validación y lectura inversa se definen en el
+> [contrato 10, sección 13](./10-relaciones.md#13-nacimiento-afluentes-y-bloqueo--implementados-el-2026-10-29).
+> No requieren campos nuevos ni una declaración inversa en el destino.
 
 ## 1. Propósito y alcance
 

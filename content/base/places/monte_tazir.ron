@@ -4,6 +4,8 @@
     nombre_abreviado: "M. Tazir",
     caracteristicas: ["montanoso", "elevado", "empinado", "rocoso"],
     relaciones: [
+        (tipo: Bloquea, destino: Lugar("valle_fertil")),
+        (tipo: OrigenDe, destino: Lugar("rio_tazir")),
         (tipo: Conectado, destino: Lugar("espinazo_gris")),
         (tipo: Conectado, destino: Lugar("pico_de_izir")),
         (tipo: Conectado, destino: Lugar("risco_de_adrar")),

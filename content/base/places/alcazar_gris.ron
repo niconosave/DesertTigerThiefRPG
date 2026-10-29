@@ -3,7 +3,9 @@
     nombre: "Alcázar Gris",
     nombre_abreviado: "Alc. Gris",
     caracteristicas: ["poblado", "fortificado", "elevado", "montanoso", "rocoso"],
-    relaciones: [],
+    relaciones: [
+        (tipo: Bloquea, destino: Lugar("valle_gris")),
+    ],
     coordenada_central: (x: 118, y: 38),
     coordenadas_rotulo: [
         (x: 113, y: 34), (x: 114, y: 34), (x: 115, y: 34),

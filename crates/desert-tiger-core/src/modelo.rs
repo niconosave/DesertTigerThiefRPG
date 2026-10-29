@@ -268,6 +268,9 @@ pub enum TipoRelacion {
     MatadoPor,
     Conectado,
     Abarca,
+    OrigenDe,
+    AfluenteDe,
+    Bloquea,
     Conoce,
 }
 
@@ -613,9 +616,14 @@ impl Mundo {
                 return Err(ErrorConstruirMundo::OrigenAbarcaNoEsRegion { posicion, lugar });
             }
             let clave_duplicado = match (inicial.tipo, inicial.origen, inicial.destino) {
-                (TipoRelacion::Abarca, ExtremoRelacion::Lugar(_), ExtremoRelacion::Lugar(_)) => {
-                    (inicial.tipo, inicial.origen, inicial.destino)
-                }
+                (
+                    TipoRelacion::Abarca
+                    | TipoRelacion::OrigenDe
+                    | TipoRelacion::AfluenteDe
+                    | TipoRelacion::Bloquea,
+                    ExtremoRelacion::Lugar(_),
+                    ExtremoRelacion::Lugar(_),
+                ) => (inicial.tipo, inicial.origen, inicial.destino),
                 (
                     TipoRelacion::Conectado,
                     ExtremoRelacion::Lugar(origen),
@@ -679,7 +687,10 @@ impl Mundo {
 
             match (inicial.tipo, inicial.origen, inicial.destino) {
                 (
-                    TipoRelacion::Abarca,
+                    TipoRelacion::Abarca
+                    | TipoRelacion::OrigenDe
+                    | TipoRelacion::AfluenteDe
+                    | TipoRelacion::Bloquea,
                     ExtremoRelacion::Lugar(origen),
                     ExtremoRelacion::Lugar(destino),
                 ) => {
@@ -1962,6 +1973,110 @@ mod pruebas {
             Mundo::nuevo(datos),
             Err(ErrorConstruirMundo::RelacionDuplicada { .. })
         ));
+    }
+
+    #[test]
+    fn relaciones_geograficas_son_dirigidas_y_no_alteran_los_caminos() {
+        for tipo in [
+            TipoRelacion::OrigenDe,
+            TipoRelacion::AfluenteDe,
+            TipoRelacion::Bloquea,
+        ] {
+            let mut datos = datos_validos();
+            datos.lugares.push(LugarInicial {
+                id: id_lugar(2),
+                caracteristicas: vec![caracteristica("region")],
+            });
+            // Una relación descriptiva puede coexistir con Conectado, y una
+            // región puede participar sin convertirse en destino transitable.
+            for (origen, destino) in [(0, 1), (0, 2), (2, 0)] {
+                datos.relaciones.push(RelacionInicial {
+                    tipo,
+                    origen: ExtremoRelacion::Lugar(id_lugar(origen)),
+                    destino: ExtremoRelacion::Lugar(id_lugar(destino)),
+                });
+            }
+            let mundo = Mundo::nuevo(datos).unwrap();
+            let ids: Vec<_> = (0..4)
+                .map(|i| IdRelacion::desde_posicion(i).unwrap())
+                .collect();
+            assert_eq!(
+                mundo.relaciones_de(ExtremoRelacion::Lugar(id_lugar(0))),
+                Some(ids.as_slice())
+            );
+            assert_eq!(
+                mundo.relaciones_de(ExtremoRelacion::Lugar(id_lugar(2))),
+                Some(&ids[2..])
+            );
+            assert_eq!(
+                mundo.relacion(ids[2]).unwrap().extremos(),
+                (
+                    ExtremoRelacion::Lugar(id_lugar(0)),
+                    ExtremoRelacion::Lugar(id_lugar(2))
+                )
+            );
+            assert_eq!(
+                mundo.relacion(ids[3]).unwrap().extremos(),
+                (
+                    ExtremoRelacion::Lugar(id_lugar(2)),
+                    ExtremoRelacion::Lugar(id_lugar(0))
+                )
+            );
+            assert_eq!(mundo.lugares_conectados(id_lugar(2)), Some([].as_slice()));
+            assert_eq!(
+                crate::acciones::destinos_disponibles(&mundo, id_actor(0)).unwrap(),
+                vec![id_lugar(1)]
+            );
+            assert_eq!(
+                crate::acciones::destinos_disponibles(&mundo, id_actor(2)).unwrap(),
+                vec![id_lugar(0)]
+            );
+        }
+    }
+
+    #[test]
+    fn relaciones_geograficas_rechazan_extremos_invalidos_y_duplicados() {
+        for tipo in [
+            TipoRelacion::OrigenDe,
+            TipoRelacion::AfluenteDe,
+            TipoRelacion::Bloquea,
+        ] {
+            let mut datos = datos_validos();
+            datos.relaciones[0].tipo = tipo;
+
+            let mut desconocida = datos.clone();
+            desconocida.relaciones[0].destino = ExtremoRelacion::Lugar(id_lugar(9));
+            assert!(matches!(
+                Mundo::nuevo(desconocida),
+                Err(ErrorConstruirMundo::ExtremoRelacionDesconocido { posicion: 0, .. })
+            ));
+
+            for origen_actor in [false, true] {
+                let mut incompatible = datos.clone();
+                if origen_actor {
+                    incompatible.relaciones[0].origen = ExtremoRelacion::Actor(id_actor(0));
+                } else {
+                    incompatible.relaciones[0].destino = ExtremoRelacion::Actor(id_actor(0));
+                }
+                assert!(matches!(
+                    Mundo::nuevo(incompatible),
+                    Err(ErrorConstruirMundo::ExtremosRelacionIncompatibles { posicion: 0, .. })
+                ));
+            }
+
+            let mut reflexiva = datos.clone();
+            reflexiva.relaciones[0].destino = ExtremoRelacion::Lugar(id_lugar(0));
+            assert!(matches!(
+                Mundo::nuevo(reflexiva),
+                Err(ErrorConstruirMundo::RelacionReflexiva { posicion: 0, .. })
+            ));
+
+            datos.relaciones.push(datos.relaciones[0].clone());
+            assert!(matches!(
+                Mundo::nuevo(datos),
+                Err(ErrorConstruirMundo::RelacionDuplicada { posicion: 1, .. })
+            ));
+        }
     }
 
     #[test]

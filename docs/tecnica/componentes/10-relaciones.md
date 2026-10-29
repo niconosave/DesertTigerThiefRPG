@@ -3,10 +3,13 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.4 |
-| Fecha | 2026-10-28 |
+| Versión | 0.5 |
+| Fecha | 2026-10-29 |
 
 > Ampliación implementada el 2026-10-26. Filiación, MatadoPor e índices familiares: [contrato 14, secciones 4–5](./14-parentesco-actores-contexto.md#5-almacenamiento-índices-y-consultas-familiares).
+
+> Ampliación implementada el 2026-10-29. `OrigenDe`, `AfluenteDe` y `Bloquea`:
+> [sección 13](#13-nacimiento-afluentes-y-bloqueo--implementados-el-2026-10-29).
 
 ## Revisión implementada el 2026-10-24: Conoce adquirido durante el viaje
 
@@ -123,6 +126,9 @@ pub enum TipoRelacion {
     MatadoPor,
     Conectado,
     Abarca,
+    OrigenDe,
+    AfluenteDe,
+    Bloquea,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -657,9 +663,9 @@ Ninguna para este alcance.
 
 Se diseñarán solamente cuando una mecánica aprobada las necesite:
 
-- nuevos tipos de Relación y sus combinaciones válidas de extremos;
-- Relaciones dirigidas y nombres distintos para su lectura inversa;
-- Relaciones que involucren Actores u otras categorías futuras de elemento;
+- tipos de Relación adicionales a los ya implementados en este contrato y sus
+  ampliaciones enlazadas;
+- Relaciones que involucren categorías futuras distintas de Actor y Lugar;
 - características, estado mutable, metadatos o identidad externa de una
   Relación;
 - operaciones para crear o retirar Relaciones durante una Partida;
@@ -726,3 +732,53 @@ y NPC, conexiones prohibidas en ambos sentidos y validación de origen/duplicado
 Las de contenido verifican el atlas completo y los diagnósticos; las de fichas,
 las dos lecturas navegables. La composición visual se especifica en el
 [frontend de terminal](./09-frontend-terminal.md).
+
+## 13. Nacimiento, afluentes y bloqueo — implementados el 2026-10-29
+
+Se incorporan tres tipos dirigidos entre Lugares. El archivo del origen declara
+el vínculo una sola vez; el texto inverso de la ficha no es otra relación.
+
+| Tipo RON y del núcleo | Sentido de autoría | Ficha del origen | Ficha del destino |
+|---|---|---|---|
+| `OrigenDe` | Montaña → río que nace en ella | Origen de: {destino} | Nace de: {origen} |
+| `AfluenteDe` | Río afluente → río que recibe sus aguas | Afluente de: {destino} | Recibe al afluente: {origen} |
+| `Bloquea` | Montaña → territorio con el que limita | Bloquea: {destino} | Bloqueado por: {origen} |
+
+Ejemplos de autoría en el RON de una montaña y en el de un río, respectivamente:
+
+```ron
+// Monte Tazir
+relaciones: [
+    (tipo: OrigenDe, destino: Lugar("rio_tazir")),
+    (tipo: Bloquea, destino: Lugar("valle_fertil")),
+],
+```
+
+```ron
+// Río Tazir
+relaciones: [
+    (tipo: AfluenteDe, destino: Lugar("rio_tamrut")),
+],
+```
+
+Cada declaración produce una única `Relacion`, indexada en ambos extremos por
+`relaciones_por_lugar`. Conserva su orientación al detectar duplicados; no se
+normaliza como una conexión simétrica. Las fichas permiten seguir el vínculo en
+ambos sentidos mediante las referencias habituales del campamento.
+
+La carga y el núcleo exigen extremos existentes de tipo Lugar, rechazan
+autorreferencias y duplicados del mismo tipo, origen y destino. Un Lugar con
+`region` también puede ser extremo de estos vínculos. No se exige una marca
+física concreta, ni se añaden restricciones de cardinalidad, ciclos fluviales o
+coordenadas: la correspondencia entre montañas y ríos es responsabilidad del
+contenido.
+
+Ninguno de estos tipos se incorpora a `conectados_por_lugar`. No habilitan
+viajes, no alteran costes ni eliminan conexiones existentes. `Bloquea` registra
+el límite geográfico; sus consecuencias futuras sobre el desplazamiento aún no
+están implementadas. Tampoco hay herencia a través de `Abarca`, propagación de
+caudal, cambios de audio ni nuevas líneas en el visor de conexiones.
+
+La verificación cubre la carga RON, la orientación e índices de las relaciones,
+las lecturas navegables en ambas fichas, las declaraciones inválidas y que los
+destinos de viaje continúen dependiendo exclusivamente de `Conectado`.
