@@ -311,7 +311,7 @@ mod pruebas {
         .unwrap();
         let (mundo, _) = c.instanciar_estado().unwrap();
         let hamada = ExtremoRelacion::Lugar(IdLugar::desde_posicion(0).unwrap());
-        let region = ExtremoRelacion::Lugar(IdLugar::desde_posicion(26).unwrap());
+        let region = ExtremoRelacion::Lugar(IdLugar::desde_posicion(25).unwrap());
         let ficha_region = proyectar(&mundo, &c, region).unwrap();
         assert!(ficha_region.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.etiqueta == "Abarca: Hamada Roja" && r.referencia.elemento == hamada)));
         let ficha_hamada = proyectar(&mundo, &c, hamada).unwrap();
@@ -398,6 +398,6 @@ mod pruebas {
             );
         }
         assert_eq!(mundo, antes);
-        assert_eq!(mundo.relaciones().len(), 76);
+        assert_eq!(mundo.relaciones().len(), 73);
     }
 }

@@ -4,7 +4,6 @@
     caracteristicas: ["region", "pantanoso"],
     relaciones: [
         (tipo: Abarca, destino: Lugar("marisma_verde")),
-        (tipo: Abarca, destino: Lugar("calzada_de_nahal")),
         (tipo: Abarca, destino: Lugar("nahal")),
         (tipo: Abarca, destino: Lugar("estuario_de_nahal")),
     ],

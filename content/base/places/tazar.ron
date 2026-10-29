@@ -2,7 +2,7 @@
     clave: "tazar",
     nombre: "Tazar",
     nombre_abreviado: "Tazar",
-    simbolo:"𜲍",
+    simbolo:"⏏",
     caracteristicas: ["civilizado", "poblado", "posada", "aguaDulce"],
     relaciones: [],
     coordenada_central: (x: 126, y: 17),

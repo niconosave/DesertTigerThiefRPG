@@ -2834,7 +2834,7 @@ mod pruebas {
         let destinos =
             desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
                 .unwrap();
-        assert_eq!(destinos.len(), 25);
+        assert_eq!(destinos.len(), 24);
         for region in regiones {
             assert!(!destinos.contains(&region.id()));
             assert!(mundo.lugares_conectados(region.id()).unwrap().is_empty());
@@ -2900,7 +2900,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 76);
+        assert_eq!(mundo.relaciones().len(), 73);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -2913,14 +2913,13 @@ mod pruebas {
                 .as_slice()
             )
         );
-        assert_eq!(contenido.presentacion().lugares().len(), 37);
+        assert_eq!(contenido.presentacion().lugares().len(), 36);
         for (origen, intermedio, destino) in [
             (0, 20, 5),
             (1, 21, 2),
             (2, 22, 10),
             (10, 23, 11),
-            (11, 24, 14),
-            (14, 25, 17),
+            (14, 24, 17),
         ] {
             let origen = IdLugar::desde_posicion(origen).expect("ID válido");
             let intermedio = IdLugar::desde_posicion(intermedio).expect("ID válido");

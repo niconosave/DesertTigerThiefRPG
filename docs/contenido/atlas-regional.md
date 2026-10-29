@@ -125,10 +125,10 @@ todos continúan siendo Lugares ordinarios del mismo grafo.
 
 | Nombre | Naturaleza y posición visual | Vocabulario editorial | Posibilidades futuras |
 |---|---|---|---|
-| Mar del Viento | Entrada de mar al noroeste interior, reemplaza al antiguo Llano del Viento. | `maritimo`, `aguaSalada`, `viento` | Navegación entre Hamada Roja, Hamada de Zahrun, Costa Ámbar y Mar de Poniente. |
-| Mar de Poniente | Mar abierto al oeste de la masa árida. | `maritimo`, `abierto`, `ventoso` | Temporales, pérdida de rumbo y llegada a la isla. |
+| Mar del Viento | Entrada de mar al noroeste interior, reemplaza al antiguo Llano del Viento. | `maritimo`, `aguaSalada`, `viento` | Navegación entre Hamada Roja, Hamada de Zahrun, Costa Ámbar y Aguas de Ámbar. |
+| Aguas de Ámbar | Mar abierto al oeste de la masa árida. | `maritimo`, `abierto`, `ventoso` | Temporales, pérdida de rumbo y llegada a la isla. |
 | Mar Boreal | Aguas del borde norte del mapa. | `maritimo`, `abierto`, `profundo` | Corrientes, niebla y navegación costera. |
-| Mar de Levante | Mar que bordea el bosque y la marisma por el este. | `maritimo`, `abierto`, `humedo` | Tormentas, navegación junto a la costa y acceso a Nahal. |
+| Aguas de Tamrut | Mar que bordea el bosque y la marisma por el este. | `maritimo`, `abierto`, `humedo` | Tormentas, navegación junto a la costa y acceso a Nahal. |
 | Golfo del Siroco | Cuenca marítima situada al sur entre ambas masas terrestres. | `maritimo`, `costero`, `ventoso` | Navegación protegida o peligrosa según el viento, pesca y acceso a Playa Dorada. |
 | Isla del Exilio | Isla árida del sudoeste. | `insular`, `aislado`, `arido` | Exploración, rescate y refugios difíciles de alcanzar. |
 
@@ -162,14 +162,14 @@ Paso Escarpado — Valle del Drâa — Bosque oscuro — Sierra Quebrada
 Alcázar Gris se conecta con Paso Escarpado y Sierra Quebrada.
 
 Circuito marítimo:
-Mar de Poniente — Mar Boreal — Mar de Levante — Golfo del Siroco
+Aguas de Ámbar — Mar Boreal — Aguas de Tamrut — Golfo del Siroco
        │                                             │
        └────────────── Isla del Exilio ─────────────┘
 
 Accesos costeros:
-Costa Ámbar — Mar de Poniente
+Costa Ámbar — Aguas de Ámbar
 Mesa del Sol — Mar Boreal
-Nahal — Mar de Levante
+Nahal — Aguas de Tamrut
 Playa Dorada — Golfo del Siroco
 Cabo Errante — Golfo del Siroco
 ```
@@ -181,7 +181,13 @@ El corredor oriental implementado por el brief de
 Hamada Roja → Hamada de Zahrun → Paso Escarpado
 → Descenso del Drâa → Valle del Drâa → Senda de Tamrut
 → Bosque oscuro → Vado de Tamrut → Marisma Verde
-→ Calzada de Nahal → Nahal → Estuario de Nahal → Mar de Levante
+```
+
+La Calzada de Nahal fue retirada; Marisma Verde ya no enlaza con Nahal por
+ese corredor. El tramo marítimo continúa desde Nahal:
+
+```text
+Nahal → Estuario de Nahal → Aguas de Tamrut
 ```
 
 Las conexiones concretas de toda la red y la orientación de autoría de cada
@@ -218,11 +224,18 @@ de aprobar un lote se comprobará visualmente en la terminal que el rótulo sigu
 la forma pretendida, continúa legible al enfocarlo y no queda oculto de manera
 problemática por los retratos.
 
-La composición marítima de trabajo reserva zonas distintas: `Mar de Poniente`
+La composición marítima de trabajo reserva zonas distintas: `Aguas de Ámbar`
 en el agua superior izquierda, `Mar Boreal` en la franja superior central,
-`Mar de Levante` mediante un recorrido principalmente vertical junto al borde
+`Aguas de Tamrut` mediante un recorrido principalmente vertical junto al borde
 oriental y `Golfo del Siroco` mediante una curva suave sobre la cuenca del sur.
 Así los nombres describen la forma del agua sin necesitar rotar sus letras.
+
+Para nombrar lugares marítimos se priorizan accidentes geográficos que encajen
+con su forma: bahía, ensenada, golfo, canal o estrecho. Cuando no corresponda
+uno de ellos, se usa «Aguas de…» con el nombre de la costa o región terrestre
+adyacente, como Ámbar o Tamrut. Se conserva el nombre propio Mar del Viento
+para la entrada de agua casi rodeada de tierra, y Golfo del Siroco para la
+amplia entrada meridional.
 
 ## 8. Historial de incorporación
 
