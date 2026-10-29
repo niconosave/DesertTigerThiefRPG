@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.72 |
-| Fecha | 2026-10-28 |
+| Versión | 0.73 |
+| Fecha | 2026-10-29 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
 > define el audio opcional del frontend y su integración con el bucle. El
@@ -959,11 +959,11 @@ confirmado por el progreso vigente y se resalta ese rótulo. El marcador no
 indica un tile de gameplay ni se devuelve a la aplicación.
 
 Primero se dibujan los rótulos de Lugares con `region`, usando el rol `ui.region`.
-El color de frente se consulta en las apariencias cargadas de `tiles.ron`,
+El color de frente y los modificadores se consultan en las apariencias cargadas de `tiles.ron`,
 según la primera Característica aplicable en esta tabla; no se duplican colores
 en el código ni en los archivos de regiones:
 
-| Característica, en orden de prioridad | Tile del que toma el color |
+| Característica, en orden de prioridad | Tile del que toma color y modificadores |
 |---|---|
 | `acuatico` | `agua` |
 | `montanoso` | `montana` |
@@ -973,10 +973,12 @@ en el código ni en los archivos de regiones:
 | `fertil` o `pantanoso` | `vegetacion` |
 | `fluvial` | `aguaRio` |
 
-Se conservan la atenuación y el fondo del rol regional, sin copiar otros
-atributos del tile. Si falta la apariencia o ninguna marca coincide, se conserva
-`ui.region`. Los recursos se cargan al iniciar el juego: editar `tiles.ron`
-cambia ambos colores en el siguiente inicio, sin recompilar ni editar regiones.
+Los modificadores del terreno reemplazan los del rol regional, sin acumular
+negrita, atenuación ni inversión de los tiles bajo las letras. Se conserva el
+fondo de `ui.region`; no se copia el fondo del terreno. Si falta la apariencia
+o ninguna marca coincide, se conserva `ui.region` completo. Los recursos se
+cargan al iniciar el juego: editar `tiles.ron` cambia el color y los modificadores
+de sus rótulos regionales en el siguiente inicio, sin recompilar ni editar regiones.
 Después se dibujan los demás Lugares. Los que declaran la Característica
 `civilizado` usan `ui.lugar_civilizado` (blanco); el resto usa
 `ui.lugar_geografico` (amarillo normal, el tono oscuro de la paleta, sin

@@ -191,13 +191,21 @@ impl RecursosVisuales {
         .find_map(|(marca, tile)| caracteristicas.iter().any(|c| c == marca).then_some(tile)) else {
             return self.ui.region;
         };
-        let frente = self.apariencias.iter().find_map(|(clave, patron)| {
-            (clave.como_str() == tipo)
-                .then_some(patron.estilo.fg)
-                .flatten()
-        });
-        // Conserva la atenuación del rótulo, sin copiar fondo ni negrita del terreno.
-        frente.map_or(self.ui.region, |color| self.ui.region.fg(color))
+        let Some(terreno) = self
+            .apariencias
+            .iter()
+            .find_map(|(clave, patron)| (clave.como_str() == tipo).then_some(patron.estilo))
+        else {
+            return self.ui.region;
+        };
+        // El terreno aporta color y modificadores; el fondo sigue siendo del rótulo.
+        // Se limpian los restantes para no acumular intensidad o inversión del lienzo.
+        Style {
+            fg: terreno.fg.or(self.ui.region.fg),
+            add_modifier: terreno.add_modifier,
+            sub_modifier: Modifier::all() - terreno.add_modifier,
+            ..self.ui.region
+        }
     }
 
     #[cfg(test)]

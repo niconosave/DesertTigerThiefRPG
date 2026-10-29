@@ -1798,7 +1798,7 @@ mod pruebas {
     }
 
     #[test]
-    fn regiones_quedan_tenues_detras_de_los_lugares_sin_heredar_negrita_del_tile() {
+    fn regiones_toman_color_y_modificadores_del_terreno_sin_copiar_su_fondo() {
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let contenido = cargar_contenido(&raiz.join("content/base")).unwrap();
         let partida =
@@ -1806,9 +1806,10 @@ mod pruebas {
         let interfaz = Interfaz::nueva(partida).unwrap();
         let mut mundo = interfaz.ultima_vista_mundo.clone();
         let clave = desert_tiger_app::ClaveTipoTile::nueva("montana".into()).unwrap();
-        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal"))
+        let mut recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal"))
             .unwrap()
             .con_fotogramas_prueba(clave.clone(), &["^"]);
+        recursos.ui.region = recursos.ui.region.bg(Color::Magenta);
         mundo.mapa.celdas.fill(clave);
         for lugar in &mut mundo.lugares {
             lugar.coordenadas_rotulo.clear();
@@ -1833,12 +1834,12 @@ mod pruebas {
             (vec!["region", "fluvial"], Some("aguaRio")),
             (vec!["region", "montanoso", "acuatico"], Some("agua")),
         ] {
-            let frente = tile
-                .and_then(|nombre: &str| {
+            let esperado = tile
+                .map(|nombre: &str| {
                     let clave = desert_tiger_app::ClaveTipoTile::nueva(nombre.into()).unwrap();
-                    recursos.tile(&clave, 0, 0, 0).estilo.fg
+                    recursos.tile(&clave, 0, 0, 0).estilo
                 })
-                .unwrap_or_else(|| recursos.ui.region.fg.unwrap());
+                .unwrap_or(recursos.ui.region);
             mundo.lugares[26].caracteristicas = marcas.into_iter().map(str::to_owned).collect();
             terminal
                 .draw(|frame| {
@@ -1851,9 +1852,9 @@ mod pruebas {
             assert!(!buffer[(20, 8)].modifier.contains(Modifier::BOLD));
             assert!(!buffer[(20, 8)].modifier.contains(Modifier::DIM));
             assert_eq!(buffer[(21, 8)].symbol(), "R");
-            assert_eq!(buffer[(21, 8)].fg, frente);
-            assert!(buffer[(21, 8)].modifier.contains(Modifier::DIM));
-            assert!(!buffer[(21, 8)].modifier.contains(Modifier::BOLD));
+            assert_eq!(buffer[(21, 8)].fg, esperado.fg.unwrap());
+            assert_eq!(buffer[(21, 8)].modifier, esperado.add_modifier);
+            assert_eq!(buffer[(21, 8)].bg, Color::Magenta);
         }
         mundo.lugares[0].caracteristicas.push("civilizado".into());
         terminal
