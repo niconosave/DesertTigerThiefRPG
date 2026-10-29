@@ -105,6 +105,33 @@ pub fn destinos_disponibles(mundo: &Mundo, actor: IdActor) -> Result<Vec<IdLugar
     Ok(vistos.into_iter().collect())
 }
 
+/// Destinos ofrecidos al jugador; el grafo usado para construir rutas no se filtra.
+pub fn destinos_seleccionables_jugador(mundo: &Mundo) -> Result<Vec<IdLugar>, RechazoAccion> {
+    let actor = mundo.actor_jugador();
+    let alcanzables = destinos_disponibles(mundo, actor)?;
+    let mut permitidos = BTreeSet::new();
+    permitidos.extend(
+        mundo
+            .lugares_conectados(mundo.ubicacion_grupo())
+            .unwrap_or(&[])
+            .iter()
+            .copied(),
+    );
+    for viajero in std::iter::once(actor).chain(mundo.grupo().integrantes().iter().copied()) {
+        permitidos.extend(
+            mundo
+                .lugares_conocidos(viajero)
+                .unwrap_or(&[])
+                .iter()
+                .copied(),
+        );
+    }
+    Ok(alcanzables
+        .into_iter()
+        .filter(|lugar| permitidos.contains(lugar))
+        .collect())
+}
+
 // Claves de presentación neutrales que el frontend ya asocia a su arte local.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ClaveEscena {

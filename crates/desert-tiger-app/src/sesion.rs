@@ -659,7 +659,7 @@ fn proyectar_mundo(
     } else {
         vec![
             AccionDisponible::Viajar {
-                destinos: acciones::destinos_disponibles(m, m.actor_jugador())
+                destinos: acciones::destinos_seleccionables_jugador(m)
                     .map_err(|e| e.to_string())?,
             },
             AccionDisponible::Acampar,
@@ -722,6 +722,51 @@ mod pruebas {
     use super::*;
     use crate::{EntradaFicha, ErrorConsultaFicha, ExtremoRelacion, SentidoRelacionFicha};
     use desert_tiger_core::{Caracteristica, LoteOperaciones, OperacionMundo, TiempoAccion};
+
+    #[test]
+    fn vista_ofrece_destinos_conocidos_o_vecinos_y_excluye_conocidos_aislados() {
+        let c = contenido();
+        let (mut mundo, mapa) = c.instanciar_estado().unwrap();
+        let id = |nombre: &str| {
+            c.presentacion()
+                .lugares()
+                .iter()
+                .find(|l| l.nombre() == nombre)
+                .unwrap()
+                .id()
+        };
+        let lista = |mundo: &Mundo| {
+            let vista = proyectar_mundo(mundo, &mapa, &c, None).unwrap();
+            vista
+                .acciones
+                .into_iter()
+                .find_map(|a| match a {
+                    AccionDisponible::Viajar { destinos } => Some(destinos),
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let inicial = lista(&mundo);
+        assert!(inicial.contains(&id("Costa Ámbar"))); // vecino desconocido
+        assert!(inicial.contains(&id("Paso Escarpado"))); // conocido por Bandido
+        assert!(!inicial.contains(&id("Valle del Drâa"))); // conocido por Cazador, fuera del grupo
+        assert!(!inicial.contains(&mundo.ubicacion_grupo()));
+        for nombre in ["Valle del Drâa", "Río Izir", "CORDILLERA DE AZRUM"] {
+            mundo
+                .aplicar_lote(LoteOperaciones::uno(
+                    OperacionMundo::RegistrarConocimiento {
+                        actor: mundo.actor_jugador(),
+                        lugar: id(nombre),
+                    },
+                ))
+                .unwrap();
+        }
+        let actual = lista(&mundo);
+        assert!(actual.contains(&id("Valle del Drâa")));
+        assert!(!actual.contains(&id("Río Izir")));
+        assert!(!actual.contains(&id("CORDILLERA DE AZRUM")));
+        assert_eq!(actual.len(), inicial.len() + 1);
+    }
 
     #[test]
     fn acampar_consulta_estado_actual_y_relaciones_sin_consumir_azar() {

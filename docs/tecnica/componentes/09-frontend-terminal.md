@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.73 |
+| Versión | 0.74 |
 | Fecha | 2026-10-29 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
@@ -197,8 +197,9 @@ para expresar el destino de un viaje.
 
 La aplicación ofrece posibilidades para construir la interfaz y vuelve a
 validar toda solicitud. En particular, `Viajar { destinos }` ya contiene
-exclusivamente los Lugares que el núcleo determinó alcanzables mediante
-Relaciones `conectado` y las demás reglas vigentes de transitabilidad. El
+exclusivamente los Lugares alcanzables por `Conectado` que además son vecinos
+directos de la ubicación actual o conocidos por el jugador o sus compañeros,
+según la [proyección de sesión](./04-sesion-aplicacion.md). El
 frontend conserva esa lista y su orden: no inspecciona Relaciones, no busca
 caminos, no agrega o elimina destinos y no interpreta por sí mismo
 Características del Mundo como `muerto`, `acuatico` o `muelle` para autorizar

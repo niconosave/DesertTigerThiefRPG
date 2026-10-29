@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.26 |
-| Fecha | 2026-10-28 |
+| Versión | 0.27 |
+| Fecha | 2026-10-29 |
 
 > Ampliación implementada el 2026-10-26: fichas, fase Acampando e
 > intenciones se definen en [Acampar](../acciones/07-acampar.md#5-proyección-de-fichas);
@@ -551,9 +551,13 @@ RON, glifos, estilos ni acceso al `EstadoMapa`.
 
 Si el jugador no tiene `muerto`, `acciones` contiene `Viajar` y después
 `Acampar`. Los destinos de Viajar son el resultado, posiblemente vacío, de
-`destinos_disponibles` en orden canónico. El Lugar actual, los Lugares
-sin ruta `Conectado` viable con los medios actuales ya están excluidos por el
-núcleo. Una lista vacía permite mostrar el control
+`destinos_seleccionables_jugador` en orden canónico. Ofrece únicamente los
+vecinos directos `Conectado` de la ubicación actual y los Lugares que conoce
+el jugador o cualquiera de sus compañeros actuales mediante `Conoce`.
+Se conserva el filtro de alcanzabilidad por `Conectado` y se excluye el Lugar
+actual. La lista se recalcula al proyectar el Mundo. El cálculo de las rutas
+puede atravesar Lugares desconocidos; esta restricción solo afecta a la oferta
+de destinos y no cambia las solicitudes de los NPCs ni el motor de rutas. Una lista vacía permite mostrar el control
 deshabilitado, pero no confirmar un destino; Acampar sigue disponible. En ese caso
 `causa_indisponibilidad` es `None`.
 

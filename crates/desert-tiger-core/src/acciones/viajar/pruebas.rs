@@ -1013,3 +1013,83 @@ fn llegada_conserva_carencia_que_comienza_en_la_ultima_frontera() {
     assert_eq!(r.consumo.sin_alimento, cero);
     assert_eq!(r.consumo.sin_agua, cero);
 }
+
+#[test]
+fn destinos_seleccionables_combinan_vecinos_y_conocimiento_del_grupo_actual() {
+    use crate::acciones::{destinos_disponibles, destinos_seleccionables_jugador};
+    let mut m = escenario(&[&[], &[], &[], &[], &[], &[]], &[&[], &[], &[]]);
+    m.aplicar_lote(
+        LoteOperaciones::nuevo(vec![
+            OperacionMundo::RegistrarConocimiento {
+                actor: actor(0),
+                lugar: id(0),
+            },
+            OperacionMundo::RegistrarConocimiento {
+                actor: actor(0),
+                lugar: id(5),
+            },
+            OperacionMundo::RegistrarConocimiento {
+                actor: actor(1),
+                lugar: id(3),
+            },
+            OperacionMundo::RegistrarConocimiento {
+                actor: actor(1),
+                lugar: id(5),
+            },
+            OperacionMundo::RegistrarConocimiento {
+                actor: actor(2),
+                lugar: id(4),
+            },
+            OperacionMundo::SepararCompanero {
+                actor: actor(2),
+                lugar: id(0),
+            },
+        ])
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        destinos_seleccionables_jugador(&m).unwrap(),
+        vec![id(1), id(3), id(5)]
+    );
+    // El camino al destino conocido atraviesa 2 y 4, que el grupo desconoce.
+    assert_eq!(
+        rutas::rapida(&m, id(0), id(5), &mut Azar(0)).unwrap(),
+        vec![id(0), id(1), id(2), id(3), id(4), id(5)]
+    );
+    assert_eq!(
+        destinos_disponibles(&m, actor(2)).unwrap(),
+        vec![id(1), id(2), id(3), id(4), id(5)]
+    );
+    m.aplicar_lote(LoteOperaciones::uno(OperacionMundo::SepararCompanero {
+        actor: actor(1),
+        lugar: id(0),
+    }))
+    .unwrap();
+    assert_eq!(
+        destinos_seleccionables_jugador(&m).unwrap(),
+        vec![id(1), id(5)]
+    );
+    m.aplicar_lote(LoteOperaciones::uno(OperacionMundo::Trasladar {
+        actor: actor(0),
+        destino: id(1),
+    }))
+    .unwrap();
+    assert_eq!(
+        destinos_seleccionables_jugador(&m).unwrap(),
+        vec![id(0), id(2), id(5)]
+    );
+    m.aplicar_lote(LoteOperaciones::uno(
+        OperacionMundo::RegistrarConocimiento {
+            actor: actor(0),
+            lugar: id(3),
+        },
+    ))
+    .unwrap();
+    assert_eq!(
+        destinos_seleccionables_jugador(&m).unwrap(),
+        vec![id(0), id(2), id(3), id(5)]
+    );
+    let solo = escenario(&[&[]], &[&[]]);
+    assert!(destinos_seleccionables_jugador(&solo).unwrap().is_empty());
+}

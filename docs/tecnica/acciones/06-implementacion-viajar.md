@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; revisión estética conjunta pendiente |
-| Versión | 1.2 |
-| Fecha | 2026-10-27 |
+| Versión | 1.3 |
+| Fecha | 2026-10-29 |
 | Implementación | Motor único activo; verificaciones en el informe enlazado al final |
 
 ## 1. Alcance y autoridad
@@ -816,3 +816,22 @@ el 2026-10-24. El desarrollo fue solicitado y está integrado. El
 [informe de implementación y verificación](./verificacion-viajar-reglamento.md)
 registra pruebas, alcance manual, ajustes técnicos y la revisión estética
 conjunta pendiente; no equivale a una aprobación de jugabilidad del usuario.
+
+
+## Selección de destinos por conocimiento — 2026-10-29
+
+`acciones::destinos_seleccionables_jugador(&Mundo)` ofrece la intersección entre
+los destinos alcanzables y la unión de los vecinos `Conectado` del Lugar actual
+con los Lugares `Conoce` del jugador y sus compañeros actuales. El jugador se
+incluye explícitamente, aunque no figure como integrante de `Grupo`. Los actores
+externos al grupo no aportan conocimiento. Se elimina el Lugar actual y se
+mantiene orden canónico sin duplicados. Regiones y lugares aislados no se ofrecen
+por el solo hecho de conocerlos.
+
+La consulta se usa al proyectar las acciones disponibles de la sesión. Conserva
+los rechazos de `destinos_disponibles`, que sigue siendo la consulta de
+alcanzabilidad utilizada por el motor. No filtra el grafo ni cambia las rutas
+rápida, larga o conocida: un camino a un destino ofrecido puede atravesar lugares
+desconocidos. Tampoco restringe las solicitudes de los NPCs. Se verifica el
+aporte del jugador y compañeros, vecinos desconocidos, separación de compañeros,
+cambio de ubicación y rutas que atraviesan lugares no ofrecidos como destino.

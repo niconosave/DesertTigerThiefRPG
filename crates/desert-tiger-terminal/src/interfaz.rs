@@ -2837,11 +2837,16 @@ mod pruebas {
         let partida =
             Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
         let mut i = Interfaz::nueva(partida).unwrap();
-        let destinos = destinos_viaje(&i.ultima_vista_mundo).unwrap().to_vec();
-        assert!(
-            destinos.len() > 20,
-            "el contenido permite probar desplazamiento"
-        );
+        // Esta prueba de desplazamiento usa una lista larga controlada, independiente
+        // del conocimiento del grupo en el contenido oficial.
+        let destinos: Vec<_> = i
+            .ultima_vista_mundo
+            .lugares
+            .iter()
+            .filter(|l| !l.es_region())
+            .map(|l| l.id)
+            .collect();
+        assert!(destinos.len() > 20);
         for (n, id) in destinos.iter().enumerate() {
             let lugar = i
                 .ultima_vista_mundo
