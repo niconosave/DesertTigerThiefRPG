@@ -48,7 +48,7 @@ mod pruebas {
     fn lugares_oficiales_seleccionan_bosque_rio_inverso_costa_y_mar() {
         let m = mundo();
         let lugar = |nombre: &str| m.lugares.iter().find(|l| l.nombre == nombre).unwrap();
-        let bosque = lugar("Bosque de Tamrut");
+        let bosque = lugar("Bosque oscuro");
         let vado = lugar("Vado de Tamrut");
         assert!(bosque.conectados.contains(&vado.id));
         let ambiente = seleccionar(&m, bosque.id, true);

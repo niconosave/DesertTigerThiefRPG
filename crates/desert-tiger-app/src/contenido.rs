@@ -398,6 +398,7 @@ pub(crate) struct PresentacionLugar {
     id: IdLugar,
     nombre: String,
     nombre_abreviado: String,
+    simbolo: Option<char>,
     coordenada_central: CoordenadaMapa,
     coordenadas_rotulo: Vec<CoordenadaMapa>,
 }
@@ -448,6 +449,9 @@ impl PresentacionLugar {
     }
     pub(crate) fn nombre_abreviado(&self) -> &str {
         &self.nombre_abreviado
+    }
+    pub(crate) fn simbolo(&self) -> Option<char> {
+        self.simbolo
     }
     pub(crate) fn coordenada_central(&self) -> CoordenadaMapa {
         self.coordenada_central
@@ -667,6 +671,8 @@ struct LugarDto {
     nombre: String,
     #[serde(default)]
     nombre_abreviado: String,
+    #[serde(default)]
+    simbolo: String,
     caracteristicas: Vec<String>,
     relaciones: Vec<DeclaracionRelacionDto>,
     coordenada_central: CoordenadaDto,
@@ -1512,6 +1518,31 @@ fn validar_lugar(
                 )
             })?
     };
+    let simbolo =
+        if dto.simbolo.is_empty() {
+            None
+        } else {
+            let mut caracteres = dto.simbolo.chars();
+            match caracteres.next() {
+                Some(c)
+                    if caracteres.next().is_none()
+                        && !c.is_control()
+                        && !c.is_whitespace()
+                        && UnicodeWidthChar::width(c) == Some(1) =>
+                {
+                    Some(c)
+                }
+                _ => return Err(error_archivo(
+                    ruta,
+                    TipoElementoContenido::Lugar,
+                    Some(esperada),
+                    ClaseDiagnosticoContenido::ValorInvalido,
+                    None,
+                    "simbolo: debe estar vacío o contener un único carácter visible de una columna"
+                        .into(),
+                )),
+            }
+        };
     if dto.coordenadas_rotulo.len() != dto.nombre.chars().count() {
         return Err(error_archivo(
             ruta,
@@ -1577,6 +1608,7 @@ fn validar_lugar(
             id,
             nombre: dto.nombre,
             nombre_abreviado,
+            simbolo,
             coordenada_central: central,
             coordenadas_rotulo: rotulo,
         },
@@ -2548,6 +2580,63 @@ mod pruebas {
                 .detalle
                 .contains("principe_perdido → rey → principe_perdido")
         );
+    }
+
+    #[test]
+    fn simbolo_de_lugar_es_opcional_se_proyecta_y_valida_una_celda() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("places/paso_escarpado.ron");
+        let original = fs::read_to_string(&ruta).unwrap();
+        let escribir = |entrada: Option<&str>| {
+            let texto = entrada.map_or_else(
+                || original.clone(),
+                |simbolo| {
+                    original.replacen(
+                        "    nombre:",
+                        &format!(
+                            "    simbolo: {},\n    nombre:",
+                            ron::to_string(simbolo).unwrap()
+                        ),
+                        1,
+                    )
+                },
+            );
+            fs::write(&ruta, texto).unwrap();
+        };
+        for (entrada, esperado) in [
+            (None, None),
+            (Some(""), None),
+            (Some("#"), Some('#')),
+            (Some("⌂"), Some('⌂')),
+        ] {
+            escribir(entrada);
+            let c = cargar_contenido(&fixture.0).unwrap();
+            let id = IdLugar::desde_posicion(1).unwrap();
+            assert_eq!(c.presentacion().lugar(id).unwrap().simbolo(), esperado);
+            let p = crate::Partida::nueva(&c, crate::ConfiguracionPartida { semilla: Some(0) })
+                .unwrap();
+            assert_eq!(
+                p.mundo_visible()
+                    .lugares
+                    .iter()
+                    .find(|l| l.id == id)
+                    .unwrap()
+                    .simbolo,
+                esperado
+            );
+        }
+        for invalido in [
+            "ab", " ", "\t", "\n", "\u{1b}", "\u{301}", "e\u{301}", "界", "🌊",
+        ] {
+            escribir(Some(invalido));
+            let error = cargar_contenido(&fixture.0).err().unwrap();
+            let d = &error.diagnosticos[0];
+            assert_eq!(d.clase, ClaseDiagnosticoContenido::ValorInvalido);
+            assert!(d.detalle.contains("simbolo"));
+            assert!(
+                matches!(&d.origen, OrigenDiagnosticoContenido::Archivo { ruta_relativa } if ruta_relativa == Path::new("places/paso_escarpado.ron"))
+            );
+        }
     }
 
     #[test]

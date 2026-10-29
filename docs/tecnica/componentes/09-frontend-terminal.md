@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.70 |
+| Versión | 0.72 |
 | Fecha | 2026-10-28 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
@@ -417,9 +417,11 @@ resuelto respecto del directorio de trabajo y validado antes de activar el modo
 raw. No contiene apariencias de tiles ni ilustraciones y `--content` no lo
 reemplaza.
 
-El archivo declara los siguientes roles. `region` es opcional para conservar
-compatibilidad con recursos anteriores; si falta, utiliza amarillo con el
-modificador `tenue` y sin fondo propio. Los demás roles son obligatorios:
+El archivo declara los siguientes roles. `region`, `lugar_geografico` y
+`lugar_civilizado` son opcionales para conservar compatibilidad con recursos
+anteriores. Sus valores predeterminados son respectivamente amarillo tenue,
+amarillo normal y blanco con negrita, todos sin fondo propio. Los demás roles
+son obligatorios:
 
 ```ron
 (
@@ -434,6 +436,16 @@ modificador `tenue` y sin fondo propio. Los demás roles son obligatorios:
         modificadores: [],
     ),
     destacado: (
+        frente: "blanco",
+        fondo: None,
+        modificadores: ["negrita"],
+    ),
+    lugar_geografico: (
+        frente: "amarillo",
+        fondo: None,
+        modificadores: [],
+    ),
+    lugar_civilizado: (
         frente: "blanco",
         fondo: None,
         modificadores: ["negrita"],
@@ -927,6 +939,17 @@ ancho de una columna y no intenta normalizarlos, redistribuirlos ni permitir que
 un carácter ocupe una coordenada adicional. La posición exacta de un actor sobre
 el mapa es estética y nunca se devuelve a la aplicación.
 
+Cada Lugar puede proyectar `simbolo: Option<char>`. Si es `Some`, la terminal
+lo dibuja en `coordenada_central`, después de los tiles y antes de las conexiones
+de desarrollo y los rótulos. Si es `None`, no escribe una celda adicional.
+Usa `estilo_lugar_mapa`, compartido con su nombre: respeta foco, clasificación
+geográfica/civilizada, color regional y eliminación de BOLD/DIM del terreno.
+Se recorta con la misma geometría de cámara. La `O` del modo de conexiones y el
+`@` del grupo conservan prioridad; el inspector resalta el carácter resultante
+sin sustituirlo, y los retratos permanecen encima. El dibujo no modifica tiles
+ni posición lógica. El formato y validación pertenecen al
+[contrato de contenido](./03-contenido.md).
+
 La composición habitual no muestra rutas ni conexiones; la herramienta de
 desarrollo descrita al final de esta sección permite inspeccionar Conectado.
 Durante la selección solo cambia el foco del rótulo y la cámara; los tiles situados entre el origen y
@@ -954,7 +977,17 @@ Se conservan la atenuación y el fondo del rol regional, sin copiar otros
 atributos del tile. Si falta la apariencia o ninguna marca coincide, se conserva
 `ui.region`. Los recursos se cargan al iniciar el juego: editar `tiles.ron`
 cambia ambos colores en el siguiente inicio, sin recompilar ni editar regiones.
-Después se dibujan los demás Lugares, con su estilo habitual. Dentro de cada grupo se
+Después se dibujan los demás Lugares. Los que declaran la Característica
+`civilizado` usan `ui.lugar_civilizado` (blanco); el resto usa
+`ui.lugar_geografico` (amarillo normal, el tono oscuro de la paleta, sin
+negrita ni atenuación). El foco de selección prevalece sobre esta clasificación.
+`RecursosVisuales::estilo_lugar` consulta la marca explícita, sin deducirla de
+servicios como puerto o muelle: una isla puede tenerlos y seguir siendo un Lugar
+geográfico. El contenido inicial marca Tazar, Nahal y Calzada de Nahal como
+civilizados. Alcázar Gris conserva su identificación geográfica como montaña.
+La descripción de `civilizado` pertenece al catálogo de Características.
+Estos roles afectan exclusivamente a los rótulos del mapa; `destacado` conserva
+su función en retratos, ventanas y demás componentes. Dentro de cada grupo se
 conserva el orden canónico de `VistaMundo`. Así, un nombre normal tiene prioridad
 sobre uno regional aunque la región esté al final de `world.ron`.
 `VistaLugar::es_region()` consulta la Característica proyectada. Cada rótulo fija

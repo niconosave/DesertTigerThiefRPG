@@ -107,6 +107,7 @@ pub struct VistaLugar {
     pub id: IdLugar,
     pub nombre: String,
     pub nombre_abreviado: String,
+    pub simbolo: Option<char>,
     pub coordenada_central: CoordenadaMapa,
     pub coordenadas_rotulo: Vec<CoordenadaMapa>,
     pub caracteristicas: Vec<String>,
@@ -680,6 +681,7 @@ fn proyectar_mundo(
                     id: l.id(),
                     nombre: l.nombre().into(),
                     nombre_abreviado: l.nombre_abreviado().into(),
+                    simbolo: l.simbolo(),
                     coordenada_central: l.coordenada_central(),
                     coordenadas_rotulo: l.coordenadas_rotulo().to_vec(),
                     caracteristicas: m

@@ -5,7 +5,7 @@
     caracteristicas: ["sendero", "boscoso", "fluvial", "sombreado"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("valle_fertil")),
-        (tipo: Conectado, destino: Lugar("bosque_de_tamrut")),
+        (tipo: Conectado, destino: Lugar("bosque_oscuro")),
     ],
     coordenada_central: (x: 140, y: 22),
     coordenadas_rotulo: [
