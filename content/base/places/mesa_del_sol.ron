@@ -4,6 +4,8 @@
     nombre_abreviado: "Mesa Sol",
     caracteristicas: ["arido", "elevado", "abierto", "rocoso"],
     relaciones: [
+        (tipo: Conectado, destino: Lugar("mar_del_viento")),
+        (tipo: Conectado, destino: Lugar("paso_zek")),
         (tipo: Conectado, destino: Lugar("hamada_de_zahrun")),
         (tipo: Conectado, destino: Lugar("mar_boreal")),
     ],

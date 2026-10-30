@@ -4,8 +4,8 @@
     nombre_abreviado: "Est. Nahal",
     caracteristicas: ["acuatico", "maritimo", "fluvial", "costero", "aguaSalobre", "aguasSomeras", "canalNavegable"],
     relaciones: [
+        (tipo: Conectado, destino: Lugar("marisma_verde")),
         (tipo: Conectado, destino: Lugar("nahal")),
-        (tipo: Conectado, destino: Lugar("mar_de_levante")),
     ],
     coordenada_central: (x: 163, y: 55),
     coordenadas_rotulo: [

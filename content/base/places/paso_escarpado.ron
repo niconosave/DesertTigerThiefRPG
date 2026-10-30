@@ -6,15 +6,7 @@
     relaciones: [
         (
             tipo: Conectado,
-            destino: Lugar("espinazo_gris"),
-        ),
-        (
-            tipo: Conectado,
             destino: Lugar("valle_gris"),
-        ),
-        (
-            tipo: Conectado,
-            destino: Lugar("alcazar_gris"),
         ),
     ],
     coordenada_central: (x: 103, y: 33),

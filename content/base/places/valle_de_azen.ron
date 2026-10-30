@@ -1,0 +1,25 @@
+(
+    clave: "valle_de_azen",
+    nombre: "Valle de Azen",
+    nombre_abreviado: "V. Azen",
+    caracteristicas: ["fertil", "resguardado"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("bosque_de_ilun")),
+    ],
+    coordenada_central: (x: 151, y: 13),
+    coordenadas_rotulo: [
+        (x: 145, y: 11),
+        (x: 146, y: 11),
+        (x: 147, y: 11),
+        (x: 148, y: 11),
+        (x: 149, y: 11),
+        (x: 150, y: 11),
+        (x: 151, y: 11),
+        (x: 152, y: 11),
+        (x: 153, y: 11),
+        (x: 154, y: 11),
+        (x: 155, y: 11),
+        (x: 156, y: 11),
+        (x: 157, y: 11),
+    ],
+)

@@ -4,8 +4,8 @@
     nombre_abreviado: "Vado Tamrut",
     caracteristicas: ["vado", "fluvial", "aguaDulce", "aguasSomeras", "corrienteRapida"],
     relaciones: [
+        (tipo: Conectado, destino: Lugar("nahal")),
         (tipo: Conectado, destino: Lugar("bosque_oscuro")),
-        (tipo: Conectado, destino: Lugar("marisma_verde")),
     ],
     coordenada_central: (x: 149, y: 47),
     coordenadas_rotulo: [

@@ -1,0 +1,22 @@
+(
+    clave: "paso_akr",
+    nombre: "Paso Akr",
+    nombre_abreviado: "Paso Akr",
+    simbolo:"⋂",
+    caracteristicas: ["montanoso", "rocoso", "empinado"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("paso_escarpado")),
+        (tipo: Conectado, destino: Lugar("espinazo_gris")),
+    ],
+    coordenada_central: (x: 101, y: 30),
+    coordenadas_rotulo: [
+        (x: 97, y: 29),
+        (x: 98, y: 29),
+        (x: 99, y: 29),
+        (x: 100, y: 29),
+        (x: 101, y: 29),
+        (x: 102, y: 29),
+        (x: 103, y: 29),
+        (x: 104, y: 29),
+    ],
+)

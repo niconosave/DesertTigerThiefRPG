@@ -6,7 +6,6 @@
     relaciones: [
         (tipo: OrigenDe, destino: Lugar("rio_izir")),
         (tipo: Conectado, destino: Lugar("espinazo_gris")),
-        (tipo: Conectado, destino: Lugar("risco_de_adrar")),
     ],
     coordenada_central: (x: 110, y: 5),
     coordenadas_rotulo: [

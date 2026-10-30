@@ -2850,7 +2850,7 @@ mod pruebas {
         let destinos =
             desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
                 .unwrap();
-        assert_eq!(destinos.len(), 29);
+        assert_eq!(destinos.len(), 36);
         for region in regiones {
             assert!(!destinos.contains(&region.id()));
             assert!(mundo.lugares_conectados(region.id()).unwrap().is_empty());
@@ -2868,10 +2868,10 @@ mod pruebas {
                 .unwrap()
                 .iter()
                 .any(|&id| mundo.relacion(id).unwrap().tipo() == TipoRelacion::Abarca);
-            // Costa Ámbar y los tres ríos no tienen una región declarada.
+            // Los tres ríos no tienen una región declarada.
             assert_eq!(
                 tiene_region,
-                ![3, 39, 40, 41]
+                ![39, 40, 41]
                     .into_iter()
                     .any(|i| lugar.id() == IdLugar::desde_posicion(i).unwrap())
             );
@@ -2918,26 +2918,25 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 95);
+        assert_eq!(mundo.relaciones().len(), 120);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
                 [
-                    IdLugar::desde_posicion(6).expect("ID válido"),
                     IdLugar::desde_posicion(9).expect("ID válido"),
-                    IdLugar::desde_posicion(13).expect("ID válido"),
                     IdLugar::desde_posicion(21).expect("ID válido"),
+                    IdLugar::desde_posicion(49).expect("ID válido"),
                 ]
                 .as_slice()
             )
         );
-        assert_eq!(contenido.presentacion().lugares().len(), 46);
+        assert_eq!(contenido.presentacion().lugares().len(), 54);
         for (origen, intermedio, destino) in [
             (0, 20, 5),
             (1, 21, 2),
             (2, 22, 10),
-            (10, 23, 11),
-            (14, 24, 17),
+            (10, 23, 14),
+            (14, 24, 11),
         ] {
             let origen = IdLugar::desde_posicion(origen).expect("ID válido");
             let intermedio = IdLugar::desde_posicion(intermedio).expect("ID válido");

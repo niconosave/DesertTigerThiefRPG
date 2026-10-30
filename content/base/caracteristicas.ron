@@ -1,6 +1,16 @@
 (
     entradas: [
         (
+            clave: "riscoEstrecho",
+            nombre: "Risco estrecho",
+            descripcion: "Paso por un risco con poco espacio para transitar.",
+        ),
+        (
+            clave: "escalable",
+            nombre: "Escalable",
+            descripcion: "El terreno ofrece apoyos que permiten escalarlo.",
+        ),
+        (
             clave: "caudaloso",
             nombre: "Caudaloso",
             descripcion: "El cauce lleva un volumen abundante de agua.",

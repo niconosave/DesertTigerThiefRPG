@@ -1,0 +1,23 @@
+(
+    clave: "paso_zek",
+    nombre: "Paso Zek",
+    nombre_abreviado: "Paso Zek",
+    simbolo:"⋂",
+    caracteristicas: ["montanoso", "rocoso", "riscoEstrecho"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("hamada_de_zahrun")),
+        (tipo: Conectado, destino: Lugar("espinazo_gris")),
+        (tipo: Conectado, destino: Lugar("pico_de_izir")),
+    ],
+    coordenada_central: (x: 92, y: 7),
+    coordenadas_rotulo: [
+        (x: 88, y: 6),
+        (x: 89, y: 6),
+        (x: 90, y: 6),
+        (x: 91, y: 6),
+        (x: 92, y: 6),
+        (x: 93, y: 6),
+        (x: 94, y: 6),
+        (x: 95, y: 6),
+    ],
+)

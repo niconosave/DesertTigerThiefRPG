@@ -4,6 +4,9 @@
     nombre_abreviado: "L. Anir",
     caracteristicas: ["arido", "rocoso", "elevado"],
     relaciones: [
+        (tipo: Conectado, destino: Lugar("mar_boreal")),
+        (tipo: Conectado, destino: Lugar("mar_de_poniente")),
+        (tipo: Conectado, destino: Lugar("mar_del_viento")),
         (tipo: Conectado, destino: Lugar("costa_ambar")),
     ],
     coordenada_central: (x: 40, y: 14),

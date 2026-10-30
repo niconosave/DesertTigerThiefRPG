@@ -3,6 +3,7 @@
     nombre: "MONTES DE QADIM",
     caracteristicas: ["region", "montanoso"],
     relaciones: [
+        (tipo: Abarca, destino: Lugar("paso_mir")),
         (tipo: Abarca, destino: Lugar("valle_gris")),
         (tipo: Abarca, destino: Lugar("alcazar_gris")),
     ],

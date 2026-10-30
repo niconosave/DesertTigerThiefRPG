@@ -8,7 +8,6 @@
         (tipo: OrigenDe, destino: Lugar("rio_tazir")),
         (tipo: Conectado, destino: Lugar("espinazo_gris")),
         (tipo: Conectado, destino: Lugar("pico_de_izir")),
-        (tipo: Conectado, destino: Lugar("risco_de_adrar")),
     ],
     coordenada_central: (x: 102, y: 14),
     coordenadas_rotulo: [

@@ -4,7 +4,10 @@
     nombre_abreviado: "Nahal",
     simbolo:"☗",
     caracteristicas: ["civilizado", "poblado", "mercado", "puerto", "muelle"],
-    relaciones: [],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("golfo_del_siroco")),
+        (tipo: Conectado, destino: Lugar("mar_de_levante")),
+    ],
     coordenada_central: (x: 159, y: 55),
     coordenadas_rotulo: [
         (x: 157, y: 53), (x: 158, y: 53), (x: 159, y: 53),

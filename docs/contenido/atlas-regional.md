@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.16 |
+| Versión | 0.19 |
 | Fecha | 2026-10-29 |
 
 ## 1. Propósito
@@ -180,14 +180,14 @@ El corredor oriental implementado por el brief de
 ```text
 Hamada Roja → Hamada de Zahrun → Paso Escarpado
 → Descenso del Drâa → Valle del Drâa → Senda de Tamrut
-→ Bosque oscuro → Vado de Tamrut → Marisma Verde
+→ Bosque oscuro → Vado de Tamrut → Nahal → Aguas de Tamrut
 ```
 
 La Calzada de Nahal fue retirada; Marisma Verde ya no enlaza con Nahal por
 ese corredor. El tramo marítimo continúa desde Nahal:
 
 ```text
-Nahal → Estuario de Nahal → Aguas de Tamrut
+Nahal → Estuario de Nahal → Marisma Verde → Bosque de Ilun → Valle de Azen
 ```
 
 Las conexiones concretas de toda la red y la orientación de autoría de cada
@@ -297,7 +297,8 @@ preexistentes dejan de estar abarcados directamente por Tierras de Sahran.
 Lomas de Anir ocupa la tierra al noreste de Costa Ámbar y pertenece a Sahran.
 
 Monte Tazir, Pico de Izir y Risco de Adrar pertenecen a la Cordillera de Azrum;
-los tres se conectan entre sí y con Espinazo Gris. Punta de Namar conecta con
+los tres se conectan con Espinazo Gris. Monte Tazir y Pico de Izir también se
+conectan entre sí; Risco de Adrar no tiene conexión directa con ellos. Punta de Namar conecta con
 Cabo Errante y Playa Dorada; Lomas de Anir conecta con Costa Ámbar.
 
 Río Tazir nace en Monte Tazir y Río Izir en Pico de Izir; ambos son afluentes de
@@ -310,3 +311,32 @@ de Zahrun, Risco de Adrar frente a Hamada Roja, Alcázar Gris frente a Valle Gri
 y Monte Tazir frente a Valle del Drâa. Estos vínculos no modifican el tránsito
 actual; su contrato se define en
 [Relaciones, sección 13](../tecnica/componentes/10-relaciones.md#13-nacimiento-afluentes-y-bloqueo--implementados-el-2026-10-29).
+
+
+### Pasos de Azrum
+
+Paso Zek enlaza Hamada de Zahrun, Espinazo Gris y Pico de Izir; su risco estrecho
+queda descrito con `riscoEstrecho`. Paso Nur enlaza únicamente con Pico de Izir.
+Paso Dar enlaza Hamada Roja con Espinazo Gris y tiene `escalable`. Estas dos
+características nuevas se documentan en el glosario sin añadir mecánicas todavía.
+Paso Akr enlaza Espinazo Gris con Paso Escarpado y tiene `empinado`, una
+característica que ya interpreta el motor de viajes.
+
+Los cuatro pertenecen a la Cordillera de Azrum. La conexión directa entre
+Espinazo Gris y Paso Escarpado se sustituye por el recorrido a través de Paso
+Akr. Se retira también la conexión directa entre Paso Escarpado y Alcázar Gris.
+
+
+### Valles del Drâa y acceso oriental de Qadim
+
+Valle de Azen y Valle de Tirsa amplían la Cuenca del Drâa, y Bosque de Ilun
+amplía el Bosque de Tamrut. Valle de Tirsa queda sin conexiones de tránsito. Valle de Azen conecta con
+Bosque de Ilun, y este con Marisma Verde. Paso Mir pertenece a Montes de Qadim, conecta Alcázar Gris
+con Bosque oscuro y tiene la característica `riscoEstrecho`.
+
+
+La red occidental incorpora enlaces de Mesa del Sol con Paso Zek y Mar del
+Viento, de Paso Dar con Hamada de Zahrun, y de Lomas de Anir con Mar del Viento,
+Aguas de Ámbar y Mar Boreal. En el este, Vado de Tamrut enlaza con Nahal en
+lugar de Marisma Verde; el acceso a Aguas de Tamrut parte directamente de Nahal,
+mientras que el Estuario enlaza Nahal con Marisma Verde.

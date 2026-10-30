@@ -1,0 +1,21 @@
+(
+    clave: "paso_mir",
+    nombre: "Paso Mir",
+    nombre_abreviado: "Paso Mir",
+    caracteristicas: ["montanoso", "rocoso", "riscoEstrecho"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("alcazar_gris")),
+        (tipo: Conectado, destino: Lugar("bosque_oscuro")),
+    ],
+    coordenada_central: (x: 127, y: 31),
+    coordenadas_rotulo: [
+        (x: 123, y: 29),
+        (x: 124, y: 29),
+        (x: 125, y: 29),
+        (x: 126, y: 29),
+        (x: 127, y: 29),
+        (x: 128, y: 29),
+        (x: 129, y: 29),
+        (x: 130, y: 29),
+    ],
+)
