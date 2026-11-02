@@ -1,0 +1,145 @@
+(
+    reserva: (
+        glifo: '?',
+        estilo: (frente: "blanco", fondo: None, modificadores: ["invertido"]),
+    ),
+    apariencias: {
+        // Cada bloque se repite desde (0, 0) del mapa, no de la pantalla.
+        // También se puede conservar un solo símbolo usando glifo: 'x'.
+        "arena": (
+            patron: r#"
+  :      .
+ .  .  :  
+  .  :   .
+.  .  . . 
+  .  : .  
+"#,
+            estilo: (frente: "amarillo", fondo: None, modificadores: []),
+        ),
+        "sueloArido": (
+            patron: r#"
+-  . Y-    , .         .     .  
+   , .  .           .           
+   .  -    , .           , Y   -
+.  ,    .           .,          
+                -           -   
+  .   - .  ,          -.     .  
+-            . Y ,        .     
+   , .  .          ,            
+            ,                  -
+.     -              Y  .       
+    .    Y      .          --   
+  .   Y . Y,         .  -       
+"#,
+            estilo: (frente: "rojo", fondo: None, modificadores: ["tenue"]),
+        ),
+        "montana": (
+            patron: r#"
+/\/^^^^\
+/\-/^/\\
+^/\/\/\-
+/^^^\/\n
+"#,
+            estilo: (frente: "grisOscuro", fondo: None, modificadores: ["negrita"]),
+        ),
+        "vegetacion": (
+            duracion_fotograma_ms: 1250,
+            fotogramas: [
+r#"
+:*~:*.::
+~::=:':*
+.,**:":,
+.**::*~.
+"#,
+r#"
+:*~:*.::
+~::=.':*
+.,**:":,
+.**::*~:
+"#,
+r#"
+:*~:*.::
+~::=.':*
+.,**:":,
+.**::*~.
+"#,
+            ],
+            estilo: (frente: "verdeClaro", fondo: None, modificadores: []),
+        ),
+        "bosque": (
+            patron: r#"
+vvvnnnvvnnnv v
+v vvvvv vvy qv
+vvvnyv qvvnnnv
+vnnn v vvvnvvv
+vvv Qvv vvvvvv
+"#,
+            estilo: (frente: "verdeOscuro", fondo: None, modificadores: ["negrita"]),
+        ),
+        "agua": (
+            // Añadí aquí más fotogramas del mismo ancho y alto para animar las olas.
+            duracion_fotograma_ms: 750,
+            fotogramas: [
+
+r#"
+uu uuuu uuuuuuuuuuuuuu
+uuu  uuuu uuuuuu uuuuu
+uuuu uuuuuuuuuuuuu uuu
+uu uuuuu uuuuuu  uu uu
+uuuuu uuu uuuuuuuuuuu 
+uu uuuuuuuuuuuuuuuuuuu
+uu uuuuu uuuuuuu uuuuu
+"#,
+r#"
+uuu uuuu uuuuu  uuuuuu
+uuuuuuuuuu uuuuuu uuuu
+uuuuu uuuuuuuuuuuuu uu
+u uuuuu uuuuuuuuuuuuuu
+uuuu uuu uuu uuuuuuu u
+u uuuuuuuuuuuuuuuuuuuu
+u uuuuuuuuuuuuu uuuuuu
+"#,
+r#"
+uu uuuu uuuuuuuuuuuuuu
+uuuuuuuuu uuuuuu uuuuu
+uuuu uuuuuu  uuuuu uuu
+uu uuuuu uuuuuuuuuuuuu
+uuuuu uuu uuuuuuuuuuu 
+uu uu uuuuuuuuuuuuuuuu
+uu uuuuuuuuuuuuu uu  u
+"#,
+            ],
+            estilo: (frente: "azul", fondo: None, modificadores: []),
+        ),
+        "aguaRio": (
+            duracion_fotograma_ms: 250,
+            fotogramas: [
+r#"
+:~~
+~~:
+:~~
+"#,
+r#"
+::~
+:~~
+~::
+"#,
+r#"
+:::
+~::
+:~:
+"#,
+            ],
+            estilo: (frente: "cianClaro", fondo: None, modificadores: []),
+        ),
+        "bosqueQuemado": (
+            patron: r#"
+~|..~.:|
+.|~.:~|.
+~..|:~.|
+.|~..|~.
+"#,
+            estilo: (frente: "grisOscuro", fondo: None, modificadores: ["tenue"]),
+        ),
+    },
+)

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.74 |
-| Fecha | 2026-10-29 |
+| Versión | 0.75 |
+| Fecha | 2026-11-01 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
 > define el audio opcional del frontend y su integración con el bucle. El
@@ -13,6 +13,9 @@
 > amplía el entorno sonoro del grupo, aceptado por el usuario; su alternativa
 > de riachuelo está en prueba.
 > No cambia las reglas de Acampar ni su avance de tiempo.
+
+> Los gráficos alternativos se rigen por la sección 15. La elección de recursos
+> es local al frontend y no instala ni selecciona una fuente en la terminal.
 
 > Música del campamento integrada según el [contrato 20](./20-musica-campamento.md):
 > agenda de presentación, músicos elegibles y notas que siguen la reproducción
@@ -1805,3 +1808,61 @@ márgenes y límites; seguimiento, fijación, sustitución y liberación; bloque
 barras, retratos, menú y lista lateral; resaltado sin reemplazar el carácter;
 redimensionamiento y conservación del estado del backend. La verificación en
 PTY comprueba eventos SGR reales y activación/desactivación de la captura.
+
+## 15. Gráficos alternativos
+
+`--graphics default|custom-font|ascii` selecciona una única variante al iniciar.
+Omitirlo equivale a `default`. Se rechazan valores desconocidos, ausentes y
+opciones repetidas. Es independiente de `--content`, `--color-scheme`, `-B` y
+`--no-audio`. No se consulta ni instala la fuente: el usuario configura su
+terminal y editor para los caracteres privados.
+
+`graficos::ModoGraficos` resuelve, dentro de `assets/terminal`, la carpeta
+`alternativos/fuente` o `alternativos/ascii`. En `default` no se leen alternativas.
+Los archivos se cargan una vez antes de entrar en modo interactivo. Los recursos
+base continúan siendo válidos y necesarios como respaldo.
+
+- `tiles.ron`: puede declarar solo `apariencias` para los tipos a sustituir;
+  admite opcionalmente `reserva`, con el mismo formato del catálogo base. Se
+  reemplaza el patrón completo de cada tipo, con estilo y animación. Las claves
+  ausentes conservan el patrón base. Se rechazan claves duplicadas en el archivo.
+- `scenes.ron`: mismo formato `ilustraciones` del catálogo base; solo reemplaza
+  las escenas declaradas. Se rechazan escenas desconocidas o repetidas.
+- `ui.ron` y `campamento.ron`: reemplazo del archivo completo, con los esquemas
+  existentes. Omitirlos conserva sus recursos base, incluida la fogata procedural.
+- `actors/<clave-actor>.ron`: contiene un retrato completo, con `paleta`, `base`
+  y los opcionales `rostro`/`parpadeo`, sin envoltorio de Actor ni `Some` exterior.
+  Se busca por la clave estable de contenido, nunca por nombre visible o ID
+  numérico. Omitir el archivo conserva el retrato original. No se mezclan capas
+  entre variantes, pues pueden tener distintas dimensiones y coordenadas.
+
+Un archivo ausente activa el respaldo. Errores de acceso, RON inválido y datos
+inválidos en un archivo presente abortan la carga con su ruta y diagnóstico;
+no se ocultan usando el respaldo. Solo se leen archivos de actores que existan
+en el contenido seleccionado. La carpeta del otro modo no se consulta.
+
+Las alternativas conservan las validaciones existentes de rectángulos,
+coordenadas, colores, duraciones y glifos de una columna. Además, `ascii` exige
+ASCII imprimible en los dibujos alternativos, incluidos todos los fotogramas,
+expresiones y parpadeos. Esta restricción no alcanza comentarios, texto del juego
+ni recursos base usados como respaldo. Por ello un conjunto ASCII incompleto
+puede seguir mostrando Unicode; tampoco convierte marcos, notas musicales,
+símbolos de Lugar ni efectos generados por código.
+
+`RecursosVisuales::cargar_modo` compone los catálogos visuales.
+`graficos::cargar_retratos` obtiene `(IdActor, clave)` de
+`ContenidoValidado::claves_actores` y usa `cargar_retrato` de aplicación, que
+reutiliza el validador existente; `RetratoActor::graficos` permite examinar
+todas sus capas para validar ASCII. La aplicación no decide el modo ni la ruta
+de variantes, y el core no recibe estos ajustes.
+
+`Interfaz::con_retratos` conserva el catálogo alternativo y lo aplica a sus
+copias de `VistaMundo` al crearse y después de cada actualización. Así, dibujo,
+parpadeo, expresiones, disposición, mouse, altura de campamento y notas musicales
+leen el mismo retrato seleccionado. La `Partida` y sus vistas originales no
+se modifican, ni cambian el azar o las reglas del juego.
+
+Las pruebas cubren la CLI, respaldo con carpetas/archivos/entradas ausentes,
+reemplazos parciales, separación de modos, aceptación de PUA, rechazo de Unicode
+en dibujos ASCII, diagnósticos de alternativas inválidas y conservación de las
+variantes tras cambios de vista, incluyendo sus dimensiones y capas.

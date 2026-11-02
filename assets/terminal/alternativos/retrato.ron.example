@@ -1,0 +1,28 @@
+// Copiar como <modo>/actors/<clave-del-actor>.ron y reemplazar el dibujo.
+(
+    paleta: {
+        'p': (frente: "amarillo", fondo: None),
+    },
+    base: (
+        arte: r#"
+(o)
+/|\
+"#,
+        estilos: Some(r#"
+ppp
+ppp
+"#),
+    ),
+    rostro: Some((
+        origen: (x: 1, y: 0),
+        expresiones: {
+            "music": (arte: "^", estilos: Some("p")),
+        },
+    )),
+    parpadeo: Some((
+        origen: (x: 1, y: 0),
+        intervalo_ms: 4500,
+        duracion_ms: 250,
+        ojo_cerrado: (arte: "-", estilos: Some("p")),
+    )),
+)

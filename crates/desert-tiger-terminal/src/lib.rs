@@ -5,10 +5,12 @@ mod colores;
 mod consulta_paleta;
 mod desarrollo;
 mod fogata;
+mod graficos;
 mod interfaz;
 mod musica_campamento;
 mod recursos;
 
+use std::collections::HashMap;
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::io::{self, stdout};
@@ -21,7 +23,9 @@ use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use desert_tiger_app::{ConfiguracionPartida, Partida, VistaSesion, cargar_contenido};
+use desert_tiger_app::{
+    ConfiguracionPartida, IdActor, Partida, RetratoActor, VistaSesion, cargar_contenido,
+};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
@@ -31,6 +35,7 @@ use recursos::RecursosVisuales;
 use animacion::PASO_ANIMACION;
 use colores::EsquemaColores;
 use consulta_paleta::EntradaTerminal;
+use graficos::ModoGraficos;
 
 #[derive(Debug)]
 pub struct ErrorTerminal(String);
@@ -54,7 +59,8 @@ where
     S: Into<String>,
 {
     let opciones = analizar_argumentos(argumentos)?;
-    let recursos = RecursosVisuales::cargar(Path::new("assets/terminal"))
+    let raiz_visual = Path::new("assets/terminal");
+    let recursos = RecursosVisuales::cargar_modo(raiz_visual, opciones.graficos)
         .map_err(|error| ErrorTerminal(format!("recursos visuales: {error}")))?;
     let contenido = cargar_contenido(&opciones.contenido).map_err(|error| {
         let detalle = error
@@ -64,6 +70,8 @@ where
             .unwrap_or("sin diagnóstico");
         ErrorTerminal(format!("contenido: {detalle}"))
     })?;
+    let retratos = graficos::cargar_retratos(raiz_visual, opciones.graficos, &contenido)
+        .map_err(|error| ErrorTerminal(format!("retratos alternativos: {error}")))?;
     let partida = Partida::nueva(&contenido, ConfiguracionPartida { semilla: None })
         .map_err(|error| ErrorTerminal(format!("partida: {error}")))?;
     if let VistaSesion::Disponible(mundo) = partida.vista()
@@ -83,6 +91,7 @@ where
     ejecutar_interactivo(
         partida,
         recursos,
+        retratos,
         opciones.esquema,
         opciones.fondo_negro,
         audio,
@@ -93,6 +102,7 @@ where
 struct Opciones {
     contenido: PathBuf,
     esquema: EsquemaColores,
+    graficos: ModoGraficos,
     fondo_negro: bool,
     sin_audio: bool,
 }
@@ -106,6 +116,7 @@ where
     let _programa = iterador.next();
     let mut contenido = None;
     let mut esquema = None;
+    let mut graficos = None;
     let mut fondo_negro = false;
     let mut sin_audio = false;
     while let Some(argumento) = iterador.next() {
@@ -123,11 +134,15 @@ where
             fondo_negro = true;
             continue;
         }
-        if argumento != "--content" && argumento != "--color-scheme" {
+        if !matches!(
+            argumento.as_str(),
+            "--content" | "--color-scheme" | "--graphics"
+        ) {
             return Err(ErrorTerminal(format!("opción desconocida: {argumento}")));
         }
         if (argumento == "--content" && contenido.is_some())
             || (argumento == "--color-scheme" && esquema.is_some())
+            || (argumento == "--graphics" && graficos.is_some())
         {
             return Err(ErrorTerminal(format!("{argumento} no puede repetirse")));
         }
@@ -137,6 +152,17 @@ where
             .ok_or_else(|| ErrorTerminal(format!("{argumento} requiere un valor")))?;
         if argumento == "--content" {
             contenido = Some(PathBuf::from(valor));
+        } else if argumento == "--graphics" {
+            graficos = Some(match valor.as_str() {
+                "default" => ModoGraficos::Predeterminado,
+                "custom-font" => ModoGraficos::Fuente,
+                "ascii" => ModoGraficos::Ascii,
+                _ => {
+                    return Err(ErrorTerminal(format!(
+                        "--graphics: valor desconocido {valor}; se espera default, custom-font o ascii"
+                    )));
+                }
+            });
         } else {
             esquema = Some(match valor.as_str() {
                 "terminal" => EsquemaColores::Terminal,
@@ -152,6 +178,7 @@ where
     Ok(Opciones {
         contenido: contenido.unwrap_or_else(|| PathBuf::from("content/base")),
         esquema: esquema.unwrap_or_default(),
+        graficos: graficos.unwrap_or_default(),
         fondo_negro,
         sin_audio,
     })
@@ -160,6 +187,7 @@ where
 fn ejecutar_interactivo(
     partida: Partida,
     mut recursos: RecursosVisuales,
+    retratos: HashMap<IdActor, RetratoActor>,
     esquema: EsquemaColores,
     fondo_negro: bool,
     preparacion_audio: audio::PreparacionAudio,
@@ -171,7 +199,9 @@ fn ejecutar_interactivo(
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend).map_err(error_io)?;
     terminal.clear().map_err(error_io)?;
-    let mut interfaz = Interfaz::nueva(partida).map_err(ErrorTerminal)?;
+    let mut interfaz = Interfaz::nueva(partida)
+        .map_err(ErrorTerminal)?
+        .con_retratos(retratos);
     // El mapa ya es visible cuando se abre audio y empieza la síntesis diferida.
     terminal
         .draw(|frame| interfaz.dibujar(frame, &recursos))
@@ -289,6 +319,7 @@ mod pruebas {
             Opciones {
                 contenido: PathBuf::from("content/base"),
                 esquema: EsquemaColores::Terminal,
+                graficos: ModoGraficos::Predeterminado,
                 fondo_negro: false,
                 sin_audio: false,
             }
@@ -482,6 +513,7 @@ mod pruebas {
             Opciones {
                 contenido: PathBuf::from("mundo"),
                 esquema: EsquemaColores::Fijo,
+                graficos: ModoGraficos::Predeterminado,
                 fondo_negro: false,
                 sin_audio: false,
             }
@@ -508,6 +540,50 @@ mod pruebas {
             assert!(analizar_argumentos(args).is_err());
         }
     }
+    #[test]
+    fn argumentos_graficos_son_independientes_y_rechazan_opciones_invalidas() {
+        assert_eq!(
+            analizar_argumentos(["juego"]).unwrap().graficos,
+            ModoGraficos::Predeterminado
+        );
+        for (valor, esperado) in [
+            ("default", ModoGraficos::Predeterminado),
+            ("custom-font", ModoGraficos::Fuente),
+            ("ascii", ModoGraficos::Ascii),
+        ] {
+            let opciones = analizar_argumentos([
+                "juego",
+                "--graphics",
+                valor,
+                "--content",
+                "mundo",
+                "--color-scheme",
+                "fixed",
+                "-B",
+                "--no-audio",
+            ])
+            .unwrap();
+            assert_eq!(opciones.graficos, esperado);
+            assert_eq!(opciones.contenido, PathBuf::from("mundo"));
+            assert_eq!(opciones.esquema, EsquemaColores::Fijo);
+            assert!(opciones.fondo_negro && opciones.sin_audio);
+        }
+        for args in [
+            vec!["juego", "--graphics"],
+            vec!["juego", "--graphics", "otro"],
+            vec!["juego", "--graphics", "--no-audio"],
+            vec!["juego", "--graphics", "-B"],
+            vec!["juego", "--graphics", "ascii", "--graphics", "default"],
+        ] {
+            assert!(
+                analizar_argumentos(args)
+                    .unwrap_err()
+                    .0
+                    .contains("--graphics")
+            );
+        }
+    }
+
     #[test]
     fn opcion_b_mayuscula_no_cambia_el_esquema_y_admite_combinaciones() {
         let opciones = analizar_argumentos(["juego", "-B"]).unwrap();

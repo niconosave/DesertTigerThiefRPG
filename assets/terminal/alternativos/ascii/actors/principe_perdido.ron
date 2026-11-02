@@ -1,0 +1,131 @@
+// Copia del retrato original para redibujar.
+// El modo ascii exige reemplazar los glifos Unicode por caracteres ASCII.
+(
+        paleta: {
+            '0': (frente: "gris", fondo: None),
+            '1': (frente: "gris", fondo: Some("gris")),
+            '2': (frente: "blanco", fondo: Some("blanco")),
+            '3': (frente: "grisOscuro", fondo: Some("grisOscuro")),
+            '4': (frente: "magenta", fondo: Some("magenta")),
+            '5': (frente: "negro", fondo: Some("negro")),
+            '6': (frente: "magentaClaro", fondo: Some("magentaClaro")),
+            '7': (frente: "grisOscuro", fondo: Some("grisMuyOscuro")),
+            '8': (frente: "azul", fondo: Some("azul")),
+            '9': (frente: "amarillo", fondo: Some("amarillo")),
+            'A': (frente: "negro", fondo: Some("negro")),
+            'B': (frente: "magentaClaro", fondo: Some("magentaClaro")),
+            'C': (frente: "cian", fondo: None),
+            'D': (frente: "negro", fondo: Some("magenta")),
+            'E': (frente: "negro", fondo: Some("magentaClaro")),
+            'F': (frente: "blanco", fondo: Some("blanco")),
+            'G': (frente: "gris", fondo: Some("gris")),
+        },
+        base: (
+            arte: r#"
+                        
+                        
+                        
+                        
+        XXXXXXXXXX      
+       XXXXXXXXXXX      
+       XXXX\\XXXXX      
+       XXXXXX(oX        
+         /\/XXXX\       
+         /\/XXXX        
+         /\/\/\         
+   //XXX\/\/\/\/XX      
+   XXXXXXXXXXXXXXXX     
+   XXXXXXXXXXXXXXXX     
+"#,
+            estilos: Some(r#"
+000000000000000000000000
+000000000000000000000000
+000000000000000000000000
+000000000000000000000000
+000000001G2222F121000000
+0000001GFFFFFFF321000000
+00000031222GGF4413000000
+00000003111745C650000000
+000000000777666666000000
+000000000777666600000000
+000000000777777100000000
+000888897777777798000000
+000888899999999998800000
+000888888888888888800000
+"#),
+        ),
+        rostro: Some((
+            origen: (x: 12, y: 6),
+            expresiones: {
+                "music": (
+                    arte: r#"
+XXXX
+X--X
+XXXX
+XX-X
+"#,
+                    estilos: Some(r#"
+1344
+4BB6
+6666
+66E6
+"#),
+                ),
+                "scared": (
+                    arte: r#"
+XX/XXX
+X(oX  
+XXXX\ 
+XXXX  
+"#,
+                    estilos: Some(r#"
+13D413
+4AC650
+666666
+666600
+"#),
+                ),
+                "angry": (
+                    arte: r#"
+XX\XXX
+X(oX  
+XXXX\ 
+XXCX  
+"#,
+                    estilos: Some(r#"
+13D413
+4AC650
+666666
+66E600
+"#),
+                ),
+                "happy": (
+                    arte: r#"
+XXXXXX
+X(oX  
+XXXX\ 
+XXDX  
+"#,
+                    estilos: Some(r#"
+134413
+4AC650
+666666
+66E600
+"#),
+                ),
+            },
+        )),
+        parpadeo: Some((
+            origen: (x: 13, y: 7),
+            intervalo_ms: 5000,
+            duracion_ms: 250,
+            ojo_cerrado: (
+                arte: r#"
+--
+"#,
+                estilos: Some(r#"
+BB
+"#),
+            ),
+        )),
+    )

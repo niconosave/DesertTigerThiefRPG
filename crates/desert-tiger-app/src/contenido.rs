@@ -135,6 +135,17 @@ pub struct RetratoActor {
 }
 
 impl RetratoActor {
+    /// Recorre la base y todos los gráficos de expresiones y parpadeo.
+    pub fn graficos(&self) -> impl Iterator<Item = &GraficoRetrato> {
+        std::iter::once(&self.base)
+            .chain(
+                self.rostro
+                    .iter()
+                    .flat_map(|rostro| rostro.expresiones.values()),
+            )
+            .chain(self.parpadeo.iter().map(|parpadeo| &parpadeo.ojo_cerrado))
+    }
+
     pub fn base(&self) -> &GraficoRetrato {
         &self.base
     }
@@ -328,6 +339,15 @@ struct ContenidoValidadoInterno {
 }
 
 impl ContenidoValidado {
+    /// Identifica los Actores por sus claves estables de contenido.
+    pub fn claves_actores(&self) -> impl Iterator<Item = (IdActor, &str)> {
+        self.interno
+            .claves
+            .claves_por_actor
+            .iter()
+            .map(|(id, clave)| (*id, clave.as_str()))
+    }
+
     pub(crate) fn instanciar_estado(
         &self,
     ) -> Result<(Mundo, EstadoMapa), ErrorInstanciarContenido> {
@@ -974,6 +994,26 @@ fn validar_catalogo_caracteristicas(
     Ok(resultado)
 }
 
+/// Carga un retrato independiente con el mismo formato y validación del Actor.
+pub fn cargar_retrato(ruta: &Path) -> Result<RetratoActor, ErrorContenido> {
+    let clave = ruta
+        .file_stem()
+        .and_then(|nombre| nombre.to_str())
+        .unwrap_or("retrato");
+    let texto = fs::read_to_string(ruta).map_err(|error| {
+        error_archivo(
+            ruta,
+            TipoElementoContenido::Actor,
+            Some(clave),
+            ClaseDiagnosticoContenido::AccesoFilesystem,
+            None,
+            format!("no se pudo leer UTF-8: {}", sanear(&error.to_string())),
+        )
+    })?;
+    let dto = deserializar_ron(&texto, ruta, TipoElementoContenido::Actor, Some(clave))?;
+    validar_retrato(dto, ruta, clave)
+}
+
 pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido> {
     let raiz_canonica = fs::canonicalize(raiz).map_err(|error| {
         ErrorContenido::uno(diagnostico_raiz(
@@ -1273,7 +1313,16 @@ fn leer_ron<T: DeserializeOwned>(
             format!("no se pudo leer UTF-8: {}", sanear(&error.to_string())),
         )
     })?;
-    let mut deserializador = ron::de::Deserializer::from_str(&texto)
+    deserializar_ron(&texto, relativa, tipo, clave)
+}
+
+fn deserializar_ron<T: DeserializeOwned>(
+    texto: &str,
+    relativa: &Path,
+    tipo: TipoElementoContenido,
+    clave: Option<&str>,
+) -> Result<T, ErrorContenido> {
+    let mut deserializador = ron::de::Deserializer::from_str(texto)
         .map_err(|error| error_ron(relativa, tipo, clave, error))?;
     if !deserializador.extensions().is_empty() {
         return Err(error_archivo(
@@ -2998,6 +3047,80 @@ mod pruebas {
                 frente: ColorRetrato::Cian,
                 fondo: None,
             })
+        );
+    }
+
+    #[test]
+    fn carga_retrato_independiente_y_recorre_todas_sus_capas() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("retrato.ron");
+        fs::write(
+            &ruta,
+            r#"(
+            paleta: {'p': (frente: "blanco", fondo: None)},
+            base: (arte: "(o)", estilos: Some("ppp")),
+            rostro: Some((origen: (x: 1, y: 0), expresiones: {
+                "alegre": (arte: "^", estilos: None),
+                "music": (arte: "♪", estilos: None),
+            })),
+            parpadeo: Some((origen: (x: 1, y: 0), ojo_cerrado: (arte: "-", estilos: None))),
+        )"#,
+        )
+        .unwrap();
+        let retrato = cargar_retrato(&ruta).unwrap();
+        assert_eq!((retrato.base().ancho(), retrato.base().alto()), (3, 1));
+        assert_eq!(retrato.parpadeo().unwrap().intervalo_ms(), 4500);
+        let glifos: Vec<_> = retrato
+            .graficos()
+            .map(|grafico| {
+                grafico
+                    .celdas()
+                    .iter()
+                    .map(|celda| celda.glifo)
+                    .collect::<String>()
+            })
+            .collect();
+        assert_eq!(glifos, ["(o)", "^", "♪", "-"]);
+        assert_eq!(
+            retrato.base().celdas()[0].estilo.unwrap().frente,
+            ColorRetrato::Blanco
+        );
+    }
+
+    #[test]
+    fn retrato_independiente_conserva_validacion_y_diagnosticos_de_archivo() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("alternativo.ron");
+        for (texto, clase) in [
+            (
+                "(paleta: {}, base: (arte: \"界\", estilos: None))",
+                ClaseDiagnosticoContenido::ValorInvalido,
+            ),
+            (
+                "(paleta: {}, base: (arte: \"x\", estilos: None), nombre: \"Actor\")",
+                ClaseDiagnosticoContenido::FormatoRonInvalido,
+            ),
+            (
+                "#![enable(implicit_some)]\n(paleta: {}, base: (arte: \"x\", estilos: None))",
+                ClaseDiagnosticoContenido::FormatoRonInvalido,
+            ),
+            (
+                "(paleta: {}, base: (arte: \"x\", estilos: None)) extra",
+                ClaseDiagnosticoContenido::FormatoRonInvalido,
+            ),
+        ] {
+            fs::write(&ruta, texto).unwrap();
+            let error = cargar_retrato(&ruta).unwrap_err();
+            let diagnostico = &error.diagnosticos()[0];
+            assert_eq!(diagnostico.clase(), clase);
+            assert!(
+                matches!(diagnostico.origen(), OrigenDiagnosticoContenido::Archivo { ruta_relativa } if ruta_relativa == &ruta)
+            );
+        }
+        let error = cargar_retrato(&fixture.0.join("ausente.ron")).unwrap_err();
+        assert_eq!(
+            error.diagnosticos()[0].clase(),
+            ClaseDiagnosticoContenido::AccesoFilesystem
         );
     }
 

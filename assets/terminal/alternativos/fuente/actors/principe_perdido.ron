@@ -1,0 +1,130 @@
+(
+    paleta: {
+        '0': (frente: "gris", fondo: None),
+        '1': (frente: "gris", fondo: Some("magenta")),
+        '2': (frente: "blanco", fondo: None),
+        '3': (frente: "grisOscuro", fondo: None),
+        '4': (frente: "magenta", fondo: Some("magentaClaro")),
+        '5': (frente: "negro", fondo: None),
+        '6': (frente: "magentaClaro", fondo: None),
+        '7': (frente: "grisMuyOscuro", fondo: Some("grisOscuro")),
+        '8': (frente: "azul", fondo: None),
+        '9': (frente: "amarillo", fondo: None),
+        'A': (frente: "negro", fondo: None),
+        'B': (frente: "magenta", fondo: None),
+        'C': (frente: "cian", fondo: None),
+        'D': (frente: "negro", fondo: Some("magenta")),
+        'E': (frente: "negro", fondo: Some("magentaClaro")),
+        'F': (frente: "gris", fondo: Some("blanco")),
+        'G': (frente: "blanco", fondo: Some("gris")),
+        'H': (frente: "grisOscuro", fondo: Some("magenta")),
+    },
+    base: (
+        arte: r#"
+                        
+                        
+                        
+                        
+        󷁗󷀖󷀀󷀀󷀀󷀀󷁑󷀀󷀀󷁒      
+       󷀖󷀅󷀅󷀅󷀅󷀅󷀅󷀀󷁢󷀀󷀀      
+       󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀗󷀀󷀀󷁚      
+       󷀘󷀀󷀀󷀀󷀀󷁢▏o󷁢        
+         󷀱󷀱󷀱󷀀󷀀󷀀󷀀󷁐       
+         󷀱󷀱󷀱󷀀󷀀󷀀󷁚        
+         󷀱󷀱󷀱󷀱󷀱󷀱         
+   󷀖󷀀󷀀󷀀󷀺󷀱󷀱󷀱󷀱󷀱󷀱󷀱󷀱󷀺󷁒      
+   󷀀󷀀󷀀󷀀󷀴󷀷󷀷󷀷󷀷󷀷󷀷󷀷󷀷󷀴󷀀󷁒     
+   󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀󷀀     
+"#,
+        estilos: Some(r#"
+000000000000000000000000
+000000000000000000000000
+000000000000000000000000
+000000000000000000000000
+00000000022222F120000000
+00000022FFFFFFFH21000000
+00000031222GGF1413000000
+00000003111115C450000000
+000000000777666666000000
+000000000777666600000000
+000000000777777100000000
+000888897777777798000000
+000888899999999998800000
+000888888888888888800000
+"#),
+    ),
+    rostro: Some((
+            origen: (x: 12, y: 6),
+            expresiones: {
+                "music": (
+                    arte: r#"
+󷀀󷀀󷀀󷀀
+󷀀▀▀󷀀
+󷀀󷀀󷀀󷀀
+󷀀󷀀-󷁚
+"#,
+                    estilos: Some(r#"
+1344
+4BB6
+6666
+66E6
+"#),
+                ),
+                "scared": (
+                    arte: r#"
+󷀀󷀀🯐󷀀󷀀󷁚
+󷀀(o󷀀  
+󷀀󷀀󷀀󷀀󷁐 
+󷀀󷀀󷀀󷁚  
+"#,
+                    estilos: Some(r#"
+13D413
+4AC650
+666666
+666600
+"#),
+                ),
+                "angry": (
+                    arte: r#"
+󷀀󷀀𜰉󷀀󷀀󷁚
+󷀀(o󷀀  
+󷀀󷀀󷀀󷀀󷁐 
+󷀀󷀀₤󷁚  
+"#,
+                    estilos: Some(r#"
+13D413
+4AC650
+666666
+66E600
+"#),
+                ),
+                "happy": (
+                    arte: r#"
+󷀀󷀀󷀀󷀀󷀀󷁚
+󷀀▏o󷀀  
+󷀀󷀀󷀀󷀀󷁐 
+󷀀󷀀◥󷁚  
+"#,
+                    estilos: Some(r#"
+134413
+4AC650
+666666
+66E600
+"#),
+                ),
+            },
+        )),
+    parpadeo: Some((
+            origen: (x: 13, y: 7),
+            intervalo_ms: 5000,
+            duracion_ms: 250,
+            ojo_cerrado: (
+                arte: r#"
+▀▀
+"#,
+                estilos: Some(r#"
+BB
+"#),
+            ),
+        )),
+)

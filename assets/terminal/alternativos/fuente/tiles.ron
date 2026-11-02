@@ -1,0 +1,29 @@
+// Agregá aquí solo los tipos de tile que quieras dibujar con tu fuente.
+// Los tipos ausentes conservan la apariencia de assets/terminal/tiles.ron.
+(
+    reserva: (
+        glifo: '?',
+        estilo: (frente: "blanco", fondo: None, modificadores: ["invertido"]),
+    ),
+    apariencias: {
+        // Cada bloque se repite desde (0, 0) del mapa, no de la pantalla.
+        // También se puede conservar un solo símbolo usando glifo: 'x'.
+        "bosque": (
+            patron: r#"
+󷀇󷀆󷀉󷀛󷀇󷀆󷀉󷀛
+󷀇󷀆󷀉󷀛󷀉󷀛󷀇󷀆
+󷀇󷀉󷀛󷀇󷀉󷀛󷀇󷀆
+"#,
+            estilo: (frente: "verdeOscuro", fondo: None, modificadores: ["negrita"]),
+        ),
+         "montana": (
+            patron: r#"
+󷀖󷀕󷁖󷁗󷁘󷁙󷁒󷁓󷁔󷁕 
+󷁖󷁗󷁔󷁗󷀖󷀕󷁙󷁒󷁓󷁔󷁕
+󷁖󷁗󷁔󷁕󷁖󷁗󷁘󷁓󷀖󷀕󷁔
+"#,
+            estilo: (frente: "grisOscuro", fondo: None, modificadores: ["negrita"]),
+        )
+    },
+)
+

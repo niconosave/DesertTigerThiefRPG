@@ -1,6 +1,6 @@
 use std::cell::Cell;
-use std::collections::BTreeSet;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeSet, HashMap};
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
@@ -10,8 +10,8 @@ use crate::audio::{AmbienteSonoro, AvisoAudio};
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
 use desert_tiger_app::{
     AccionDisponible, CausaIndisponibilidad, ColorRetrato, EntradaResumenNpc, ErrorIntencion,
-    EstiloCeldaRetrato, GraficoRetrato, IdLugar, IntencionFrontend, Partida, VistaActor,
-    VistaDecision, VistaFragmento, VistaLugar, VistaMundo, VistaSesion,
+    EstiloCeldaRetrato, GraficoRetrato, IdActor, IdLugar, IntencionFrontend, Partida, RetratoActor,
+    VistaActor, VistaDecision, VistaFragmento, VistaLugar, VistaMundo, VistaSesion,
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -38,6 +38,7 @@ pub(crate) struct Interfaz {
     partida: Partida,
     vista: VistaSesion,
     ultima_vista_mundo: VistaMundo,
+    retratos: HashMap<IdActor, RetratoActor>,
     modo: ModoLocal,
     menu_desarrollo: bool,
     foco_desarrollo: usize,
@@ -68,6 +69,7 @@ impl Interfaz {
             partida,
             vista,
             ultima_vista_mundo,
+            retratos: HashMap::new(),
             modo: ModoLocal::Normal,
             menu_desarrollo: false,
             foco_desarrollo: 0,
@@ -86,6 +88,30 @@ impl Interfaz {
             aviso_audio: None,
             aviso_audio_mostrado: Cell::new(false),
         })
+    }
+
+    pub(crate) fn con_retratos(mut self, retratos: HashMap<IdActor, RetratoActor>) -> Self {
+        self.retratos = retratos;
+        self.aplicar_retratos();
+        self
+    }
+
+    fn aplicar_retratos(&mut self) {
+        let disponible = match &mut self.vista {
+            VistaSesion::Disponible(mundo) => Some(mundo),
+            _ => None,
+        };
+        for mundo in std::iter::once(&mut self.ultima_vista_mundo).chain(disponible) {
+            for actor in mundo
+                .companeros
+                .iter_mut()
+                .chain(std::iter::once(&mut mundo.jugador))
+            {
+                if let Some(retrato) = self.retratos.get(&actor.id) {
+                    actor.retrato = retrato.clone();
+                }
+            }
+        }
     }
 
     pub(crate) fn debe_salir(&self) -> bool {
@@ -464,6 +490,7 @@ impl Interfaz {
             self.ultima_vista_mundo = mundo.clone();
             self.modo = ModoLocal::Normal;
         }
+        self.aplicar_retratos();
     }
 
     pub(crate) fn dibujar(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
@@ -2136,11 +2163,16 @@ mod pruebas {
                 let grafico = rostro
                     .expresion("music")
                     .expect("el grupo inicial tiene cara musical");
+                // Al cambiar de expresión también desaparecen los píxeles de
+                // la anterior; los dibujos pueden tener tamaños diferentes.
+                let anterior = actor.expresion.as_deref().and_then(|e| rostro.expresion(e));
+                let ancho = anterior.map_or(grafico.ancho(), |g| g.ancho().max(grafico.ancho()));
+                let alto = anterior.map_or(grafico.alto(), |g| g.alto().max(grafico.alto()));
                 (
                     x + rostro.origen().x as i64,
                     y + rostro.origen().y as i64,
-                    grafico.ancho() as i64,
-                    grafico.alto() as i64,
+                    ancho as i64,
+                    alto as i64,
                 )
             })
             .collect();
@@ -2427,6 +2459,86 @@ mod pruebas {
         .unwrap();
         let contenido = cargar_contenido(&destino).unwrap();
         Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap()
+    }
+
+    #[test]
+    fn retratos_alternativos_se_proyectan_en_campamento_y_cada_vista_sin_modificar_partida() {
+        let (interfaz, recursos, mut terminal) = preparar_inspector();
+        let original = interfaz.partida.mundo_visible();
+        let alternativa = partida_con_retrato_capas().mundo_visible().jugador.retrato;
+        let jugador = original.jugador.id;
+        let companero = original.companeros[0].id;
+        let mut interfaz = interfaz.con_retratos(HashMap::from([
+            (jugador, alternativa.clone()),
+            (companero, alternativa.clone()),
+        ]));
+        let comprobar = |interfaz: &Interfaz| {
+            let mundo = &interfaz.ultima_vista_mundo;
+            assert_eq!(mundo.jugador.retrato, alternativa);
+            assert_eq!(mundo.companeros[0].retrato, alternativa);
+            assert_eq!(mundo.companeros[1].retrato, original.companeros[1].retrato);
+            assert_eq!(
+                interfaz.partida.mundo_visible().jugador.retrato,
+                original.jugador.retrato
+            );
+            if let VistaSesion::Disponible(disponible) = &interfaz.vista {
+                assert_eq!(disponible.jugador.retrato, alternativa);
+                assert_eq!(disponible.companeros[0].retrato, alternativa);
+            }
+        };
+        comprobar(&interfaz);
+        assert_ne!(
+            original.jugador.retrato.base().ancho(),
+            alternativa.base().ancho()
+        );
+        interfaz.enviar(IntencionFrontend::ComenzarCampamento);
+        comprobar(&interfaz);
+        let VistaSesion::Acampando(campamento) = &interfaz.vista else {
+            panic!("campamento esperado")
+        };
+        let campamento = campamento.id;
+        interfaz.ultima_vista_mundo.jugador.expresion = Some("enojado".into());
+        let actor = &interfaz.ultima_vista_mundo.jugador;
+        let abierto = (0..4).find(|&paso| !parpadeando(actor, paso)).unwrap();
+        interfaz.reloj.avanzar(PASO_ANIMACION * abierto as u32);
+        let area = Rect::new(0, 0, 120, 48);
+        let (_, x, y) = disposicion_retratos(&interfaz.ultima_vista_mundo, area)
+            .find(|(actor, _, _)| actor.id == jugador)
+            .unwrap();
+        assert_eq!(
+            y, 45,
+            "la altura alternativa determina la posición en campamento"
+        );
+        terminal
+            .draw(|frame| interfaz.dibujar(frame, &recursos))
+            .unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(x as u16, y as u16)].symbol(),
+            "X"
+        );
+        interfaz.enviar(IntencionFrontend::AbandonarCampamento { campamento });
+        comprobar(&interfaz);
+        let destino = destinos_viaje(&interfaz.ultima_vista_mundo).unwrap()[0];
+        interfaz.enviar(IntencionFrontend::ComenzarViaje { destino });
+        for _ in 0..500 {
+            comprobar(&interfaz);
+            match interfaz.vista.clone() {
+                VistaSesion::PresentandoAccion(fragmento) => {
+                    interfaz.enviar(IntencionFrontend::ContinuarPresentacion {
+                        fragmento: fragmento.id,
+                    })
+                }
+                VistaSesion::EsperandoDecision(decision) => {
+                    interfaz.enviar(IntencionFrontend::ResponderDecision {
+                        decision: decision.id,
+                        opcion: decision.opciones[0].id,
+                    })
+                }
+                VistaSesion::Disponible(_) => return,
+                _ => panic!("vista inesperada durante el viaje"),
+            }
+        }
+        panic!("el viaje debe terminar");
     }
 
     #[test]

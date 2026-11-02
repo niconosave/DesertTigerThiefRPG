@@ -20,7 +20,7 @@ pub use contenido::{
     CoordenadaMapa, DiagnosticoContenido, ElementoDiagnosticoContenido, ErrorClaveTipoTile,
     ErrorContenido, EstiloCeldaRetrato, GraficoRetrato, OrigenDiagnosticoContenido,
     ParpadeoRetrato, PosicionDiagnosticoContenido, PosicionRetrato, RetratoActor, RostroRetrato,
-    TipoElementoContenido, cargar_contenido,
+    TipoElementoContenido, cargar_contenido, cargar_retrato,
 };
 pub use desert_tiger_core::acciones::{
     ClaveEscena, RechazoAccion, RegistroProyecto, RolPresentacion,

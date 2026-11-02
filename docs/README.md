@@ -98,6 +98,25 @@ cargo run --release --bin desert-tiger-terminal -- -B
 `-B` se puede combinar con las otras opciones. Los fondos coloreados del mapa
 y la interfaz, y los fondos explícitos de los retratos, se conservan.
 
+## Gráficos alternativos
+
+Para cargar tus dibujos con caracteres de una fuente propia:
+
+```sh
+cargo run --release --bin desert-tiger-terminal -- --graphics custom-font
+```
+
+`--graphics ascii` selecciona la carpeta de dibujos ASCII y `--graphics default`
+usa los habituales. Omitir la opción equivale a `default`. Cada gráfico sin
+alternativa conserva su versión habitual; las carpetas están preparadas para
+que puedas ir agregando archivos. El juego supone que configuraste la fuente
+en tu terminal.
+
+La [guía de gráficos alternativos](../assets/terminal/alternativos/README.md)
+explica dónde poner retratos, tiles y escenas, e incluye un ejemplo de RON.
+El modo ASCII valida los dibujos alternativos, pero no convierte el resto de
+la interfaz ni el respaldo Unicode.
+
 ## Música del campamento
 
 La melodía de prueba “Hilo del camino” y las instrucciones para generar su

@@ -1,0 +1,107 @@
+// Copia del retrato original para redibujar.
+// El modo ascii exige reemplazar los glifos Unicode por caracteres ASCII.
+(
+    paleta: {
+        '0': (frente: "gris", fondo: None),
+        '1': (frente: "rojoClaro", fondo: None),
+        '2': (frente: "negro", fondo: None),
+        '3': (frente: "amarillo", fondo: None),
+        '4': (frente: "blanco", fondo: None),
+        '5': (frente: "gris", fondo: None),
+        '6': (frente: "rojo", fondo: None),
+        '7': (frente: "grisOscuro", fondo: None),
+        '8': (frente: "azul", fondo: None),
+        '9': (frente: "amarilloClaro", fondo: None),
+        'A': (frente: "gris", fondo: Some("azul")),
+        'B': (frente: "rojo", fondo: None),
+        'C': (frente: "negro", fondo: None),
+        'D': (frente: "negro", fondo: Some("blanco")),
+        'E': (frente: "negro", fondo: Some("amarillo")),
+    },
+        base: (
+            arte: r#"
+                        
+                        
+                        
+                        
+                        
+          ██▄█          
+        ▐███████▄▄      
+       ▐██████▏)████    
+       ▐████████████    
+       ▐█████████▀▀     
+       ▐█████████       
+     █████████████▄▄    
+   █████████████████    
+   █████████████████▌   
+"#,
+            estilos: Some(r#"
+000000000000000000000000
+000000000000000000000000
+000000000000000000000000
+000000000000000000000000
+000000001111111111000000
+000000111123221111000000
+000000112232344333300000
+00000012232354C963320000
+000000023232555254450000
+000000022133222555550000
+000000011222335550000000
+000777888111133557770000
+000788888878888888777000
+000278887888888887777000
+"#),
+        ),
+        rostro: Some((
+            origen: (x: 14, y: 6),
+            expresiones: {
+                "music": (
+                    arte: r#"
+𜰽𜰾
+▄▄
+"#,
+                    estilos: Some(r#"
+DE
+5B
+"#),
+                ),
+                "scared": (
+                    arte: r#"
+🯐█
+"#,
+                    estilos: Some(r#"
+D3
+"#),
+                ),
+                "angry": (
+                    arte: r#"
+🯓█
+"#,
+                    estilos: Some(r#"
+D3
+"#),
+                ),
+                "happy": (
+                    arte: r#"
+𜰱𜰲
+"#,
+                    estilos: Some(r#"
+DE
+"#),
+                ),
+            },
+        )),
+        parpadeo: Some((
+            origen: (x: 14, y: 7),
+            intervalo_ms: 4000,
+            duracion_ms: 250,
+            ojo_cerrado: (
+                arte: r#"
+▄▄
+"#,
+                estilos: Some(r#"
+5B
+"#),
+            ),
+        )),
+)

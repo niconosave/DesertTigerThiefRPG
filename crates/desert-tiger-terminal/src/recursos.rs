@@ -10,6 +10,8 @@ use serde::de::{MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use unicode_width::UnicodeWidthChar;
 
+use crate::graficos::ModoGraficos;
+
 pub(crate) const NEGRO_PURO: Color = Color::Rgb(0, 0, 0);
 const AZUL_OSCURO: Color = Color::Rgb(0, 24, 64);
 const VERDE_OSCURO: Color = Color::Rgb(32, 96, 78);
@@ -34,7 +36,7 @@ impl ConfiguracionFogata {
 }
 
 #[derive(Debug)]
-pub struct ErrorRecursos(String);
+pub struct ErrorRecursos(pub(crate) String);
 
 impl Display for ErrorRecursos {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
@@ -82,6 +84,74 @@ pub(crate) struct RecursosVisuales {
 }
 
 impl RecursosVisuales {
+    pub(crate) fn cargar_modo(raiz: &Path, modo: ModoGraficos) -> Result<Self, ErrorRecursos> {
+        let mut recursos = Self::cargar(raiz)?;
+        let Some(carpeta) = modo.carpeta(raiz) else {
+            return Ok(recursos);
+        };
+        let ruta = carpeta.join("tiles.ron");
+        if let Some(dto) = leer_ron_opcional::<TilesAlternativosDto>(&ruta)? {
+            let aplicar = || -> Result<_, ErrorRecursos> {
+                let reserva = dto.reserva.map(convertir_apariencia).transpose()?;
+                if let Some(reserva) = &reserva {
+                    if reserva.glifo != '?' {
+                        return Err(ErrorRecursos(
+                            "la apariencia de reserva debe usar '?'".into(),
+                        ));
+                    }
+                    modo.validar_glifos([reserva.glifo])?;
+                }
+                let apariencias = convertir_apariencias(dto.apariencias)?;
+                for (clave, patron) in &apariencias {
+                    modo.validar_glifos(patron.fotogramas.iter().flatten().copied())
+                        .map_err(|e| ErrorRecursos(format!("tipo {}: {e}", clave.como_str())))?;
+                }
+                Ok((reserva, apariencias))
+            };
+            let (reserva, apariencias) =
+                aplicar().map_err(|e| ErrorRecursos(format!("{}: {e}", ruta.display())))?;
+            if let Some(reserva) = reserva {
+                recursos.reserva = reserva;
+            }
+            recursos.apariencias.extend(apariencias);
+        }
+        let ruta = carpeta.join("scenes.ron");
+        if let Some(dto) = leer_ron_opcional::<EscenasDto>(&ruta)? {
+            let escenas = convertir_escenas(dto)
+                .map_err(|e| ErrorRecursos(format!("{}: {e}", ruta.display())))?;
+            for (clave, arte) in escenas {
+                modo.validar_glifos(arte.iter().flat_map(|fila| fila.chars()))
+                    .map_err(|e| ErrorRecursos(format!("{}: {e}", ruta.display())))?;
+                if let Some((_, actual)) = recursos.escenas.iter_mut().find(|(c, _)| *c == clave) {
+                    *actual = arte;
+                } else {
+                    recursos.escenas.push((clave, arte));
+                }
+            }
+        }
+        let ruta = carpeta.join("ui.ron");
+        if let Some(dto) = leer_ron_opcional::<UiDto>(&ruta)? {
+            recursos.ui =
+                convertir_ui(dto).map_err(|e| ErrorRecursos(format!("{}: {e}", ruta.display())))?;
+        }
+        let ruta = carpeta.join("campamento.ron");
+        if let Some(dto) = leer_ron_opcional::<CampamentoDto>(&ruta)? {
+            let aplicar = || -> Result<_, ErrorRecursos> {
+                let arte = normalizar_arte(&dto.fogata.arte)?;
+                modo.validar_glifos(arte.iter().flat_map(|fila| fila.chars()))?;
+                let estilo = convertir_estilo(dto.fogata.estilo)?;
+                let efecto = dto.fogata.efecto.map(convertir_efecto).transpose()?;
+                Ok((arte, estilo, efecto))
+            };
+            (
+                recursos.fogata,
+                recursos.estilo_fogata,
+                recursos.efecto_fogata,
+            ) = aplicar().map_err(|e| ErrorRecursos(format!("{}: {e}", ruta.display())))?;
+        }
+        Ok(recursos)
+    }
+
     pub(crate) fn cargar(raiz: &Path) -> Result<Self, ErrorRecursos> {
         let tiles: TilesDto = leer_ron(&raiz.join("tiles.ron"))?;
         let ui: UiDto = leer_ron(&raiz.join("ui.ron"))?;
@@ -99,32 +169,10 @@ impl RecursosVisuales {
                 "la apariencia de reserva debe usar '?'".to_owned(),
             ));
         }
-        let mut apariencias = BTreeMap::new();
-        for (texto, dto) in tiles.apariencias.0 {
-            let patron = convertir_patron(dto)
-                .map_err(|error| ErrorRecursos(format!("tiles.ron, tipo {texto}: {error}")))?;
-            let clave = ClaveTipoTile::nueva(texto)
-                .map_err(|error| ErrorRecursos(format!("clave de tile inválida: {error}")))?;
-            if apariencias.insert(clave, patron).is_some() {
-                return Err(ErrorRecursos("clave de tile duplicada".to_owned()));
-            }
-        }
-        let mut ilustraciones = Vec::new();
-        for entrada in escenas.ilustraciones {
-            let clave = escena_desde_texto(&entrada.escena)
-                .ok_or_else(|| ErrorRecursos(format!("escena desconocida: {}", entrada.escena)))?;
-            let arte = normalizar_arte(&entrada.arte)?;
-            if ilustraciones
-                .iter()
-                .any(|(existente, _)| *existente == clave)
-            {
-                return Err(ErrorRecursos(format!(
-                    "escena duplicada: {}",
-                    entrada.escena
-                )));
-            }
-            ilustraciones.push((clave, arte));
-        }
+        let apariencias = convertir_apariencias(tiles.apariencias)
+            .map_err(|e| ErrorRecursos(format!("{}: {e}", raiz.join("tiles.ron").display())))?;
+        let ilustraciones = convertir_escenas(escenas)
+            .map_err(|e| ErrorRecursos(format!("{}: {e}", raiz.join("scenes.ron").display())))?;
         Ok(Self {
             paleta: crate::colores::PaletaColores::default(),
             reserva,
@@ -259,6 +307,14 @@ struct TilesDto {
     apariencias: MapaAparienciasDto,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TilesAlternativosDto {
+    #[serde(default, deserialize_with = "campo_presente")]
+    reserva: Option<AparienciaDto>,
+    apariencias: MapaAparienciasDto,
+}
+
 struct MapaAparienciasDto(Vec<(String, DefinicionTileDto)>);
 
 impl<'de> Deserialize<'de> for MapaAparienciasDto {
@@ -362,6 +418,51 @@ fn leer_ron<T: for<'de> Deserialize<'de>>(ruta: &Path) -> Result<T, ErrorRecurso
     let texto = fs::read_to_string(ruta)
         .map_err(|error| ErrorRecursos(format!("{}: {error}", ruta.display())))?;
     ron::from_str(&texto).map_err(|error| ErrorRecursos(format!("{}: {error}", ruta.display())))
+}
+
+fn leer_ron_opcional<T: for<'de> Deserialize<'de>>(
+    ruta: &Path,
+) -> Result<Option<T>, ErrorRecursos> {
+    match fs::read_to_string(ruta) {
+        Ok(texto) => ron::from_str(&texto)
+            .map(Some)
+            .map_err(|e| ErrorRecursos(format!("{}: {e}", ruta.display()))),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(ErrorRecursos(format!("{}: {e}", ruta.display()))),
+    }
+}
+
+fn convertir_apariencias(
+    dto: MapaAparienciasDto,
+) -> Result<BTreeMap<ClaveTipoTile, PatronTile>, ErrorRecursos> {
+    let mut apariencias = BTreeMap::new();
+    for (texto, dto) in dto.0 {
+        let patron = convertir_patron(dto)
+            .map_err(|error| ErrorRecursos(format!("tipo {texto}: {error}")))?;
+        let clave = ClaveTipoTile::nueva(texto)
+            .map_err(|error| ErrorRecursos(format!("clave de tile inválida: {error}")))?;
+        if apariencias.insert(clave, patron).is_some() {
+            return Err(ErrorRecursos("clave de tile duplicada".to_owned()));
+        }
+    }
+    Ok(apariencias)
+}
+
+fn convertir_escenas(dto: EscenasDto) -> Result<Vec<(ClaveEscena, Vec<String>)>, ErrorRecursos> {
+    let mut escenas = Vec::new();
+    for entrada in dto.ilustraciones {
+        let clave = escena_desde_texto(&entrada.escena)
+            .ok_or_else(|| ErrorRecursos(format!("escena desconocida: {}", entrada.escena)))?;
+        let arte = normalizar_arte(&entrada.arte)?;
+        if escenas.iter().any(|(existente, _)| *existente == clave) {
+            return Err(ErrorRecursos(format!(
+                "escena duplicada: {}",
+                entrada.escena
+            )));
+        }
+        escenas.push((clave, arte));
+    }
+    Ok(escenas)
 }
 
 fn convertir_apariencia(dto: AparienciaDto) -> Result<AparienciaTile, ErrorRecursos> {
@@ -554,6 +655,255 @@ fn normalizar_arte(texto: &str) -> Result<Vec<String>, ErrorRecursos> {
 #[cfg(test)]
 mod pruebas {
     use super::*;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    struct RecursosTemporales(PathBuf);
+
+    impl RecursosTemporales {
+        fn nuevos() -> Self {
+            static NUMERO: AtomicUsize = AtomicUsize::new(0);
+            let raiz = std::env::temp_dir().join(format!(
+                "desert-tiger-recursos-alternativos-{}-{}",
+                std::process::id(),
+                NUMERO.fetch_add(1, Ordering::Relaxed),
+            ));
+            fs::create_dir_all(&raiz).unwrap();
+            let oficial = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal");
+            for archivo in ["tiles.ron", "scenes.ron", "ui.ron", "campamento.ron"] {
+                fs::copy(oficial.join(archivo), raiz.join(archivo)).unwrap();
+            }
+            Self(raiz)
+        }
+
+        fn escribir(&self, modo: ModoGraficos, archivo: &str, texto: &str) -> PathBuf {
+            let carpeta = modo.carpeta(&self.0).unwrap();
+            fs::create_dir_all(&carpeta).unwrap();
+            let ruta = carpeta.join(archivo);
+            fs::write(&ruta, texto).unwrap();
+            ruta
+        }
+    }
+
+    impl Drop for RecursosTemporales {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    fn comparar_patrones(actual: &PatronTile, esperado: &PatronTile) {
+        assert_eq!((actual.ancho, actual.alto), (esperado.ancho, esperado.alto));
+        assert_eq!(actual.fotogramas, esperado.fotogramas);
+        assert_eq!(actual.duracion_fotograma_ms, esperado.duracion_fotograma_ms);
+        assert_eq!(actual.estilo, esperado.estilo);
+    }
+
+    fn comparar_recursos(actual: &RecursosVisuales, esperado: &RecursosVisuales) {
+        assert_eq!(actual.apariencias.len(), esperado.apariencias.len());
+        for (clave, patron) in &esperado.apariencias {
+            comparar_patrones(&actual.apariencias[clave], patron);
+        }
+        assert_eq!(actual.reserva.glifo, esperado.reserva.glifo);
+        assert_eq!(actual.reserva.estilo, esperado.reserva.estilo);
+        assert_eq!(actual.escenas, esperado.escenas);
+        assert_eq!(actual.fogata, esperado.fogata);
+        assert_eq!(actual.estilo_fogata, esperado.estilo_fogata);
+        let efecto = |recursos: &RecursosVisuales| {
+            recursos
+                .efecto_fogata
+                .map(|c| (c.luz(), c.intensidad_luz(), c.radio_luz()))
+        };
+        assert_eq!(efecto(actual), efecto(esperado));
+        let estilos = |ui: &PaletaUi| {
+            [
+                ui.pantalla,
+                ui.texto_normal,
+                ui.destacado,
+                ui.lugar_geografico,
+                ui.lugar_civilizado,
+                ui.region,
+                ui.secundario,
+                ui.marco,
+                ui.titulo,
+                ui.foco,
+                ui.atajo,
+                ui.error,
+                ui.deshabilitado,
+                ui.barra_contextual,
+                ui.barra_acciones,
+            ]
+        };
+        assert_eq!(estilos(&actual.ui), estilos(&esperado.ui));
+    }
+
+    #[test]
+    fn alternativas_ausentes_o_catalogos_vacios_conservan_todos_los_recursos() {
+        let temporal = RecursosTemporales::nuevos();
+        let predeterminado = RecursosVisuales::cargar(&temporal.0).unwrap();
+        for modo in [ModoGraficos::Fuente, ModoGraficos::Ascii] {
+            comparar_recursos(
+                &RecursosVisuales::cargar_modo(&temporal.0, modo).unwrap(),
+                &predeterminado,
+            );
+            temporal.escribir(modo, "tiles.ron", "(apariencias: {})");
+            temporal.escribir(modo, "scenes.ron", "(ilustraciones: [])");
+            comparar_recursos(
+                &RecursosVisuales::cargar_modo(&temporal.0, modo).unwrap(),
+                &predeterminado,
+            );
+        }
+    }
+
+    #[test]
+    fn alternativas_parciales_reemplazan_solo_el_tile_y_la_escena_presentes() {
+        let temporal = RecursosTemporales::nuevos();
+        let predeterminado = RecursosVisuales::cargar(&temporal.0).unwrap();
+        let arena = ClaveTipoTile::nueva("arena".into()).unwrap();
+        for modo in [ModoGraficos::Fuente, ModoGraficos::Ascii] {
+            temporal.escribir(
+                modo,
+                "tiles.ron",
+                r#"(apariencias: {
+                "arena": (glifo: '#', estilo: (frente: "rojo", fondo: None, modificadores: [])),
+            })"#,
+            );
+            temporal.escribir(
+                modo,
+                "scenes.ron",
+                r#"(ilustraciones: [
+                (escena: "viajeMarcha", arte: "<->"),
+            ])"#,
+            );
+            let recursos = RecursosVisuales::cargar_modo(&temporal.0, modo).unwrap();
+            assert_eq!(recursos.tile(&arena, 7, 11, 5).glifo, '#');
+            assert_eq!(recursos.tile(&arena, 7, 11, 5).estilo.fg, Some(Color::Red));
+            assert_eq!(recursos.escena(ClaveEscena::ViajeMarcha).unwrap(), ["<->"]);
+            for (clave, patron) in &predeterminado.apariencias {
+                if clave != &arena {
+                    comparar_patrones(&recursos.apariencias[clave], patron);
+                }
+            }
+            for (clave, arte) in &predeterminado.escenas {
+                if *clave != ClaveEscena::ViajeMarcha {
+                    assert_eq!(recursos.escena(*clave).unwrap(), arte);
+                }
+            }
+            assert_eq!(recursos.apariencias.len(), predeterminado.apariencias.len());
+            assert_eq!(recursos.reserva.estilo, predeterminado.reserva.estilo);
+            assert_eq!(recursos.fogata, predeterminado.fogata);
+            assert_eq!(recursos.ui.pantalla, predeterminado.ui.pantalla);
+        }
+    }
+
+    #[test]
+    fn alternativa_fuente_admite_pua_animado_con_coordenadas_y_ciclo_originales() {
+        let temporal = RecursosTemporales::nuevos();
+        temporal.escribir(
+            ModoGraficos::Fuente,
+            "tiles.ron",
+            r#"(apariencias: {
+            "arena": (
+                fotogramas: ["\u{e000}.\n.\u{e001}", "\u{e002}.\n.\u{e003}"],
+                duracion_fotograma_ms: 500,
+                estilo: (frente: "amarillo", fondo: None, modificadores: ["negrita"]),
+            ),
+        })"#,
+        );
+        let recursos = RecursosVisuales::cargar_modo(&temporal.0, ModoGraficos::Fuente).unwrap();
+        let arena = ClaveTipoTile::nueva("arena".into()).unwrap();
+        for (paso, glifo) in [
+            (0, '\u{e000}'),
+            (1, '\u{e000}'),
+            (2, '\u{e002}'),
+            (4, '\u{e000}'),
+        ] {
+            assert_eq!(recursos.tile(&arena, 8, 6, paso).glifo, glifo);
+        }
+        let celda = recursos.tile(&arena, 9, 7, 2);
+        assert_eq!(celda.glifo, '\u{e003}');
+        assert_eq!(celda.estilo.fg, Some(Color::Yellow));
+        assert!(celda.estilo.add_modifier.contains(Modifier::BOLD));
+    }
+
+    #[test]
+    fn alternativas_ascii_rechazan_unicode_en_todos_los_graficos_y_fotogramas() {
+        for (archivo, texto) in [
+            (
+                "tiles.ron",
+                r#"(apariencias: {"arena": (glifo: 'é', estilo: (frente: "rojo", fondo: None, modificadores: []))})"#,
+            ),
+            (
+                "tiles.ron",
+                r#"(apariencias: {"arena": (patron: "a\né", estilo: (frente: "rojo", fondo: None, modificadores: []))})"#,
+            ),
+            (
+                "tiles.ron",
+                r#"(apariencias: {"arena": (fotogramas: ["a", "é"], estilo: (frente: "rojo", fondo: None, modificadores: []))})"#,
+            ),
+            (
+                "scenes.ron",
+                r#"(ilustraciones: [(escena: "viajeMarcha", arte: "a\né")])"#,
+            ),
+            (
+                "campamento.ron",
+                r#"(fogata: (arte: "a\né", estilo: (frente: "rojo", fondo: None, modificadores: [])))"#,
+            ),
+        ] {
+            let temporal = RecursosTemporales::nuevos();
+            let ruta = temporal.escribir(ModoGraficos::Ascii, archivo, texto);
+            let error = RecursosVisuales::cargar_modo(&temporal.0, ModoGraficos::Ascii)
+                .err()
+                .expect("el recurso alternativo debe ser ASCII")
+                .to_string();
+            assert!(error.contains("ASCII"), "{error}");
+            assert!(error.contains(ruta.to_str().unwrap()), "{error}");
+        }
+    }
+
+    #[test]
+    fn alternativa_presente_invalida_informa_su_ruta_en_vez_de_usar_reserva() {
+        for modo in [ModoGraficos::Fuente, ModoGraficos::Ascii] {
+            for (archivo, texto) in [
+                ("tiles.ron", "esto no es RON"),
+                (
+                    "tiles.ron",
+                    r#"(apariencias: {"arena": (glifo: '界', estilo: (frente: "rojo", fondo: None, modificadores: []))})"#,
+                ),
+                (
+                    "scenes.ron",
+                    r#"(ilustraciones: [(escena: "desconocida", arte: "x")])"#,
+                ),
+                (
+                    "campamento.ron",
+                    r#"(fogata: (arte: "x", estilo: (frente: "inexistente", fondo: None, modificadores: [])))"#,
+                ),
+                ("ui.ron", "()"),
+            ] {
+                let temporal = RecursosTemporales::nuevos();
+                let ruta = temporal.escribir(modo, archivo, texto);
+                let error = RecursosVisuales::cargar_modo(&temporal.0, modo)
+                    .err()
+                    .expect("debe informar el recurso inválido")
+                    .to_string();
+                assert!(error.contains(ruta.to_str().unwrap()), "{error}");
+            }
+        }
+    }
+
+    #[test]
+    fn modo_predeterminado_ignora_archivos_alternativos_incluso_invalidos() {
+        let temporal = RecursosTemporales::nuevos();
+        let esperado = RecursosVisuales::cargar(&temporal.0).unwrap();
+        for modo in [ModoGraficos::Fuente, ModoGraficos::Ascii] {
+            for archivo in ["tiles.ron", "scenes.ron", "campamento.ron", "ui.ron"] {
+                temporal.escribir(modo, archivo, "archivo inválido");
+            }
+        }
+        comparar_recursos(
+            &RecursosVisuales::cargar_modo(&temporal.0, ModoGraficos::Predeterminado).unwrap(),
+            &esperado,
+        );
+    }
 
     fn patron_desde_ron(texto: &str) -> Result<PatronTile, ErrorRecursos> {
         let dto = ron::from_str(texto).map_err(|error| ErrorRecursos(error.to_string()))?;
