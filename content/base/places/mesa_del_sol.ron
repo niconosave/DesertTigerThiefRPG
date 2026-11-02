@@ -5,7 +5,7 @@
     caracteristicas: ["arido", "elevado", "abierto", "rocoso"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("mar_del_viento")),
-        (tipo: Conectado, destino: Lugar("paso_zek")),
+        (tipo: Conectado, destino: Lugar("entrada_paso_de_zunir")),
         (tipo: Conectado, destino: Lugar("hamada_de_zahrun")),
         (tipo: Conectado, destino: Lugar("mar_boreal")),
     ],

@@ -67,6 +67,27 @@ Se dibuja en el centro del Lugar con el mismo color que su nombre. Debe ser un
 no agrega ningún símbolo. El `@` del grupo y las `O` de desarrollo conservan
 prioridad. Se carga al iniciar la partida, junto con los demás datos del Lugar.
 
+## Descripciones y arte de lugares
+
+Los archivos `content/base/places/*.ron` admiten una descripción opcional:
+
+```ron
+descripcion: "Ante vos se alza una pared de roca rojiza. Su borde corta el cielo muy por encima del camino.",
+```
+
+Escribila en segunda persona, con una o dos oraciones sobre lo que ve el jugador.
+Se presenta antes del relato del desplazamiento para situarte en el paisaje
+del lugar de partida, y en la viñeta final para describir el destino alcanzado.
+También se conserva en el detalle. No se lleva registro de lugares ya descritos.
+Omitir el campo conserva el relato actual. Los cambios se cargan al iniciar
+una nueva partida.
+
+También se admite `arte: Some((paleta: {...}, base: (...)))`, con la misma
+estructura de dibujo y estilos usada por la base de los retratos. Se carga y
+queda disponible para el frontend; su dibujo sobre el mapa se desarrollará
+después. El [formato completo y un ejemplo](./tecnica/componentes/03-contenido.md#descripción-e-ilustración-de-lugar--2026-11-02)
+explican cómo escribirlo. Ambos campos son independientes y opcionales.
+
 ## Elegir los colores al jugar
 
 El modo predeterminado conserva la paleta de la terminal. Si puede consultarla,

@@ -110,13 +110,23 @@ pub fn destinos_seleccionables_jugador(mundo: &Mundo) -> Result<Vec<IdLugar>, Re
     let actor = mundo.actor_jugador();
     let alcanzables = destinos_disponibles(mundo, actor)?;
     let mut permitidos = BTreeSet::new();
-    permitidos.extend(
-        mundo
-            .lugares_conectados(mundo.ubicacion_grupo())
-            .unwrap_or(&[])
-            .iter()
-            .copied(),
-    );
+    // Los lugares ocultos forman parte del recorrido, pero no interrumpen
+    // la vecindad visible: se puede elegir la salida al otro lado del paso.
+    let origen = mundo.ubicacion_grupo();
+    let mut vistos = BTreeSet::from([origen]);
+    let mut pendientes = VecDeque::from([origen]);
+    while let Some(actual) = pendientes.pop_front() {
+        for &vecino in mundo.lugares_conectados(actual).unwrap_or(&[]) {
+            if !vistos.insert(vecino) {
+                continue;
+            }
+            if lugar_oculto(mundo, vecino) {
+                pendientes.push_back(vecino);
+            } else {
+                permitidos.insert(vecino);
+            }
+        }
+    }
     for viajero in std::iter::once(actor).chain(mundo.grupo().integrantes().iter().copied()) {
         permitidos.extend(
             mundo
@@ -128,8 +138,14 @@ pub fn destinos_seleccionables_jugador(mundo: &Mundo) -> Result<Vec<IdLugar>, Re
     }
     Ok(alcanzables
         .into_iter()
-        .filter(|lugar| permitidos.contains(lugar))
+        .filter(|lugar| permitidos.contains(lugar) && !lugar_oculto(mundo, *lugar))
         .collect())
+}
+
+fn lugar_oculto(mundo: &Mundo, id: IdLugar) -> bool {
+    mundo
+        .lugar(id)
+        .is_some_and(|l| l.caracteristicas().any(|c| c.como_str() == "oculto"))
 }
 
 // Claves de presentación neutrales que el frontend ya asocia a su arte local.

@@ -3,8 +3,9 @@
     nombre: "CORDILLERA DE AZRUM",
     caracteristicas: ["region", "montanoso"],
     relaciones: [
-        (tipo: Abarca, destino: Lugar("paso_zek")),
-        (tipo: Abarca, destino: Lugar("paso_nur")),
+        (tipo: Abarca, destino: Lugar("paso_de_zunir")),
+        (tipo: Abarca, destino: Lugar("entrada_paso_de_zunir")),
+        (tipo: Abarca, destino: Lugar("salida_paso_de_zunir")),
         (tipo: Abarca, destino: Lugar("paso_dar")),
         (tipo: Abarca, destino: Lugar("paso_akr")),
 

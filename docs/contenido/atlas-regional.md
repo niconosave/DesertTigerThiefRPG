@@ -315,8 +315,15 @@ actual; su contrato se define en
 
 ### Pasos de Azrum
 
-Paso Zek enlaza Hamada de Zahrun, Espinazo Gris y Pico de Izir; su risco estrecho
-queda descrito con `riscoEstrecho`. Paso Nur enlaza únicamente con Pico de Izir.
+El Paso de Zunir se representa mediante dos accesos, antes llamados Paso Zek
+y Paso Nur, y un Lugar central. Ambos accesos muestran el mismo nombre y
+superponen su rótulo extendido entre sus centros. Conservan sus enlaces externos:
+el occidental conecta con Hamada de Zahrun, Mesa del Sol, Espinazo Gris y Pico
+de Izir, y el oriental con Pico de Izir. Se añade entre ambos el Lugar central
+con `paso`, `montanoso` y `oculto`, que reúne la descripción del paisaje y no
+se ofrece como destino del jugador. Las conexiones anteriores siguen disponibles,
+incluida la alternativa por el Pico de Izir; el recorrido por el centro es una
+posibilidad, no un cruce obligatorio.
 Monte Dar, antes Paso Dar, enlaza Hamada Roja y Hamada de Zahrun con Espinazo
 Gris. Es una montaña empinada con `muroNatural`: una pared alta de roca sólida.
 Paso Akr enlaza Espinazo Gris con Paso Escarpado y tiene `empinado`.
@@ -324,7 +331,8 @@ Los lugares que siguen siendo pasos tienen `paso` y `montanoso`; estas
 características describen su geografía. Las reglas específicas de su travesía
 se desarrollarán en la acción de Viajar.
 
-Los cuatro pertenecen a la Cordillera de Azrum. La conexión directa entre
+Los accesos, el centro del paso, Monte Dar y Paso Akr pertenecen a la Cordillera
+de Azrum. La conexión directa entre
 Espinazo Gris y Paso Escarpado se sustituye por el recorrido a través de Paso
 Akr. Se retira también la conexión directa entre Paso Escarpado y Alcázar Gris.
 

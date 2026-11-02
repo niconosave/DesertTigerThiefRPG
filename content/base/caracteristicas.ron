@@ -1,6 +1,11 @@
 (
     entradas: [
         (
+            clave: "oculto",
+            nombre: "Oculto",
+            descripcion: "Lugar que forma parte de los recorridos, pero no se ofrece como destino seleccionable del jugador.",
+        ),
+        (
             clave: "paso",
             nombre: "Paso",
             descripcion: "Una abertura o corredor natural entre elevaciones del terreno.",

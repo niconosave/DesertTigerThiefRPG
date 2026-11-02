@@ -69,7 +69,13 @@ impl Narrador<'_> {
         self.0
             .presentacion()
             .lugar(id)
-            .map(|l| l.nombre().to_owned())
+            .map(|l| {
+                if l.nombre().is_empty() {
+                    "un tramo del camino".to_owned()
+                } else {
+                    l.nombre().to_owned()
+                }
+            })
             .unwrap_or_else(|| "Lugar desconocido".into())
     }
     fn chequeo(&self, c: &ResultadoChequeo) -> String {
@@ -227,10 +233,28 @@ impl Narrador<'_> {
         }
         // El desglose conserva el desarrollo completo, pero la lectura inicial
         // prioriza lo ocurrido y sus consecuencias. Ambos respetan la privacidad.
+        let lugar_descrito = match &r.contenido {
+            ContenidoEscena::Desplazamiento(d) => Some(d.origen),
+            ContenidoEscena::Llegada { .. } => Some(r.lugar),
+            _ => None,
+        };
+        let descripcion = lugar_descrito
+            .and_then(|id| self.0.presentacion().lugar(id))
+            .map(|l| l.descripcion())
+            .filter(|d| !d.is_empty());
+        let resumen = self.resumen(r);
+        // El paisaje sitúa al jugador antes de narrar el desplazamiento.
+        // Es composición del relato, sin memoria de lugares ya descritos.
+        let resumen = if let Some(descripcion) = descripcion {
+            texto = format!("{descripcion}\n\n{texto}");
+            format!("{descripcion}\n\n{resumen}")
+        } else {
+            resumen
+        };
         detalle.push(texto);
         TextoEscena {
             titulo: titulo(r.tarjeta).into(),
-            texto: self.resumen(r),
+            texto: resumen,
             detalle,
             expresion: expresion_escena(&r.contenido),
         }

@@ -1093,3 +1093,53 @@ fn destinos_seleccionables_combinan_vecinos_y_conocimiento_del_grupo_actual() {
     let solo = escenario(&[&[]], &[&[]]);
     assert!(destinos_seleccionables_jugador(&solo).unwrap().is_empty());
 }
+
+#[test]
+fn lugares_ocultos_permiten_cruzar_hasta_la_siguiente_salida_visible() {
+    use crate::acciones::{destinos_disponibles, destinos_seleccionables_jugador};
+    let mut m = escenario(&[&[], &["oculto"], &["oculto"], &[], &[]], &[&[]]);
+    m.aplicar_lote(LoteOperaciones::uno(
+        OperacionMundo::RegistrarConocimiento {
+            actor: actor(0),
+            lugar: id(1),
+        },
+    ))
+    .unwrap();
+    assert_eq!(destinos_seleccionables_jugador(&m).unwrap(), vec![id(3)]);
+    assert!(destinos_disponibles(&m, actor(0)).unwrap().contains(&id(1)));
+    assert_eq!(
+        rutas::rapida(&m, id(0), id(3), &mut Azar(0)).unwrap(),
+        vec![id(0), id(1), id(2), id(3)]
+    );
+    let contexto = ContextoAccion {
+        inicio: InstanteAccion {
+            fecha: m.fecha(),
+            fraccion: FraccionDia::CERO,
+        },
+        rumbos: &CatalogoRumbos::default(),
+    };
+    assert!(matches!(
+        iniciar(
+            &mut m,
+            SolicitudAccion::Viajar {
+                actor: actor(0),
+                destino: id(1)
+            },
+            &contexto,
+            &mut Azar(0)
+        ),
+        Err(ErrorMotor::Rechazo(RechazoAccion::DestinoInvalido))
+    ));
+    assert!(
+        iniciar(
+            &mut m,
+            SolicitudAccion::Viajar {
+                actor: actor(0),
+                destino: id(3)
+            },
+            &contexto,
+            &mut Azar(0)
+        )
+        .is_ok()
+    );
+}

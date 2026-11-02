@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; revisión estética conjunta pendiente |
-| Versión | 1.3 |
-| Fecha | 2026-10-29 |
+| Versión | 1.4 |
+| Fecha | 2026-11-02 |
 | Implementación | Motor único activo; verificaciones en el informe enlazado al final |
 
 ## 1. Alcance y autoridad
@@ -835,3 +835,46 @@ rápida, larga o conocida: un camino a un destino ofrecido puede atravesar lugar
 desconocidos. Tampoco restringe las solicitudes de los NPCs. Se verifica el
 aporte del jugador y compañeros, vecinos desconocidos, separación de compañeros,
 cambio de ubicación y rutas que atraviesan lugares no ofrecidos como destino.
+
+### Lugares ocultos a la selección — 2026-11-02
+
+Un Lugar con `oculto` no se ofrece al jugador como destino, aunque sea conocido
+o vecino. La vecindad seleccionable atraviesa cadenas de Lugares ocultos hasta
+los primeros Lugares visibles; no continúa a través de estos últimos. Así la
+entrada de un paso ofrece su salida aunque entre ambas exista un Lugar oculto.
+La consulta evita ciclos y conserva el orden canónico de resultados.
+
+La búsqueda de rutas y la ejecución conservan los Lugares ocultos con todos sus
+tiempos, características, descripciones y escenas. La solicitud explícita de
+Viajar del jugador hacia un Lugar oculto se rechaza con `DestinoInvalido`.
+La marca no restringe los destinos de los NPC ni su tránsito. `destinos_disponibles`
+sigue siendo una consulta de alcanzabilidad sin este filtro de presentación.
+
+Cuando el catálogo tiene un nombre vacío, el narrador usa la expresión genérica
+«un tramo del camino» para evitar frases incompletas en resúmenes, detalles y
+progreso; no muestra claves internas como nombres. El mapa no necesita una
+regla adicional para un Lugar sin símbolo y con rótulo vacío.
+
+## Descripción del paisaje durante el viaje — 2026-11-02
+
+La descripción visual opcional de cada Lugar se escribe en su RON, según
+[Contenido, descripción e ilustración](../componentes/03-contenido.md#descripción-e-ilustración-de-lugar--2026-11-02).
+Es un texto breve de autor en segunda persona que presenta lo que ve el jugador.
+
+El narrador antepone la descripción del origen al resumen de cada viñeta de
+Desplazamiento: primero sitúa al jugador en el paisaje y luego relata la partida,
+el recorrido y sus consecuencias. En la viñeta final de Llegada, antepone la
+descripción del lugar alcanzado. El detalle expandido conserva el mismo contexto.
+No se crean viñetas adicionales.
+
+Esta composición no consulta visitas anteriores, relaciones Conoce ni cambios de
+ubicación para decidir si un paisaje ya fue descrito. No mantiene contadores,
+conjuntos o memoria por viaje. Si una escena vuelve a usar un lugar, puede volver
+a mostrar su descripción. La referencia al comienzo del camino es una indicación
+narrativa, sin una mecánica de descubrimiento o de prevención de repeticiones.
+
+Sin descripción se conserva el relato existente. El contenido se carga al inicio
+de la partida y el narrador consulta el catálogo validado. La ilustración sigue
+disponible en VistaLugar, sin dibujarse sobre el mapa ni dentro de las viñetas.
+Las pruebas recorren viajes de ida y vuelta y comprueban la presencia del paisaje
+del origen, los lugares intermedios y el destino, junto con el detalle expandido.

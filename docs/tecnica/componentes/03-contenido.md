@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.30 |
-| Fecha | 2026-10-29 |
+| Versión | 0.31 |
+| Fecha | 2026-11-02 |
 
 > Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
 
@@ -719,7 +719,13 @@ coordenadas oficiales se fijarán en `content/base/` después de dibujar el mapa
 )
 ```
 
-Salvo `nombre_abreviado` y `simbolo`, sus campos son obligatorios. `nombre` no puede estar vacío.
+Salvo `nombre_abreviado`, `simbolo`, `descripcion` y `arte`, sus campos son obligatorios.
+`nombre` puede ser vacío únicamente si el Lugar tiene la característica `oculto`.
+En ese caso también pueden quedar vacíos `nombre_abreviado` y `coordenadas_rotulo`:
+no se dibuja un rótulo. La coordenada central sigue siendo obligatoria y válida.
+`oculto` excluye al Lugar de la selección de destino del jugador, conservándolo
+en el grafo de rutas. Un nombre repetido y un rótulo idéntico entre dos Lugares
+son válidos: las claves continúan identificándolos por separado.
 `nombre_abreviado` es un `String` opcional para etiquetas compactas de interfaz.
 Si se omite o es `""`, la carga usa el nombre completo. Si tiene contenido,
 debe ser una sola línea no compuesta únicamente por espacios, sin controles y
@@ -738,6 +744,64 @@ Se convierte a `Option<char>` en `PresentacionLugar` y se proyecta sin cambios a
 `VistaLugar.simbolo`. No se añade a `LugarInicial` ni a sus Características;
 no afecta reglas, conexiones o coordenadas, y no modifica la matriz del mapa.
 La [terminal](./09-frontend-terminal.md) define su color y orden de dibujo.
+
+### Descripción e ilustración de Lugar — 2026-11-02
+
+Cada RON de Lugar admite estos campos opcionales de presentación:
+
+```ron
+descripcion: "Ante vos se alza una pared de roca rojiza. Su borde corta el cielo muy por encima del camino.",
+arte: Some((
+    paleta: {
+        'r': (frente: "rojo", fondo: None),
+    },
+    base: (
+        arte: r#"
+ /\
+/__
+"#,
+        estilos: Some(r#"
+rrr
+rrr
+"#),
+    ),
+)),
+```
+
+`descripcion` es una cadena UTF-8; omitirla o escribir `""` equivale a no
+tener descripción. Se normalizan CRLF y espacios en los extremos, se permiten
+saltos de línea y se rechazan controles de terminal. Su autor escribe una o
+dos oraciones visuales en segunda persona. Esta extensión y persona gramatical
+son criterios editoriales, no restricciones del parser. El texto no interpreta
+variables ni código. Su uso narrativo se define en
+[Viajar, descripción del paisaje](../acciones/06-implementacion-viajar.md#descripción-del-paisaje-durante-el-viaje--2026-11-02).
+
+`arte` omitido o `None` equivale a ausencia. `Some` contiene `base`, con
+`arte` y `estilos`, y una `paleta` opcional (vacía por defecto). La ilustración
+es estática; no tiene rostro ni parpadeo. Reutiliza las reglas de los gráficos
+de retrato: bloque rectangular no vacío, glifos de una columna, espacios
+transparentes y una matriz de estilos opcional del mismo tamaño. Las claves de
+estilo y los colores siguen el [contrato 13](./13-retratos-por-capas.md).
+Con `estilos: None` no hace falta definir una paleta. Se admiten dibujos mayores
+que el mapa o que una ventana particular: su recorte será tarea del frontend.
+
+Ambos datos se conservan en `PresentacionLugar`, con accesores `descripcion()`
+y `arte()`, y se exponen en `VistaLugar.descripcion: String` y
+`VistaLugar.arte: Option<ArteLugar>`. `ArteLugar` publica `ancho()`, `alto()` y
+`celdas()`; comparte `CeldaRetrato` y `EstiloCeldaRetrato` para conservar la
+paleta y el fondo. Su validación informa archivo, clave y tipo Lugar.
+No se agregan a `LugarInicial` ni alteran reglas o relaciones.
+
+El dibujo sobre el mapa queda aplazado. La intención visual es una ilustración
+amplia sobre el mapa y detrás de los actores, fuera de la ventana de viñeta.
+Este incremento solo carga, valida y entrega el arte; no modifica las capas
+del renderizador ni incorpora variantes gráficas de lugares.
+
+Las pruebas cubren compatibilidad sin campos, normalización y controles del
+texto, paletas y matrices inválidas, glifos, origen de diagnósticos y
+proyección completa del arte sin alterar el estado lógico del Lugar.
+
+### Características, relaciones y coordenadas
 
 `caracteristicas` y `relaciones` son listas obligatorias que pueden estar vacías;
 las primeras no admiten duplicados y las segundas siguen el esquema y la

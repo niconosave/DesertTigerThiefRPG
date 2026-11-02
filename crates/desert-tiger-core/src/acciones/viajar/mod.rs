@@ -36,7 +36,10 @@ pub fn iniciar(
     let lugar = mundo
         .ubicacion_actor(actor)
         .ok_or(ErrorMotor::Rechazo(RechazoAccion::ActorDesconocido))?;
-    if mundo.lugar(destino).is_none() || lugar == destino {
+    if mundo.lugar(destino).is_none()
+        || lugar == destino
+        || (actor == mundo.actor_jugador() && super::lugar_oculto(mundo, destino))
+    {
         return Err(ErrorMotor::Rechazo(RechazoAccion::DestinoInvalido));
     }
     if !destinos.contains(&destino) {

@@ -1,5 +1,5 @@
 use crate::contenido::{
-    ClaveTipoTile, ContenidoValidado, CoordenadaMapa, EstadoMapa, RetratoActor,
+    ArteLugar, ClaveTipoTile, ContenidoValidado, CoordenadaMapa, EstadoMapa, RetratoActor,
 };
 use crate::fase_npc::{ResumenNpc, ejecutar_fase_npc};
 use desert_tiger_core::acciones::{
@@ -107,6 +107,8 @@ pub struct VistaLugar {
     pub id: IdLugar,
     pub nombre: String,
     pub nombre_abreviado: String,
+    pub descripcion: String,
+    pub arte: Option<ArteLugar>,
     pub simbolo: Option<char>,
     pub coordenada_central: CoordenadaMapa,
     pub coordenadas_rotulo: Vec<CoordenadaMapa>,
@@ -681,6 +683,8 @@ fn proyectar_mundo(
                     id: l.id(),
                     nombre: l.nombre().into(),
                     nombre_abreviado: l.nombre_abreviado().into(),
+                    descripcion: l.descripcion().into(),
+                    arte: l.arte().cloned(),
                     simbolo: l.simbolo(),
                     coordenada_central: l.coordenada_central(),
                     coordenadas_rotulo: l.coordenadas_rotulo().to_vec(),
@@ -720,6 +724,7 @@ fn proyectar_mundo(
 #[cfg(test)]
 mod pruebas {
     use super::*;
+    use crate::lua::ResolucionClavesLua;
     use crate::{EntradaFicha, ErrorConsultaFicha, ExtremoRelacion, SentidoRelacionFicha};
     use desert_tiger_core::{Caracteristica, LoteOperaciones, OperacionMundo, TiempoAccion};
 
@@ -1007,6 +1012,149 @@ mod pruebas {
         )
         .unwrap()
     }
+
+    struct ContenidoDescriptivo(std::path::PathBuf);
+
+    impl ContenidoDescriptivo {
+        fn nuevo() -> Self {
+            use std::sync::atomic::{AtomicUsize, Ordering};
+            static NUMERO: AtomicUsize = AtomicUsize::new(0);
+            let raiz = std::env::temp_dir().join(format!(
+                "desert-tiger-llegadas-{}-{}",
+                std::process::id(),
+                NUMERO.fetch_add(1, Ordering::Relaxed)
+            ));
+            fn copiar(origen: &std::path::Path, destino: &std::path::Path) {
+                std::fs::create_dir(destino).unwrap();
+                for entrada in std::fs::read_dir(origen).unwrap() {
+                    let entrada = entrada.unwrap();
+                    let destino = destino.join(entrada.file_name());
+                    if entrada.file_type().unwrap().is_dir() {
+                        copiar(&entrada.path(), &destino);
+                    } else {
+                        std::fs::copy(entrada.path(), destino).unwrap();
+                    }
+                }
+            }
+            copiar(
+                &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+                &raiz,
+            );
+            for entrada in std::fs::read_dir(raiz.join("places")).unwrap() {
+                let ruta = entrada.unwrap().path();
+                let clave = ruta.file_stem().unwrap().to_str().unwrap();
+                let texto = std::fs::read_to_string(&ruta).unwrap();
+                let descripcion = if texto
+                    .lines()
+                    .any(|l| l.trim_start().starts_with("descripcion:"))
+                {
+                    String::new()
+                } else {
+                    format!("    descripcion: \"Ves el paisaje de {clave}.\",\n")
+                };
+                let arte = if clave == "zona_arida" {
+                    "arte: Some((base: (arte: \"^.^\", estilos: None))),\n"
+                } else {
+                    ""
+                };
+                std::fs::write(
+                    &ruta,
+                    texto.replacen("(\n", &format!("(\n{descripcion}    {arte}"), 1),
+                )
+                .unwrap();
+            }
+            Self(raiz)
+        }
+
+        fn cargar(&self) -> ContenidoValidado {
+            crate::cargar_contenido(&self.0).unwrap()
+        }
+    }
+
+    impl Drop for ContenidoDescriptivo {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn descripcion_y_arte_del_lugar_se_proyectan_sin_modificar_el_mundo() {
+        let fixture = ContenidoDescriptivo::nuevo();
+        let c = fixture.cargar();
+        let p = Partida::con_azar(&c, Box::new(AzarFavorable)).unwrap();
+        let zona = c.claves().lugar_por_clave("zona_arida").unwrap();
+        let vista = p.mundo_visible();
+        let lugar = vista.lugares.iter().find(|l| l.id == zona).unwrap();
+        assert_eq!(lugar.descripcion, "Ves el paisaje de zona_arida.");
+        let arte = lugar.arte.as_ref().unwrap();
+        assert_eq!((arte.ancho(), arte.alto()), (3, 1));
+        assert_eq!(
+            arte.celdas().iter().map(|c| c.glifo).collect::<String>(),
+            "^.^"
+        );
+        let otro = vista.lugares.iter().find(|l| l.id != zona).unwrap();
+        assert!(otro.arte.is_none());
+        assert_eq!(p.vista(), p.vista());
+    }
+
+    fn recorrer_con_descripciones(p: &mut Partida, destino: IdLugar) -> Vec<String> {
+        let mut vista = p
+            .procesar(IntencionFrontend::ComenzarViaje { destino })
+            .unwrap();
+        let mut descripciones = Vec::new();
+        for _ in 0..500 {
+            assert_eq!(p.vista(), vista, "releer la vista conserva su narración");
+            let (texto, detalle) = match &vista {
+                VistaSesion::PresentandoAccion(v) => (&v.texto, &v.detalle),
+                VistaSesion::EsperandoDecision(v) => (&v.texto, &v.detalle),
+                VistaSesion::Disponible(_) => return descripciones,
+                otra => panic!("vista inesperada: {otra:?}"),
+            };
+            for descripcion in texto
+                .lines()
+                .filter(|l| l.starts_with("Ves el paisaje de "))
+            {
+                assert!(detalle.iter().any(|d| d.contains(descripcion)));
+                descripciones.push(descripcion.to_owned());
+            }
+            vista = match vista {
+                VistaSesion::PresentandoAccion(v) => p
+                    .procesar(IntencionFrontend::ContinuarPresentacion { fragmento: v.id })
+                    .unwrap(),
+                VistaSesion::EsperandoDecision(v) => p
+                    .procesar(IntencionFrontend::ResponderDecision {
+                        decision: v.id,
+                        opcion: v.opciones[0].id,
+                    })
+                    .unwrap(),
+                _ => unreachable!(),
+            };
+        }
+        panic!("el viaje no terminó");
+    }
+
+    #[test]
+    fn viaje_describe_el_paisaje_al_partir_y_al_llegar() {
+        let fixture = ContenidoDescriptivo::nuevo();
+        let c = fixture.cargar();
+        let destino = c.claves().lugar_por_clave("valle_fertil").unwrap();
+        let origen = c.claves().lugar_por_clave("zona_arida").unwrap();
+        let mut p = Partida::con_azar(&c, Box::new(AzarFavorable)).unwrap();
+        let primera = recorrer_con_descripciones(&mut p, destino);
+        assert!(
+            primera.len() > 1,
+            "se describen también lugares intermedios"
+        );
+        assert!(primera.contains(&"Ves el paisaje de valle_fertil.".to_owned()));
+        assert!(primera.contains(&"Ves el paisaje de zona_arida.".to_owned()));
+        let segunda = recorrer_con_descripciones(&mut p, origen);
+        assert!(segunda.contains(&"Ves el paisaje de zona_arida.".to_owned()));
+        assert!(
+            primera.iter().any(|d| segunda.contains(d)),
+            "el otro viaje vuelve a describir lugares"
+        );
+    }
+
     #[test]
     fn expresiones_de_vineta_llegan_al_grupo_y_se_limpian_al_final() {
         let c = contenido();

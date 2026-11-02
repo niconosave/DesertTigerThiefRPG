@@ -1,0 +1,23 @@
+(
+    clave: "paso_de_zunir",
+    nombre: "Paso de Zunir",
+    descripcion: "Las paredes de la cordillera se alzan a ambos lados y dejan sobre vos una franja estrecha de cielo. Entre ellas distinguís una senda que dobla junto a la roca y desaparece entre los riscos, mientras el viento resuena en las alturas. Por una abertura entre las crestas alcanzás a ver el Pico de Izir, oscuro y distante sobre las montañas azuladas.",
+    caracteristicas: ["paso", "montanoso", "rocoso", "riscoEstrecho", "oculto"],
+    relaciones: [],
+    coordenada_central: (x: 100, y: 9),
+    coordenadas_rotulo: [
+        (x: 93, y: 7),
+        (x: 94, y: 7),
+        (x: 95, y: 7),
+        (x: 96, y: 7),
+        (x: 97, y: 8),
+        (x: 98, y: 8),
+        (x: 100, y: 8),
+        (x: 101, y: 8),
+        (x: 102, y: 8),
+        (x: 103, y: 8),
+        (x: 104, y: 9),
+        (x: 105, y: 9),
+        (x: 106, y: 9),
+    ],
+)

@@ -414,11 +414,33 @@ pub(crate) struct CatalogoPresentacion {
     pub(crate) caracteristicas: BTreeMap<String, DescripcionCaracteristica>,
 }
 
+/// Ilustración estática de un Lugar, disponible para cualquier frontend.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ArteLugar {
+    grafico: GraficoRetrato,
+}
+
+impl ArteLugar {
+    pub fn ancho(&self) -> usize {
+        self.grafico.ancho()
+    }
+
+    pub fn alto(&self) -> usize {
+        self.grafico.alto()
+    }
+
+    pub fn celdas(&self) -> &[CeldaRetrato] {
+        self.grafico.celdas()
+    }
+}
+
 pub(crate) struct PresentacionLugar {
     id: IdLugar,
     nombre: String,
     nombre_abreviado: String,
     simbolo: Option<char>,
+    descripcion: String,
+    arte: Option<ArteLugar>,
     coordenada_central: CoordenadaMapa,
     coordenadas_rotulo: Vec<CoordenadaMapa>,
 }
@@ -461,6 +483,12 @@ impl CatalogoPresentacion {
 }
 
 impl PresentacionLugar {
+    pub(crate) fn descripcion(&self) -> &str {
+        &self.descripcion
+    }
+    pub(crate) fn arte(&self) -> Option<&ArteLugar> {
+        self.arte.as_ref()
+    }
     pub(crate) fn id(&self) -> IdLugar {
         self.id
     }
@@ -693,6 +721,10 @@ struct LugarDto {
     nombre_abreviado: String,
     #[serde(default)]
     simbolo: String,
+    #[serde(default)]
+    descripcion: String,
+    #[serde(default)]
+    arte: Option<ArteLugarDto>,
     caracteristicas: Vec<String>,
     relaciones: Vec<DeclaracionRelacionDto>,
     coordenada_central: CoordenadaDto,
@@ -749,6 +781,14 @@ struct RetratoDto {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ArteLugarDto {
+    #[serde(default)]
+    paleta: PaletaRetratoDto,
+    base: GraficoRetratoDto,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct RostroRetratoDto {
     origen: CoordenadaDto,
     expresiones: ExpresionesRetratoDto,
@@ -795,6 +835,7 @@ impl<'de> Deserialize<'de> for ExpresionesRetratoDto {
     }
 }
 
+#[derive(Default)]
 struct PaletaRetratoDto(Vec<(char, EstiloCeldaRetratoDto)>);
 
 impl<'de> Deserialize<'de> for PaletaRetratoDto {
@@ -1520,14 +1561,15 @@ fn validar_lugar(
     ruta: &Path,
 ) -> Result<LugarValidado, ErrorContenido> {
     validar_clave_y_archivo(&dto.clave, esperada, ruta, TipoElementoContenido::Lugar)?;
-    if dto.nombre.is_empty() {
+    if dto.nombre.is_empty() && !dto.caracteristicas.iter().any(|c| c == "oculto") {
         return Err(error_archivo(
             ruta,
             TipoElementoContenido::Lugar,
             Some(esperada),
             ClaseDiagnosticoContenido::ValorInvalido,
             None,
-            "el nombre está vacío".to_owned(),
+            "el nombre está vacío; solo los lugares con la característica oculto pueden omitirlo"
+                .to_owned(),
         ));
     }
     for (indice, caracter) in dto.nombre.chars().enumerate() {
@@ -1651,6 +1693,22 @@ fn validar_lugar(
         TipoElementoContenido::Lugar,
         esperada,
     )?;
+    let descripcion = validar_texto_presentacion(&dto.descripcion, true, false)
+        .map(|texto| texto.trim().to_owned())
+        .map_err(|detalle| {
+            error_archivo(
+                ruta,
+                TipoElementoContenido::Lugar,
+                Some(esperada),
+                ClaseDiagnosticoContenido::ValorInvalido,
+                None,
+                format!("descripcion: {detalle}"),
+            )
+        })?;
+    let arte = dto
+        .arte
+        .map(|arte| validar_arte_lugar(arte, ruta, esperada))
+        .transpose()?;
     Ok(LugarValidado {
         inicial: LugarInicial {
             id,
@@ -1661,6 +1719,8 @@ fn validar_lugar(
             nombre: dto.nombre,
             nombre_abreviado,
             simbolo,
+            descripcion,
+            arte,
             coordenada_central: central,
             coordenadas_rotulo: rotulo,
         },
@@ -1982,23 +2042,12 @@ fn normalizar_relaciones<'a>(
     Ok(resultado)
 }
 
-fn validar_retrato(
-    dto: RetratoDto,
-    ruta: &Path,
-    clave: &str,
-) -> Result<RetratoActor, ErrorContenido> {
-    let error = |detalle| {
-        error_archivo(
-            ruta,
-            TipoElementoContenido::Actor,
-            Some(clave),
-            ClaseDiagnosticoContenido::ValorInvalido,
-            None,
-            detalle,
-        )
-    };
+fn validar_paleta_grafico(
+    dto: PaletaRetratoDto,
+    error: &impl Fn(String) -> ErrorContenido,
+) -> Result<BTreeMap<char, EstiloCeldaRetrato>, ErrorContenido> {
     let mut paleta = BTreeMap::new();
-    for (codigo, estilo) in dto.paleta.0 {
+    for (codigo, estilo) in dto.0 {
         if !codigo.is_ascii_graphic() || matches!(codigo, '\'' | '"' | '\\') {
             return Err(error(format!(
                 "clave de paleta de retrato no admitida: {}",
@@ -2032,6 +2081,46 @@ fn validar_retrato(
             )));
         }
     }
+
+    Ok(paleta)
+}
+
+fn validar_arte_lugar(
+    dto: ArteLugarDto,
+    ruta: &Path,
+    clave: &str,
+) -> Result<ArteLugar, ErrorContenido> {
+    let error = |detalle| {
+        error_archivo(
+            ruta,
+            TipoElementoContenido::Lugar,
+            Some(clave),
+            ClaseDiagnosticoContenido::ValorInvalido,
+            None,
+            format!("arte: {detalle}"),
+        )
+    };
+    let paleta = validar_paleta_grafico(dto.paleta, &error)?;
+    let grafico = validar_grafico_retrato(dto.base, &paleta, &error, "base")?;
+    Ok(ArteLugar { grafico })
+}
+
+fn validar_retrato(
+    dto: RetratoDto,
+    ruta: &Path,
+    clave: &str,
+) -> Result<RetratoActor, ErrorContenido> {
+    let error = |detalle| {
+        error_archivo(
+            ruta,
+            TipoElementoContenido::Actor,
+            Some(clave),
+            ClaseDiagnosticoContenido::ValorInvalido,
+            None,
+            detalle,
+        )
+    };
+    let paleta = validar_paleta_grafico(dto.paleta, &error)?;
 
     let base = validar_grafico_retrato(dto.base, &paleta, &error, "base")?;
     let rostro = dto
@@ -2563,6 +2652,207 @@ mod pruebas {
     }
 
     #[test]
+    fn lugar_admite_descripcion_y_arte_opcionales_sin_cambiar_su_logica() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("places/zona_arida.ron");
+        let original = fs::read_to_string(&ruta).unwrap();
+        let anterior = cargar_contenido(&fixture.0).unwrap();
+        let id = anterior.claves().lugar_por_clave("zona_arida").unwrap();
+        let lugar = anterior.presentacion().lugar(id).unwrap();
+        assert!(lugar.arte().is_none());
+        // La descripción puede existir en el contenido oficial; quitar los
+        // campos nuevos se comprueba separadamente en un DTO mínimo.
+        let dto: LugarDto = ron::from_str(
+            r#"(
+            clave: "prueba", nombre: "Prueba", caracteristicas: [], relaciones: [],
+            coordenada_central: (x: 0, y: 0), coordenadas_rotulo: [],
+        )"#,
+        )
+        .unwrap();
+        assert!(dto.descripcion.is_empty());
+        assert!(dto.arte.is_none());
+        let nuevo = original.replacen(
+            "    nombre:",
+            r#"    descripcion: "  Ves roca rojiza.\r\nEl horizonte se abre ante vos.  ",
+    arte: Some((
+        paleta: {'r': (frente: "rojo", fondo: Some("negro"))},
+        base: (arte: "^ \n /", estilos: Some("rr\nrr")),
+    )),
+    nombre:"#,
+            1,
+        );
+        fs::write(&ruta, nuevo).unwrap();
+        let posterior = cargar_contenido(&fixture.0).unwrap();
+        let lugar = posterior.presentacion().lugar(id).unwrap();
+        assert_eq!(
+            lugar.descripcion(),
+            "Ves roca rojiza.\nEl horizonte se abre ante vos."
+        );
+        let arte = lugar.arte().unwrap();
+        assert_eq!((arte.ancho(), arte.alto()), (2, 2));
+        assert_eq!(
+            arte.celdas().iter().map(|c| c.glifo).collect::<String>(),
+            "^  /"
+        );
+        assert_eq!(arte.celdas()[0].estilo.unwrap().frente, ColorRetrato::Rojo);
+        assert_eq!(
+            arte.celdas()[0].estilo.unwrap().fondo,
+            Some(ColorRetrato::Negro)
+        );
+        assert_eq!(
+            anterior.interno.plantilla_mundo.lugares,
+            posterior.interno.plantilla_mundo.lugares
+        );
+    }
+
+    #[test]
+    fn solo_un_lugar_oculto_admite_nombre_y_rotulo_vacios() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("places/zona_arida.ron");
+        let original = fs::read_to_string(&ruta).unwrap();
+        let mut sin_nombre = original
+            .replace("nombre: \"Hamada Roja\"", "nombre: \"\"")
+            .replace("nombre_abreviado: \"H. Roja\"", "nombre_abreviado: \"\"");
+        let inicio = sin_nombre.find("coordenadas_rotulo: [").unwrap();
+        let fin = inicio + sin_nombre[inicio..].find("],").unwrap() + 2;
+        sin_nombre.replace_range(inicio..fin, "coordenadas_rotulo: [],");
+        fs::write(&ruta, &sin_nombre).unwrap();
+        let error = cargar_contenido(&fixture.0).err().unwrap();
+        assert!(
+            error
+                .diagnosticos()
+                .iter()
+                .any(|d| d.detalle().contains("nombre está vacío"))
+        );
+        fs::write(
+            &ruta,
+            sin_nombre.replacen("caracteristicas: [", "caracteristicas: [\"oculto\", ", 1),
+        )
+        .unwrap();
+        let c = cargar_contenido(&fixture.0).unwrap();
+        let id = c.claves().lugar_por_clave("zona_arida").unwrap();
+        let lugar = c.presentacion().lugar(id).unwrap();
+        assert!(lugar.nombre().is_empty());
+        assert!(lugar.nombre_abreviado().is_empty());
+        assert!(lugar.coordenadas_rotulo().is_empty());
+        assert_eq!(
+            crate::narracion_viaje::Narrador(&c).lugar(id),
+            "un tramo del camino"
+        );
+    }
+
+    #[test]
+    fn zunir_tiene_dos_accesos_con_rotulo_comun_y_un_centro_oculto_transitable() {
+        use desert_tiger_core::{LoteOperaciones, OperacionMundo};
+        let c = cargar_contenido(&raiz_base()).unwrap();
+        let id = |clave| c.claves().lugar_por_clave(clave).unwrap();
+        let entrada = id("entrada_paso_de_zunir");
+        let salida = id("salida_paso_de_zunir");
+        let centro = id("paso_de_zunir");
+        let a = c.presentacion().lugar(entrada).unwrap();
+        let b = c.presentacion().lugar(salida).unwrap();
+        let medio = c.presentacion().lugar(centro).unwrap();
+        assert_eq!(a.nombre(), "Paso de Zunir");
+        assert_eq!(a.nombre(), b.nombre());
+        assert_eq!(a.coordenadas_rotulo(), b.coordenadas_rotulo());
+        assert_eq!(a.nombre().chars().count(), a.coordenadas_rotulo().len());
+        assert!(a.descripcion().is_empty() && b.descripcion().is_empty());
+        assert!(medio.nombre().is_empty() && medio.coordenadas_rotulo().is_empty());
+        assert!(medio.descripcion().contains("Pico de Izir"));
+        let (mut mundo, _) = c.instanciar_estado().unwrap();
+        assert!(mundo.lugares_conectados(centro).unwrap().contains(&entrada));
+        assert!(mundo.lugares_conectados(centro).unwrap().contains(&salida));
+        for clave in [
+            "hamada_de_zahrun",
+            "mesa_del_sol",
+            "espinazo_gris",
+            "pico_de_izir",
+        ] {
+            assert!(
+                mundo
+                    .lugares_conectados(entrada)
+                    .unwrap()
+                    .contains(&id(clave))
+            );
+        }
+        assert!(
+            mundo
+                .lugares_conectados(salida)
+                .unwrap()
+                .contains(&id("pico_de_izir"))
+        );
+        mundo
+            .aplicar_lote(LoteOperaciones::uno(OperacionMundo::Trasladar {
+                actor: mundo.actor_jugador(),
+                destino: entrada,
+            }))
+            .unwrap();
+        let destinos =
+            desert_tiger_core::acciones::destinos_seleccionables_jugador(&mundo).unwrap();
+        assert!(!destinos.contains(&centro));
+        assert!(destinos.contains(&salida));
+    }
+
+    #[test]
+    fn lugar_rechaza_descripciones_inseguras_y_arte_invalido_con_origen_correcto() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("places/zona_arida.ron");
+        let original = fs::read_to_string(&ruta).unwrap();
+        for (campos, contexto) in [
+            (r#"descripcion: "Ves\u{1b}[31mroca","#, "descripcion"),
+            (
+                r#"arte: Some((base: (arte: "x\nxx", estilos: None))),"#,
+                "arte",
+            ),
+            (
+                r#"arte: Some((base: (arte: "界", estilos: None))),"#,
+                "arte",
+            ),
+            (
+                r#"arte: Some((base: (arte: "x", estilos: Some("p")))) ,"#,
+                "arte",
+            ),
+            (
+                r#"arte: Some((paleta: {'p': (frente: "inexistente", fondo: None)}, base: (arte: "x", estilos: Some("p")))) ,"#,
+                "arte",
+            ),
+            (
+                r#"arte: Some((paleta: {'p': (frente: "rojo", fondo: None), 'p': (frente: "azul", fondo: None)}, base: (arte: "x", estilos: Some("p")))) ,"#,
+                "arte",
+            ),
+            (
+                r#"arte: Some((base: (arte: "xx", estilos: Some("p")))) ,"#,
+                "arte",
+            ),
+        ] {
+            fs::write(
+                &ruta,
+                original.replacen("    nombre:", &format!("    {campos}\n    nombre:"), 1),
+            )
+            .unwrap();
+            let error = cargar_contenido(&fixture.0)
+                .err()
+                .expect("se rechaza el campo inválido");
+            let d = error
+                .diagnosticos()
+                .iter()
+                .find(|d| d.detalle().contains(contexto))
+                .unwrap();
+            assert_eq!(d.clase(), ClaseDiagnosticoContenido::ValorInvalido);
+            assert!(
+                matches!(d.origen(), OrigenDiagnosticoContenido::Archivo { ruta_relativa } if ruta_relativa == Path::new("places/zona_arida.ron"))
+            );
+            assert!(matches!(
+                d.elemento(),
+                Some(ElementoDiagnosticoContenido {
+                    tipo: TipoElementoContenido::Lugar,
+                    ..
+                })
+            ));
+        }
+    }
+
+    #[test]
     fn ubicacion_ron_rechaza_formato_anterior_y_actores_jugables_externos() {
         let fixture = fixture_temporal();
         let archivo = fixture.0.join("actors/principe_perdido.ron");
@@ -2899,7 +3189,7 @@ mod pruebas {
         let destinos =
             desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
                 .unwrap();
-        assert_eq!(destinos.len(), 36);
+        assert_eq!(destinos.len(), 37);
         for region in regiones {
             assert!(!destinos.contains(&region.id()));
             assert!(mundo.lugares_conectados(region.id()).unwrap().is_empty());
@@ -2967,7 +3257,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 119);
+        assert_eq!(mundo.relaciones().len(), 122);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -2979,7 +3269,7 @@ mod pruebas {
                 .as_slice()
             )
         );
-        assert_eq!(contenido.presentacion().lugares().len(), 54);
+        assert_eq!(contenido.presentacion().lugares().len(), 55);
         for (origen, intermedio, destino) in [
             (0, 20, 5),
             (1, 21, 2),
