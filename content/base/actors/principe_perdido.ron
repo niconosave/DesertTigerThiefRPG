@@ -18,7 +18,7 @@
             '5': (frente: "negro", fondo: None),
             '6': (frente: "magentaClaro", fondo: None),
             '7': (frente: "grisOscuro", fondo: Some("grisMuyOscuro")),
-            '8': (frente: "azul", fondo: Some("azul")),
+            '8': (frente: "azul", fondo: None),
             '9': (frente: "amarillo", fondo: None),
             'A': (frente: "negro", fondo: None),
             'B': (frente: "magentaClaro", fondo: None),
@@ -34,24 +34,24 @@
                         
                         
                         
-        🬵🬻████𜵑██▙      
-      🬦🬻▂▂▂▬▬𜴁🬵███      
-      ▐████▀▀🬻███▛      
-       🬬█████▏o█        
+        ▐████████▄      
+      ▐███████████      
+      ▐██████████▀      
+       ▀█████▏o█        
          ▄▀▄████🭏       
          ▄▀▄████        
          ▄▀▄▀▄▀         
    ▄▄███▀▄▀▄▀▄▀▄██      
    ████████████████     
-   ██████████_█████     
+   ████████████████     
 "#,
             estilos: Some(r#"
 000000000000000000000000
 000000000000000000000000
 000000000000000000000000
 000000000000000000000000
-000000001G2222F121000000
-0000001GFFFFFFF321000000
+000000001G22222121000000
+0000001G222222F321000000
 00000031222GGF4413000000
 00000003111745C650000000
 000000000777666666000000
@@ -81,7 +81,7 @@
                 ),
                 "scared": (
                     arte: r#"
-██🯐███
+██🯐██▀
 █(o█  
 ████🭏 
 ████  
@@ -95,7 +95,7 @@
                 ),
                 "angry": (
                     arte: r#"
-██𜰉███
+██𜰉██▀
 █(o█  
 ████🭏 
 ██₤█  
@@ -109,7 +109,7 @@
                 ),
                 "happy": (
                     arte: r#"
-██████
+█████▀
 █▏o█  
 ████🭏 
 ██◥█  
@@ -139,4 +139,3 @@ BB
     )),
     politica: Ninguna,
 )
-//Bueno, esta es mi idea. En general no hay conexiones entre las montañas y los territorios de alrededor, sino que lo que tienen es la relación de bloqueado. Ahora, mi idea es que ciertos personajes que tengan conocimientos especiales para transitar a través de montañas puedan moverse a través de esa conexión de bloqueado. Aunque eso me preocupa porque me pregunto si yo empiezo a agregar todos estos distintos tipos de conexiones de lugares, si eso va a ralentizar mucho el algoritmo que hace las búsquedas de los caminos por el grafo. Pero siguiendo adelante. Eso quiere decir que un grupo que tenga un actor que sabe moverse a través de montañas va a poder viajar por ahí, a través de esos lugares, y un grupo que no lo tiene no va a poder. Ahora, al mismo tiempo puse unos pasos y la idea es que un grupo que no tiene una persona que sabe moverse a través de montañas va a poder usar esos pasos para moverse a lo largo de la montaña. Pero mi idea es que esos lugares son especiales en cuanto a que son peligrosos o son muy difíciles de pasar. Y en la práctica, en la acción de viajar, se vuelven complicados de atravesar. Lo que quiere decir que un grupo que no tiene un montaraz que quiere atravesar una montaña, ese atravesar se va a volver una gran aventura, un evento importante, una hazaña, como el cruce de los Alpes de Aníbal, por ejemplo. Va a ser un problema que va a involucrar el ingenio, la astucia, la preparación y también la suerte de las personas que hagan el viaje. Y no estoy seguro de cuánto peligro podría tener algo así, pero incluso hasta podrían morir actores, con lo cual un jugador se lo tendría que pensar dos veces antes de intentar pasar por uno de esos lugares, o podría ser simplemente tan leve como que se tome mucho tiempo en hacer ese viaje, se pierdan muchos recursos y estaría en cambio disponible un camino más fácil y entonces por lo general tomarían ese camino más fácil, pero eso querría decir que al querer moverse por el mapa van a pegar un gran rodeo, van a hacer una gran travesía. Ahora, los lugares montañosos están conectados entre sí y esa es la parte que me preocupa, porque una vez que un grupo ya está movido a uno de esos lugares montañosos va a poder moverse entre los lugares montañosos con facilidad. Entonces no quiero que eso provoque que otra vez las montañas se vuelvan de fácil tránsito y que los grupos simplemente vayan y vengan sin problemas atravesando las montañas a gusto. Lo que yo quisiera que hagas es que me ayudes a analizar qué consecuencias tendría mi idea sobre el gameplay del juego a la hora de hacer viajes.
