@@ -6,6 +6,11 @@
 | Versión | 0.27 |
 | Fecha | 2026-10-29 |
 
+> Ampliación implementada el 2026-11-02: el progreso público incorpora
+> `lugar_paisaje: IdLugar`, independiente de la posición confirmada del grupo,
+> según [Arte de lugares, sección 3](./21-arte-lugares.md#3-qué-paisaje-se-muestra).
+> Se entrega tanto en fragmentos como en decisiones y no cambia el estado lógico.
+
 > Ampliación implementada el 2026-10-26: fichas, fase Acampando e
 > intenciones se definen en [Acampar](../acciones/07-acampar.md#5-proyección-de-fichas);
 > la finalización compartida con Viajar, en su sección 6.3.

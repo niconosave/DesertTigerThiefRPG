@@ -1,9 +1,11 @@
 mod animacion;
+mod arte_lugares;
 mod audio;
 mod campamento;
 mod colores;
 mod consulta_paleta;
 mod desarrollo;
+mod dibujo_caracteres;
 mod fogata;
 mod graficos;
 mod interfaz;

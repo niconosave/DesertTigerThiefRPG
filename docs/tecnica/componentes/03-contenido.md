@@ -792,10 +792,10 @@ y `arte()`, y se exponen en `VistaLugar.descripcion: String` y
 paleta y el fondo. Su validación informa archivo, clave y tipo Lugar.
 No se agregan a `LugarInicial` ni alteran reglas o relaciones.
 
-El dibujo sobre el mapa queda aplazado. La intención visual es una ilustración
-amplia sobre el mapa y detrás de los actores, fuera de la ventana de viñeta.
-Este incremento solo carga, valida y entrega el arte; no modifica las capas
-del renderizador ni incorpora variantes gráficas de lugares.
+La composición implementada se define en
+[Arte de lugares sobre el mapa](./21-arte-lugares.md): la ilustración se apoya
+encima de las barras y queda detrás de actores y ventanas. Las variantes
+gráficas de lugares siguen aplazadas.
 
 Las pruebas cubren compatibilidad sin campos, normalización y controles del
 texto, paletas y matrices inválidas, glifos, origen de diagnósticos y

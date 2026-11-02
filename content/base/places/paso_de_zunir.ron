@@ -1,7 +1,45 @@
 (
     clave: "paso_de_zunir",
     nombre: "Paso de Zunir",
-    descripcion: "Las paredes de la cordillera se alzan a ambos lados y dejan sobre vos una franja estrecha de cielo. Entre ellas distinguís una senda que dobla junto a la roca y desaparece entre los riscos, mientras el viento resuena en las alturas. Por una abertura entre las crestas alcanzás a ver el Pico de Izir, oscuro y distante sobre las montañas azuladas.",
+    descripcion: "Las paredes de la cordillera se alzan a ambos lados y dejan sobre vos una franja estrecha de cielo.-Entre ellas distinguís una senda que dobla junto a la roca y desaparece entre los riscos, mientras el viento resuena en las alturas.-Por una abertura entre las crestas alcanzás a ver el Pico de Izir, blanco y distante sobre las montañas azuladas.",
+    arte: Some((
+        paleta: {
+            '0': (frente: "gris", fondo: None),
+            'P': (frente: "blanco", fondo: None),
+            'N': (frente: "gris", fondo: None),
+            'R': (frente: "grisOscuro", fondo: None),
+        },
+        base: (
+            arte: r#"
+                                                                                     /\                 
+                                                                                    /^.\                
+                                                                                   /^.^^\               
+                                                          /\                      /^.^^.^\              
+                      /\                                /^^.^\                   /^.^^.^^.\             
+                    /^.^^\                            /.^^.^^.^\                /^.^^.^^\^^\            
+     /\           /^^.^^.^^\                        /./-_-./-_-.-\             /-_-.-./-.\.-\           
+    /.^\        /--/-./-_-.-_\            /\      //^/_-.-/_-.-_-/.\          /_-.-_-/.-_--./\  /\      
+   //-_-\     /-_-/.-/_-.-_-/.-\         /^.\   /.//_-.-./-.-_-^/_-._\       /-.-_-./^-_-.-/-_/^^.^\    
+  //-_-.-\  //-_-/-_/-.-_-^/^-_-.\      /-.-.\/.-//-.-_-/.-_--./-_-.-./\    /.-_--./-_-.-./^/-/_-.-_-\  
+ //_-.-_-/\^/_-.-_-/.-_--./-_-.-^/^\   /.-_--.\^/-.-_-./^-_-.-/_-.-_-/.-^\ /^-_-.-/_-.-_-//-_/-.-_-./_-\
+//-.-_-^/-.\-.-_-./^-_-.-/_-.-_-/.-_-\/^-_-.-/^\^-_--./-_-.-^/-.-_-./^-_-.-\.-.-./-.-_-./-_-/.-_--./-_-.
+"#,
+            estilos: Some(r#"
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000PP00000000000000000
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000PPPP0000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000PPPPPP000000000000000
+0000000000000000000000000000000000000000000000000000000000NN0000000000000000000000PPPPPPPP00000000000000
+0000000000000000000000NN00000000000000000000000000000000NNNNNN0000000000000000000PPPPPPPPPP0000000000000
+00000000000000000000NNNNNN0000000000000000000000000000NNNNNNNNNN0000000000000000PPPPPPPPPPPP000000000000
+00000NN00000000000NNNNNNNNNN000000000000000000000000RRNRRRRRRRRRRR0000000000000PPPPPPPPPPPPPP00000000000
+0000NNNN00000000RRRNRRRRRRRRRR000000000000NN000000RRRNRRRRRRRRRRRRRR0000000000PPPPPPPPPPPPPPPP00NN000000
+000RRRRRR00000RRRRNRRRRRRRRRRRRR000000000NNNN000RRRNRRRRRRRRRRRRRRRRRR0000000PPPPPPPPPPPPPPPPPNNNNNN0000
+00RRRRRRRR00RRRRRNRRRRRRRRRRRRRRRR000000RRRRRRRRRRNRRRRRRRRRRRRRRRRRRRRR0000PPPPPPPPPPPPPPPPRRRRRRRRRR00
+0RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR000RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR0PPPPPPPPPPPPPPPRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRPPPPPPPPPPPPRRRRRRRRRRRRRRRR
+"#),
+        ),
+    )),
     caracteristicas: ["paso", "montanoso", "rocoso", "riscoEstrecho", "oculto"],
     relaciones: [],
     coordenada_central: (x: 100, y: 9),

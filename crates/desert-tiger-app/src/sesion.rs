@@ -149,6 +149,7 @@ pub struct VistaFragmento {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaProgresoViaje {
+    pub lugar_paisaje: IdLugar,
     pub lugar_confirmado: IdLugar,
     pub nombre_lugar_confirmado: String,
     pub siguiente_lugar: Option<IdLugar>,
@@ -615,6 +616,7 @@ impl Partida {
 }
 fn progreso(r: &RegistroEscena, n: &crate::narracion_viaje::Narrador<'_>) -> VistaProgresoViaje {
     VistaProgresoViaje {
+        lugar_paisaje: crate::narracion_viaje::lugar_paisaje(r),
         lugar_confirmado: r.lugar,
         nombre_lugar_confirmado: n.lugar(r.lugar),
         siguiente_lugar: r.siguiente,
@@ -1102,14 +1104,36 @@ mod pruebas {
             .procesar(IntencionFrontend::ComenzarViaje { destino })
             .unwrap();
         let mut descripciones = Vec::new();
+        let mut vio_desplazamiento = false;
         for _ in 0..500 {
             assert_eq!(p.vista(), vista, "releer la vista conserva su narración");
-            let (texto, detalle) = match &vista {
-                VistaSesion::PresentandoAccion(v) => (&v.texto, &v.detalle),
-                VistaSesion::EsperandoDecision(v) => (&v.texto, &v.detalle),
-                VistaSesion::Disponible(_) => return descripciones,
+            let (texto, detalle, progreso, escena) = match &vista {
+                VistaSesion::PresentandoAccion(v) => (&v.texto, &v.detalle, &v.progreso, v.escena),
+                VistaSesion::EsperandoDecision(v) => (&v.texto, &v.detalle, &v.progreso, v.escena),
+                VistaSesion::Disponible(_) => {
+                    assert!(vio_desplazamiento);
+                    return descripciones;
+                }
                 otra => panic!("vista inesperada: {otra:?}"),
             };
+            let paisaje = p
+                .contenido
+                .presentacion()
+                .lugar(progreso.lugar_paisaje)
+                .unwrap();
+            if texto.contains("Partís de ") {
+                vio_desplazamiento = true;
+                assert_ne!(
+                    progreso.lugar_paisaje, progreso.lugar_confirmado,
+                    "el paisaje del inicio del tramo es independiente de la posición ya confirmada"
+                );
+                assert!(texto.starts_with(paisaje.descripcion()));
+            } else {
+                assert_eq!(progreso.lugar_paisaje, progreso.lugar_confirmado);
+            }
+            if escena == Some(ClaveEscena::ViajeLlegada) {
+                assert_eq!(progreso.lugar_paisaje, destino);
+            }
             for descripcion in texto
                 .lines()
                 .filter(|l| l.starts_with("Ves el paisaje de "))

@@ -9,18 +9,24 @@ use crate::audio::{AmbienteSonoro, AvisoAudio};
 
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, MouseButton, MouseEvent, MouseEventKind};
 use desert_tiger_app::{
-    AccionDisponible, CausaIndisponibilidad, ColorRetrato, EntradaResumenNpc, ErrorIntencion,
-    EstiloCeldaRetrato, GraficoRetrato, IdActor, IdLugar, IntencionFrontend, Partida, RetratoActor,
-    VistaActor, VistaDecision, VistaFragmento, VistaLugar, VistaMundo, VistaSesion,
+    AccionDisponible, ArteLugar, CausaIndisponibilidad, EntradaResumenNpc, ErrorIntencion,
+    GraficoRetrato, IdActor, IdLugar, IntencionFrontend, Partida, RetratoActor, VistaActor,
+    VistaDecision, VistaFragmento, VistaLugar, VistaMundo, VistaSesion,
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+#[cfg(test)]
+use ratatui::style::Color;
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use unicode_width::UnicodeWidthChar;
 
-use crate::recursos::{NEGRO_PURO, RecursosVisuales};
+use crate::recursos::RecursosVisuales;
+#[cfg(test)]
+use crate::{dibujo_caracteres::color_retrato, recursos::NEGRO_PURO};
+#[cfg(test)]
+use desert_tiger_app::ColorRetrato;
 
 const ANCHO_MINIMO: u16 = 80;
 const ALTO_MINIMO: u16 = 24;
@@ -745,6 +751,9 @@ impl Interfaz {
                 }
             }
         }
+        if let Some(arte) = self.arte_lugar_visible() {
+            crate::arte_lugares::dibujar(frame, area, arte, recursos);
+        }
         let lugar_grupo = match &self.vista {
             VistaSesion::PresentandoAccion(fragmento) => fragmento.progreso.lugar_confirmado,
             VistaSesion::EsperandoDecision(decision) => decision.progreso.lugar_confirmado,
@@ -775,6 +784,24 @@ impl Interfaz {
             self.reloj.paso_250_ms(),
             false,
         );
+    }
+
+    fn arte_lugar_visible(&self) -> Option<&ArteLugar> {
+        if self.campamento.is_some() || self.inspector.activo || self.mostrar_conexiones {
+            return None;
+        }
+        let id = match &self.vista {
+            VistaSesion::Disponible(_) => self.ultima_vista_mundo.lugar_jugador,
+            VistaSesion::PresentandoAccion(v) => v.progreso.lugar_paisaje,
+            VistaSesion::EsperandoDecision(v) => v.progreso.lugar_paisaje,
+            VistaSesion::Acampando(_) | VistaSesion::Fatal(_) => return None,
+        };
+        self.ultima_vista_mundo
+            .lugares
+            .iter()
+            .find(|l| l.id == id)?
+            .arte
+            .as_ref()
     }
 
     fn objetivo_camara(&self, mundo: &VistaMundo) -> desert_tiger_app::CoordenadaMapa {
@@ -1449,67 +1476,20 @@ fn dibujar_grafico_retrato(
     grafico: &GraficoRetrato,
     recursos: &RecursosVisuales,
 ) {
-    for (indice, celda) in grafico.celdas().iter().enumerate() {
-        if celda.glifo == ' ' {
-            continue;
-        }
-        let px = x.saturating_add(i64::try_from(indice % grafico.ancho()).unwrap_or(i64::MAX));
-        let py = y.saturating_add(i64::try_from(indice / grafico.ancho()).unwrap_or(i64::MAX));
-        if px >= i64::from(area.x)
-            && px < i64::from(area.right())
-            && py >= i64::from(area.y)
-            && py < i64::from(area.bottom())
-        {
-            let estilo = celda
-                .estilo
-                .map(estilo_retrato)
-                .unwrap_or(recursos.ui.destacado);
-            // El fondo puede ser transparente; la negrita/tenue del terreno no.
-            let estilo = estilo.remove_modifier(Modifier::all().difference(estilo.add_modifier));
-            if let (Ok(px), Ok(py)) = (u16::try_from(px), u16::try_from(py)) {
-                poner_celda(frame, px, py, celda.glifo, estilo);
-            }
-        }
-    }
+    crate::dibujo_caracteres::dibujar_celdas(
+        frame,
+        area,
+        x,
+        y,
+        grafico.ancho(),
+        grafico.celdas(),
+        recursos,
+    );
 }
 
 fn poner_celda(frame: &mut Frame<'_>, x: u16, y: u16, caracter: char, estilo: Style) {
     if let Some(celda) = frame.buffer_mut().cell_mut((x, y)) {
         celda.set_char(caracter).set_style(estilo);
-    }
-}
-
-fn estilo_retrato(estilo: EstiloCeldaRetrato) -> Style {
-    let mut resultado = Style::default().fg(color_retrato(estilo.frente));
-    if let Some(fondo) = estilo.fondo {
-        resultado = resultado.bg(if fondo == ColorRetrato::Negro {
-            NEGRO_PURO
-        } else {
-            color_retrato(fondo)
-        });
-    }
-    resultado
-}
-
-fn color_retrato(color: ColorRetrato) -> Color {
-    match color {
-        ColorRetrato::Negro => Color::Black,
-        ColorRetrato::Rojo => Color::Red,
-        ColorRetrato::Verde => Color::Green,
-        ColorRetrato::Amarillo => Color::Yellow,
-        ColorRetrato::Azul => Color::Blue,
-        ColorRetrato::Magenta => Color::Magenta,
-        ColorRetrato::Cian => Color::Cyan,
-        ColorRetrato::Gris => Color::Gray,
-        ColorRetrato::GrisOscuro => Color::DarkGray,
-        ColorRetrato::GrisMuyOscuro => Color::Rgb(32, 32, 32),
-        ColorRetrato::RojoClaro => Color::LightRed,
-        ColorRetrato::VerdeClaro => Color::LightGreen,
-        ColorRetrato::AmarilloClaro => Color::LightYellow,
-        ColorRetrato::AzulClaro => Color::LightBlue,
-        ColorRetrato::MagentaClaro => Color::LightMagenta,
-        ColorRetrato::CianClaro => Color::LightCyan,
-        ColorRetrato::Blanco => Color::White,
     }
 }
 
@@ -2404,6 +2384,10 @@ mod pruebas {
     }
 
     fn partida_con_retrato_capas() -> Partida {
+        partida_con_retrato_y_arte(None)
+    }
+
+    fn partida_con_retrato_y_arte(arte: Option<&str>) -> Partida {
         use std::fs;
         use std::sync::atomic::{AtomicU64, Ordering};
         static NUMERO: AtomicU64 = AtomicU64::new(0);
@@ -2457,8 +2441,147 @@ mod pruebas {
         )"#,
         )
         .unwrap();
+        if let Some(arte) = arte {
+            let ruta = destino.join("places/zona_arida.ron");
+            let original = fs::read_to_string(&ruta).unwrap();
+            fs::write(&ruta, original.replacen("(\n", &format!("(\n{arte}\n"), 1)).unwrap();
+        }
         let contenido = cargar_contenido(&destino).unwrap();
         Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap()
+    }
+
+    #[test]
+    fn paisaje_respeta_contexto_capas_seleccion_y_exclusiones() {
+        let dibujo = vec!["#".repeat(100); 10].join("\n");
+        let campo = format!("arte: Some((base: (arte: {dibujo:?}, estilos: None))),");
+        let mut i = Interfaz::nueva(partida_con_retrato_y_arte(Some(&campo))).unwrap();
+        i.ultima_vista_mundo.companeros.clear();
+        let origen = i.ultima_vista_mundo.lugar_jugador;
+        let arte = i.arte_lugar_visible().unwrap().clone();
+        assert!(
+            i.ultima_vista_mundo
+                .lugares
+                .iter()
+                .find(|l| l.id == origen)
+                .unwrap()
+                .descripcion
+                .is_empty()
+        );
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let render = |i: &Interfaz, ancho, alto| {
+            let mut t = Terminal::new(TestBackend::new(ancho, alto)).unwrap();
+            t.draw(|f| i.dibujar(f, &recursos)).unwrap();
+            t.backend().buffer().clone()
+        };
+        let completo = render(&i, 80, 24);
+        assert_eq!(completo[(70, 21)].symbol(), "#");
+        assert_ne!(
+            completo[(0, 21)].symbol(),
+            "#",
+            "el actor queda por delante"
+        );
+        assert!(
+            completo
+                .content
+                .iter()
+                .enumerate()
+                .filter(|(n, _)| n / 80 >= 22)
+                .all(|(_, c)| c.symbol() != "#")
+        );
+        let original = i.partida.vista();
+        let amplio = render(&i, 120, 30);
+        assert_eq!(amplio[(109, 27)].symbol(), "#");
+        assert_ne!(amplio[(110, 27)].symbol(), "#");
+        assert_eq!(i.partida.vista(), original);
+
+        let destino = i
+            .ultima_vista_mundo
+            .acciones
+            .iter()
+            .find_map(|a| match a {
+                AccionDisponible::Viajar { destinos } => destinos.first().copied(),
+                _ => None,
+            })
+            .unwrap();
+        i.modo = ModoLocal::Seleccion {
+            destinos: vec![destino],
+            foco: 0,
+        };
+        assert_eq!(
+            i.arte_lugar_visible(),
+            Some(&arte),
+            "seleccionar no previsualiza otro lugar"
+        );
+        let selector = render(&i, 80, 24);
+        assert_eq!(selector[(40, 21)].symbol(), "#");
+        let borde_lista = i.geometria_mapa.get().unwrap().area.right();
+        assert!((borde_lista..80).all(|x| (0..22).all(|y| selector[(x, y)].symbol() != "#")));
+        i.modo = ModoLocal::Normal;
+        i.inspector.activo = true;
+        assert!(i.arte_lugar_visible().is_none());
+        i.inspector.activo = false;
+        i.mostrar_conexiones = true;
+        assert!(i.arte_lugar_visible().is_none());
+        i.mostrar_conexiones = false;
+        i.enviar(IntencionFrontend::ComenzarViaje { destino });
+        match &mut i.vista {
+            VistaSesion::PresentandoAccion(v) => {
+                v.progreso.lugar_confirmado = destino;
+                v.progreso.lugar_paisaje = origen;
+            }
+            VistaSesion::EsperandoDecision(v) => {
+                v.progreso.lugar_confirmado = destino;
+                v.progreso.lugar_paisaje = origen;
+            }
+            _ => panic!("se esperaba una viñeta"),
+        }
+        assert_eq!(i.arte_lugar_visible(), Some(&arte));
+        let modal = render(&i, 80, 24);
+        assert!(
+            modal.content.iter().filter(|c| c.symbol() == "#").count()
+                < completo
+                    .content
+                    .iter()
+                    .filter(|c| c.symbol() == "#")
+                    .count(),
+            "la ventana tapa el paisaje"
+        );
+        let antes = i.vista.clone();
+        i.mostrar_detalle = true;
+        render(&i, 100, 28);
+        assert_eq!(i.vista, antes);
+        i.ultima_vista_mundo
+            .lugares
+            .iter_mut()
+            .find(|l| l.id == origen)
+            .unwrap()
+            .arte = None;
+        assert!(i.arte_lugar_visible().is_none());
+        assert!(render(&i, 80, 24).content.iter().all(|c| c.symbol() != "#"));
+
+        let oculto = i
+            .ultima_vista_mundo
+            .lugares
+            .iter_mut()
+            .find(|l| l.caracteristicas.iter().any(|c| c == "oculto"))
+            .unwrap();
+        oculto.nombre.clear();
+        oculto.coordenadas_rotulo.clear();
+        oculto.arte = Some(arte.clone());
+        let id_oculto = oculto.id;
+        i.ultima_vista_mundo.lugar_jugador = id_oculto;
+        i.vista = VistaSesion::Disponible(i.ultima_vista_mundo.clone());
+        assert_eq!(i.arte_lugar_visible(), Some(&arte));
+        assert!(render(&i, 79, 24).content.iter().all(|c| c.symbol() != "#"));
+        i.vista = VistaSesion::Fatal(desert_tiger_app::VistaFatal {
+            codigo: desert_tiger_app::CodigoFatalSesion::Motor,
+            mensaje: "Error de prueba".into(),
+        });
+        assert!(i.arte_lugar_visible().is_none());
+        let mut campamento = Interfaz::nueva(partida_con_retrato_y_arte(Some(&campo))).unwrap();
+        campamento.enviar(IntencionFrontend::ComenzarCampamento);
+        assert!(campamento.arte_lugar_visible().is_none());
     }
 
     #[test]

@@ -83,10 +83,13 @@ Omitir el campo conserva el relato actual. Los cambios se cargan al iniciar
 una nueva partida.
 
 También se admite `arte: Some((paleta: {...}, base: (...)))`, con la misma
-estructura de dibujo y estilos usada por la base de los retratos. Se carga y
-queda disponible para el frontend; su dibujo sobre el mapa se desarrollará
-después. El [formato completo y un ejemplo](./tecnica/componentes/03-contenido.md#descripción-e-ilustración-de-lugar--2026-11-02)
+estructura de dibujo y estilos usada por la base de los retratos. Se dibuja
+centrado y apoyado encima de las barras, sobre el mapa y detrás de los actores
+y las ventanas. Los espacios dejan ver el mapa. El [formato completo y un ejemplo](./tecnica/componentes/03-contenido.md#descripción-e-ilustración-de-lugar--2026-11-02)
 explican cómo escribirlo. Ambos campos son independientes y opcionales.
+Durante un desplazamiento muestra el paisaje del lugar de partida que relata
+la escena; al llegar, el del destino. El inspector de coordenadas y las
+conexiones de desarrollo ocultan esta capa mientras están activos.
 
 ## Elegir los colores al jugar
 

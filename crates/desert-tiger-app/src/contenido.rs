@@ -2757,7 +2757,7 @@ mod pruebas {
         assert_eq!(a.coordenadas_rotulo(), b.coordenadas_rotulo());
         assert_eq!(a.nombre().chars().count(), a.coordenadas_rotulo().len());
         assert!(a.descripcion().is_empty() && b.descripcion().is_empty());
-        assert!(medio.nombre().is_empty() && medio.coordenadas_rotulo().is_empty());
+        // Oculto controla la selección; el autor puede conservar un rótulo.
         assert!(medio.descripcion().contains("Pico de Izir"));
         let (mut mundo, _) = c.instanciar_estado().unwrap();
         assert!(mundo.lugares_conectados(centro).unwrap().contains(&entrada));

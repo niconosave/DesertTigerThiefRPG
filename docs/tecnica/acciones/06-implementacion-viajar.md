@@ -874,7 +874,8 @@ a mostrar su descripción. La referencia al comienzo del camino es una indicaci�
 narrativa, sin una mecánica de descubrimiento o de prevención de repeticiones.
 
 Sin descripción se conserva el relato existente. El contenido se carga al inicio
-de la partida y el narrador consulta el catálogo validado. La ilustración sigue
-disponible en VistaLugar, sin dibujarse sobre el mapa ni dentro de las viñetas.
+de la partida y el narrador consulta el catálogo validado. La ilustración se
+compone sobre el mapa según [Arte de lugares](../componentes/21-arte-lugares.md),
+usando el mismo contexto narrativo; no se inserta dentro de la ventana de viñeta.
 Las pruebas recorren viajes de ida y vuelta y comprueban la presencia del paisaje
 del origen, los lugares intermedios y el destino, junto con el detalle expandido.

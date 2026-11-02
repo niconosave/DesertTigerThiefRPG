@@ -57,6 +57,9 @@ componente mantienen su alcance. Las verificaciones están en el
 
 ## 1. Propósito
 
+La composición implementada de ilustraciones de lugares sobre el mapa se define
+en [Arte de lugares](./21-arte-lugares.md), que fija su contexto, anclaje y capas.
+
 Este documento es la fuente canónica del frontend inicial que presentará el
 juego dentro de una terminal de Linux. Desarrolla la sección de frontend del
 [diseño general](../../diseno-general.md) y respeta los límites del
@@ -817,8 +820,9 @@ pasadas: primero prueba la ilustración y después produce el resultado definiti
 El arte concreto no procede de `desert-tiger-core`, `desert-tiger-app` ni
 `content/`. El catálogo del frontend no puede ejecutar reglas ni cambiar el
 significado de la clave; otro frontend es libre de usar otro medio visual o de
-ignorarla. Los retratos de Actor recibidos desde contenido son la única excepción
-de arte ASCII externo al crate de terminal.
+ignorarla. Los retratos de Actor y las ilustraciones de Lugar recibidos desde
+contenido son las excepciones de arte externo al crate de terminal. Las últimas
+se componen según el [contrato 21](./21-arte-lugares.md).
 
 Las ilustraciones de viñeta son estáticas en el primer incremento. No tienen
 reloj, fotogramas ni transiciones propias. Esta restricción no afecta la

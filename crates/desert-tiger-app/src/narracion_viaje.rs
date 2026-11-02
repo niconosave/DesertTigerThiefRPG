@@ -5,6 +5,13 @@ use desert_tiger_core::{IdActor, IdLugar, TiempoAccion};
 
 mod resumen;
 
+pub(crate) fn lugar_paisaje(registro: &RegistroEscena) -> IdLugar {
+    match &registro.contenido {
+        ContenidoEscena::Desplazamiento(d) => d.origen,
+        _ => registro.lugar,
+    }
+}
+
 pub(crate) struct Narrador<'a>(pub &'a ContenidoValidado);
 pub(crate) struct TextoEscena {
     pub titulo: String,
@@ -233,11 +240,11 @@ impl Narrador<'_> {
         }
         // El desglose conserva el desarrollo completo, pero la lectura inicial
         // prioriza lo ocurrido y sus consecuencias. Ambos respetan la privacidad.
-        let lugar_descrito = match &r.contenido {
-            ContenidoEscena::Desplazamiento(d) => Some(d.origen),
-            ContenidoEscena::Llegada { .. } => Some(r.lugar),
-            _ => None,
-        };
+        let lugar_descrito = matches!(
+            &r.contenido,
+            ContenidoEscena::Desplazamiento(_) | ContenidoEscena::Llegada { .. }
+        )
+        .then(|| lugar_paisaje(r));
         let descripcion = lugar_descrito
             .and_then(|id| self.0.presentacion().lugar(id))
             .map(|l| l.descripcion())
