@@ -3,7 +3,7 @@
     nombre: "Paso Akr",
     nombre_abreviado: "Paso Akr",
     simbolo:"⋂",
-    caracteristicas: ["montanoso", "rocoso", "empinado"],
+    caracteristicas: ["paso", "montanoso", "rocoso", "empinado"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("paso_escarpado")),
         (tipo: Conectado, destino: Lugar("espinazo_gris")),

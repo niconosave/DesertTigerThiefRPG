@@ -3,7 +3,7 @@
     nombre: "Paso Nur",
     nombre_abreviado: "Paso Nur",
     simbolo:"≫",
-    caracteristicas: ["montanoso", "rocoso"],
+    caracteristicas: ["paso", "montanoso", "rocoso"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("pico_de_izir")),
     ],

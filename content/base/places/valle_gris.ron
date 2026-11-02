@@ -3,9 +3,7 @@
     nombre: "Valle Gris",
     nombre_abreviado: "Valle Gris",
     caracteristicas: ["fertil", "resguardado"],
-    relaciones: [
-        (tipo: Conectado, destino: Lugar("alcazar_gris")),
-    ],
+    relaciones: [],
     coordenada_central: (x: 110, y: 41),
     coordenadas_rotulo: [
         (x: 107, y: 39),

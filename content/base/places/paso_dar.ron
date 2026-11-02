@@ -1,9 +1,9 @@
 (
     clave: "paso_dar",
-    nombre: "Paso Dar",
-    nombre_abreviado: "Paso Dar",
+    nombre: "Monte Dar",
+    nombre_abreviado: "Monte Dar",
     simbolo:"⇈",
-    caracteristicas: ["montanoso", "rocoso", "escalable"],
+    caracteristicas: ["montanoso", "rocoso", "empinado", "muroNatural"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("hamada_de_zahrun")),
         (tipo: Conectado, destino: Lugar("zona_arida")),
@@ -19,5 +19,6 @@
         (x: 99, y: 23),
         (x: 100, y: 23),
         (x: 101, y: 23),
+        (x: 102, y: 23),
     ],
 )

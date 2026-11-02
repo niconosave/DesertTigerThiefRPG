@@ -2,7 +2,7 @@
     clave: "paso_mir",
     nombre: "Paso Mir",
     nombre_abreviado: "Paso Mir",
-    caracteristicas: ["montanoso", "rocoso", "riscoEstrecho"],
+    caracteristicas: ["paso", "montanoso", "rocoso", "riscoEstrecho"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("alcazar_gris")),
         (tipo: Conectado, destino: Lugar("bosque_oscuro")),

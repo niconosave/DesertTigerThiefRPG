@@ -1,14 +1,19 @@
 (
     entradas: [
         (
+            clave: "paso",
+            nombre: "Paso",
+            descripcion: "Una abertura o corredor natural entre elevaciones del terreno.",
+        ),
+        (
             clave: "riscoEstrecho",
             nombre: "Risco estrecho",
             descripcion: "Paso por un risco con poco espacio para transitar.",
         ),
         (
-            clave: "escalable",
-            nombre: "Escalable",
-            descripcion: "El terreno ofrece apoyos que permiten escalarlo.",
+            clave: "muroNatural",
+            nombre: "Muro natural",
+            descripcion: "Una pared natural de roca sólida y alta, de pendiente muy pronunciada.",
         ),
         (
             clave: "caudaloso",

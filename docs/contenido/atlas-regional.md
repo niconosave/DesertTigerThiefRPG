@@ -317,10 +317,12 @@ actual; su contrato se define en
 
 Paso Zek enlaza Hamada de Zahrun, Espinazo Gris y Pico de Izir; su risco estrecho
 queda descrito con `riscoEstrecho`. Paso Nur enlaza únicamente con Pico de Izir.
-Paso Dar enlaza Hamada Roja con Espinazo Gris y tiene `escalable`. Estas dos
-características nuevas se documentan en el glosario sin añadir mecánicas todavía.
-Paso Akr enlaza Espinazo Gris con Paso Escarpado y tiene `empinado`, una
-característica que ya interpreta el motor de viajes.
+Monte Dar, antes Paso Dar, enlaza Hamada Roja y Hamada de Zahrun con Espinazo
+Gris. Es una montaña empinada con `muroNatural`: una pared alta de roca sólida.
+Paso Akr enlaza Espinazo Gris con Paso Escarpado y tiene `empinado`.
+Los lugares que siguen siendo pasos tienen `paso` y `montanoso`; estas
+características describen su geografía. Las reglas específicas de su travesía
+se desarrollarán en la acción de Viajar.
 
 Los cuatro pertenecen a la Cordillera de Azrum. La conexión directa entre
 Espinazo Gris y Paso Escarpado se sustituye por el recorrido a través de Paso
@@ -333,6 +335,10 @@ Valle de Azen y Valle de Tirsa amplían la Cuenca del Drâa, y Bosque de Ilun
 amplía el Bosque de Tamrut. Valle de Tirsa queda sin conexiones de tránsito. Valle de Azen conecta con
 Bosque de Ilun, y este con Marisma Verde. Paso Mir pertenece a Montes de Qadim, conecta Alcázar Gris
 con Bosque oscuro y tiene la característica `riscoEstrecho`.
+
+Alcázar Gris y Valle Gris conservan únicamente la relación `Bloquea`, sin
+conexión transitable entre ambos. El acceso ordinario a Alcázar Gris desde
+Bosque oscuro pasa por Paso Mir.
 
 
 La red occidental incorpora enlaces de Mesa del Sol con Paso Zek y Mar del

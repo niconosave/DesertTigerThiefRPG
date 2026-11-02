@@ -3,7 +3,7 @@
     nombre: "Paso Zek",
     nombre_abreviado: "Paso Zek",
     simbolo:"⋂",
-    caracteristicas: ["montanoso", "rocoso", "riscoEstrecho"],
+    caracteristicas: ["paso", "montanoso", "rocoso", "riscoEstrecho"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("hamada_de_zahrun")),
         (tipo: Conectado, destino: Lugar("espinazo_gris")),
