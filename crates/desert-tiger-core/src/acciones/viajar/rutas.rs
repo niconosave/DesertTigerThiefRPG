@@ -151,6 +151,7 @@ pub(crate) fn rapida(
     mundo: &Mundo,
     origen: IdLugar,
     destino: IdLugar,
+    viajeros: &[IdActor],
     azar: &mut dyn FuenteAzar,
 ) -> Resultado<Vec<IdLugar>> {
     let mut dist = BTreeMap::from([(origen, 0_u64)]);
@@ -164,8 +165,16 @@ pub(crate) fn rapida(
             .lugares_conectados(a)
             .ok_or_else(|| fallo("índice de conexiones ausente"))?
         {
-            let m = medio(mundo, a, b, 1, 1, 1);
-            let costo = mitad(mundo, a, m, 0, true, 0)? + mitad(mundo, b, m, 0, true, 0)?;
+            let m = medio(
+                mundo,
+                a,
+                b,
+                viajeros.len(),
+                viajeros.len() as u64,
+                viajeros.len() as u64,
+            );
+            let costo = mitad(mundo, a, m, 0, true, estado_pie(mundo, viajeros))?
+                + mitad(mundo, b, m, 0, true, estado_pie(mundo, viajeros))?;
             let nd = d
                 .checked_add(costo)
                 .ok_or_else(|| fallo("ruta desbordada"))?;

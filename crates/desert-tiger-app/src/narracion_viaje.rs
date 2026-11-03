@@ -124,14 +124,136 @@ impl Narrador<'_> {
             reservas(&c.suplemento)
         )
     }
+    fn deliberacion(&self, r: &RegistroEscena, propuestas: &[PropuestaRuta]) -> String {
+        let companeros = r
+            .participantes
+            .iter()
+            .skip(1)
+            .map(|&a| self.actor(a))
+            .collect::<Vec<_>>();
+        let mut partes = vec![if companeros.is_empty() {
+            format!(
+                "Te detenés en {} a pensar cómo alcanzar {}. Repasás las distancias y buscás en tu memoria un camino que puedas seguir.",
+                self.lugar(r.lugar),
+                self.lugar(r.destino_final)
+            )
+        } else {
+            format!(
+                "Te detenés en {} y discutís con {} cómo alcanzar {}. Entre recuerdos del territorio y dudas sobre lo que les espera, sopesan por dónde abrirse camino.",
+                self.lugar(r.lugar),
+                companeros.join(" y "),
+                self.lugar(r.destino_final)
+            )
+        }];
+        if propuestas.is_empty() {
+            partes.push(if companeros.is_empty() {
+                "No conocés lo bastante la ruta para idear un itinerario fiable; si partís, tendrás que orientarte sobre la marcha.".into()
+            } else {
+                "Nadie logra idear un itinerario fiable: los recuerdos no bastan para enlazar el camino. Si deciden partir, tendrán que orientarse sobre la marcha.".into()
+            });
+        }
+        for p in propuestas {
+            let mut actores = std::collections::BTreeMap::<IdActor, Vec<PerfilRuta>>::new();
+            for respaldo in &p.respaldos {
+                let perfiles = actores.entry(respaldo.actor).or_default();
+                if !perfiles.contains(&respaldo.perfil) {
+                    perfiles.push(respaldo.perfil);
+                }
+            }
+            for (actor, perfiles) in actores {
+                let motivos = perfiles
+                    .iter()
+                    .map(|perfil| match perfil {
+                        PerfilRuta::Rapida => "seguir el recorrido que parece más rápido",
+                        PerfilRuta::Conocidos => "enlazar los parajes conocidos",
+                        PerfilRuta::Montana => "cruzar las montañas",
+                        PerfilRuta::Caballo => {
+                            "aprovechar el terreno donde los caballos pueden avanzar mejor"
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" y ");
+                let sujeto = if Some(&actor) == r.participantes.first() {
+                    "Vos proponés".into()
+                } else {
+                    format!("{} propone", self.actor(actor))
+                };
+                let referencia = p
+                    .ruta
+                    .iter()
+                    .skip(1)
+                    .find(|&&l| l != r.destino_final)
+                    .map(|&l| format!(", pasando por {}", self.lugar(l)))
+                    .unwrap_or_default();
+                partes.push(format!("{sujeto} {motivos}{referencia}."));
+            }
+        }
+        partes.push("Te tomás el día para valorar las posibilidades antes de decidir si emprender el viaje.".into());
+        partes.join(" ")
+    }
+    pub(crate) fn describir_propuesta(&self, p: &PropuestaRuta) -> (String, String, Vec<String>) {
+        let nombre = |perfil| match perfil {
+            PerfilRuta::Rapida => "Ruta rápida",
+            PerfilRuta::Conocidos => "Por lugares conocidos",
+            PerfilRuta::Montana => "Por las montañas",
+            PerfilRuta::Caballo => "Favorable al caballo",
+        };
+        let respaldos: Vec<_> = p
+            .respaldos
+            .iter()
+            .map(|r| {
+                let lugares = r
+                    .lugares_relevantes
+                    .iter()
+                    .map(|&l| self.lugar(l))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                let rasgos = r
+                    .caracteristicas_habilitantes
+                    .iter()
+                    .map(|c| c.como_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!(
+                    "{}: {}{}{}",
+                    self.actor(r.actor),
+                    nombre(r.perfil),
+                    if rasgos.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" ({rasgos})")
+                    },
+                    if lugares.is_empty() {
+                        String::new()
+                    } else {
+                        format!("; reconoce {lugares}")
+                    }
+                )
+            })
+            .collect();
+        let titulo = format!(
+            "{} - {}",
+            p.respaldos
+                .first()
+                .map_or("Camino propuesto", |r| nombre(r.perfil)),
+            formatear(p.previsto)
+        );
+        let detalle = format!(
+            "Tiempo de traslado previsto, sin carga ni imprevistos: {}.\nRecorrido: {}.\n{}",
+            formatear(p.previsto),
+            p.ruta
+                .iter()
+                .map(|&l| self.lugar(l))
+                .collect::<Vec<_>>()
+                .join(" → "),
+            respaldos.join("\n")
+        );
+        (titulo, detalle, respaldos)
+    }
     pub fn redactar(&self, r: &RegistroEscena) -> TextoEscena {
         let mut detalle = Vec::new();
         let mut texto=match &r.contenido {
-            ContenidoEscena::Plan{proponente:Some(id),habilitacion,ruta,previsto}=>{
-                let lugares=ruta.as_ref().map(|v|v.iter().map(|&id|self.lugar(id)).collect::<Vec<_>>().join(" → ")).unwrap_or_default();
-                format!("Querés alcanzar {}. {} aporta su experiencia ({}) y propone este recorrido: {lugares}.\nLa previsión sin demora es {}. El camino real podrá exigir más tiempo. Decidir cómo partir ocupa un día, incluso si cancelás.",self.lugar(r.destino_final),self.actor(*id),habilitacion.join(", "),previsto.map(formatear).unwrap_or_default())
-            }
-            ContenidoEscena::Plan{..}=>format!("Querés alcanzar {}, pero nadie del grupo conoce un recorrido fiable. Dedicás un día a reconocer la dirección general; tendrán que orientarse sobre la marcha.",self.lugar(r.destino_final)),
+            ContenidoEscena::Plan{propuestas}=>self.deliberacion(r,propuestas),
             ContenidoEscena::Preparacion{chequeo,configuracion}=>format!("Antes de partir de {}, {} calcula y reúne comida, agua y suministros.\n{}\nConsiguen {} animales de carga, {} caballos y {} camellos para el recorrido previsto.\n{}",self.lugar(r.lugar),self.actor(chequeo.responsable),self.chequeo(chequeo),configuracion.animales,r.caballos,r.camellos,reservas(&configuracion.reservas)),
             ContenidoEscena::CargaInicial{base,alternativa}=>format!("Durante la preparación, {} evalúan cómo llevar las provisiones. El peso obliga a decidir.\nEvitar la demora:\n{}\nLlevar un animal menos:\n{}",r.participantes.iter().map(|&id|self.actor(id)).collect::<Vec<_>>().join(", "),self.configuracion(base,r.plan_visible),self.configuracion(alternativa,r.plan_visible)),
             ContenidoEscena::Incompleto{inicial:true,..}=>"Conseguís menos provisiones de las que habían calculado. No sabés si alcanzarán. Podés partir con lo reunido o cancelar y devolver los suministros.".into(),
@@ -314,8 +436,8 @@ fn titulo(t: ClaveTarjeta) -> &'static str {
 }
 pub(crate) fn opcion(o: OpcionViaje) -> &'static str {
     match o {
-        OpcionViaje::AceptarPlan => "Aceptar el plan",
-        OpcionViaje::OtraRuta => "Partir por otro camino",
+        OpcionViaje::ElegirRuta(_) => "Elegir este camino",
+        OpcionViaje::Improvisar => "Improvisar el camino",
         OpcionViaje::Cancelar => "Cancelar el viaje",
         OpcionViaje::AceptarDemora => "Aceptar la demora",
         OpcionViaje::EvitarDemora => "Evitar la demora por carga",
@@ -372,6 +494,68 @@ mod pruebas {
             _ => panic!(),
         };
         (contenido, mundo, registro)
+    }
+
+    #[test]
+    fn deliberacion_distingue_companeros_soledad_y_propuestas() {
+        let (contenido, mut mundo, mut registro) = escenario();
+        let narrador = Narrador(&contenido);
+        let sin_plan = narrador.deliberacion(&registro, &[]);
+        assert!(sin_plan.contains("discutís con"));
+        assert!(sin_plan.contains("Nadie logra idear"));
+        registro.participantes.truncate(1);
+        let solo = narrador.deliberacion(&registro, &[]);
+        assert!(!solo.contains("discutís con") && !solo.contains("Nadie"));
+        assert!(solo.contains("No conocés lo bastante"));
+        let actor = mundo.actor_jugador();
+        mundo
+            .aplicar_lote(desert_tiger_core::LoteOperaciones::uno(
+                desert_tiger_core::OperacionMundo::AnadirCaracteristicaActor {
+                    actor,
+                    caracteristica: desert_tiger_core::Caracteristica::nueva("viajero".into())
+                        .unwrap(),
+                },
+            ))
+            .unwrap();
+        let origen = mundo.ubicacion_grupo();
+        let destino = destinos_disponibles(&mundo, actor)
+            .unwrap()
+            .into_iter()
+            .find(|l| !mundo.lugares_conectados(origen).unwrap().contains(l))
+            .unwrap();
+        let rumbos = crate::contexto_viaje::construir(&mundo, contenido.presentacion()).unwrap();
+        let contexto = ContextoAccion {
+            inicio: InstanteAccion {
+                fecha: mundo.fecha(),
+                fraccion: FraccionDia::CERO,
+            },
+            rumbos: &rumbos,
+        };
+        let inicio = iniciar(
+            &mut mundo,
+            SolicitudAccion::Viajar { actor, destino },
+            &contexto,
+            &mut Cero,
+        )
+        .unwrap();
+        let PasoAccion::Decision(d) = inicio.paso else {
+            panic!()
+        };
+        let ContenidoEscena::Plan { ref propuestas } = d.escena.contenido else {
+            panic!()
+        };
+        assert!(!propuestas.is_empty());
+        let texto = narrador.deliberacion(&d.escena, propuestas);
+        assert!(texto.contains("Vos proponés"));
+        assert!(texto.contains("recorrido que parece más rápido"));
+        assert!(!texto.contains("Nadie logra idear"));
+        for respaldo in propuestas
+            .iter()
+            .flat_map(|p| &p.respaldos)
+            .filter(|r| r.actor != actor)
+        {
+            assert!(texto.contains(&narrador.actor(respaldo.actor)));
+        }
     }
 
     #[test]
@@ -450,12 +634,7 @@ mod pruebas {
         assert_eq!(narrador.redactar(&registro).expresion, Some("scared"));
         registro.contenido = ContenidoEscena::Llegada { lugares: 2 };
         assert_eq!(narrador.redactar(&registro).expresion, Some("happy"));
-        registro.contenido = ContenidoEscena::Plan {
-            proponente: None,
-            habilitacion: vec![],
-            ruta: None,
-            previsto: None,
-        };
+        registro.contenido = ContenidoEscena::Plan { propuestas: vec![] };
         assert_eq!(narrador.redactar(&registro).expresion, None);
     }
 }

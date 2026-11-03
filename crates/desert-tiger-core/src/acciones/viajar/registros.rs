@@ -104,10 +104,7 @@ pub struct ConfiguracionVista {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ContenidoEscena {
     Plan {
-        proponente: Option<IdActor>,
-        habilitacion: Vec<&'static str>,
-        ruta: Option<Vec<IdLugar>>,
-        previsto: Option<TiempoAccion>,
+        propuestas: Vec<PropuestaRuta>,
     },
     Preparacion {
         chequeo: ResultadoChequeo,
@@ -165,8 +162,8 @@ pub struct RegistroEscena {
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OpcionViaje {
-    AceptarPlan,
-    OtraRuta,
+    ElegirRuta(IdPropuestaRuta),
+    Improvisar,
     Cancelar,
     AceptarDemora,
     EvitarDemora,
@@ -203,4 +200,28 @@ pub enum PasoAccion {
     Escena(RegistroEscena),
     Decision(SolicitudDecision),
     Finalizada(FinalizacionAccion),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct IdPropuestaRuta(pub(crate) u32);
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum PerfilRuta {
+    Rapida,
+    Conocidos,
+    Montana,
+    Caballo,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RespaldoRuta {
+    pub actor: IdActor,
+    pub perfil: PerfilRuta,
+    pub caracteristicas_habilitantes: Vec<crate::Caracteristica>,
+    pub lugares_relevantes: Vec<IdLugar>,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PropuestaRuta {
+    pub id: IdPropuestaRuta,
+    pub ruta: Vec<IdLugar>,
+    pub previsto: TiempoAccion,
+    pub respaldos: Vec<RespaldoRuta>,
 }

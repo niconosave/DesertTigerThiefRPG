@@ -1883,3 +1883,11 @@ Las pruebas cubren la CLI, respaldo con carpetas/archivos/entradas ausentes,
 reemplazos parciales, separación de modos, aceptación de PUA, rechazo de Unicode
 en dibujos ASCII, diagnósticos de alternativas inválidas y conservación de las
 variantes tras cambios de vista, incluyendo sus dimensiones y capas.
+
+## Planificación de rutas — 2026-11-03
+
+La decisión de planificación presenta primero una viñeta de deliberación y
+después la elección por barras y la previsualización del
+[contrato 08](../acciones/08-planificacion-rutas.md#5-selección-y-previsualización-terminal).
+Se confirma con Enter después de considerar una opción; sus controles sustituyen
+la paginación y atajos ordinarios únicamente mientras se compara el itinerario.

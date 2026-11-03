@@ -175,6 +175,7 @@ pub struct VistaProgresoViaje {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaDecision {
+    pub presentacion: PresentacionDecision,
     pub id: IdDecisionVista,
     pub titulo: String,
     pub texto: String,
@@ -185,8 +186,21 @@ pub struct VistaDecision {
     pub detalle: Vec<String>,
     pub opciones: Vec<VistaOpcionDecision>,
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PresentacionDecision {
+    Vineta,
+    PlanificacionRutas,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaRutaPropuesta {
+    pub proponentes: Vec<String>,
+    pub lugares: Vec<IdLugar>,
+    pub tiempo_previsto: String,
+    pub respaldos: Vec<String>,
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaOpcionDecision {
+    pub ruta: Option<VistaRutaPropuesta>,
     pub id: IdOpcionVista,
     pub texto: String,
     pub detalle: Option<String>,
@@ -609,14 +623,50 @@ impl Partida {
                 .iter()
                 .enumerate()
                 .map(|(i, &o)| {
+                    let propuesta = match (&registro.contenido, o) {
+                        (acciones::ContenidoEscena::Plan { propuestas }, acciones::OpcionViaje::ElegirRuta(id)) => {
+                            Some(propuestas.iter().find(|p| p.id == id).ok_or("propuesta de opción ausente")?)
+                        }
+                        _ => None,
+                    };
+                    let (etiqueta, detalle, ruta) = if let Some(p) = propuesta {
+                        let (etiqueta, detalle, respaldos) = narrador.describir_propuesta(p);
+                        let mut actores=std::collections::BTreeSet::new();
+                        let proponentes=p.respaldos.iter().filter(|r|actores.insert(r.actor)).map(|r|narrador.actor(r.actor)).collect();
+                        let ruta = VistaRutaPropuesta {
+                            proponentes,
+                            lugares: p.ruta.clone(),
+                            tiempo_previsto: crate::tiempo::formatear(p.previsto),
+                            respaldos,
+                        };
+                        (etiqueta, Some(detalle), Some(ruta))
+                    } else {
+                        let detalle = if matches!(registro.contenido, acciones::ContenidoEscena::Plan { .. }) {
+                            Some(if o == acciones::OpcionViaje::Improvisar {
+                                "Te orientarás sobre la marcha, sin adoptar un itinerario conocido. No hay previsión de duración."
+                            } else {
+                                "Si cancelás, no partís. La deliberación habrá ocupado un día."
+                            }.to_owned())
+                        } else { None };
+                        (crate::narracion_viaje::opcion(o).into(), detalle, None)
+                    };
                     Ok(VistaOpcionDecision {
+                        ruta,
                         id: IdOpcionVista(u32::try_from(i).map_err(|_| "demasiadas opciones")?),
-                        texto: crate::narracion_viaje::opcion(o).into(),
-                        detalle: None,
+                        texto: etiqueta,
+                        detalle,
                     })
                 })
                 .collect::<Result<Vec<_>, String>>()?;
             VistaSesion::EsperandoDecision(VistaDecision {
+                presentacion: if matches!(
+                    registro.contenido,
+                    acciones::ContenidoEscena::Plan { .. }
+                ) {
+                    PresentacionDecision::PlanificacionRutas
+                } else {
+                    PresentacionDecision::Vineta
+                },
                 id: IdDecisionVista(self.ordinal),
                 titulo: texto.titulo,
                 texto: texto.texto,

@@ -36,7 +36,7 @@ pub struct EjecucionAccion {
     pub(super) destino: IdLugar,
     pub(super) lugar: IdLugar,
     pub(super) ruta: Vec<IdLugar>,
-    pub(super) rapida: Vec<IdLugar>,
+    pub(super) propuestas: Vec<PropuestaRuta>,
     pub(super) larga: Vec<IdLugar>,
     pub(super) posicion: usize,
     pub(super) inicio: InstanteAccion,

@@ -44,3 +44,5 @@ pub use sesion::{IdCampamento, IntegranteCampamento, VistaCampamento};
 
 pub use desert_tiger_core::{HermanoDerivado, Progenitores, UbicacionActor};
 pub use fichas::{VinculoFicha, VistaUbicacionActor};
+
+pub use sesion::{PresentacionDecision, VistaRutaPropuesta};

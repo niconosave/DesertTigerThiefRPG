@@ -47,11 +47,13 @@ pub(crate) struct Interfaz {
     ultima_vista_mundo: VistaMundo,
     retratos: HashMap<IdActor, RetratoActor>,
     modo: ModoLocal,
+    planificacion: crate::planificacion_rutas::EstadoPlanificacion,
     menu_desarrollo: bool,
     foco_desarrollo: usize,
     mostrar_conexiones: bool,
     inspector: crate::desarrollo::InspectorCoordenadas,
     geometria_mapa: Cell<Option<GeometriaMapa>>,
+    tamano_terminal: Cell<(u16, u16)>,
     confirmar_salida: bool,
     salir: bool,
     error_recuperable: Option<String>,
@@ -78,11 +80,13 @@ impl Interfaz {
             ultima_vista_mundo,
             retratos: HashMap::new(),
             modo: ModoLocal::Normal,
+            planificacion: crate::planificacion_rutas::EstadoPlanificacion::default(),
             menu_desarrollo: false,
             foco_desarrollo: 0,
             mostrar_conexiones: false,
             inspector: crate::desarrollo::InspectorCoordenadas::default(),
             geometria_mapa: Cell::new(None),
+            tamano_terminal: Cell::new((ANCHO_MINIMO, ALTO_MINIMO)),
             confirmar_salida: false,
             salir: false,
             error_recuperable: None,
@@ -338,6 +342,14 @@ impl Interfaz {
             }
             return;
         }
+        if self.decision_planificacion().is_some() {
+            let (ancho, alto) = self.tamano_terminal.get();
+            if ancho < ANCHO_MINIMO || alto < ALTO_MINIMO {
+                return;
+            }
+            self.manejar_planificacion(evento);
+            return;
+        }
         if normalizar_letra(evento.code) == Some('d') && self.vista_tiene_detalle() {
             if self.mostrar_detalle {
                 self.mostrar_detalle = false;
@@ -367,6 +379,107 @@ impl Interfaz {
                 _ => {}
             },
             ModoLocal::Normal => self.manejar_modo_semantico(evento.code),
+        }
+    }
+
+    fn decision_planificacion(&self) -> Option<&VistaDecision> {
+        match &self.vista {
+            VistaSesion::EsperandoDecision(d)
+                if d.presentacion == desert_tiger_app::PresentacionDecision::PlanificacionRutas =>
+            {
+                Some(d)
+            }
+            _ => None,
+        }
+    }
+
+    fn manejar_planificacion(&mut self, evento: KeyEvent) {
+        let Some(d) = self.decision_planificacion() else {
+            return;
+        };
+        let cantidad = d.opciones.len();
+        if self.mostrar_detalle {
+            match evento.code {
+                KeyCode::Esc | KeyCode::Char('d' | 'D') => {
+                    self.mostrar_detalle = false;
+                    self.pagina = self.pagina_antes_detalle;
+                }
+                KeyCode::Up | KeyCode::PageUp => self.pagina = self.pagina.saturating_sub(1),
+                KeyCode::Down | KeyCode::PageDown => {
+                    self.pagina = (self.pagina + 1).min(self.paginas_vigentes().saturating_sub(1))
+                }
+                _ => {}
+            }
+            return;
+        }
+        if !self.planificacion.eligiendo {
+            match evento.code {
+                KeyCode::Enter => {
+                    if self.pagina + 1 < self.paginas_vigentes() {
+                        self.pagina += 1;
+                    } else {
+                        self.planificacion.eligiendo = true;
+                        self.pagina = 0;
+                    }
+                }
+                KeyCode::Left | KeyCode::PageUp => self.pagina = self.pagina.saturating_sub(1),
+                KeyCode::Right | KeyCode::PageDown => {
+                    self.pagina = (self.pagina + 1).min(self.paginas_vigentes().saturating_sub(1))
+                }
+                KeyCode::Char('d' | 'D') => {
+                    self.pagina_antes_detalle = self.pagina;
+                    self.mostrar_detalle = true;
+                    self.pagina = 0;
+                }
+                _ => {}
+            }
+            return;
+        }
+        if evento
+            .modifiers
+            .contains(crossterm::event::KeyModifiers::SHIFT)
+        {
+            let (x, y) = self.planificacion.desplazamiento.get();
+            self.planificacion.desplazamiento.set(match evento.code {
+                KeyCode::Left => (x.saturating_sub(1), y),
+                KeyCode::Right => (x.saturating_add(1), y),
+                KeyCode::Up => (x, y.saturating_sub(1)),
+                KeyCode::Down => (x, y.saturating_add(1)),
+                _ => (x, y),
+            });
+            return;
+        }
+        match evento.code {
+            KeyCode::Up | KeyCode::Left => {
+                self.planificacion.foco = self.planificacion.foco.saturating_sub(1);
+                self.planificacion.desplazamiento.set((0, 0));
+            }
+            KeyCode::Down | KeyCode::Right => {
+                self.planificacion.foco =
+                    (self.planificacion.foco + 1).min(cantidad.saturating_sub(1));
+                self.planificacion.desplazamiento.set((0, 0));
+            }
+            KeyCode::Esc => {
+                self.planificacion.foco = cantidad.saturating_sub(1);
+                self.planificacion.desplazamiento.set((0, 0));
+            }
+            KeyCode::Home => self.planificacion.desplazamiento.set((0, 0)),
+            KeyCode::Char('d' | 'D') => {
+                self.pagina_antes_detalle = self.pagina;
+                self.mostrar_detalle = true;
+                self.pagina = 0;
+            }
+            KeyCode::Enter => {
+                if let Some(d) = self.decision_planificacion()
+                    && let Some(o) = d.opciones.get(self.planificacion.foco)
+                {
+                    self.enviar(IntencionFrontend::ResponderDecision {
+                        decision: d.id,
+                        opcion: o.id,
+                    });
+                }
+            }
+            _ => {}
         }
     }
 
@@ -468,6 +581,7 @@ impl Interfaz {
         match self.partida.procesar(intencion) {
             Ok(vista) => {
                 self.vista = vista;
+                self.planificacion = crate::planificacion_rutas::EstadoPlanificacion::default();
                 if !matches!(self.vista, VistaSesion::Disponible(_)) {
                     self.inspector.puntero = None;
                 }
@@ -508,6 +622,7 @@ impl Interfaz {
     fn dibujar_contenido(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
         self.geometria_mapa.set(None);
         let area = frame.area();
+        self.tamano_terminal.set((area.width, area.height));
         let fondo = recursos.paleta.fondo_pantalla(recursos.ui.pantalla.bg);
         frame.render_widget(Block::default().style(recursos.ui.pantalla.bg(fondo)), area);
         if area.width < ANCHO_MINIMO || area.height < ALTO_MINIMO {
@@ -523,7 +638,9 @@ impl Interfaz {
         }
         let mundo = &self.ultima_vista_mundo;
         let region_mundo = Rect::new(area.x, area.y, area.width, area.height - 2);
-        if let Some(campamento) = &self.campamento {
+        if self.decision_planificacion().is_some() {
+            self.dibujar_mundo(frame, region_mundo, mundo, recursos);
+        } else if let Some(campamento) = &self.campamento {
             campamento.dibujar(frame, region_mundo, mundo, recursos, &self.reloj);
         } else if let ModoLocal::Seleccion { destinos, foco } = &self.modo {
             let ancho_nombre = destinos
@@ -578,6 +695,34 @@ impl Interfaz {
                     fragmento.escena.filter(|_| !self.mostrar_detalle),
                     recursos,
                 )
+            }
+            VistaSesion::EsperandoDecision(decision) if self.decision_planificacion().is_some() => {
+                if !self.planificacion.eligiendo && !self.mostrar_detalle {
+                    let paginas = paginar_texto(&decision.texto);
+                    let pagina = self.pagina.min(paginas.len().saturating_sub(1));
+                    self.dibujar_ventana(
+                        frame,
+                        region_mundo,
+                        &titulo_paginado("Antes de partir", pagina, paginas.len()),
+                        &paginas[pagina],
+                        decision.escena,
+                        recursos,
+                    );
+                } else if self.mostrar_detalle {
+                    let paginas = paginar_texto(&crate::planificacion_rutas::detalle(
+                        decision,
+                        self.planificacion.foco,
+                    ));
+                    let pagina = self.pagina.min(paginas.len().saturating_sub(1));
+                    self.dibujar_ventana(
+                        frame,
+                        region_mundo,
+                        &titulo_paginado("Detalles del camino", pagina, paginas.len()),
+                        &paginas[pagina],
+                        None,
+                        recursos,
+                    );
+                }
             }
             VistaSesion::EsperandoDecision(decision) => {
                 let paginas = if self.mostrar_detalle {
@@ -668,7 +813,11 @@ impl Interfaz {
         mundo: &VistaMundo,
         recursos: &RecursosVisuales,
     ) {
-        let objetivo = self.objetivo_camara(mundo);
+        let objetivo = if let Some(d) = self.decision_planificacion() {
+            self.planificacion.objetivo(d, mundo, area)
+        } else {
+            self.objetivo_camara(mundo)
+        };
         let (origen_x, margen_x) =
             origen_eje(mundo.mapa.ancho, usize::from(area.width), objetivo.x);
         let (origen_y, margen_y) =
@@ -725,6 +874,18 @@ impl Interfaz {
                 );
             }
         }
+        if let Some(d) = self.decision_planificacion()
+            && let Some(ruta) = self.planificacion.ruta(d)
+        {
+            crate::planificacion_rutas::dibujar_ruta(
+                frame,
+                mundo,
+                ruta,
+                recursos,
+                self.reloj.paso_250_ms(),
+                |c| geometria.a_pantalla(c),
+            );
+        }
         let foco = match &self.modo {
             ModoLocal::Seleccion { destinos, foco } => destinos.get(*foco).copied(),
             ModoLocal::Normal => None,
@@ -742,7 +903,7 @@ impl Interfaz {
                 poner_celda(frame, x, y, simbolo, estilo);
             }
         }
-        if self.mostrar_conexiones {
+        if self.mostrar_conexiones && self.decision_planificacion().is_none() {
             crate::desarrollo::dibujar_conexiones(
                 frame,
                 mundo,
@@ -796,6 +957,18 @@ impl Interfaz {
         {
             poner_celda(frame, x, y, '@', recursos.ui.foco);
         }
+        if let Some(d) = self.decision_planificacion()
+            && let Some(ruta) = self.planificacion.ruta(d)
+        {
+            crate::planificacion_rutas::dibujar_numeros(
+                frame,
+                mundo,
+                ruta,
+                recursos,
+                self.reloj.paso_250_ms(),
+                |c| geometria.a_pantalla(c),
+            );
+        }
         if let Some(coordenada) = self.coordenada_inspeccion()
             && let Some(posicion) = geometria.a_pantalla(coordenada)
             && let Some(celda) = frame.buffer_mut().cell_mut(posicion)
@@ -814,7 +987,11 @@ impl Interfaz {
     }
 
     fn arte_lugar_visible(&self) -> Option<&ArteLugar> {
-        if self.campamento.is_some() || self.inspector.activo || self.mostrar_conexiones {
+        if self.decision_planificacion().is_some()
+            || self.campamento.is_some()
+            || self.inspector.activo
+            || self.mostrar_conexiones
+        {
             return None;
         }
         let id = match &self.vista {
@@ -885,6 +1062,29 @@ impl Interfaz {
                 .unwrap_or("destino");
             return format!("> Destino: {nombre}. Elige adónde viajar.");
         }
+        if let Some(d) = self.decision_planificacion() {
+            if !self.planificacion.eligiendo {
+                return "Te detenés a deliberar cómo emprender el viaje.".into();
+            }
+            if let Some(o) = d.opciones.get(self.planificacion.foco) {
+                let quienes = o
+                    .ruta
+                    .as_ref()
+                    .map(|r| r.proponentes.join(", "))
+                    .unwrap_or_default();
+                return format!(
+                    "Camino {}/{}: {}{}",
+                    self.planificacion.foco + 1,
+                    d.opciones.len(),
+                    o.texto,
+                    if quienes.is_empty() {
+                        String::new()
+                    } else {
+                        format!(" — {quienes}")
+                    }
+                );
+            }
+        }
         match &self.vista {
             VistaSesion::PresentandoAccion(fragmento) => texto_progreso(&fragmento.progreso),
             VistaSesion::EsperandoDecision(decision) => texto_progreso(&decision.progreso),
@@ -910,6 +1110,21 @@ impl Interfaz {
     }
 
     fn texto_acciones(&self) -> String {
+        if let Some(d) = self.decision_planificacion()
+            && !self.confirmar_salida
+        {
+            return if self.mostrar_detalle {
+                " ↑↓/PgUp/PgDn Leer | D/Esc Volver | Q Salir".into()
+            } else if !self.planificacion.eligiendo {
+                " Enter Continuar | ←→ Página | D Detalles | Q Salir".into()
+            } else {
+                let opcion = d
+                    .opciones
+                    .get(self.planificacion.foco)
+                    .map_or("", |o| o.texto.as_str());
+                format!(" ←→ Camino | Enter {opcion} | D Detalles | Esc Cancelar | Q Salir")
+            };
+        }
         if self.menu_desarrollo && !self.confirmar_salida {
             return " [↑/↓] Opción  [Enter/Espacio] Alternar  [C/I] Atajos  [Esc/D] Cerrar".into();
         }
@@ -1007,6 +1222,19 @@ impl Interfaz {
     }
 
     fn paginas_vigentes(&self) -> usize {
+        if let Some(d) = self.decision_planificacion() {
+            return if self.mostrar_detalle {
+                paginar_texto(&crate::planificacion_rutas::detalle(
+                    d,
+                    self.planificacion.foco,
+                ))
+                .len()
+            } else if !self.planificacion.eligiendo {
+                paginar_texto(&d.texto).len()
+            } else {
+                1
+            };
+        }
         match &self.vista {
             VistaSesion::PresentandoAccion(fragmento) => {
                 paginas_fragmento(fragmento, self.mostrar_detalle).len()
@@ -2429,6 +2657,9 @@ mod pruebas {
     }
 
     fn partida_con_retrato_y_arte(arte: Option<&str>) -> Partida {
+        partida_con_retrato_y_arte_y_viajero(arte, false)
+    }
+    fn partida_con_retrato_y_arte_y_viajero(arte: Option<&str>, viajero: bool) -> Partida {
         use std::fs;
         use std::sync::atomic::{AtomicU64, Ordering};
         static NUMERO: AtomicU64 = AtomicU64::new(0);
@@ -2486,6 +2717,18 @@ mod pruebas {
             let ruta = destino.join("places/zona_arida.ron");
             let original = fs::read_to_string(&ruta).unwrap();
             fs::write(&ruta, original.replacen("(\n", &format!("(\n{arte}\n"), 1)).unwrap();
+        }
+        if viajero {
+            let ruta = destino.join("actors/principe_perdido.ron");
+            let texto = fs::read_to_string(&ruta).unwrap();
+            fs::write(
+                ruta,
+                texto.replace(
+                    "caracteristicas: [], relaciones: []",
+                    "caracteristicas: [\"viajero\"], relaciones: []",
+                ),
+            )
+            .unwrap();
         }
         let contenido = cargar_contenido(&destino).unwrap();
         Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap()
@@ -2572,6 +2815,8 @@ mod pruebas {
                 v.progreso.lugar_paisaje = origen;
             }
             VistaSesion::EsperandoDecision(v) => {
+                // La composición del paisaje se prueba en una viñeta ordinaria.
+                v.presentacion = desert_tiger_app::PresentacionDecision::Vineta;
                 v.progreso.lugar_confirmado = destino;
                 v.progreso.lugar_paisaje = origen;
             }
@@ -2874,14 +3119,22 @@ mod pruebas {
         let partida =
             Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
         let mut i = Interfaz::nueva(partida).unwrap();
-        i.manejar_tecla(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
-        i.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-        while let VistaSesion::PresentandoAccion(f) = i.vista.clone() {
-            i.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: f.id });
-        }
-        let VistaSesion::EsperandoDecision(d) = &i.vista else {
+        let destino = i
+            .ultima_vista_mundo
+            .lugares
+            .iter()
+            .find(|l| l.nombre == "Paso Escarpado")
+            .unwrap()
+            .id;
+        i.enviar(IntencionFrontend::ComenzarViaje { destino });
+        // Esta prueba aísla la paginación de las decisiones ordinarias.
+        let VistaSesion::EsperandoDecision(d) = &mut i.vista else {
             panic!("se esperaba decisión");
         };
+        d.presentacion = desert_tiger_app::PresentacionDecision::Vineta;
+        for o in &mut d.opciones {
+            o.detalle = None;
+        }
         assert!(
             !d.detalle.is_empty(),
             "la aplicación conserva el detalle común"
@@ -3686,5 +3939,94 @@ mod pruebas {
                 );
             }
         }
+    }
+    #[test]
+    fn planificacion_considera_sin_confirmar_y_enter_adopta_el_camino() {
+        let mut i = Interfaz::nueva(partida_con_retrato_y_arte_y_viajero(None, true)).unwrap();
+        let destino = i
+            .ultima_vista_mundo
+            .lugares
+            .iter()
+            .find(|l| l.nombre == "Paso Escarpado")
+            .unwrap()
+            .id;
+        i.enviar(IntencionFrontend::ComenzarViaje { destino });
+        let d = i
+            .decision_planificacion()
+            .expect("debe ofrecer propuestas")
+            .clone();
+        assert!(d.opciones.iter().any(|o| o.ruta.is_some()));
+        assert!(d.opciones.len() >= 3);
+        assert!(i.arte_lugar_visible().is_none());
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let sesion = i.partida.vista();
+        for (ancho, alto) in [(80, 24), (120, 40), (79, 23)] {
+            let cuadro = cuadro_campamento(&i, &recursos, ancho, alto);
+            assert_eq!(cuadro.area.width, ancho);
+            assert_eq!(i.partida.vista(), sesion);
+        }
+        cuadro_campamento(&i, &recursos, 80, 24);
+        let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
+        assert!(!i.planificacion.eligiendo);
+        assert!(
+            i.planificacion.ruta(&d).is_none(),
+            "el relato no previsualiza una elección todavía"
+        );
+        i.manejar_tecla(tecla(KeyCode::Down));
+        assert_eq!(i.planificacion.foco, 0, "leer la viñeta no elige otra ruta");
+        while !i.planificacion.eligiendo {
+            i.manejar_tecla(tecla(KeyCode::Enter));
+            assert_eq!(
+                i.partida.vista(),
+                sesion,
+                "asentir no confirma la decisión del motor"
+            );
+        }
+        let cuadro = cuadro_campamento(&i, &recursos, 80, 24);
+        assert_eq!(
+            i.geometria_mapa.get().unwrap().area.width,
+            80,
+            "el mapa ya no tiene panel lateral"
+        );
+        assert!(
+            !cuadro
+                .content
+                .iter()
+                .map(|c| c.symbol())
+                .collect::<String>()
+                .contains("Caminos")
+        );
+        assert!(i.planificacion.ruta(&d).is_some());
+        i.manejar_tecla(tecla(KeyCode::Right));
+        assert_eq!(i.planificacion.foco, 1);
+        assert_eq!(i.partida.vista(), sesion);
+        i.manejar_tecla(tecla(KeyCode::Up));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Right, KeyModifiers::SHIFT));
+        assert_eq!(i.planificacion.desplazamiento.get(), (1, 0));
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        assert!(i.mostrar_detalle);
+        let foco = i.planificacion.foco;
+        i.manejar_tecla(tecla(KeyCode::Down));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert_eq!(i.planificacion.foco, foco);
+        assert_eq!(i.partida.vista(), sesion);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(!i.mostrar_detalle);
+        assert_eq!(i.planificacion.desplazamiento.get(), (1, 0));
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert_eq!(i.planificacion.foco, d.opciones.len() - 1);
+        assert!(
+            i.planificacion
+                .ruta(i.decision_planificacion().unwrap())
+                .is_none()
+        );
+        assert_eq!(i.partida.vista(), sesion);
+        i.manejar_tecla(tecla(KeyCode::Home));
+        assert_eq!(i.planificacion.desplazamiento.get(), (0, 0));
+        i.planificacion.foco = 0;
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert_ne!(i.partida.vista(), sesion);
+        assert!(i.decision_planificacion().is_none());
     }
 }

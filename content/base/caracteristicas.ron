@@ -1,5 +1,6 @@
 (
     entradas: [
+        (clave: "montaraz", nombre: "Montaraz", descripcion: "Conoce el terreno montañoso y puede proponer caminos a través de las montañas."),
         (
             clave: "oculto",
             nombre: "Oculto",

@@ -63,7 +63,7 @@ cada tarjeta. Las monturas y los animales de carga no son intercambiables.
 | Momento | Resolución |
 |---|---|
 | Destino | El jugador declara el Lugar al que quiere llevar al Grupo. |
-| Planificación | Se determinan las rutas rápida y larga y se busca un proponente válido. Sin él, se usa [`VIA-RUT-01`](#via-rut-01); con él, [`VIA-RUT-02`](#via-rut-02). |
+| Planificación | Vecinos: preparación directa. Otros destinos: propuestas, improvisación o cancelación mediante [`VIA-RUT-02`](#via-rut-02). |
 | Preparación | [`VIA-APR-01`](#via-apr-01) calcula y reúne provisiones. Se evalúan las configuraciones de carga y, si corresponde, [`VIA-APR-05`](#via-apr-05); se obtienen automáticamente los animales fijados. Si `CalcularProvisiones` fracasó, sigue [`VIA-APR-03`](#via-apr-03). |
 | Desplazamiento | Antes de cada conexión se elige el medio con los contadores actuales. Se presenta exactamente una tarjeta: [`VIA-DES-NAV`](#via-des-navegar), [`VIA-DES-CAB`](#via-des-cabalgar), [`VIA-DES-CAM`](#via-des-camello) o [`VIA-DES-AND`](#via-des-andar). |
 | Cierre de escena | Se aplican tiempo, consumo y consecuencias de cada escena. En un desplazamiento, salvo terminación expresa, el Grupo completa la conexión y el Lugar de destino de esa conexión pasa a ser el Lugar actual. |
@@ -85,42 +85,9 @@ por el mero hecho de interrumpir el viaje.
 
 ### 3.1. Construcción y elección de ruta
 
-La **ruta rápida** es la ruta válida con menor tiempo previsto sin demora,
-calculado con las reglas de tiempo. Se comparan días, no cantidad de conexiones;
-si varias empatan, se elige una al azar. El algoritmo para encontrarlas pertenece
-al diseño técnico.
-
-La **ruta larga** alcanza el mismo destino por otro camino y contiene más Lugares.
-Representa el recorrido de un Grupo sin conocimientos suficientes para planificar.
-Si `C` cuenta los Lugares de la rápida, incluidos origen y destino, añade un entero
-`E` que cumple:
-
-```text
-C ÷ 4 < E < C
-mínimo de E = parte entera(C ÷ 4) + 1
-máximo de E = C − 1
-Lugares de la ruta larga = C + E
-```
-
-Cualquier técnica puede construirla si produce una ruta válida con esos extremos
-y ese intervalo. Su duración se calcula con las mismas reglas que la rápida.
-
-Si el procedimiento no consigue una alternativa dentro del intervalo, se
-acepta una ruta con una cantidad de Lugares más parecida a la rápida, o incluso
-la propia ruta rápida. La falta de una alternativa larga no impide emprender el
-viaje. Si no existe ninguna ruta conectada hasta el destino, no se puede iniciar
-`Viajar`. La técnica inicial construye rutas sin repetir Lugares y se especifica
-en el contrato técnico; no introduce vueltas para alcanzar el intervalo.
-
-Puede proponer la ruta rápida cualquier Actor que cumpla al menos una condición:
-
-- Posee `Viajero`.
-- Posee `Explorador`.
-- Tiene una Relación `Conoce` con al menos `redondear hacia arriba(C ÷ 2)` Lugares
-  de la ruta rápida, contando ambos extremos. No necesitan ser consecutivos.
-
-No hay chequeo ni grados de aptitud entre candidatos; si hay varios, se sortea
-el proponente. La tarjeta de ruta determina la elección y la información visible.
+La planificación vigente se define en las [reglas de propuestas de caminos](../08-planificacion-rutas.md#2-reglas-del-juego).
+Incluye vecinos directos sin deliberación, propuestas de todos los viajeros,
+ruta improvisada y comparación temporal. Su sección 3 fija los algoritmos.
 
 ### 3.2. Medio de cada conexión
 
@@ -481,7 +448,8 @@ acciones diferentes pueden tener responsables diferentes.
 
 Cuando una regla necesita un Actor afectado sin otro criterio, se sortea entre
 los elegibles después de aplicar exclusiones; si queda uno, se lo elige.
-Este sorteo no reemplaza la selección del responsable ni la del proponente.
+Este sorteo no reemplaza la selección del responsable. Los proponentes se
+conservan según el contrato de planificación, sin sortear uno solo.
 
 | Acción | Capacidad evaluada | Modificadores propios | Uso en `Viajar` |
 |---|---|---|---|
@@ -522,7 +490,9 @@ su propio orden, tono y forma de presentar la información; puede adaptarlos
 sin modificar las demás. Las cantidades visibles proceden siempre de las
 cuentas del viaje y las unidades alimenticias permanecen ocultas.
 
-Cada viñeta tiene dos niveles de lectura:
+La deliberación previa tiene su párrafo compuesto y paginación según el
+[contrato de planificación](../08-planificacion-rutas.md#43-vista-pública-y-narración).
+Para las demás viñetas se conservan los siguientes niveles de lectura:
 
 - **Relato principal:** entre una y tres oraciones en segunda persona, como un
   narrador que te cuenta lo que vivís. Sitúa el intento, cuenta el acontecimiento
@@ -550,7 +520,7 @@ integrantes, las Características y la carga cuando alteren el resultado.
 | Carga | Peso soportado por Actores, límite conjunto, exceso en kg y horas añadidas; hacer visible el efecto de un animal limitante. |
 | Provisiones | Cantidades concretas de carne seca, panes, queso, pescado, botas y litros. Nunca unidades alimenticias. |
 | Chequeos | Cada tarjeta decide si revela dificultad, cara, bonos y total; siempre relaciona causas y resultado. Navegación exige el detalle indicado en su tarjeta. |
-| Incertidumbre inicial | Sin proponente no se revela la ruta ni su previsión. `VIA-APR-01` muestra responsable, capacidades y cantidades obtenidas, pero no la necesidad base ni si alcanzarán. |
+| Incertidumbre inicial | Al improvisar no se revela la ruta ni su previsión. `VIA-APR-01` muestra responsable, capacidades y cantidades obtenidas, pero no la necesidad base ni si alcanzarán. |
 
 Los desplazamientos sitúan el incidente en el Lugar donde sucede y distinguen
 la elección pendiente del movimiento confirmado. El relato breve prioriza el
@@ -583,31 +553,20 @@ disparadores, resultados, decisiones y requisitos propios.
 
 ### 8.1. Planificación
 
-<a id="via-rut-01"></a>
-#### VIA-RUT-01 — Partir sin un plan
+Las reglas vigentes y el protocolo están en el [contrato de propuestas](../08-planificacion-rutas.md).
 
-**Resolución; 24 horas, antes de crear reservas.** Ocurre si no hay proponente
-válido. Adopta la ruta larga y la mantiene oculta. Explica que el Grupo conoce
-la dirección general, pero carece de un recorrido fiable y se orientará sobre
-la marcha. No muestra duración, provisiones ni dificultades y no permite cancelar.
-Sigue `VIA-APR-01`; el día transcurrido no consume reservas todavía inexistentes.
+<a id="via-rut-01"></a>
+#### VIA-RUT-01 — Histórico
+
+Ya no se emite la partida automática sin plan: incluso sin propuestas se puede
+improvisar o cancelar. Los vecinos pasan directamente a la preparación.
 
 <a id="via-rut-02"></a>
-#### VIA-RUT-02 — Propuesta de ruta
+#### VIA-RUT-02 — Propuestas de caminos
 
-**Decisión; 24 horas, antes de crear reservas.** Identifica al proponente y el
-conocimiento que lo habilita; describe principales Lugares, medios, dificultades
-conocidas y tiempo previsto sin demora, sin garantizar duración real.
-
-| Opción | Consecuencia |
-|---|---|
-| Aceptar el plan | Adopta la ruta rápida y sigue `VIA-APR-01`. |
-| Rechazarlo y partir por otro camino | Adopta la ruta larga y sigue `VIA-APR-01`. |
-| Cancelar | Termina `Viajar` antes de partir. |
-
-No hay chequeo: `Viajar` calcula la ruta y sus estimaciones. El día pasa
-cualquiera sea la elección, sin consumo de reservas. No revela estimaciones
-de alimento o agua, necesidad base ni el cálculo posterior de aprovisionamiento.
+La [sección 2 del contrato 08](../08-planificacion-rutas.md#2-reglas-del-juego)
+define candidatos, elecciones, duración y resultado; las secciones 4 y 5 definen
+el protocolo y la previsualización, sin cambiar las tarjetas de desplazamiento.
 
 <a id="via-desplazamiento"></a>
 ### 8.2. Desplazamientos

@@ -23,6 +23,7 @@ use rutas::Medio;
 use tiempo::HorasViaje;
 
 mod estado;
+mod propuestas;
 use estado::{EfectosEscena, Fase, Preparacion};
 pub use estado::{EjecucionAccion, InicioAccion};
 pub fn iniciar(
@@ -78,15 +79,24 @@ pub fn iniciar(
             }
         }
     }
-    let rapida = rutas::rapida(mundo, lugar, destino, azar)?;
-    let larga = rutas::larga(mundo, &rapida, azar)?;
+    let directo = mundo
+        .lugares_conectados(lugar)
+        .is_some_and(|v| v.contains(&destino));
+    let (ruta, larga, propuestas) = if directo {
+        (vec![lugar, destino], Vec::new(), Vec::new())
+    } else {
+        let rapida = rutas::rapida(mundo, lugar, destino, &viajeros, azar)?;
+        let larga = rutas::larga(mundo, &rapida, azar)?;
+        let propuestas = propuestas::generar(mundo, &viajeros, &rapida, &larga)?;
+        (rapida, larga, propuestas)
+    };
     let mut ejecucion = EjecucionAccion {
         dirigente: actor,
         viajeros,
         destino,
         lugar,
-        ruta: rapida.clone(),
-        rapida,
+        ruta,
+        propuestas,
         larga,
         posicion: 0,
         inicio: contexto.inicio,
@@ -100,8 +110,8 @@ pub fn iniciar(
         camellos: 0,
         animales: 0,
         demoras: Vec::new(),
-        visible: false,
-        fase: Fase::Plan,
+        visible: directo,
+        fase: if directo { Fase::Preparar } else { Fase::Plan },
         ordinal: 0,
         espera: None,
     };
@@ -163,12 +173,19 @@ pub fn responder(
             if r.opcion == OpcionViaje::Cancelar {
                 s.fase = Fase::Terminar(CierreViaje::Cancelado);
             } else {
-                s.visible = r.opcion == OpcionViaje::AceptarPlan;
-                s.ruta = if s.visible {
-                    s.rapida.clone()
+                if let OpcionViaje::ElegirRuta(id) = r.opcion {
+                    s.ruta = s
+                        .propuestas
+                        .iter()
+                        .find(|p| p.id == id)
+                        .ok_or(ErrorMotor::Rechazo(RechazoAccion::OpcionNoVigente))?
+                        .ruta
+                        .clone();
+                    s.visible = true;
                 } else {
-                    s.larga.clone()
-                };
+                    s.ruta = s.larga.clone();
+                    s.visible = false;
+                }
                 s.fase = Fase::Preparar;
             }
         }

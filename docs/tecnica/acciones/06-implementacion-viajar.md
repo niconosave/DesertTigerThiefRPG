@@ -3,9 +3,14 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; revisión estética conjunta pendiente |
-| Versión | 1.4 |
-| Fecha | 2026-11-02 |
+| Versión | 1.5 |
+| Fecha | 2026-11-03 |
 | Implementación | Motor único activo; verificaciones en el informe enlazado al final |
+
+> Ampliación implementada el 2026-11-03: el
+> [contrato de propuestas de caminos](./08-planificacion-rutas.md) define la
+> sustitución de la planificación binaria y su selección en el mapa. Su sección 1
+> delimita los apartados que reemplaza; el resto de este contrato se conserva.
 
 ## 1. Alcance y autoridad
 
@@ -242,27 +247,15 @@ puede hacer que el consumo real difiera de esa previsión.
 
 ### 6.1. Ruta rápida
 
-Se recorre únicamente `Mundo::lugares_conectados`, utilizando Dijkstra con
-costes positivos en horas exactas. El coste de una conexión usa los medios
-presumidos y la duración conocida sin animales ni carga, conforme al reglamento.
-El evaluador puro `rutas::mitad` es compartido con la ejecución; no consulta las
-antiguas fichas de movimiento ni consume tiradas.
-
-Los vecinos se recorren por ID. Se conservan predecesores de coste mínimo y se
-sortea entre ellos al reconstruir desde destino; no se exige distribución
-uniforme entre todas las rutas completas. Los costes positivos impiden ciclos
-en esta reconstrucción. Las consultas de destinos no consumen azar: este
-desempate solo ocurre al iniciar la acción.
-
-Sin conexión topológica se rechaza `Viajar` antes de crear una escena o gastar
-tiempo. El Lugar actual no se ofrece como destino. La conectividad se valida
-de nuevo al iniciar, sin usar el catálogo visual como fuente de conexiones.
+El [contrato 08](./08-planificacion-rutas.md#3-algoritmo-de-propuestas) define
+el evaluador temporal común, rápida, perfiles y decisiones. Solo se recorre
+`Mundo::lugares_conectados`; la ruta directa evita las búsquedas. Se rechaza un
+destino inválido o sin conectividad antes de gastar tiempo.
 
 ### 6.2. Alternativa larga
 
-El algoritmo inicial construye rutas simples, sin repetir Lugares; no necesita
-introducir bucles para cumplir una longitud. La selección intenta el intervalo
-del reglamento, aceptando la excepción acordada de una ruta parecida o idéntica.
+La ruta improvisada conserva el constructor de rutas simples, sin repetir
+Lugares, con el intervalo y excepción definidos por el contrato 08.
 
 Se parte de la rápida y se buscan desvíos que sustituyan una conexión por un
 camino con Lugares nuevos. Para cada conexión, BFS excluye los demás Lugares de
@@ -278,7 +271,7 @@ Si no alcanza el intervalo, conserva la mejor ampliación encontrada; si no hay
 ninguna, conserva la rápida. No garantiza encontrar una alternativa dentro del
 intervalo aunque una búsqueda exhaustiva pudiera hallarla. Esta limitación
 computacional pertenece al algoritmo inicial y no elimina ninguna escena de la
-ruta finalmente adoptada. Ambas rutas y el proponente quedan fijados una vez.
+ruta finalmente adoptada. Las referencias y las propuestas quedan fijadas una vez.
 
 ### 6.3. Medios y tiempos por mitad
 
@@ -534,7 +527,7 @@ La máquina contiene estas fases, con los datos propios de cada espera:
 
 | Fase | Salida y continuación |
 |---|---|
-| Planificar | Construye rutas y proponente; RUT-01 o decisión RUT-02. |
+| Planificar | Solo no adyacentes: decisión RUT-02 con propuestas, improvisar y cancelar; contrato 08. |
 | Preparar | Una tirada, configuración tentativa; decisión APR-05 si existe. |
 | ConfirmarPreparacion | Escena APR-01; después advertencia APR-03 si corresponde. |
 | IniciarConexion | Fija participantes, medio, responsable y dos chequeos. |

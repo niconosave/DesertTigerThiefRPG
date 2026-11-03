@@ -10,7 +10,9 @@ mod fogata;
 mod graficos;
 mod interfaz;
 mod musica_campamento;
+mod planificacion_rutas;
 mod recursos;
+mod trazado;
 
 use std::collections::HashMap;
 use std::error::Error;
@@ -422,13 +424,13 @@ mod pruebas {
                 .expect("partida válida");
             let inicial = partida.vista();
             let destino = match &inicial {
-                // El bandido conoce este recorrido y ofrecerá una decisión de plan.
+                // Un destino no adyacente siempre ofrece la elección de planificación.
                 // Elegir el primer destino del atlas dependía de incidentes aleatorios.
                 VistaSesion::Disponible(mundo) => {
                     mundo
                         .lugares
                         .iter()
-                        .find(|lugar| lugar.nombre == "Hamada de Zahrun")
+                        .find(|lugar| lugar.nombre == "Paso Escarpado")
                         .expect("el contenido oficial incluye el territorio conocido")
                         .id
                 }

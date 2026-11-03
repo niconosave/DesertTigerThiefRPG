@@ -225,3 +225,15 @@ cargo run --release --no-default-features --bin desert-tiger-terminal
 En Linux, compilar con audio requiere los archivos de desarrollo de ALSA y
 `pkg-config`. El juego sintetiza el sonido; no requiere grabaciones ni un
 sintetizador MIDI instalado.
+
+## Comparar caminos al viajar
+
+Los vecinos directos omiten la deliberación. En viajes más largos aparece una
+viñeta que narra la deliberación. Al terminar de leerla con Enter, las opciones
+se recorren con `←/→` en las barras inferiores, sobre el mapa completo. `Enter`
+adopta la opción, `D` consulta detalles y `Esc` enfoca cancelar. Los puntos muestran el
+recorrido considerado; improvisar mantiene el camino oculto. `Shift + flechas`
+desplaza la cámara y `Home` recupera el encuadre.
+
+El [contrato de planificación](./tecnica/acciones/08-planificacion-rutas.md)
+define los perfiles, tiempos y límites.

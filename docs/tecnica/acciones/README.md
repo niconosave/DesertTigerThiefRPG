@@ -13,6 +13,7 @@ cada acción.
 | [`04-proyecto-humano-viajar.md`](./04-proyecto-humano-viajar.md) | Antecedente obsoleto de propósito, deliberación, plan, subobjetivos, procedencia de medios, interpretación y replanteamiento. |
 | [`06-implementacion-viajar.md`](./06-implementacion-viajar.md) | Contrato implementado del refactor: módulos, cálculos, ejecución por escenas e integración. |
 | [`07-acampar.md`](./07-acampar.md) | Contrato implementado: acampada, fichas, navegación, contenido y vista terminal. |
+| [`08-planificacion-rutas.md`](./08-planificacion-rutas.md) | Implementado: viaje directo sin planificación, propuestas según los Actores y previsualización del recorrido en el mapa. |
 | [`borradores/05-viajar-redisenio.md`](./borradores/05-viajar-redisenio.md) | Reglamento aprobado de `Viajar`, conservado en su ruta para mantener referencias. |
 | [`borradores/CONTEXTO-viajar-redisenio.md`](./borradores/CONTEXTO-viajar-redisenio.md) | Traspaso histórico de la etapa anterior al motor actual. |
 | [`borradores/CONTEXTO-viajar-territorio-segunda-iteracion.md`](./borradores/CONTEXTO-viajar-territorio-segunda-iteracion.md) | Traspaso activo para diseñar una segunda iteración de Viajar y Lugares, centrada en territorio y planificación. |
@@ -21,6 +22,8 @@ cada acción.
 
 Para el motor implementado, las mecánicas pertenecen al reglamento de
 `borradores/05-viajar-redisenio.md` y su traducción a código al contrato `06`.
+La planificación vigente se define en el contrato `08`, que sustituye únicamente
+las secciones que enumera y conserva el resto del reglamento y del contrato `06`.
 Los documentos `01` a `04` describen alcances anteriores: no deben utilizarse
 para completar reglas del refactor. La sección 16 del contrato `06` delimita los
 cambios sobre componentes compartidos. Ambos documentos describen el motor actual; el informe de

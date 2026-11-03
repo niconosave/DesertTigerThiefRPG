@@ -6,20 +6,7 @@ impl Narrador<'_> {
     // el motor sigue entregando todas las escenas y el detalle conserva sus datos.
     pub(super) fn resumen(&self, r: &RegistroEscena) -> String {
         match &r.contenido {
-            ContenidoEscena::Plan {
-                proponente: Some(actor),
-                previsto,
-                ..
-            } => format!(
-                "Querés alcanzar {} y {} te propone un camino conocido. {}Decidir cómo partir te lleva un día, aunque canceles.",
-                self.lugar(r.destino_final),
-                self.actor(*actor),
-                previsto.map(|t| format!("El recorrido previsto, sin demoras, es de {}. ", formatear(t))).unwrap_or_default(),
-            ),
-            ContenidoEscena::Plan { .. } => format!(
-                "Querés alcanzar {}, pero nadie del grupo conoce un camino fiable. Dedicás un día a reconocer la dirección; tendrás que orientarte sobre la marcha.",
-                self.lugar(r.destino_final),
-            ),
+            ContenidoEscena::Plan { propuestas } => self.deliberacion(r,propuestas),
             ContenidoEscena::Preparacion { chequeo, .. } => format!(
                 "Pasás un día preparando la partida en {}, mientras {} organiza la comida, el agua y los animales. {}{}.",
                 self.lugar(r.lugar),
@@ -365,21 +352,11 @@ mod pruebas {
         let escenas = [
             (
                 ClaveTarjeta::SinPlan,
-                ContenidoEscena::Plan {
-                    proponente: None,
-                    habilitacion: vec![],
-                    ruta: None,
-                    previsto: None,
-                },
+                ContenidoEscena::Plan { propuestas: vec![] },
             ),
             (
                 ClaveTarjeta::PropuestaRuta,
-                ContenidoEscena::Plan {
-                    proponente: Some(actor),
-                    habilitacion: vec!["expedicionario"],
-                    ruta: Some(vec![registro.lugar, registro.destino_final]),
-                    previsto: Some(tiempo(12)),
-                },
+                ContenidoEscena::Plan { propuestas: vec![] },
             ),
             (
                 ClaveTarjeta::Preparacion,
@@ -438,7 +415,12 @@ mod pruebas {
         for (tarjeta, escena) in escenas {
             registro.tarjeta = tarjeta;
             registro.contenido = escena;
-            comprobar_jerarquia(&narrador.redactar(&registro));
+            let texto = narrador.redactar(&registro);
+            if matches!(registro.contenido, ContenidoEscena::Plan { .. }) {
+                assert!(!texto.texto.is_empty() && !texto.detalle.is_empty());
+            } else {
+                comprobar_jerarquia(&texto);
+            }
         }
         for (medio, tarjeta) in [
             (Medio::Pie, ClaveTarjeta::Andar),

@@ -793,7 +793,7 @@ fn rutas_ponderan_tamano_y_destinos_son_consultas_puras() {
             .collect(),
     })
     .unwrap();
-    let rapida = rutas::rapida(&m, id(0), id(3), &mut Azar(0)).unwrap();
+    let rapida = rutas::rapida(&m, id(0), id(3), &[actor(0), actor(1)], &mut Azar(0)).unwrap();
     assert_eq!(rapida, vec![id(0), id(2), id(4), id(3)]);
     let larga = rutas::larga(&m, &rapida, &mut Azar(0)).unwrap();
     assert_eq!(larga.first(), Some(&id(0)));
@@ -914,7 +914,7 @@ fn chequeos_usan_bonos_exhaustivos_tope_y_validan_azar() {
 
 #[test]
 fn entradas_viejas_o_azar_fallido_no_confirman_un_paso() {
-    let mut m = escenario(&[&[], &[]], &[&["viajero"], &[]]);
+    let mut m = escenario(&[&[], &[], &[]], &[&["viajero"], &[]]);
     let rumbos = CatalogoRumbos::default();
     let contexto = ContextoAccion {
         inicio: InstanteAccion {
@@ -930,7 +930,7 @@ fn entradas_viejas_o_azar_fallido_no_confirman_un_paso() {
         &mut m,
         SolicitudAccion::Viajar {
             actor: actor(0),
-            destino: id(1),
+            destino: id(2),
         },
         &contexto,
         &mut Azar(0),
@@ -982,7 +982,7 @@ fn entradas_viejas_o_azar_fallido_no_confirman_un_paso() {
     }
     let respuesta = RespuestaDecision {
         paso: d.escena.id,
-        opcion: OpcionViaje::AceptarPlan,
+        opcion: OpcionViaje::ElegirRuta(IdPropuestaRuta(0)),
     };
     assert!(responder(&mut m, &mut ejecucion, respuesta, &contexto, &mut Fallido).is_err());
     assert_eq!(ejecucion.total, HorasViaje::CERO);
@@ -1128,7 +1128,7 @@ fn destinos_seleccionables_combinan_vecinos_y_conocimiento_del_grupo_actual() {
     );
     // El camino al destino conocido atraviesa 2 y 4, que el grupo desconoce.
     assert_eq!(
-        rutas::rapida(&m, id(0), id(5), &mut Azar(0)).unwrap(),
+        rutas::rapida(&m, id(0), id(5), &[actor(0), actor(1)], &mut Azar(0)).unwrap(),
         vec![id(0), id(1), id(2), id(3), id(4), id(5)]
     );
     assert_eq!(
@@ -1182,7 +1182,7 @@ fn lugares_ocultos_permiten_cruzar_hasta_la_siguiente_salida_visible() {
     assert_eq!(destinos_seleccionables_jugador(&m).unwrap(), vec![id(3)]);
     assert!(destinos_disponibles(&m, actor(0)).unwrap().contains(&id(1)));
     assert_eq!(
-        rutas::rapida(&m, id(0), id(3), &mut Azar(0)).unwrap(),
+        rutas::rapida(&m, id(0), id(3), &[actor(0), actor(1)], &mut Azar(0)).unwrap(),
         vec![id(0), id(1), id(2), id(3)]
     );
     let contexto = ContextoAccion {
@@ -1216,4 +1216,286 @@ fn lugares_ocultos_permiten_cruzar_hasta_la_siguiente_salida_visible() {
         )
         .is_ok()
     );
+}
+
+fn escenario_caminos(montana_vasta: bool) -> Mundo {
+    let base = escenario(
+        &[
+            &[],
+            &[],
+            &["boscoso"],
+            if montana_vasta {
+                &["montanoso", "vasto"]
+            } else {
+                &["montanoso"]
+            },
+            &[],
+            &[],
+        ],
+        &[&["viajero", "jinete", "montaraz"], &["explorador"]],
+    );
+    let mut relaciones: Vec<_> = [(0, 1), (1, 5), (0, 2), (2, 4), (4, 5), (0, 3), (3, 5)]
+        .into_iter()
+        .map(|(a, b)| RelacionInicial {
+            tipo: TipoRelacion::Conectado,
+            origen: ExtremoRelacion::Lugar(id(a)),
+            destino: ExtremoRelacion::Lugar(id(b)),
+        })
+        .collect();
+    relaciones.extend([2, 4].into_iter().map(|l| RelacionInicial {
+        tipo: TipoRelacion::Conoce,
+        origen: ExtremoRelacion::Actor(actor(1)),
+        destino: ExtremoRelacion::Lugar(id(l)),
+    }));
+    Mundo::nuevo(DatosInicialesMundo {
+        mapa: IdMapa::desde_posicion(0).unwrap(),
+        fecha: base.fecha(),
+        lugares: base
+            .lugares()
+            .iter()
+            .map(|l| LugarInicial {
+                id: l.id(),
+                caracteristicas: l.caracteristicas().cloned().collect(),
+            })
+            .collect(),
+        actores: base
+            .actores()
+            .iter()
+            .map(|a| ActorInicial {
+                id: a.id(),
+                ubicacion: a.ubicacion(),
+                caracteristicas: a.caracteristicas().cloned().collect(),
+            })
+            .collect(),
+        actor_jugador: actor(0),
+        companeros: vec![actor(1)],
+        variables_globales: vec![],
+        relaciones,
+    })
+    .unwrap()
+}
+
+#[test]
+fn propuestas_agrupan_respaldos_y_descartan_montanas_con_rodeo_excesivo() {
+    for vasta in [false, true] {
+        let m = escenario_caminos(vasta);
+        let viajeros = [actor(0), actor(1)];
+        let rapida = rutas::rapida(&m, id(0), id(5), &viajeros, &mut Azar(0)).unwrap();
+        assert_eq!(rapida, vec![id(0), id(1), id(5)]);
+        let larga = vec![id(0), id(2), id(4), id(5)];
+        let propuestas = propuestas::generar(&m, &viajeros, &rapida, &larga).unwrap();
+        assert_eq!(
+            propuestas,
+            propuestas::generar(&m, &viajeros, &rapida, &larga).unwrap()
+        );
+        assert_eq!(propuestas[0].ruta, rapida);
+        assert_eq!(
+            propuestas[0]
+                .respaldos
+                .iter()
+                .filter(|r| r.perfil == PerfilRuta::Rapida)
+                .count(),
+            2
+        );
+        assert!(
+            propuestas[0]
+                .respaldos
+                .iter()
+                .any(|r| r.perfil == PerfilRuta::Caballo)
+        );
+        assert!(propuestas.iter().any(|p| {
+            p.ruta == larga
+                && p.respaldos
+                    .iter()
+                    .any(|r| r.perfil == PerfilRuta::Conocidos)
+        }));
+        assert_eq!(
+            propuestas
+                .iter()
+                .any(|p| p.ruta == vec![id(0), id(3), id(5)]),
+            !vasta
+        );
+        let techo = propuestas::tiempo(&m, &viajeros, &larga).unwrap();
+        for p in &propuestas {
+            assert!(propuestas::tiempo(&m, &viajeros, &p.ruta).unwrap() <= techo);
+            assert_eq!(
+                p.previsto,
+                HorasViaje::horas(propuestas::tiempo(&m, &viajeros, &p.ruta).unwrap())
+                    .tiempo()
+                    .unwrap()
+            );
+        }
+        assert_eq!(
+            propuestas
+                .iter()
+                .map(|p| &p.ruta)
+                .collect::<std::collections::BTreeSet<_>>()
+                .len(),
+            propuestas.len()
+        );
+        let iguales = propuestas::generar(&m, &viajeros, &rapida, &rapida).unwrap();
+        assert_eq!(iguales.len(), 1);
+        assert_eq!(iguales[0].ruta, rapida);
+    }
+}
+
+#[test]
+fn vecino_omite_deliberacion_y_otro_destino_ofrece_improvisar_o_cancelar() {
+    let mut m = escenario_caminos(false);
+    let rumbos = CatalogoRumbos::default();
+    let contexto = ContextoAccion {
+        inicio: InstanteAccion {
+            fecha: m.fecha(),
+            fraccion: FraccionDia::CERO,
+        },
+        rumbos: &rumbos,
+    };
+    let directo = iniciar(
+        &mut m,
+        SolicitudAccion::Viajar {
+            actor: actor(0),
+            destino: id(1),
+        },
+        &contexto,
+        &mut Azar(0),
+    )
+    .unwrap();
+    assert_eq!(directo.ejecucion.ruta, vec![id(0), id(1)]);
+    assert!(directo.ejecucion.propuestas.is_empty() && directo.ejecucion.larga.is_empty());
+    assert!(directo.ejecucion.visible);
+    match directo.paso {
+        PasoAccion::Escena(r) => assert!(!matches!(r.contenido, ContenidoEscena::Plan { .. })),
+        PasoAccion::Decision(d) => {
+            assert!(!matches!(d.escena.contenido, ContenidoEscena::Plan { .. }))
+        }
+        _ => panic!(),
+    }
+
+    let mut m = escenario(&[&[], &[], &[]], &[&[], &[]]);
+    let inicio = iniciar(
+        &mut m,
+        SolicitudAccion::Viajar {
+            actor: actor(0),
+            destino: id(2),
+        },
+        &contexto,
+        &mut Azar(0),
+    )
+    .unwrap();
+    let PasoAccion::Decision(d) = inicio.paso else {
+        panic!()
+    };
+    assert_eq!(
+        d.opciones,
+        vec![OpcionViaje::Improvisar, OpcionViaje::Cancelar]
+    );
+    assert!(
+        matches!(d.escena.contenido,ContenidoEscena::Plan{ref propuestas} if propuestas.is_empty())
+    );
+    assert_eq!(inicio.ejecucion.total, HorasViaje::CERO);
+    let mut e = inicio.ejecucion;
+    let salida = responder(
+        &mut m,
+        &mut e,
+        RespuestaDecision {
+            paso: d.escena.id,
+            opcion: OpcionViaje::Cancelar,
+        },
+        &contexto,
+        &mut Azar(0),
+    )
+    .unwrap();
+    assert!(matches!(
+        salida,
+        PasoAccion::Escena(_) | PasoAccion::Finalizada(_)
+    ));
+    assert_eq!(e.total, HorasViaje::horas(24));
+    assert_eq!(m.ubicacion_grupo(), id(0));
+}
+
+#[test]
+fn elegir_copia_la_propuesta_y_un_oculto_intermedio_no_es_viaje_directo() {
+    let mut m = escenario_caminos(false);
+    let rumbos = CatalogoRumbos::default();
+    let contexto = ContextoAccion {
+        inicio: InstanteAccion {
+            fecha: m.fecha(),
+            fraccion: FraccionDia::CERO,
+        },
+        rumbos: &rumbos,
+    };
+    let InicioAccion {
+        mut ejecucion,
+        paso,
+    } = iniciar(
+        &mut m,
+        SolicitudAccion::Viajar {
+            actor: actor(0),
+            destino: id(5),
+        },
+        &contexto,
+        &mut Azar(0),
+    )
+    .unwrap();
+    let PasoAccion::Decision(d) = paso else {
+        panic!()
+    };
+    for p in ejecucion.propuestas.clone() {
+        let mut e = ejecucion.clone();
+        let mut copia = escenario_caminos(false);
+        responder(
+            &mut copia,
+            &mut e,
+            RespuestaDecision {
+                paso: d.escena.id,
+                opcion: OpcionViaje::ElegirRuta(p.id),
+            },
+            &contexto,
+            &mut Azar(0),
+        )
+        .unwrap();
+        assert_eq!(e.ruta, p.ruta);
+        assert!(e.visible);
+    }
+    assert!(
+        responder(
+            &mut m,
+            &mut ejecucion,
+            RespuestaDecision {
+                paso: d.escena.id,
+                opcion: OpcionViaje::ElegirRuta(IdPropuestaRuta(u32::MAX))
+            },
+            &contexto,
+            &mut Azar(0)
+        )
+        .is_err()
+    );
+    assert_eq!(ejecucion.total, HorasViaje::CERO);
+    let mut m = escenario(&[&[], &["oculto"], &[]], &[&["viajero"], &[]]);
+    let inicio = iniciar(
+        &mut m,
+        SolicitudAccion::Viajar {
+            actor: actor(0),
+            destino: id(2),
+        },
+        &contexto,
+        &mut Azar(0),
+    )
+    .unwrap();
+    assert!(
+        matches!(inicio.paso,PasoAccion::Decision(d) if matches!(d.escena.contenido,ContenidoEscena::Plan{..}))
+    );
+}
+
+#[test]
+fn especialidad_no_elude_la_habilitacion_de_la_ruta_optima() {
+    for rasgos in [&["jinete"][..], &["montaraz"][..]] {
+        let m = escenario(&[&[], &["montanoso"], &[]], &[rasgos, &[]]);
+        let ruta = [id(0), id(1), id(2)];
+        assert!(
+            propuestas::generar(&m, &[actor(0), actor(1)], &ruta, &ruta)
+                .unwrap()
+                .is_empty()
+        );
+    }
 }
