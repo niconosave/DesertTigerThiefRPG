@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.31 |
+| Versión | 0.32 |
 | Fecha | 2026-11-02 |
 
 > Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
@@ -926,13 +926,29 @@ de Lugar anterior:
 ..BQB...
 ........
 "#,
+    alturas: (
+        leyenda: { '.': 1, ':': 2 },
+        matriz: r#"
+........
+..:::...
+..:::...
+........
+"#,
+    ),
+    vision: (radio: 32, altura_observador: 1),
 )
 ```
 
-Los tres campos son obligatorios y la leyenda no puede estar vacía. `clave` debe
+`clave`, `leyenda`, `matriz` y `alturas` son obligatorios; `vision` es opcional.
+La leyenda de terreno no puede estar vacía. `clave` debe
 coincidir con el nombre del archivo y con la referencia `mapa` de `world.ron`.
 Como existe un solo Mapa en este alcance, la carga le asigna
 `IdMapa::desde_posicion(0)`.
+
+El [contrato 22](./22-alturas-visibilidad-memoria.md#2-autoría-del-relieve) define
+la segunda matriz de caracteres, sus símbolos de altura y los parámetros de
+visión. Ambas matrices deben tener idénticas dimensiones. La carga conserva
+las alturas validadas en la plantilla y en `EstadoMapa`, sin entregarlas al core.
 
 Cada clave de `leyenda` es un símbolo de autoría que ocupa exactamente un byte
 ASCII visible. Para mantener segura y sencilla tanto la cadena raw como la clave

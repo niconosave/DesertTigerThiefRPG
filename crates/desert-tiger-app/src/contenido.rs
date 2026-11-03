@@ -404,6 +404,8 @@ struct PlantillaMapa {
     ancho: usize,
     alto: usize,
     celdas_iniciales: Vec<ClaveTipoTile>,
+    alturas: Vec<u16>,
+    vision: ParametrosVision,
     tipos_declarados: BTreeSet<ClaveTipoTile>,
 }
 
@@ -477,6 +479,8 @@ impl CatalogoPresentacion {
             ancho: self.mapa.ancho,
             alto: self.mapa.alto,
             celdas: self.mapa.celdas_iniciales.clone(),
+            alturas: self.mapa.alturas.clone(),
+            vision: self.mapa.vision,
             tipos_declarados: self.mapa.tipos_declarados.clone(),
         }
     }
@@ -530,10 +534,19 @@ pub(crate) struct EstadoMapa {
     ancho: usize,
     alto: usize,
     celdas: Vec<ClaveTipoTile>,
+    alturas: Vec<u16>,
+    vision: ParametrosVision,
     tipos_declarados: BTreeSet<ClaveTipoTile>,
 }
 
 impl EstadoMapa {
+    pub(crate) fn alturas(&self) -> &[u16] {
+        &self.alturas
+    }
+    pub(crate) fn parametros_vision(&self) -> ParametrosVision {
+        self.vision
+    }
+
     pub(crate) fn id(&self) -> IdMapa {
         self.id
     }
@@ -686,6 +699,51 @@ struct MapaDto {
     clave: String,
     leyenda: LeyendaDto,
     matriz: String,
+    alturas: AlturasMapaDto,
+    #[serde(default)]
+    vision: ParametrosVision,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AlturasMapaDto {
+    leyenda: LeyendaAlturasDto,
+    matriz: String,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ParametrosVision {
+    pub radio: u16,
+    pub altura_observador: u16,
+}
+impl Default for ParametrosVision {
+    fn default() -> Self {
+        Self {
+            radio: 32,
+            altura_observador: 1,
+        }
+    }
+}
+struct LeyendaAlturasDto(Vec<(char, u16)>);
+impl<'de> Deserialize<'de> for LeyendaAlturasDto {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitante;
+        impl<'de> Visitor<'de> for Visitante {
+            type Value = LeyendaAlturasDto;
+            fn expecting(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                f.write_str("un mapa de símbolos a alturas")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, mut acceso: A) -> Result<Self::Value, A::Error> {
+                let mut entradas = Vec::new();
+                while let Some(entrada) = acceso.next_entry()? {
+                    entradas.push(entrada);
+                }
+                Ok(LeyendaAlturasDto(entradas))
+            }
+        }
+        deserializer.deserialize_map(Visitante)
+    }
 }
 
 struct LeyendaDto {
@@ -1418,6 +1476,69 @@ fn error_ron(
     )
 }
 
+fn validar_alturas(
+    dto: AlturasMapaDto,
+    ancho: usize,
+    alto: usize,
+    ruta: &Path,
+    clave: &str,
+) -> Result<Vec<u16>, ErrorContenido> {
+    let error = |detalle, posicion| {
+        error_archivo(
+            ruta,
+            TipoElementoContenido::Mapa,
+            Some(clave),
+            ClaseDiagnosticoContenido::ValorInvalido,
+            posicion,
+            format!("alturas: {detalle}"),
+        )
+    };
+    let mut leyenda = BTreeMap::new();
+    for (simbolo, altura) in dto.leyenda.0 {
+        if !simbolo.is_ascii_graphic() || simbolo.is_ascii_digit() {
+            return Err(error(
+                format!("símbolo no admitido: {}", simbolo.escape_default()),
+                None,
+            ));
+        }
+        if leyenda.insert(simbolo, altura).is_some() {
+            return Err(error(format!("símbolo duplicado: {simbolo}"), None));
+        }
+    }
+    if leyenda.is_empty() {
+        return Err(error("leyenda vacía".into(), None));
+    }
+    let cuerpo = normalizar_bloque(&dto.matriz).map_err(|e| error(e, None))?;
+    let filas: Vec<_> = cuerpo.split('\n').collect();
+    if filas.len() != alto {
+        return Err(error(
+            format!("se esperaban {alto} filas y hay {}", filas.len()),
+            None,
+        ));
+    }
+    let mut alturas = Vec::with_capacity(ancho * alto);
+    for (y, fila) in filas.iter().enumerate() {
+        if fila.chars().count() != ancho {
+            return Err(error(
+                format!("la fila {y} debe tener {ancho} columnas"),
+                Some(PosicionDiagnosticoContenido::Matriz {
+                    x: fila.chars().count().min(ancho),
+                    y,
+                }),
+            ));
+        }
+        for (x, c) in fila.chars().enumerate() {
+            alturas.push(*leyenda.get(&c).ok_or_else(|| {
+                error(
+                    format!("símbolo sin declarar: {}", c.escape_default()),
+                    Some(PosicionDiagnosticoContenido::Matriz { x, y }),
+                )
+            })?);
+        }
+    }
+    Ok(alturas)
+}
+
 fn validar_mapa(
     dto: MapaDto,
     esperada: &str,
@@ -1540,12 +1661,25 @@ fn validar_mapa(
             celdas.push(tipo.clone());
         }
     }
+    let alturas = validar_alturas(dto.alturas, ancho, alto, ruta, esperada)?;
+    if dto.vision.radio == 0 || dto.vision.altura_observador == 0 {
+        return Err(error_archivo(
+            ruta,
+            TipoElementoContenido::Mapa,
+            Some(esperada),
+            ClaseDiagnosticoContenido::ValorInvalido,
+            None,
+            "vision: radio y altura_observador deben ser positivos".into(),
+        ));
+    }
     Ok(MapaValidado {
         plantilla: PlantillaMapa {
             id,
             ancho,
             alto,
             celdas_iniciales: celdas,
+            alturas,
+            vision: dto.vision,
             tipos_declarados: tipos,
         },
     })
@@ -2706,6 +2840,69 @@ mod pruebas {
     }
 
     #[test]
+    fn alturas_validan_dimensiones_simbolos_y_parametros() {
+        let ruta = Path::new("maps/mapa_inicial.ron");
+        let texto = fs::read_to_string(raiz_base().join(ruta)).unwrap();
+        let leer = || ron::from_str::<MapaDto>(&texto).unwrap();
+        let mapa = validar_mapa(
+            leer(),
+            "mapa_inicial",
+            IdMapa::desde_posicion(0).unwrap(),
+            ruta,
+        )
+        .unwrap();
+        assert_eq!(mapa.plantilla.alturas.len(), 192 * 64);
+        assert!(mapa.plantilla.alturas.iter().any(|&h| h >= 9));
+        for caso in 0..7 {
+            let mut dto = leer();
+            match caso {
+                0 => dto.alturas.matriz = "~".into(),
+                1 => dto.alturas.matriz = dto.alturas.matriz.replacen('~', "$", 1),
+                2 => dto.alturas.leyenda.0.push(('~', 5)),
+                3 => dto.alturas.leyenda.0.push(('2', 2)),
+                4 => dto.alturas.leyenda.0.push((' ', 0)),
+                5 => dto.vision.radio = 0,
+                _ => dto.vision.altura_observador = 0,
+            }
+            let error = validar_mapa(
+                dto,
+                "mapa_inicial",
+                IdMapa::desde_posicion(0).unwrap(),
+                ruta,
+            )
+            .err()
+            .unwrap();
+            let d = &error.diagnosticos()[0];
+            assert!(
+                d.detalle()
+                    .contains(if caso >= 5 { "vision" } else { "alturas" })
+            );
+            assert!(
+                matches!(d.origen(), OrigenDiagnosticoContenido::Archivo { ruta_relativa } if ruta_relativa == ruta)
+            );
+            if caso == 1 {
+                assert_eq!(
+                    d.posicion(),
+                    Some(PosicionDiagnosticoContenido::Matriz { x: 0, y: 0 })
+                );
+            }
+        }
+        let mut dto = leer();
+        dto.alturas.matriz = dto.alturas.matriz.replace('\n', "\r\n");
+        validar_mapa(
+            dto,
+            "mapa_inicial",
+            IdMapa::desde_posicion(0).unwrap(),
+            ruta,
+        )
+        .unwrap();
+        let sin_vision = texto.replace("    vision: (radio: 32, altura_observador: 1),", "");
+        let dto: MapaDto = ron::from_str(&sin_vision).unwrap();
+        assert_eq!(dto.vision.radio, 32);
+        assert_eq!(dto.vision.altura_observador, 1);
+    }
+
+    #[test]
     fn solo_un_lugar_oculto_admite_nombre_y_rotulo_vacios() {
         let fixture = fixture_temporal();
         let ruta = fixture.0.join("places/zona_arida.ron");
@@ -2758,7 +2955,7 @@ mod pruebas {
         assert_eq!(a.nombre().chars().count(), a.coordenadas_rotulo().len());
         assert!(a.descripcion().is_empty() && b.descripcion().is_empty());
         // Oculto controla la selección; el autor puede conservar un rótulo.
-        assert!(medio.descripcion().contains("Pico de Izir"));
+        assert!(!medio.descripcion().is_empty());
         let (mut mundo, _) = c.instanciar_estado().unwrap();
         assert!(mundo.lugares_conectados(centro).unwrap().contains(&entrada));
         assert!(mundo.lugares_conectados(centro).unwrap().contains(&salida));

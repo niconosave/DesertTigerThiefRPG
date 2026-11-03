@@ -6,6 +6,11 @@
 | Versión | 0.27 |
 | Fecha | 2026-10-29 |
 
+> Ampliación implementada el 2026-11-02: la partida posee `VisionMapa` y proyecta
+> en `VistaMapa` una máscara `VisibilidadTile`. Las observaciones se actualizan
+> con traslados confirmados del jugador, conforme al
+> [contrato 22](./22-alturas-visibilidad-memoria.md).
+
 > Ampliación implementada el 2026-11-02: el progreso público incorpora
 > `lugar_paisaje: IdLugar`, independiente de la posición confirmada del grupo,
 > según [Arte de lugares, sección 3](./21-arte-lugares.md#3-qué-paisaje-se-muestra).

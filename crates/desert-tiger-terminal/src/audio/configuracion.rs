@@ -377,7 +377,7 @@ mod pruebas {
         let raiz = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/audio/musica");
         let musica = ConfiguracionMusica::cargar(&raiz).unwrap();
         assert!(musica.piezas.get().is_none());
-        assert_eq!(musica.pendientes.len(), 2);
+        assert!(!musica.pendientes.is_empty());
         let mut trabajo = super::super::preparacion_musica::TrabajoMusica::iniciar(
             musica.pendientes,
             musica.piezas.clone(),

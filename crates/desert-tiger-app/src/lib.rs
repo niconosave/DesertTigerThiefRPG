@@ -14,6 +14,8 @@ mod lua;
 mod narracion_viaje;
 mod sesion;
 mod tiempo;
+mod vision_mapa;
+pub use vision_mapa::VisibilidadTile;
 
 pub use contenido::{
     ArteLugar, CeldaRetrato, ClaseDiagnosticoContenido, ClaveTipoTile, ColorRetrato,

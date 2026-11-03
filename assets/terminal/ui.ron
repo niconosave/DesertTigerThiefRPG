@@ -1,4 +1,5 @@
 (
+    mapa_recordado: (frente: "grisOscuro", fondo: None, modificadores: []),
     pantalla: (frente: "gris", fondo: None, modificadores: []),
     texto_normal: (frente: "gris", fondo: None, modificadores: []),
     destacado: (frente: "blanco", fondo: None, modificadores: ["negrita"]),

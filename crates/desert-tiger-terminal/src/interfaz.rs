@@ -1,3 +1,4 @@
+use desert_tiger_app::VisibilidadTile;
 use std::cell::Cell;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeSet, HashMap};
@@ -699,8 +700,22 @@ impl Interfaz {
                 if mx >= mundo.mapa.ancho || my >= mundo.mapa.alto {
                     continue;
                 }
+                let vision = mundo
+                    .mapa
+                    .visibilidad_en(desert_tiger_app::CoordenadaMapa { x: mx, y: my });
+                if vision == VisibilidadTile::Desconocido {
+                    continue;
+                }
                 let clave = &mundo.mapa.celdas[my * mundo.mapa.ancho + mx];
-                let apariencia = recursos.tile(clave, mx, my, self.reloj.paso_250_ms());
+                let paso = if vision == VisibilidadTile::Recordado {
+                    0
+                } else {
+                    self.reloj.paso_250_ms()
+                };
+                let mut apariencia = recursos.tile(clave, mx, my, paso);
+                if vision == VisibilidadTile::Recordado {
+                    apariencia.estilo = recursos.estilo_recordado();
+                }
                 poner_celda(
                     frame,
                     area.x + vx as u16,
@@ -717,14 +732,14 @@ impl Interfaz {
         for lugar in &mundo.lugares {
             if let Some(simbolo) = lugar.simbolo
                 && let Some((x, y)) = geometria.a_pantalla(lugar.coordenada_central)
-            {
-                poner_celda(
-                    frame,
-                    x,
-                    y,
-                    simbolo,
+                && let Some(estilo) = estilo_mapa_observado(
+                    mundo,
+                    lugar.coordenada_central,
                     estilo_lugar_mapa(lugar, foco, recursos),
-                );
+                    recursos,
+                )
+            {
+                poner_celda(frame, x, y, simbolo, estilo);
             }
         }
         if self.mostrar_conexiones {
@@ -732,6 +747,7 @@ impl Interfaz {
                 frame,
                 mundo,
                 self.reloj.paso_250_ms(),
+                recursos.estilo_recordado(),
                 |coordenada| proyectar(coordenada, area, origen_x, origen_y, margen_x, margen_y),
             );
         }
@@ -746,6 +762,8 @@ impl Interfaz {
             for (caracter, coordenada) in lugar.nombre.chars().zip(&lugar.coordenadas_rotulo) {
                 if let Some((x, y)) =
                     proyectar(*coordenada, area, origen_x, origen_y, margen_x, margen_y)
+                    && let Some(estilo) =
+                        estilo_mapa_observado(mundo, *coordenada, estilo, recursos)
                 {
                     poner_celda(frame, x, y, caracter, estilo);
                 }
@@ -1309,6 +1327,19 @@ fn normalizar_letra(tecla: KeyCode) -> Option<char> {
     }
 }
 
+fn estilo_mapa_observado(
+    mundo: &VistaMundo,
+    coordenada: desert_tiger_app::CoordenadaMapa,
+    estilo: Style,
+    recursos: &RecursosVisuales,
+) -> Option<Style> {
+    match mundo.mapa.visibilidad_en(coordenada) {
+        VisibilidadTile::Desconocido => None,
+        VisibilidadTile::Recordado => Some(recursos.estilo_recordado()),
+        VisibilidadTile::Visible => Some(estilo),
+    }
+}
+
 fn estilo_lugar_mapa(
     lugar: &VistaLugar,
     foco: Option<IdLugar>,
@@ -1812,6 +1843,7 @@ mod pruebas {
             Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(7) }).unwrap();
         let interfaz = Interfaz::nueva(partida).unwrap();
         let mut mundo = interfaz.ultima_vista_mundo.clone();
+        mundo.mapa.visibilidad.fill(VisibilidadTile::Visible);
         let clave = desert_tiger_app::ClaveTipoTile::nueva("montana".into()).unwrap();
         let mut recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal"))
             .unwrap()
@@ -3145,6 +3177,7 @@ mod pruebas {
         mundo.mapa.ancho = 120;
         mundo.mapa.alto = 60;
         mundo.mapa.celdas = vec![bosque.clone(); 120 * 60];
+        mundo.mapa.visibilidad = vec![VisibilidadTile::Visible; 120 * 60];
         mundo.mapa.tipos_declarados = vec![bosque.clone()];
         for lugar in &mut mundo.lugares {
             lugar.coordenadas_rotulo.clear();
@@ -3192,6 +3225,67 @@ mod pruebas {
         assert_eq!(animada.fg, primera.fg);
         assert_eq!(animada.bg, primera.bg);
         assert_eq!(interfaz.partida.vista(), vista_antes);
+    }
+
+    #[test]
+    fn niebla_oculta_y_recuerdo_gris_no_anima_ni_revela_por_camara() {
+        let (mut i, recursos, _) = preparar_inspector();
+        let agua = desert_tiger_app::ClaveTipoTile::nueva("agua".into()).unwrap();
+        let recursos = recursos.con_fotogramas_prueba(agua.clone(), &["x", "y"]);
+        let mut mundo = i.ultima_vista_mundo.clone();
+        mundo.mapa.ancho = 80;
+        mundo.mapa.alto = 22;
+        mundo.mapa.celdas = vec![agua; 80 * 22];
+        mundo.mapa.visibilidad = vec![VisibilidadTile::Desconocido; 80 * 22];
+        for l in &mut mundo.lugares {
+            l.coordenadas_rotulo.clear();
+            l.simbolo = None;
+            l.arte = None;
+        }
+        mundo.lugares[0].coordenada_central = desert_tiger_app::CoordenadaMapa { x: 40, y: 11 };
+        mundo.lugares[0].nombre = "ABC".into();
+        mundo.lugares[0].coordenadas_rotulo = (3..6)
+            .map(|x| desert_tiger_app::CoordenadaMapa { x, y: 3 })
+            .collect();
+        mundo.lugares[1].coordenada_central = desert_tiger_app::CoordenadaMapa { x: 6, y: 3 };
+        mundo.lugares[1].simbolo = Some('S');
+        for y in [2, 3] {
+            mundo.mapa.visibilidad[y * 80 + 3] = VisibilidadTile::Visible;
+            mundo.mapa.visibilidad[y * 80 + 4] = VisibilidadTile::Recordado;
+        }
+        mundo.mapa.visibilidad[3 * 80 + 6] = VisibilidadTile::Recordado;
+        mundo.mapa.visibilidad[11 * 80 + 40] = VisibilidadTile::Visible;
+        i.ultima_vista_mundo = mundo.clone();
+        i.vista = VistaSesion::Disponible(mundo);
+        let render = |i: &Interfaz| {
+            let mut t = Terminal::new(TestBackend::new(80, 24)).unwrap();
+            t.draw(|f| i.dibujar(f, &recursos)).unwrap();
+            t.backend().buffer().clone()
+        };
+        let a = render(&i);
+        i.avanzar_animacion(PASO_ANIMACION * 2);
+        let b = render(&i);
+        assert_ne!(a[(3, 2)].symbol(), b[(3, 2)].symbol());
+        assert_eq!(a[(4, 2)], b[(4, 2)]);
+        assert_eq!(a[(4, 2)].fg, Color::DarkGray);
+        assert_eq!(
+            a[(4, 2)].bg,
+            recursos.paleta.fondo_pantalla(recursos.ui.pantalla.bg)
+        );
+        assert!(a[(4, 2)].modifier.is_empty());
+        assert_eq!(a[(5, 2)].symbol(), " ");
+        assert_eq!(a[(3, 3)].symbol(), "A");
+        assert_eq!(a[(4, 3)].symbol(), "B");
+        assert_eq!(a[(4, 3)].fg, Color::DarkGray);
+        assert_eq!(a[(5, 3)].symbol(), " ");
+        assert_eq!(a[(6, 3)].symbol(), "S");
+        assert_eq!(a[(6, 3)].fg, Color::DarkGray);
+        let antes = i.partida.mundo_visible().mapa;
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        let mut grande = Terminal::new(TestBackend::new(120, 40)).unwrap();
+        grande.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(i.partida.mundo_visible().mapa, antes);
     }
 
     #[test]

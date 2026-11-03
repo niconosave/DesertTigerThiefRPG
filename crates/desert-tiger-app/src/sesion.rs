@@ -2,6 +2,7 @@ use crate::contenido::{
     ArteLugar, ClaveTipoTile, ContenidoValidado, CoordenadaMapa, EstadoMapa, RetratoActor,
 };
 use crate::fase_npc::{ResumenNpc, ejecutar_fase_npc};
+use crate::vision_mapa::{VisibilidadTile, VisionMapa};
 use desert_tiger_core::acciones::{
     self, ClaveEscena, ClaveTarjeta, ContextoAccion, EjecucionAccion, IdPaso, OpcionViaje,
     PasoAccion, RechazoAccion, RegistroEscena, RegistroProyecto, RespuestaDecision,
@@ -100,7 +101,19 @@ pub struct VistaMapa {
     pub ancho: usize,
     pub alto: usize,
     pub celdas: Vec<ClaveTipoTile>,
+    pub visibilidad: Vec<VisibilidadTile>,
     pub tipos_declarados: Vec<ClaveTipoTile>,
+}
+impl VistaMapa {
+    pub fn visibilidad_en(&self, coordenada: CoordenadaMapa) -> VisibilidadTile {
+        if coordenada.x >= self.ancho || coordenada.y >= self.alto {
+            return VisibilidadTile::Desconocido;
+        }
+        self.visibilidad
+            .get(coordenada.y * self.ancho + coordenada.x)
+            .copied()
+            .unwrap_or(VisibilidadTile::Desconocido)
+    }
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaLugar {
@@ -237,6 +250,7 @@ pub struct Partida {
     acampada: Option<acciones::Acampada>,
     mundo: Mundo,
     mapa: EstadoMapa,
+    vision: VisionMapa,
     contenido: ContenidoValidado,
     vista: VistaSesion,
     mundo_visible: VistaMundo,
@@ -285,11 +299,19 @@ impl Partida {
             fecha: mundo.fecha(),
             fraccion: FraccionDia::CERO,
         };
-        let base = proyectar_mundo(&mundo, &mapa, contenido, None).map_err(error_crear)?;
+        let mut vision = VisionMapa::nueva(&mapa);
+        let origen = contenido
+            .presentacion()
+            .lugar(mundo.ubicacion_grupo())
+            .ok_or_else(|| error_crear("falta el lugar inicial del observador".into()))?
+            .coordenada_central();
+        vision.observar(&mapa, origen);
+        let base = proyectar_mundo(&mundo, &mapa, contenido, &vision, None).map_err(error_crear)?;
         Ok(Self {
             acampada: None,
             mundo,
             mapa,
+            vision,
             contenido: contenido.clone(),
             vista: VistaSesion::Disponible(base.clone()),
             mundo_visible: base,
@@ -327,14 +349,19 @@ impl Partida {
                     );
                     return Ok(self.vista());
                 };
-                let mut mundo =
-                    match proyectar_mundo(&self.mundo, &self.mapa, &self.contenido, None) {
-                        Ok(m) => m,
-                        Err(e) => {
-                            self.fatal(CodigoFatalSesion::EstadoInconsistente, e);
-                            return Ok(self.vista());
-                        }
-                    };
+                let mut mundo = match proyectar_mundo(
+                    &self.mundo,
+                    &self.mapa,
+                    &self.contenido,
+                    &self.vision,
+                    None,
+                ) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        self.fatal(CodigoFatalSesion::EstadoInconsistente, e);
+                        return Ok(self.vista());
+                    }
+                };
                 let integrantes = mundo
                     .companeros
                     .iter()
@@ -519,8 +546,14 @@ impl Partida {
             self.azar.as_mut(),
         )
         .map_err(|e| FalloCierreAccion::Npc(e.0))?;
-        self.mundo_visible = proyectar_mundo(&self.mundo, &self.mapa, &self.contenido, resumen)
-            .map_err(FalloCierreAccion::Proyeccion)?;
+        self.mundo_visible = proyectar_mundo(
+            &self.mundo,
+            &self.mapa,
+            &self.contenido,
+            &self.vision,
+            resumen,
+        )
+        .map_err(FalloCierreAccion::Proyeccion)?;
         self.vista = VistaSesion::Disponible(self.mundo_visible.clone());
         Ok(())
     }
@@ -541,10 +574,12 @@ impl Partida {
             .checked_add(1)
             .ok_or("contador de vistas agotado")?;
         self.paso = Some(registro.id);
+        self.observar_traslados(&registro)?;
         let narrador = crate::narracion_viaje::Narrador(&self.contenido);
         let texto = narrador.redactar(&registro);
         let progreso = progreso(&registro, &narrador);
-        self.mundo_visible = proyectar_mundo(&self.mundo, &self.mapa, &self.contenido, None)?;
+        self.mundo_visible =
+            proyectar_mundo(&self.mundo, &self.mapa, &self.contenido, &self.vision, None)?;
         self.mundo_visible.lugar_jugador = registro.lugar;
         self.mundo_visible.companeros = registro
             .participantes
@@ -607,6 +642,27 @@ impl Partida {
         };
         Ok(())
     }
+    fn observar_traslados(&mut self, registro: &RegistroEscena) -> Result<(), String> {
+        for cambio in &registro.cambios {
+            if let desert_tiger_core::CambioConfirmado::ActoresTrasladados {
+                actores,
+                origen,
+                destino,
+            } = cambio
+                && origen != destino
+                && actores.contains(&self.mundo.actor_jugador())
+            {
+                let coordenada = self
+                    .contenido
+                    .presentacion()
+                    .lugar(*destino)
+                    .ok_or("falta el lugar del observador")?
+                    .coordenada_central();
+                self.vision.observar(&self.mapa, coordenada);
+            }
+        }
+        Ok(())
+    }
     fn fatal(&mut self, codigo: CodigoFatalSesion, mensaje: String) {
         self.vista = VistaSesion::Fatal(VistaFatal {
             codigo,
@@ -650,6 +706,7 @@ fn proyectar_mundo(
     m: &Mundo,
     mapa: &EstadoMapa,
     c: &ContenidoValidado,
+    vision: &VisionMapa,
     resumen: Option<ResumenNpc>,
 ) -> Result<VistaMundo, String> {
     let jugador = proyectar_actor(c, m.actor_jugador())?;
@@ -669,11 +726,13 @@ fn proyectar_mundo(
             AccionDisponible::Acampar,
         ]
     };
+    let (celdas, visibilidad) = vision.proyectar(mapa);
     Ok(VistaMundo {
         mapa: VistaMapa {
             ancho: mapa.ancho(),
             alto: mapa.alto(),
-            celdas: mapa.celdas().to_vec(),
+            celdas,
+            visibilidad,
             tipos_declarados: mapa.tipos_declarados().cloned().collect(),
         },
         lugares: c
@@ -743,7 +802,7 @@ mod pruebas {
                 .id()
         };
         let lista = |mundo: &Mundo| {
-            let vista = proyectar_mundo(mundo, &mapa, &c, None).unwrap();
+            let vista = proyectar_mundo(mundo, &mapa, &c, &VisionMapa::nueva(&mapa), None).unwrap();
             vista
                 .acciones
                 .into_iter()
@@ -1008,6 +1067,68 @@ mod pruebas {
             })
         }
     }
+
+    #[test]
+    fn vision_observa_traslados_confirmados_en_orden_y_no_los_npc() {
+        let c = contenido();
+        let mut p = Partida::con_azar(&c, Box::new(AzarFavorable)).unwrap();
+        let jugador = p.mundo.actor_jugador();
+        let origen = p.mundo.ubicacion_grupo();
+        let oeste = c.claves().lugar_por_clave("mar_de_poniente").unwrap();
+        let este = c.claves().lugar_por_clave("mar_de_levante").unwrap();
+        let contexto = ContextoAccion {
+            inicio: p.inicio,
+            rumbos: &p.rumbos,
+        };
+        let inicio = acciones::iniciar(
+            &mut p.mundo,
+            acciones::SolicitudAccion::Viajar {
+                actor: jugador,
+                destino: oeste,
+            },
+            &contexto,
+            p.azar.as_mut(),
+        )
+        .unwrap();
+        let mut r = match inicio.paso {
+            PasoAccion::Escena(r) => r,
+            PasoAccion::Decision(d) => d.escena,
+            _ => panic!(),
+        };
+        r.cambios.clear();
+        let antes = p.vision.proyectar(&p.mapa);
+        p.observar_traslados(&r).unwrap();
+        assert_eq!(p.vision.proyectar(&p.mapa), antes);
+        let npc = p.mundo.grupo().integrantes()[0];
+        r.cambios
+            .push(desert_tiger_core::CambioConfirmado::ActoresTrasladados {
+                actores: vec![npc],
+                origen,
+                destino: este,
+            });
+        p.observar_traslados(&r).unwrap();
+        assert_eq!(p.vision.proyectar(&p.mapa), antes);
+        for destino in [oeste, este] {
+            r.cambios
+                .push(desert_tiger_core::CambioConfirmado::ActoresTrasladados {
+                    actores: vec![jugador],
+                    origen,
+                    destino,
+                });
+        }
+        p.observar_traslados(&r).unwrap();
+        let vision = p.vision.proyectar(&p.mapa).1;
+        let indice = |id| {
+            let c = c.presentacion().lugar(id).unwrap().coordenada_central();
+            c.y * p.mapa.ancho() + c.x
+        };
+        assert_eq!(vision[indice(oeste)], VisibilidadTile::Recordado);
+        assert_eq!(vision[indice(este)], VisibilidadTile::Visible);
+        // La consulta pública se limita a proyectar/copiar el estado.
+        let publico = p.vista();
+        assert_eq!(p.vista(), publico);
+        assert_eq!(p.vision.proyectar(&p.mapa).1, vision);
+    }
     fn contenido() -> ContenidoValidado {
         crate::cargar_contenido(
             &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
@@ -1105,8 +1226,24 @@ mod pruebas {
             .unwrap();
         let mut descripciones = Vec::new();
         let mut vio_desplazamiento = false;
+        let mut explorado = vec![false; p.mapa.celdas().len()];
         for _ in 0..500 {
             assert_eq!(p.vista(), vista, "releer la vista conserva su narración");
+            let mapa = p.mundo_visible().mapa;
+            for (antes, estado) in explorado.iter_mut().zip(&mapa.visibilidad) {
+                assert!(
+                    !*antes || *estado != VisibilidadTile::Desconocido,
+                    "la memoria se conserva durante el viaje y su cierre"
+                );
+                *antes |= *estado != VisibilidadTile::Desconocido;
+            }
+            let centro = p
+                .contenido
+                .presentacion()
+                .lugar(p.mundo.ubicacion_grupo())
+                .unwrap()
+                .coordenada_central();
+            assert_eq!(mapa.visibilidad_en(centro), VisibilidadTile::Visible);
             let (texto, detalle, progreso, escena) = match &vista {
                 VistaSesion::PresentandoAccion(v) => (&v.texto, &v.detalle, &v.progreso, v.escena),
                 VistaSesion::EsperandoDecision(v) => (&v.texto, &v.detalle, &v.progreso, v.escena),

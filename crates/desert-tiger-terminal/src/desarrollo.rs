@@ -75,6 +75,7 @@ pub(crate) fn dibujar_conexiones(
     frame: &mut Frame<'_>,
     mundo: &VistaMundo,
     paso_animacion: usize,
+    recordado: Style,
     proyectar: impl Fn(CoordenadaMapa) -> Option<(u16, u16)>,
 ) {
     let centros: BTreeMap<_, _> = mundo
@@ -91,6 +92,11 @@ pub(crate) fn dibujar_conexiones(
         for destino in lugar.conectados.iter().filter(|&&id| lugar.id < id) {
             if let Some(&centro) = centros.get(destino) {
                 recorrer_linea(lugar.coordenada_central, centro, |coordenada| {
+                    let estilo = match mundo.mapa.visibilidad_en(coordenada) {
+                        desert_tiger_app::VisibilidadTile::Desconocido => return,
+                        desert_tiger_app::VisibilidadTile::Recordado => recordado,
+                        desert_tiger_app::VisibilidadTile::Visible => estilo,
+                    };
                     if let Some(posicion) = proyectar(coordenada)
                         && let Some(celda) = frame.buffer_mut().cell_mut(posicion)
                     {
@@ -102,6 +108,11 @@ pub(crate) fn dibujar_conexiones(
     }
     // Los centros se dibujan al final para que otra conexión no los tape con puntos.
     for lugar in mundo.lugares.iter().filter(|l| !l.es_region()) {
+        let estilo = match mundo.mapa.visibilidad_en(lugar.coordenada_central) {
+            desert_tiger_app::VisibilidadTile::Desconocido => continue,
+            desert_tiger_app::VisibilidadTile::Recordado => recordado,
+            desert_tiger_app::VisibilidadTile::Visible => estilo,
+        };
         if lugar.conectados.iter().any(|id| centros.contains_key(id))
             && let Some(posicion) = proyectar(lugar.coordenada_central)
             && let Some(celda) = frame.buffer_mut().cell_mut(posicion)
@@ -150,6 +161,50 @@ mod pruebas {
     use super::*;
 
     #[test]
+    fn conexiones_recordadas_son_grises_y_las_desconocidas_no_se_dibujan() {
+        use desert_tiger_app::VisibilidadTile::{Desconocido, Recordado, Visible};
+        let c = desert_tiger_app::cargar_contenido(
+            &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let p = desert_tiger_app::Partida::nueva(
+            &c,
+            desert_tiger_app::ConfiguracionPartida { semilla: Some(0) },
+        )
+        .unwrap();
+        let mut m = p.mundo_visible();
+        m.mapa.ancho = 5;
+        m.mapa.alto = 1;
+        m.mapa.visibilidad = vec![Visible, Recordado, Desconocido, Visible, Recordado];
+        for l in &mut m.lugares {
+            l.conectados.clear();
+        }
+        m.lugares[0].coordenada_central = CoordenadaMapa { x: 0, y: 0 };
+        m.lugares[1].coordenada_central = CoordenadaMapa { x: 4, y: 0 };
+        m.lugares[0].conectados = vec![m.lugares[1].id];
+        m.lugares[1].conectados = vec![m.lugares[0].id];
+        let pintar = |paso| {
+            let mut t = ratatui::Terminal::new(ratatui::backend::TestBackend::new(5, 1)).unwrap();
+            t.draw(|f| {
+                dibujar_conexiones(f, &m, paso, Style::default().fg(Color::DarkGray), |c| {
+                    Some((c.x as u16, c.y as u16))
+                })
+            })
+            .unwrap();
+            t.backend().buffer().clone()
+        };
+        let a = pintar(0);
+        let b = pintar(1);
+        assert_eq!(a[(1, 0)].symbol(), ".");
+        assert_eq!(a[(1, 0)].fg, Color::DarkGray);
+        assert_eq!(a[(1, 0)], b[(1, 0)]);
+        assert_eq!(a[(2, 0)].symbol(), " ");
+        assert_eq!(a[(4, 0)].symbol(), "O");
+        assert_eq!(a[(4, 0)], b[(4, 0)]);
+        assert_ne!(a[(3, 0)].fg, b[(3, 0)].fg);
+    }
+
+    #[test]
     fn conexiones_cruzan_la_camara_sin_pintar_fuera_ni_incluir_regiones() {
         let raiz = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let contenido = desert_tiger_app::cargar_contenido(&raiz.join("content/base")).unwrap();
@@ -159,6 +214,10 @@ mod pruebas {
         )
         .unwrap();
         let mut mundo = partida.mundo_visible();
+        mundo
+            .mapa
+            .visibilidad
+            .fill(desert_tiger_app::VisibilidadTile::Visible);
         for lugar in &mut mundo.lugares {
             lugar.conectados.clear();
         }
@@ -183,11 +242,17 @@ mod pruebas {
                             Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
                         );
                     }
-                    dibujar_conexiones(frame, &mundo, paso, |p| {
-                        let x = p.x.checked_sub(10)?;
-                        let y = p.y.checked_sub(20)?;
-                        (x < 10 && y < 7).then_some((x as u16 + 5, y as u16 + 3))
-                    });
+                    dibujar_conexiones(
+                        frame,
+                        &mundo,
+                        paso,
+                        Style::default().fg(Color::DarkGray),
+                        |p| {
+                            let x = p.x.checked_sub(10)?;
+                            let y = p.y.checked_sub(20)?;
+                            (x < 10 && y < 7).then_some((x as u16 + 5, y as u16 + 3))
+                        },
+                    );
                 })
                 .unwrap();
             let buffer = terminal.backend().buffer();

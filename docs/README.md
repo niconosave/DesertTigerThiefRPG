@@ -67,6 +67,20 @@ Se dibuja en el centro del Lugar con el mismo color que su nombre. Debe ser un
 no agrega ningún símbolo. El `@` del grupo y las `O` de desarrollo conservan
 prioridad. Se carga al iniciar la partida, junto con los demás datos del Lugar.
 
+## Exploración del mapa
+
+El grupo ve hasta 32 tiles, con obstáculos según el relieve. Lo que nunca vio
+queda vacío; el terreno observado anteriormente queda en gris y sin animación
+cuando sale de su vista. La memoria se conserva durante la partida. Elegir un
+destino o mover la cámara no descubre terreno.
+
+Las alturas se editan en el bloque `alturas` de
+[`mapa_inicial.ron`](../content/base/maps/mapa_inicial.ron), con caracteres y su
+propia leyenda. Tiene las mismas 192 × 64 posiciones que la matriz de terreno.
+En el bloque `vision` podés ajustar `radio` y `altura_observador`; los cambios
+se cargan al iniciar una nueva partida. El [contrato de visibilidad](./tecnica/componentes/22-alturas-visibilidad-memoria.md)
+describe el formato y las reglas del recuerdo.
+
 ## Descripciones y arte de lugares
 
 Los archivos `content/base/places/*.ron` admiten una descripción opcional:

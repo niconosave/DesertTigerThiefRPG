@@ -84,6 +84,13 @@ pub(crate) struct RecursosVisuales {
 }
 
 impl RecursosVisuales {
+    pub(crate) fn estilo_recordado(&self) -> Style {
+        let estilo = self.ui.mapa_recordado;
+        estilo
+            .bg(self.paleta.fondo_pantalla(self.ui.pantalla.bg))
+            .remove_modifier(Modifier::all().difference(estilo.add_modifier))
+    }
+
     pub(crate) fn cargar_modo(raiz: &Path, modo: ModoGraficos) -> Result<Self, ErrorRecursos> {
         let mut recursos = Self::cargar(raiz)?;
         let Some(carpeta) = modo.carpeta(raiz) else {
@@ -281,6 +288,7 @@ impl RecursosVisuales {
 
 pub(crate) struct PaletaUi {
     pub pantalla: Style,
+    pub mapa_recordado: Style,
     pub texto_normal: Style,
     pub destacado: Style,
     pub lugar_geografico: Style,
@@ -381,6 +389,7 @@ struct EstiloDto {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct UiDto {
+    mapa_recordado: EstiloDto,
     pantalla: EstiloDto,
     texto_normal: EstiloDto,
     destacado: EstiloDto,
@@ -548,6 +557,7 @@ fn estilo_lugar_civilizado() -> EstiloDto {
 
 fn convertir_ui(dto: UiDto) -> Result<PaletaUi, ErrorRecursos> {
     Ok(PaletaUi {
+        mapa_recordado: convertir_estilo(dto.mapa_recordado)?,
         pantalla: convertir_estilo(dto.pantalla)?,
         texto_normal: convertir_estilo(dto.texto_normal)?,
         destacado: convertir_estilo(dto.destacado)?,

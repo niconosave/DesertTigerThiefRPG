@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado parcialmente; proyecto humano y ampliación causal aprobados para implementar |
-| Versión | 0.75 |
-| Fecha | 2026-11-01 |
+| Versión | 0.76 |
+| Fecha | 2026-11-02 |
 
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
 > define el audio opcional del frontend y su integración con el bucle. El
@@ -56,6 +56,10 @@ componente mantienen su alcance. Las verificaciones están en el
 [informe del refactor](../acciones/verificacion-viajar-reglamento.md).
 
 ## 1. Propósito
+
+La visibilidad, el relieve y el recuerdo de tiles se definen en el
+[contrato 22](./22-alturas-visibilidad-memoria.md). El frontend recibe la máscara
+de la partida: no explora terreno al mover la cámara o dibujar.
 
 La composición implementada de ilustraciones de lugares sobre el mapa se define
 en [Arte de lugares](./21-arte-lugares.md), que fija su contexto, anclaje y capas.
@@ -432,6 +436,11 @@ son obligatorios:
 
 ```ron
 (
+    mapa_recordado: (
+        frente: "grisOscuro",
+        fondo: None,
+        modificadores: [],
+    ),
     pantalla: (
         frente: "gris",
         fondo: None,

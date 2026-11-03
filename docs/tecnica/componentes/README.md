@@ -28,6 +28,7 @@ Todos desarrollan el
 | [`19-paisajes-sonoros.md`](./19-paisajes-sonoros.md) | Implementado y aceptado: viento, aves, río y mar; alternativa Riachuelo en prueba. |
 | [`20-musica-campamento.md`](./20-musica-campamento.md) | Música y notas del campamento; expresión compartida `music` y pausas configurables. |
 | [`21-arte-lugares.md`](./21-arte-lugares.md) | Implementado: paisaje sobre el mapa, contexto narrativo, anclaje, transparencia y composición por debajo de actores y ventanas. |
+| [`22-alturas-visibilidad-memoria.md`](./22-alturas-visibilidad-memoria.md) | Implementado: matriz de relieve, visión con alcance y obstáculos, memoria de exploración y tiles recordados en gris sin animación. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen
