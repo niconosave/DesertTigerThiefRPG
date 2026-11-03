@@ -755,15 +755,24 @@ impl Interfaz {
         for lugar in mundo
             .lugares
             .iter()
-            .filter(|l| l.es_region())
-            .chain(mundo.lugares.iter().filter(|l| !l.es_region()))
+            .filter(|l| l.es_region() && foco != Some(l.id))
+            .chain(
+                mundo
+                    .lugares
+                    .iter()
+                    .filter(|l| !l.es_region() && foco != Some(l.id)),
+            )
+            .chain(mundo.lugares.iter().filter(|l| foco == Some(l.id)))
         {
             let estilo = estilo_lugar_mapa(lugar, foco, recursos);
             for (caracter, coordenada) in lugar.nombre.chars().zip(&lugar.coordenadas_rotulo) {
                 if let Some((x, y)) =
                     proyectar(*coordenada, area, origen_x, origen_y, margen_x, margen_y)
-                    && let Some(estilo) =
+                    && let Some(estilo) = if foco == Some(lugar.id) {
+                        Some(estilo)
+                    } else {
                         estilo_mapa_observado(mundo, *coordenada, estilo, recursos)
+                    }
                 {
                     poner_celda(frame, x, y, caracter, estilo);
                 }
@@ -3285,6 +3294,75 @@ mod pruebas {
         i.manejar_tecla(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
         let mut grande = Terminal::new(TestBackend::new(120, 40)).unwrap();
         grande.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(i.partida.mundo_visible().mapa, antes);
+    }
+
+    #[test]
+    fn destino_en_foco_muestra_rotulo_sin_descubrir_el_terreno() {
+        let (mut i, recursos, mut terminal) = preparar_inspector();
+        let antes = i.partida.mundo_visible().mapa;
+        for l in &mut i.ultima_vista_mundo.lugares {
+            l.coordenadas_rotulo.clear();
+            l.simbolo = None;
+            l.arte = None;
+        }
+        let destinos = vec![
+            i.ultima_vista_mundo.lugares[1].id,
+            i.ultima_vista_mundo.lugares[2].id,
+        ];
+        for (indice, x) in [(1, 80), (2, 100)] {
+            let lugar = &mut i.ultima_vista_mundo.lugares[indice];
+            lugar.nombre = "Destino remoto".into();
+            lugar.coordenada_central = desert_tiger_app::CoordenadaMapa { x, y: 25 };
+            lugar.coordenadas_rotulo = (0..14)
+                .map(|n| desert_tiger_app::CoordenadaMapa {
+                    x: x - 7 + n,
+                    y: 10,
+                })
+                .collect();
+        }
+        // Otro lugar con el mismo rótulo no debe tapar el resaltado del foco.
+        i.ultima_vista_mundo.lugares[3].nombre = "Destino remoto".into();
+        i.ultima_vista_mundo.lugares[3].coordenadas_rotulo =
+            i.ultima_vista_mundo.lugares[1].coordenadas_rotulo.clone();
+        for estado in [VisibilidadTile::Desconocido, VisibilidadTile::Recordado] {
+            i.ultima_vista_mundo.mapa.visibilidad.fill(estado);
+            i.modo = ModoLocal::Seleccion {
+                destinos: destinos.clone(),
+                foco: 0,
+            };
+            terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+            let g = i.geometria_mapa.get().unwrap();
+            for (c, pos) in i.ultima_vista_mundo.lugares[1]
+                .nombre
+                .chars()
+                .zip(&i.ultima_vista_mundo.lugares[1].coordenadas_rotulo)
+            {
+                let posicion = g.a_pantalla(*pos).unwrap();
+                let celda = &terminal.backend().buffer()[posicion];
+                assert_eq!(celda.symbol(), c.to_string());
+                assert_eq!(celda.fg, recursos.ui.foco.fg.unwrap());
+            }
+        }
+        i.ultima_vista_mundo
+            .mapa
+            .visibilidad
+            .fill(VisibilidadTile::Desconocido);
+        i.modo = ModoLocal::Seleccion { destinos, foco: 1 };
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let g = i.geometria_mapa.get().unwrap();
+        for pos in &i.ultima_vista_mundo.lugares[1].coordenadas_rotulo {
+            if let Some(pos) = g.a_pantalla(*pos) {
+                assert_eq!(terminal.backend().buffer()[pos].symbol(), " ");
+            }
+        }
+        assert!(
+            i.ultima_vista_mundo
+                .mapa
+                .visibilidad
+                .iter()
+                .all(|v| *v == VisibilidadTile::Desconocido)
+        );
         assert_eq!(i.partida.mundo_visible().mapa, antes);
     }
 

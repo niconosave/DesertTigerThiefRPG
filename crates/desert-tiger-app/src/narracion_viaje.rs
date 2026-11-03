@@ -149,14 +149,10 @@ impl Narrador<'_> {
                     t.push_str(&format!("\n{} comienza este tramo con {}.",self.actor(*actor),estados.join(" y ")));
                 }
                 for (i,m) in d.mitades.iter().enumerate(){
-                    t.push_str(&format!("\nEn {}, la mitad {} requiere {}: base {} horas{},{}{}{}; carga añadida {}.",self.lugar(m.lugar),if i==0{"de salida"}else{"de llegada"},formatear(m.duracion),m.horas_base,if m.pequena{"; Pequeño divide esa base por dos"}else if m.vasta{"; Vasto duplica esa base"}else{"; tamaño normal"},if m.terreno_lento{" el terreno obliga a la montura a medir sus apoyos y usar el paso a pie;"}else{""},if m.animal_limitante{" el animal de carga limita la velocidad;"}else{""},if m.estado_horas>0{format!(" los estados limitantes añaden {} horas;",m.estado_horas)}else{String::new()},formatear(m.demora_carga)));
+                    t.push_str(&format!("\nEn {}, la mitad {} requiere {}: base {} horas{},{}{}{}; carga añadida {}.",self.lugar(m.lugar),if i==0{"de salida"}else{"de llegada"},formatear(m.duracion),m.horas_base,if m.pequena{"; Pequeño divide esa base por dos"}else if m.vasta{"; Vasto duplica esa base"}else{"; tamaño normal"},if m.terreno_lento{" el terreno exige un avance lento y cuidadoso;"}else{""},if m.animal_limitante{" los animales ralentizan el avance;"}else{""},if m.estado_horas>0{format!(" los estados limitantes añaden {} horas;",m.estado_horas)}else{String::new()},formatear(m.demora_carga)));
                     t.push_str(&format!("\n{}",self.chequeo(&d.chequeos[i])));
                     if m.medio==Medio::Pie && d.medio!=Medio::Pie {
                         t.push_str("\nAl faltar una montura, un integrante continúa a pie y el grupo acompaña ese paso. Se conserva el chequeo de Cabalgar ya realizado.");
-                    }
-                    if m.terreno_lento {
-                        let referencia=if m.pequena{m.horas_base/2}else if m.vasta{m.horas_base*2}else{m.horas_base};
-                        t.push_str(&format!("\nSin la restricción del terreno, esa mitad habría requerido {referencia} horas antes de carga y otras demoras."));
                     }
                     if let Some(inc)=&d.incidente && inc.lugar==m.lugar {t.push_str(&format!("\n{}",self.incidente(d.medio,inc)));}
                 }

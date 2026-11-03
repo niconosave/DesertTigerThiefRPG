@@ -53,17 +53,21 @@ pub(crate) fn estado_pie(mundo: &Mundo, actores: &[IdActor]) -> u64 {
         .max()
         .unwrap_or(0)
 }
-pub(crate) fn mitad(
+pub(crate) fn base_mitad(
     mundo: &Mundo,
     lugar: IdLugar,
     medio: Medio,
     animales: u64,
-    estado: u64,
-) -> Resultado<u64> {
-    if mundo.lugar(lugar).is_none() {
-        return Err(fallo("Lugar de mitad desconocido"));
+    con_monturas: bool,
+) -> u64 {
+    if lugar_tiene(mundo, lugar, "montanoso") {
+        return if animales > 0 || con_monturas {
+            120
+        } else {
+            108
+        };
     }
-    let lento = ["montanoso", "pantanoso", "boscoso"]
+    let lento = ["pantanoso", "boscoso"]
         .iter()
         .any(|c| lugar_tiene(mundo, lugar, c));
     let base = match medio {
@@ -73,11 +77,24 @@ pub(crate) fn mitad(
         Medio::Barco => 24,
         _ => 84,
     };
-    let base = if animales > 0 && medio != Medio::Barco {
+    if animales > 0 && medio != Medio::Barco {
         base.max(60)
     } else {
         base
-    };
+    }
+}
+pub(crate) fn mitad(
+    mundo: &Mundo,
+    lugar: IdLugar,
+    medio: Medio,
+    animales: u64,
+    con_monturas: bool,
+    estado: u64,
+) -> Resultado<u64> {
+    if mundo.lugar(lugar).is_none() {
+        return Err(fallo("Lugar de mitad desconocido"));
+    }
+    let base = base_mitad(mundo, lugar, medio, animales, con_monturas);
     let pequeno = lugar_tiene(mundo, lugar, "pequeno");
     let vasto = lugar_tiene(mundo, lugar, "vasto");
     if pequeno && vasto {
@@ -104,8 +121,22 @@ pub(crate) fn tiempos(
         .map(|p| {
             let m = medio(mundo, p[0], p[1], actores.len(), caballos, camellos);
             Ok([
-                mitad(mundo, p[0], m, animales, estado_pie(mundo, actores))?,
-                mitad(mundo, p[1], m, animales, estado_pie(mundo, actores))?,
+                mitad(
+                    mundo,
+                    p[0],
+                    m,
+                    animales,
+                    caballos > 0 || camellos > 0,
+                    estado_pie(mundo, actores),
+                )?,
+                mitad(
+                    mundo,
+                    p[1],
+                    m,
+                    animales,
+                    caballos > 0 || camellos > 0,
+                    estado_pie(mundo, actores),
+                )?,
             ])
         })
         .collect()
@@ -134,7 +165,7 @@ pub(crate) fn rapida(
             .ok_or_else(|| fallo("índice de conexiones ausente"))?
         {
             let m = medio(mundo, a, b, 1, 1, 1);
-            let costo = mitad(mundo, a, m, 0, 0)? + mitad(mundo, b, m, 0, 0)?;
+            let costo = mitad(mundo, a, m, 0, true, 0)? + mitad(mundo, b, m, 0, true, 0)?;
             let nd = d
                 .checked_add(costo)
                 .ok_or_else(|| fallo("ruta desbordada"))?;

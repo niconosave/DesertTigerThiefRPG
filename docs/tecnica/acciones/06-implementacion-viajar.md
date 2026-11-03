@@ -289,7 +289,20 @@ La muerte de montura solo cambia la referencia temporal del destino cuando
 su tarjeta lo indica. No crea una prueba de `Andar` ni aplica estados de andar
 en esa sustitución temporal.
 
-`rutas::mitad` calcula la duración reglada; las tarjetas conservan base, tamaño,
+`rutas::base_mitad` establece la referencia temporal por terreno. `montanoso`
+prevalece sobre bosque y pantano: 108 horas por mitad normal (9 días por Lugar
+completo), o 120 horas (10 días) si hay monturas o animales de carga. Afecta a
+todos los medios, incluido caminar, sin convertir el medio ni la prueba. Basta
+una montura, aunque no alcance para todo el Grupo. Todavía no interviene un
+montaraz. La búsqueda rápida conserva su supuesto de medios presumidos, con
+monturas; la previsión y ejecución usan los animales reales del viaje.
+
+`rutas::mitad` aplica después el tamaño y los estados. La misma base se usa en
+previsión, carga y ejecución, y se publica en el desglose de Detalles. La pérdida
+de montura conserva las reglas temporales de su tarjeta: solo una pérdida en
+origen que obliga a seguir a pie cambia la referencia de destino.
+
+Las tarjetas conservan base, tamaño,
 restricción de terreno, limitante animal y estado en `MitadRecorrida`. La ejecución añade las horas de carga
 preasignadas, viento e incidente; no aplica el factor de carga a esperas,
 tormentas ni viento. No se rehace la ruta por pérdidas o nuevos estados.

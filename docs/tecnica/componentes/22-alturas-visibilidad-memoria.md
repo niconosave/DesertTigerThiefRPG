@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 1.0 |
-| Fecha | 2026-11-02 |
+| Versión | 1.1 |
+| Fecha | 2026-11-03 |
 | Implementación | Relieve, visión, memoria y representación en terminal |
 
 ## 1. Comportamiento buscado
@@ -305,6 +305,13 @@ del tile que ocupan: normal si es visible, gris si es recordado y omitido si es
 desconocido. Esto también se aplica a los rótulos de regiones. No se descarta
 un rótulo entero por su centro; pueden quedar fragmentos legibles según los
 tiles observados. El diseño de sus coordenadas sigue siendo tarea del autor.
+
+Durante la selección de destino, el rótulo del Lugar en foco se muestra con su
+resaltado completo, incluso sobre tiles desconocidos o recordados. Se dibuja al
+final de los rótulos para conservar el foco cuando otro Lugar comparte nombre y
+coordenadas. Se mantiene el recorte de cámara. Esta excepción afecta solo a ese
+nombre: no revela terreno, símbolos, otros lugares ni modifica la memoria.
+Al cambiar de foco, el nombre anterior vuelve a respetar la máscara normal.
 
 El marcador `@` conserva prioridad; su posición siempre pertenece a la visión
 actual. Los retratos, las ventanas y el arte de paisaje del

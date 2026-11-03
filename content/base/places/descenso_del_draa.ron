@@ -2,7 +2,7 @@
     clave: "descenso_del_draa",
     nombre: "Descenso del Drâa",
     nombre_abreviado: "Desc. Drâa",
-    caracteristicas: ["montanoso", "empinado", "estrecho", "rocoso"],
+    caracteristicas: ["empinado", "estrecho", "rocoso"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("paso_escarpado")),
         (tipo: Conectado, destino: Lugar("valle_fertil")),

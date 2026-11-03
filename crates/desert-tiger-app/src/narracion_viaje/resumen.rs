@@ -94,7 +94,7 @@ impl Narrador<'_> {
         let suceso = if let Some(i) = &d.incidente {
             self.resumen_incidente(r, d.medio, i)
         } else if d.mitades.iter().any(|m| m.terreno_lento) {
-            "El terreno obliga a las monturas a avanzar con el cuidado y la lentitud del paso a pie.".into()
+            "El terreno te obliga a avanzar despacio y a elegir con cuidado cada apoyo.".into()
         } else if d.mitades.iter().any(|m| m.estado_horas > 0) {
             "Debés ajustar la marcha al paso de quienes están lastimados o cansados.".into()
         } else if d.mitades.iter().any(|m| {

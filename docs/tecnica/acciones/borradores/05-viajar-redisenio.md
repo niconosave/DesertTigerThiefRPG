@@ -184,9 +184,16 @@ Un Lugar con `Pequeño` y `Vasto` a la vez es un error de diseño: no tiene fact
 definido. En una ruta, cada Lugar intermedio aporta una mitad de llegada y otra
 de salida; los extremos solo aportan una.
 
-Caballos y camellos usan la base de `Andar` en cada mitad `Montañoso`,
-`Pantanoso` o `Boscoso`, antes de aplicar tamaño. Basta una de esas Características:
-no acumulan efectos. El camello puede atravesar `Desierto` `Vasto` con su base
+En terreno `Montañoso`, todos los medios usan una base de **9 días** por
+Lugar normal completo (**108 horas por mitad**). Si el Grupo lleva alguna
+montura o animal de carga, incluso sin monturas suficientes para todos, la base
+es **10 días** (**120 horas por mitad**). Se aplica antes del tamaño y de las
+demoras adicionales, también al caminar; no cambia la acción particular ni su
+tabla de incidentes. No hay todavía una excepción por llevar un montaraz.
+
+En `Pantanoso` o `Boscoso`, caballos y camellos siguen usando la base de `Andar`,
+salvo que el Lugar sea también `Montañoso`: en ese caso prevalece la regla
+montañosa y no se acumulan efectos. El camello puede atravesar `Desierto` `Vasto` con su base
 propia, salvo que también tenga alguno de esos terrenos lentos. Sustituir la
 referencia temporal no cambia la tarjeta, su acción particular ni su tabla.
 
@@ -194,7 +201,8 @@ No se anota una velocidad numérica individual en cada Actor: el paso parte de
 las bases universales y solo cambia mediante reglas expresas.
 El Grupo acompaña al elemento limitante más lento. Un animal de carga limita el
 paso terrestre solo si su referencia es más lenta que la del Grupo; varios
-animales no vuelven a reducirlo y no limitan una conexión navegada. Ninguna otra
+animales no vuelven a reducirlo. Fuera de terreno `Montañoso`, no limitan una
+conexión navegada. Ninguna otra
 Característica altera las bases salvo regla expresa de este documento.
 
 El **tiempo previsto sin demora** suma las duraciones con medios, tamaños y
@@ -716,7 +724,7 @@ camellos si hay suficientes antes de recurrir a pie.
 
 **Presentación y cierre.** Transmite rapidez, amplitud y grandes vistas,
 sin presuponer un paisaje. En terreno lento mantiene al Grupo montado y explica
-la causa: pendientes que obligan a medir apoyos en `Montañoso`, suelo incierto
+la causa: pendientes que ralentizan el avance en `Montañoso`, suelo incierto
 en `Pantanoso` u obstáculos y paso estrecho en `Boscoso`. Informa duración
 de la mitad afectada y cuánto habría tomado sin la restricción.
 

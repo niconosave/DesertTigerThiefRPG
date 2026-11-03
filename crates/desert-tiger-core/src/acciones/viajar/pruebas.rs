@@ -675,6 +675,80 @@ fn descarte_de_botas_identicas_usa_ids_menores() {
 }
 
 #[test]
+fn montanas_retrasan_todos_los_medios_y_penalizan_la_presencia_de_animales() {
+    let m = escenario(
+        &[
+            &["montanoso"],
+            &["montanoso"],
+            &["montanoso", "pequeno"],
+            &["montanoso", "vasto", "boscoso"],
+        ],
+        &[&[], &[]],
+    );
+    for medio in [Medio::Pie, Medio::Caballo, Medio::Camello, Medio::Barco] {
+        for (animales, monturas, base) in [
+            (0, false, 108),
+            (1, false, 120),
+            (0, true, 120),
+            (2, true, 120),
+        ] {
+            assert_eq!(
+                rutas::mitad(&m, id(0), medio, animales, monturas, 0).unwrap(),
+                base
+            );
+            assert_eq!(
+                rutas::mitad(&m, id(2), medio, animales, monturas, 0).unwrap(),
+                base / 2
+            );
+            assert_eq!(
+                rutas::mitad(&m, id(3), medio, animales, monturas, 0).unwrap(),
+                base * 2
+            );
+        }
+    }
+    let viajeros = [actor(0), actor(1)];
+    for (caballos, camellos, animales, horas) in [
+        (0, 0, 0, 216),
+        (2, 0, 0, 240),
+        (0, 2, 0, 240),
+        (0, 0, 1, 240),
+        (1, 0, 0, 240),
+    ] {
+        let previstas =
+            rutas::tiempos(&m, &[id(0), id(1)], &viajeros, caballos, camellos, animales).unwrap();
+        assert_eq!(rutas::sumar_horas(&previstas).unwrap(), horas);
+        let c = tarjetas::ContextoMovimiento {
+            mundo: &m,
+            viajeros: &viajeros,
+            origen: id(0),
+            destino: id(1),
+            animales,
+            caballos,
+            camellos,
+            carga: [HorasViaje::CERO; 2],
+            mes: 1,
+            rumbo: None,
+        };
+        let medio = rutas::medio(&m, id(0), id(1), viajeros.len(), caballos, camellos);
+        let accion = if medio == Medio::Pie {
+            AccionParticular::Andar
+        } else {
+            AccionParticular::Cabalgar
+        };
+        let mut movimiento = tarjetas::comenzar(&c, medio, accion, 5, &mut Azar(19)).unwrap();
+        tarjetas::terminar_mitades(&c, &mut movimiento, [0, 0], false).unwrap();
+        assert_eq!(movimiento.duracion, HorasViaje::horas(horas));
+        assert!(
+            movimiento
+                .dato
+                .mitades
+                .iter()
+                .all(|m| m.terreno_lento && m.horas_base == horas / 2)
+        );
+    }
+}
+
+#[test]
 fn rutas_ponderan_tamano_y_destinos_son_consultas_puras() {
     let terrenos: [&[&str]; 5] = [
         &[],

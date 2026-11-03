@@ -1132,6 +1132,10 @@ El mapa y los retratos se dibujan
 en el espacio restante a la izquierda; las dos barras inferiores conservan todo
 el ancho. Al cerrar el selector, el mapa recupera su región normal.
 
+El nombre del destino en foco se dibuja completo y resaltado sobre el mapa,
+aunque sus tiles estén fuera de visión o sin explorar. Se compone después de
+los demás rótulos; no descubre terreno ni altera la memoria de exploración.
+
 La lista contiene exactamente los destinos ofrecidos, ordenados por nombre abreviado sin
 distinguir mayúsculas; los empates se resuelven por ID. Cada fila muestra un
 `VistaLugar::nombre_abreviado`; la seleccionada usa `> ` y el estilo `foco`.

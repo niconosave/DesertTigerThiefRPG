@@ -128,20 +128,23 @@ pub(crate) fn terminar_mitades(
             m.dato.medio
         };
         let estado = if a_pie_destino { 0 } else { estados[i] };
-        let horas = geografia::mitad(c.mundo, lugar, medio, c.animales, estado)?;
+        // Solo la pérdida en origen puede cambiar la referencia del destino.
+        let con_monturas = if i == 1 && a_pie_destino {
+            m.caballos > 0 || m.camellos > 0
+        } else {
+            c.caballos > 0 || c.camellos > 0
+        };
+        let horas = geografia::mitad(c.mundo, lugar, medio, c.animales, con_monturas, estado)?;
         let duracion = HorasViaje::horas(horas).sumar(c.carga[i])?;
         m.duracion = m.duracion.sumar(duracion)?;
-        let base = match medio {
-            Medio::Pie => 84,
-            Medio::Caballo => 48,
-            Medio::Camello => 60,
-            Medio::Barco => 24,
-        };
-        let lento = medio != Medio::Pie
-            && medio != Medio::Barco
-            && ["montanoso", "pantanoso", "boscoso"]
-                .iter()
-                .any(|s| lugar_tiene(c.mundo, lugar, s));
+        let montanoso = lugar_tiene(c.mundo, lugar, "montanoso");
+        let base = geografia::base_mitad(c.mundo, lugar, medio, c.animales, con_monturas);
+        let lento = montanoso
+            || (medio != Medio::Pie
+                && medio != Medio::Barco
+                && ["pantanoso", "boscoso"]
+                    .iter()
+                    .any(|s| lugar_tiene(c.mundo, lugar, s)));
         m.dato.mitades.push(MitadRecorrida {
             lugar,
             medio,
@@ -149,7 +152,11 @@ pub(crate) fn terminar_mitades(
             pequena: lugar_tiene(c.mundo, lugar, "pequeno"),
             vasta: lugar_tiene(c.mundo, lugar, "vasto"),
             terreno_lento: lento,
-            animal_limitante: c.animales > 0 && medio == Medio::Caballo && !lento,
+            animal_limitante: if montanoso {
+                c.animales > 0 || con_monturas
+            } else {
+                c.animales > 0 && medio == Medio::Caballo && !lento
+            },
             estado_horas: if medio == Medio::Pie { estado } else { 0 },
             duracion: duracion.tiempo()?,
             demora_carga: c.carga[i].tiempo()?,
