@@ -37,9 +37,13 @@ los estándares de implementación, las pruebas y la definición de terminado.
 
 Desde el mapa o la selección de destino, `D` abre el menú de desarrollo.
 Usá `↑/↓` para elegir una opción y `Enter` o `Espacio` para alternarla.
-`C` alterna directamente las conexiones e `I` el inspector de coordenadas.
-`Esc` o `D` cierran el menú. Ambas opciones comienzan apagadas.
+`C` alterna directamente las conexiones, `I` el inspector de coordenadas y
+`M` la vista del mapa completo.
+`Esc` o `D` cierran el menú. Las tres opciones comienzan apagadas.
 
+- **Mostrar mapa completo:** muestra el terreno actual y sus rótulos sin niebla.
+  No cambia la exploración, los conocimientos ni los destinos disponibles; al
+  desactivarlo vuelve la visibilidad real y la memoria anterior. No cambia el zoom.
 - **Mostrar conexiones de lugares:** une los centros con puntos que recorren el
   arcoíris cada 250 ms, marca los centros con `O` y excluye las relaciones Abarca.
 - **Inspeccionar coordenadas:** al pasar el mouse sobre el mapa, resalta el tile
@@ -237,3 +241,9 @@ desplaza la cámara y `Home` recupera el encuadre.
 
 El [contrato de planificación](./tecnica/acciones/08-planificacion-rutas.md)
 define los perfiles, tiempos y límites.
+
+Los lugares pueden conservar su nombre en las listas sin rotularse sobre el mapa:
+`coordenadas_rotulo: []` omite el rótulo. Si la lista no está vacía, debe tener
+una coordenada por carácter. Los caminos y puentes nuevos usan esta opción;
+su trazado visual se edita con `:` en `mapa_inicial.ron`, y sus conexiones de
+viaje se declaran en los RON de los lugares.

@@ -1,0 +1,22 @@
+// Ciudad del valle meridional; sonoridad inspirada en África oriental.
+(
+    clave: "debaret",
+    nombre: "Debaret",
+    nombre_abreviado: "Debaret",
+    simbolo: "☗",
+    descripcion: "Ves casas de piedra oscura dispuestas en terrazas y un recinto de altos pilares sobre el valle. Entre los muros, las puertas talladas dan a patios donde descansan las caravanas.",
+    caracteristicas: ["civilizado", "poblado", "mercado", "posada"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("valle_gris")),
+    ],
+    coordenada_central: (x: 110, y: 43),
+    coordenadas_rotulo: [
+        (x: 107, y: 42),
+        (x: 108, y: 42),
+        (x: 109, y: 42),
+        (x: 110, y: 42),
+        (x: 111, y: 42),
+        (x: 112, y: 42),
+        (x: 113, y: 42),
+    ],
+)

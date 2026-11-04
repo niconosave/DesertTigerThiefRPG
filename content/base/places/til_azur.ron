@@ -1,0 +1,23 @@
+// Gran ciudad de la cuenca fértil; sonoridad inspirada en Asiria y Sumeria.
+(
+    clave: "til_azur",
+    nombre: "Til Azur",
+    nombre_abreviado: "Til Azur",
+    simbolo: "☗",
+    descripcion: "Ves una ciudad extensa de terrazas blancas y patios porticados que descienden hacia los muelles. El olor del grano almacenado se mezcla con el de las cuerdas mojadas y las redes tendidas.",
+    caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle", "fertil", "aguaDulce"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("valle_de_azen")),
+    ],
+    coordenada_central: (x: 171, y: 14),
+    coordenadas_rotulo: [
+        (x: 167, y: 13),
+        (x: 168, y: 13),
+        (x: 169, y: 13),
+        (x: 170, y: 13),
+        (x: 171, y: 13),
+        (x: 172, y: 13),
+        (x: 173, y: 13),
+        (x: 174, y: 13),
+    ],
+)

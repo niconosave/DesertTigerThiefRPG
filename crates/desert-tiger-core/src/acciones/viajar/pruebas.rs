@@ -675,6 +675,53 @@ fn descarte_de_botas_identicas_usa_ids_menores() {
 }
 
 #[test]
+fn caminos_reducen_dos_dias_la_base_y_la_prevision_por_mitad() {
+    let m = escenario(
+        &[
+            &["camino"],
+            &["camino"],
+            &[],
+            &["camino", "montanoso"],
+            &["camino", "pequeno"],
+            &["camino", "vasto"],
+        ],
+        &[&[], &[]],
+    );
+    for (medio, base) in [
+        (Medio::Pie, 60),
+        (Medio::Caballo, 24),
+        (Medio::Camello, 36),
+        (Medio::Barco, 12),
+    ] {
+        assert_eq!(rutas::base_mitad(&m, id(0), medio, 0, false), base);
+        assert_eq!(
+            rutas::mitad(&m, id(4), medio, 0, false, 0).unwrap(),
+            base / 2
+        );
+        assert_eq!(
+            rutas::mitad(&m, id(5), medio, 0, false, 0).unwrap(),
+            base * 2
+        );
+    }
+    assert_eq!(rutas::base_mitad(&m, id(3), Medio::Pie, 0, false), 84);
+    assert_eq!(rutas::base_mitad(&m, id(3), Medio::Caballo, 1, true), 96);
+    assert_eq!(rutas::base_mitad(&m, id(0), Medio::Caballo, 1, true), 36);
+    assert_eq!(
+        rutas::mitad(&m, id(0), Medio::Pie, 0, false, 10).unwrap(),
+        70
+    );
+    let viajeros = [actor(0), actor(1)];
+    for (caballos, camellos, total) in [(0, 0, 120), (2, 0, 48), (0, 2, 72)] {
+        let tiempos =
+            rutas::tiempos(&m, &[id(0), id(1)], &viajeros, caballos, camellos, 0).unwrap();
+        assert_eq!(rutas::sumar_horas(&tiempos).unwrap(), total);
+        // Una conexión mixta descuenta únicamente la mitad que es camino.
+        let mixto = rutas::tiempos(&m, &[id(0), id(2)], &viajeros, caballos, camellos, 0).unwrap();
+        assert_eq!(rutas::sumar_horas(&mixto).unwrap(), total + 24);
+    }
+}
+
+#[test]
 fn montanas_retrasan_todos_los_medios_y_penalizan_la_presencia_de_animales() {
     let m = escenario(
         &[

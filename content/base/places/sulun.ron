@@ -1,0 +1,20 @@
+// Ciudad de los Bajos de Nahal; tradición local de canales, madera y juncos.
+(
+    clave: "sulun",
+    nombre: "Sulún",
+    nombre_abreviado: "Sulún",
+    simbolo: "☗",
+    descripcion: "Ves una ciudad de patios elevados y tejados de caña junto a las aguas bajas. Por las pasarelas pasan cargadores, mientras los barqueros vocean desde los pequeños muelles.",
+    caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("marisma_verde")),
+    ],
+    coordenada_central: (x: 172, y: 51),
+    coordenadas_rotulo: [
+        (x: 170, y: 50),
+        (x: 171, y: 50),
+        (x: 172, y: 50),
+        (x: 173, y: 50),
+        (x: 174, y: 50),
+    ],
+)

@@ -1,0 +1,20 @@
+(
+    clave: "safra",
+    nombre: "Safra",
+    nombre_abreviado: "Safra",
+    simbolo: "☗",
+    descripcion: "Ves un caserío de muros ocres y toldos remendados junto al camino. Desde las azoteas se distinguen las tierras secas de la península y las caravanas que se aproximan.",
+    caracteristicas: ["civilizado", "poblado", "arido"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("camino_de_sahir")),
+        (tipo: Conectado, destino: Lugar("nahris")),
+    ],
+    coordenada_central: (x: 79, y: 46),
+    coordenadas_rotulo: [
+        (x: 77, y: 45),
+        (x: 78, y: 45),
+        (x: 79, y: 45),
+        (x: 80, y: 45),
+        (x: 81, y: 45),
+    ],
+)

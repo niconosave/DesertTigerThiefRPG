@@ -1,0 +1,21 @@
+// Ciudad de los Bajos de Nahal; tradición local de canales, madera y juncos.
+(
+    clave: "nalume",
+    nombre: "Nalume",
+    nombre_abreviado: "Nalume",
+    simbolo: "☗",
+    descripcion: "Ves casas sobre basamentos altos, comunicadas por pasarelas de madera. En los canales entre los patios descansan barcas estrechas cargadas de juncos y cestos.",
+    caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("nahal")),
+    ],
+    coordenada_central: (x: 160, y: 49),
+    coordenadas_rotulo: [
+        (x: 157, y: 48),
+        (x: 158, y: 48),
+        (x: 159, y: 48),
+        (x: 160, y: 48),
+        (x: 161, y: 48),
+        (x: 162, y: 48),
+    ],
+)

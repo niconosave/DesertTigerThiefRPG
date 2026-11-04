@@ -3,6 +3,9 @@
     nombre: "BAJOS DE NAHAL",
     caracteristicas: ["region", "pantanoso"],
     relaciones: [
+        (tipo: Abarca, destino: Lugar("sulun")),
+        (tipo: Abarca, destino: Lugar("teshara")),
+        (tipo: Abarca, destino: Lugar("nalume")),
         (tipo: Abarca, destino: Lugar("marisma_verde")),
         (tipo: Abarca, destino: Lugar("nahal")),
         (tipo: Abarca, destino: Lugar("estuario_de_nahal")),

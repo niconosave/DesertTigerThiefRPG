@@ -346,6 +346,16 @@ impl Partida {
     pub fn mundo_visible(&self) -> VistaMundo {
         self.mundo_visible.clone()
     }
+    /// Proyección de depuración: revela el terreno actual sin alterar la exploración.
+    pub fn mapa_completo_para_desarrollo(&self) -> VistaMapa {
+        VistaMapa {
+            ancho: self.mapa.ancho(),
+            alto: self.mapa.alto(),
+            celdas: self.mapa.celdas().to_vec(),
+            visibilidad: vec![VisibilidadTile::Visible; self.mapa.celdas().len()],
+            tipos_declarados: self.mapa.tipos_declarados().cloned().collect(),
+        }
+    }
     pub fn procesar(
         &mut self,
         intencion: IntencionFrontend,
@@ -1366,6 +1376,39 @@ mod pruebas {
             primera.iter().any(|d| segunda.contains(d)),
             "el otro viaje vuelve a describir lugares"
         );
+    }
+
+    #[test]
+    fn mapa_de_desarrollo_muestra_terreno_actual_sin_cambiar_memoria() {
+        let c = contenido();
+        let mut p = Partida::con_azar(&c, Box::new(AzarFavorable)).unwrap();
+        let origen = CoordenadaMapa { x: 0, y: 0 };
+        p.vision.observar(&p.mapa, origen);
+        p.vision.observar(
+            &p.mapa,
+            CoordenadaMapa {
+                x: p.mapa.ancho() - 1,
+                y: p.mapa.alto() - 1,
+            },
+        );
+        let nuevo = p
+            .mapa
+            .tipos_declarados()
+            .find(|t| **t != p.mapa.celdas()[0])
+            .unwrap()
+            .clone();
+        p.mapa.cambiar_tipo(origen, nuevo.clone()).unwrap();
+        let antes = p.vision.proyectar(&p.mapa);
+        let completo = p.mapa_completo_para_desarrollo();
+        assert_eq!(completo.celdas[0], nuevo);
+        assert!(
+            completo
+                .visibilidad
+                .iter()
+                .all(|v| *v == VisibilidadTile::Visible)
+        );
+        assert_eq!(p.vision.proyectar(&p.mapa), antes);
+        assert_eq!(antes.1[0], VisibilidadTile::Recordado);
     }
 
     #[test]

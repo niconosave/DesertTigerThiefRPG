@@ -1771,7 +1771,9 @@ fn validar_lugar(
                 )),
             }
         };
-    if dto.coordenadas_rotulo.len() != dto.nombre.chars().count() {
+    if !dto.coordenadas_rotulo.is_empty()
+        && dto.coordenadas_rotulo.len() != dto.nombre.chars().count()
+    {
         return Err(error_archivo(
             ruta,
             TipoElementoContenido::Lugar,
@@ -2903,6 +2905,35 @@ mod pruebas {
     }
 
     #[test]
+    fn un_lugar_con_nombre_admite_rotulo_omitido_pero_no_incompleto() {
+        let fixture = fixture_temporal();
+        let archivo = fixture.0.join("places/tazar.ron");
+        let original = fs::read_to_string(&archivo).unwrap();
+        let inicio = original.find("coordenadas_rotulo: [").unwrap();
+        let fin = inicio + original[inicio..].find(']').unwrap() + 1;
+        let mut sin_rotulo = original.clone();
+        sin_rotulo.replace_range(inicio..fin, "coordenadas_rotulo: []");
+        fs::write(&archivo, &sin_rotulo).unwrap();
+        let contenido = cargar_contenido(&fixture.0).unwrap();
+        let lugar = contenido
+            .presentacion()
+            .lugares()
+            .iter()
+            .find(|l| l.nombre() == "Tazar")
+            .unwrap();
+        assert!(lugar.coordenadas_rotulo().is_empty());
+        fs::write(
+            &archivo,
+            sin_rotulo.replace(
+                "coordenadas_rotulo: []",
+                "coordenadas_rotulo: [(x: 124, y: 16)]",
+            ),
+        )
+        .unwrap();
+        assert!(cargar_contenido(&fixture.0).is_err());
+    }
+
+    #[test]
     fn solo_un_lugar_oculto_admite_nombre_y_rotulo_vacios() {
         let fixture = fixture_temporal();
         let ruta = fixture.0.join("places/zona_arida.ron");
@@ -3386,7 +3417,7 @@ mod pruebas {
         let destinos =
             desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
                 .unwrap();
-        assert_eq!(destinos.len(), 37);
+        assert_eq!(destinos.len(), 59);
         for region in regiones {
             assert!(!destinos.contains(&region.id()));
             assert!(mundo.lugares_conectados(region.id()).unwrap().is_empty());
@@ -3454,7 +3485,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 122);
+        assert_eq!(mundo.relaciones().len(), 177);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -3462,11 +3493,12 @@ mod pruebas {
                     IdLugar::desde_posicion(9).expect("ID válido"),
                     IdLugar::desde_posicion(21).expect("ID válido"),
                     IdLugar::desde_posicion(49).expect("ID válido"),
+                    IdLugar::desde_posicion(73).expect("ID válido"),
                 ]
                 .as_slice()
             )
         );
-        assert_eq!(contenido.presentacion().lugares().len(), 55);
+        assert_eq!(contenido.presentacion().lugares().len(), 77);
         for (origen, intermedio, destino) in [
             (0, 20, 5),
             (1, 21, 2),

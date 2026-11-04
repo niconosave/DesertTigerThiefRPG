@@ -365,3 +365,12 @@ cumbres destacadas. El juego no genera esa matriz a partir del terreno.
 No se diseñan todavía reducción del alcance por clima, percepción por actor,
 transmisión de mapas entre NPC, memoria individual, persistencia ni desplazamiento
 continuo por tiles. Esas ampliaciones no son necesarias para este comportamiento.
+
+### Vista de desarrollo del mapa completo
+
+El menú de desarrollo permite ignorar visualmente la niebla. La aplicación
+expone una proyección de solo lectura del mapa actual con todos sus tiles
+visibles; el frontend la utiliza únicamente al dibujar mientras la opción está
+activa. No modifica las máscaras de visión, los tipos recordados ni las
+relaciones de conocimiento. Al desactivarla se utiliza la proyección normal,
+incluidos los cambios de exploración legítimos ocurridos mientras estaba activa.

@@ -1,0 +1,11 @@
+(
+    clave: "camino_de_naram",
+    nombre: "Camino de Naram",
+    caracteristicas: ["civilizado", "camino"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("til_azur")),
+        (tipo: Conectado, destino: Lugar("naram")),
+    ],
+    coordenada_central: (x: 144, y: 14),
+    coordenadas_rotulo: [],
+)

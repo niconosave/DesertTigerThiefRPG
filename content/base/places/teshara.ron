@@ -1,0 +1,22 @@
+// Ciudad de los Bajos de Nahal; tradición local de canales, madera y juncos.
+(
+    clave: "teshara",
+    nombre: "Teshara",
+    nombre_abreviado: "Teshara",
+    simbolo: "☗",
+    descripcion: "Ves tejados inclinados y galerías de madera junto a los embarcaderos. Las redes cuelgan de postes tallados, entre faroles de barro y montones de cestas listas para el mercado.",
+    caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("bosque_de_ilun")),
+    ],
+    coordenada_central: (x: 177, y: 42),
+    coordenadas_rotulo: [
+        (x: 174, y: 41),
+        (x: 175, y: 41),
+        (x: 176, y: 41),
+        (x: 177, y: 41),
+        (x: 178, y: 41),
+        (x: 179, y: 41),
+        (x: 180, y: 41),
+    ],
+)

@@ -1,0 +1,24 @@
+// Gran ciudad de la cuenca fértil; sonoridad inspirada en Asiria y Sumeria.
+(
+    clave: "ur_eshan",
+    nombre: "Ur Eshan",
+    nombre_abreviado: "Ur Eshan",
+    simbolo: "☗",
+    descripcion: "Ves terrazas de ladrillo y canales bordeados de huertos que se pierden entre barrios extensos. Por encima de los tejados se eleva un santuario escalonado, claro contra el cielo.",
+    caracteristicas: ["civilizado", "poblado", "mercado", "posada", "fertil", "aguaDulce"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("camino_de_tazar")),
+        (tipo: Conectado, destino: Lugar("tazar")),
+    ],
+    coordenada_central: (x: 131, y: 13),
+    coordenadas_rotulo: [
+        (x: 127, y: 12),
+        (x: 128, y: 12),
+        (x: 129, y: 12),
+        (x: 130, y: 12),
+        (x: 131, y: 12),
+        (x: 132, y: 12),
+        (x: 133, y: 12),
+        (x: 134, y: 12),
+    ],
+)

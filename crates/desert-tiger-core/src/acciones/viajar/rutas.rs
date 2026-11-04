@@ -60,6 +60,21 @@ pub(crate) fn base_mitad(
     animales: u64,
     con_monturas: bool,
 ) -> u64 {
+    let base = base_mitad_sin_camino(mundo, lugar, medio, animales, con_monturas);
+    if lugar_tiene(mundo, lugar, "camino") {
+        // Dos días por Lugar completo; cada extremo aporta su propia mitad.
+        base.saturating_sub(24).max(12)
+    } else {
+        base
+    }
+}
+fn base_mitad_sin_camino(
+    mundo: &Mundo,
+    lugar: IdLugar,
+    medio: Medio,
+    animales: u64,
+    con_monturas: bool,
+) -> u64 {
     if lugar_tiene(mundo, lugar, "montanoso") {
         if lugar_tiene(mundo, lugar, "paso") {
             return 84;

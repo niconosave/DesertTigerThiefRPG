@@ -1,0 +1,11 @@
+(
+    clave: "camino_de_sahir",
+    nombre: "Camino de Sahir",
+    caracteristicas: ["civilizado", "camino"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("debaret")),
+        (tipo: Conectado, destino: Lugar("paso_escarpado")),
+    ],
+    coordenada_central: (x: 99, y: 40),
+    coordenadas_rotulo: [],
+)

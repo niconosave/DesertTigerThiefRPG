@@ -3,6 +3,13 @@
     nombre: "CUENCA DEL DRÂA",
     caracteristicas: ["region", "fertil"],
     relaciones: [
+        (tipo: Abarca, destino: Lugar("camino_de_naram")),
+        (tipo: Abarca, destino: Lugar("puente_de_kadur")),
+        (tipo: Abarca, destino: Lugar("camino_de_tazar")),
+        (tipo: Abarca, destino: Lugar("til_azur")),
+        (tipo: Abarca, destino: Lugar("naram")),
+        (tipo: Abarca, destino: Lugar("esh_kadur")),
+        (tipo: Abarca, destino: Lugar("ur_eshan")),
         (tipo: Abarca, destino: Lugar("valle_de_tirsa")),
         (tipo: Abarca, destino: Lugar("valle_de_azen")),
         (tipo: Abarca, destino: Lugar("valle_fertil")),

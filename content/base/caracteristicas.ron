@@ -1,5 +1,6 @@
 (
     entradas: [
+        (clave: "puente", nombre: "Puente", descripcion: "Una construcción que permite atravesar un cauce u otro obstáculo."),
         (clave: "montaraz", nombre: "Montaraz", descripcion: "Conoce el terreno montañoso y puede proponer caminos a través de las montañas."),
         (
             clave: "oculto",

@@ -51,6 +51,7 @@ pub(crate) struct Interfaz {
     menu_desarrollo: bool,
     foco_desarrollo: usize,
     mostrar_conexiones: bool,
+    mostrar_mapa_completo: bool,
     inspector: crate::desarrollo::InspectorCoordenadas,
     geometria_mapa: Cell<Option<GeometriaMapa>>,
     tamano_terminal: Cell<(u16, u16)>,
@@ -84,6 +85,7 @@ impl Interfaz {
             menu_desarrollo: false,
             foco_desarrollo: 0,
             mostrar_conexiones: false,
+            mostrar_mapa_completo: false,
             inspector: crate::desarrollo::InspectorCoordenadas::default(),
             geometria_mapa: Cell::new(None),
             tamano_terminal: Cell::new((ANCHO_MINIMO, ALTO_MINIMO)),
@@ -307,12 +309,14 @@ impl Interfaz {
                 KeyCode::Enter | KeyCode::Char(' ') => {
                     if self.foco_desarrollo == 0 {
                         self.mostrar_conexiones = !self.mostrar_conexiones;
-                    } else {
+                    } else if self.foco_desarrollo == 1 {
                         self.inspector.alternar();
+                    } else {
+                        self.mostrar_mapa_completo = !self.mostrar_mapa_completo;
                     }
                 }
-                KeyCode::Up => self.foco_desarrollo = 0,
-                KeyCode::Down => self.foco_desarrollo = 1,
+                KeyCode::Up => self.foco_desarrollo = self.foco_desarrollo.saturating_sub(1),
+                KeyCode::Down => self.foco_desarrollo = (self.foco_desarrollo + 1).min(2),
                 KeyCode::Esc => self.menu_desarrollo = false,
                 _ => match normalizar_letra(evento.code) {
                     Some('c') => {
@@ -322,6 +326,10 @@ impl Interfaz {
                     Some('i') => {
                         self.foco_desarrollo = 1;
                         self.inspector.alternar();
+                    }
+                    Some('m') => {
+                        self.foco_desarrollo = 2;
+                        self.mostrar_mapa_completo = !self.mostrar_mapa_completo;
                     }
                     Some('d') => self.menu_desarrollo = false,
                     _ => {}
@@ -637,7 +645,12 @@ impl Interfaz {
             }
             return;
         }
-        let mundo = &self.ultima_vista_mundo;
+        let mundo_revelado = self.mostrar_mapa_completo.then(|| {
+            let mut mundo = self.ultima_vista_mundo.clone();
+            mundo.mapa = self.partida.mapa_completo_para_desarrollo();
+            mundo
+        });
+        let mundo = mundo_revelado.as_ref().unwrap_or(&self.ultima_vista_mundo);
         let region_mundo = Rect::new(area.x, area.y, area.width, area.height - 2);
         if self.decision_planificacion().is_some() {
             self.dibujar_mundo(frame, region_mundo, mundo, recursos);
@@ -753,6 +766,7 @@ impl Interfaz {
                 region_mundo,
                 self.mostrar_conexiones,
                 self.inspector.activo,
+                self.mostrar_mapa_completo,
                 self.foco_desarrollo,
                 recursos,
             );
@@ -1127,7 +1141,8 @@ impl Interfaz {
             };
         }
         if self.menu_desarrollo && !self.confirmar_salida {
-            return " [↑/↓] Opción  [Enter/Espacio] Alternar  [C/I] Atajos  [Esc/D] Cerrar".into();
+            return " [↑/↓] Opción  [Enter/Espacio] Alternar  [C/I/M] Atajos  [Esc/D] Cerrar"
+                .into();
         }
         if self.campamento.is_some() && !self.confirmar_salida {
             return " ←→ Grupo | ↑↓ Info | Enter Abrir/Salir | PgUp/PgDn Leer | Esc Salir | Q Juego".into();
@@ -1943,6 +1958,33 @@ mod pruebas {
         assert!(i.inspector.puntero.is_none());
         terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
         assert!(i.geometria_mapa.get().is_none());
+    }
+
+    #[test]
+    fn revelar_mapa_es_reversible_y_no_modifica_la_exploracion() {
+        let (mut i, recursos, mut terminal) = preparar_inspector();
+        let memoria = i.partida.mundo_visible().mapa;
+        let sesion = i.partida.vista();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let original = terminal.backend().buffer().clone();
+        let tecla = |code| KeyEvent::new(code, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        i.manejar_tecla(tecla(KeyCode::Char('m')));
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(i.mostrar_mapa_completo);
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_ne!(terminal.backend().buffer(), &original);
+        assert_eq!(i.partida.mundo_visible().mapa, memoria);
+        assert_eq!(i.ultima_vista_mundo.mapa, memoria);
+        assert_eq!(i.partida.vista(), sesion);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        i.manejar_tecla(tecla(KeyCode::Down));
+        i.manejar_tecla(tecla(KeyCode::Down));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(!i.mostrar_mapa_completo);
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(terminal.backend().buffer(), &original);
     }
 
     #[test]

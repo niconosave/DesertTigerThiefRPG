@@ -298,6 +298,13 @@ una montura, aunque no alcance para todo el Grupo. Todavía no interviene un
 montaraz. La búsqueda rápida conserva su supuesto de medios presumidos, con
 monturas; la previsión y ejecución usan los animales reales del viaje.
 
+La característica `camino` descuenta 24 horas de la base de cada mitad
+(2 días por Lugar normal completo), con cualquier medio y después de aplicar
+el terreno y las limitaciones por animales. La base mínima es de 12 horas por
+mitad (1 día por Lugar normal completo). Solo afecta a los Lugares que declaran
+`camino`: los tiles `:` y las conexiones por sí solos no dan el descuento.
+Un `puente` sin `camino` conserva su tiempo ordinario.
+
 `rutas::mitad` aplica después el tamaño y los estados. La misma base se usa en
 previsión, carga y ejecución, y se publica en el desglose de Detalles. La pérdida
 de montura conserva las reglas temporales de su tarjeta: solo una pérdida en

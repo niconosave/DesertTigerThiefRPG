@@ -40,6 +40,7 @@ pub(crate) fn dibujar_menu(
     area: Rect,
     conexiones: bool,
     coordenadas: bool,
+    mapa_completo: bool,
     foco: usize,
     recursos: &RecursosVisuales,
 ) {
@@ -60,11 +61,13 @@ pub(crate) fn dibujar_menu(
     frame.render_widget(bloque, ventana);
     let marca = if conexiones { "x" } else { " " };
     let marca_coordenadas = if coordenadas { "x" } else { " " };
+    let marca_mapa = if mapa_completo { "x" } else { " " };
     let cursor = |opcion| if foco == opcion { ">" } else { " " };
     let texto = format!(
-        "{} [{marca}] Mostrar conexiones de lugares [C]\n{} [{marca_coordenadas}] Inspeccionar coordenadas [I]\n\n↑/↓: elegir | Enter / Espacio: alternar\nEsc / D: volver al mapa",
+        "{} [{marca}] Mostrar conexiones de lugares [C]\n{} [{marca_coordenadas}] Inspeccionar coordenadas [I]\n{} [{marca_mapa}] Mostrar mapa completo [M]\n\n↑/↓: elegir | Enter / Espacio: alternar\nEsc / D: volver al mapa",
         cursor(0),
         cursor(1),
+        cursor(2),
     );
     frame.render_widget(
         Paragraph::new(texto).style(recursos.ui.texto_normal),

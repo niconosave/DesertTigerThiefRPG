@@ -1,0 +1,10 @@
+(
+    clave: "camino_de_tazar",
+    nombre: "Camino de Tazar",
+    caracteristicas: ["civilizado", "camino"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("puente_de_kadur")),
+    ],
+    coordenada_central: (x: 130, y: 17),
+    coordenadas_rotulo: [],
+)

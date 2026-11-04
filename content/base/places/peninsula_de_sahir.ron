@@ -3,6 +3,14 @@
     nombre: "PENÍNSULA DE SAHIR",
     caracteristicas: ["region", "arido"],
     relaciones: [
+        (tipo: Abarca, destino: Lugar("camino_de_sahir")),
+        (tipo: Abarca, destino: Lugar("nahris")),
+        (tipo: Abarca, destino: Lugar("safra")),
+
+        (tipo: Abarca, destino: Lugar("mehrabad")),
+        (tipo: Abarca, destino: Lugar("qasar")),
+        (tipo: Abarca, destino: Lugar("dar_nazir")),
+        (tipo: Abarca, destino: Lugar("zafirat")),
         (tipo: Abarca, destino: Lugar("cabo_errante")),
         (tipo: Abarca, destino: Lugar("playa_dorada")),
         (tipo: Abarca, destino: Lugar("punta_de_namar")),

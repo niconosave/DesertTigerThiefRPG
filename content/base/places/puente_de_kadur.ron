@@ -1,0 +1,10 @@
+(
+    clave: "puente_de_kadur",
+    nombre: "Puente de Kadur",
+    caracteristicas: ["civilizado", "puente"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("esh_kadur")),
+    ],
+    coordenada_central: (x: 136, y: 17),
+    coordenadas_rotulo: [],
+)

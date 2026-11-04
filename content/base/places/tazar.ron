@@ -4,7 +4,9 @@
     nombre_abreviado: "Tazar",
     simbolo:"⏏",
     caracteristicas: ["civilizado", "poblado", "posada", "aguaDulce"],
-    relaciones: [],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("camino_de_tazar")),
+    ],
     coordenada_central: (x: 126, y: 17),
     coordenadas_rotulo: [
         (x: 124, y: 16),

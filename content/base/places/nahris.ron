@@ -1,0 +1,20 @@
+(
+    clave: "nahris",
+    nombre: "Nahris",
+    nombre_abreviado: "Nahris",
+    simbolo: "☗",
+    descripcion: "Ves casas de adobe alrededor de un pozo y corrales ceñidos por cercas bajas. Entre los patios descansan las recuas que recorren la península.",
+    caracteristicas: ["civilizado", "poblado", "arido"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("qasar")),
+    ],
+    coordenada_central: (x: 76, y: 52),
+    coordenadas_rotulo: [
+        (x: 73, y: 51),
+        (x: 74, y: 51),
+        (x: 75, y: 51),
+        (x: 76, y: 51),
+        (x: 77, y: 51),
+        (x: 78, y: 51),
+    ],
+)
