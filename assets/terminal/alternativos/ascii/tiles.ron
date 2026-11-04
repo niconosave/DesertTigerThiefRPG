@@ -6,11 +6,11 @@
     apariencias: {
         "caravanaDecorativa": (
             glifo: 'h',
-            estilo: (frente: "blanco", fondo: None, modificadores: []),
+            estilo: (frente: "amarillo", fondo: None, modificadores: []),
         ),
         // Barcos ilustrativos sobre el mar; no es un terreno de la matriz.
         "barcoDecorativo": (
-            glifo: '^',
+            glifo: 'D',
             estilo: (frente: "blanco", fondo: None, modificadores: []),
         ),
         "camino": (
