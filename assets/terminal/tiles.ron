@@ -5,12 +5,12 @@
     ),
     apariencias: {
         "caravanaDecorativa": (
-            glifo: '▲',
+            glifo: '○',
             estilo: (frente: "amarillo", fondo: None, modificadores: []),
         ),
         // Barcos ilustrativos sobre el mar; no es un terreno de la matriz.
         "barcoDecorativo": (
-            glifo: '◣',
+            glifo: '▲',
             estilo: (frente: "blanco", fondo: None, modificadores: []),
         ),
         "camino": (
