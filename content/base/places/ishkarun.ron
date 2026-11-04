@@ -1,0 +1,8 @@
+(
+    clave: "ishkarun",
+    nombre: "Ishkarun",
+    descripcion: "Lejos al noreste, Ishkarun guarda los muelles occidentales del poderoso Imperio de Arshun. Tras sus diques de piedra llegan caravanas de las provincias imperiales, y desde allí parten barcos hacia la cuenca del Drâa y los Bajos de Nahal.",
+    fuera_del_mapa: true,
+    caracteristicas: ["civilizado", "poblado", "mercado", "puerto", "muelle"],
+    relaciones: [],
+)

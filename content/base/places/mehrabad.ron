@@ -7,6 +7,9 @@
     descripcion: "Ves una ciudad pequeña ceñida por muros rojizos, con un palacio que parece demasiado grande para sus calles. Los patios están llenos de sogas, ánforas y mercancías del litoral.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("debaret"), mercancia: "telas teñidas"),
+        (tipo: Vende, destino: Lugar("zafirat"), mercancia: "cerveza"),
+        (tipo: Vende, destino: Lugar("dar_nazir"), mercancia: "cerveza"),
         (tipo: Conectado, destino: Lugar("safra")),
         (tipo: Conectado, destino: Lugar("dar_nazir")),
         (tipo: Conectado, destino: Lugar("cabo_errante")),

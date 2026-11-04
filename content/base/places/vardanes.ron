@@ -1,0 +1,10 @@
+(
+    clave: "vardanes",
+    nombre: "Vardanes",
+    descripcion: "Al oeste, al otro lado del mar, Vardanes extiende sus terrazas de ladrillo al pie de las mesetas de Vardán. Sus caravanas llevan cobre hasta los muelles que comercian con las ciudades de Sahran.",
+    fuera_del_mapa: true,
+    caracteristicas: ["civilizado", "poblado", "mercado", "puerto", "muelle"],
+    relaciones: [
+        (tipo: Vende, destino: Lugar("talassia"), mercancia: "cobre"),
+    ],
+)

@@ -55,6 +55,7 @@ pub(super) fn escenario(terrenos: &[&[&str]], actores: &[&[&str]]) -> Mundo {
         variables_globales: vec![],
         relaciones: (1..terrenos.len())
             .map(|i| RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::Conectado,
                 origen: ExtremoRelacion::Lugar(id(i - 1)),
                 destino: ExtremoRelacion::Lugar(id(i)),
@@ -128,11 +129,13 @@ fn mundo() -> Mundo {
         variables_globales: vec![],
         relaciones: vec![
             RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::Conectado,
                 origen: ExtremoRelacion::Lugar(id(0)),
                 destino: ExtremoRelacion::Lugar(id(1)),
             },
             RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::Conectado,
                 origen: ExtremoRelacion::Lugar(id(1)),
                 destino: ExtremoRelacion::Lugar(id(2)),
@@ -833,6 +836,7 @@ fn rutas_ponderan_tamano_y_destinos_son_consultas_puras() {
         relaciones: [(0, 1), (1, 3), (0, 2), (2, 4), (4, 3)]
             .iter()
             .map(|&(a, b)| RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::Conectado,
                 origen: ExtremoRelacion::Lugar(id(a)),
                 destino: ExtremoRelacion::Lugar(id(b)),
@@ -1284,12 +1288,14 @@ fn escenario_caminos(montana_vasta: bool) -> Mundo {
     let mut relaciones: Vec<_> = [(0, 1), (1, 5), (0, 2), (2, 4), (4, 5), (0, 3), (3, 5)]
         .into_iter()
         .map(|(a, b)| RelacionInicial {
+            mercancia: None,
             tipo: TipoRelacion::Conectado,
             origen: ExtremoRelacion::Lugar(id(a)),
             destino: ExtremoRelacion::Lugar(id(b)),
         })
         .collect();
     relaciones.extend([2, 4].into_iter().map(|l| RelacionInicial {
+        mercancia: None,
         tipo: TipoRelacion::Conoce,
         origen: ExtremoRelacion::Actor(actor(1)),
         destino: ExtremoRelacion::Lugar(id(l)),
@@ -1584,6 +1590,7 @@ fn planificador_prefiere_el_paso_a_un_pico_equivalente() {
         relaciones: [(0, 1), (1, 2), (0, 3), (3, 2)]
             .into_iter()
             .map(|(a, b)| RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::Conectado,
                 origen: ExtremoRelacion::Lugar(id(a)),
                 destino: ExtremoRelacion::Lugar(id(b)),

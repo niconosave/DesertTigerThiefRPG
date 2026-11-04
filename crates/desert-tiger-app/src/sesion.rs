@@ -319,7 +319,8 @@ impl Partida {
             .presentacion()
             .lugar(mundo.ubicacion_grupo())
             .ok_or_else(|| error_crear("falta el lugar inicial del observador".into()))?
-            .coordenada_central();
+            .coordenada_central()
+            .ok_or_else(|| error_crear("lugar inicial fuera del mapa".into()))?;
         vision.observar(&mapa, origen);
         let base = proyectar_mundo(&mundo, &mapa, contenido, &vision, None).map_err(error_crear)?;
         Ok(Self {
@@ -719,7 +720,8 @@ impl Partida {
                     .presentacion()
                     .lugar(*destino)
                     .ok_or("falta el lugar del observador")?
-                    .coordenada_central();
+                    .coordenada_central()
+                    .ok_or("destino del observador fuera del mapa")?;
                 self.vision.observar(&self.mapa, coordenada);
             }
         }
@@ -801,6 +803,7 @@ fn proyectar_mundo(
             .presentacion()
             .lugares()
             .iter()
+            .filter(|l| l.coordenada_central().is_some())
             .map(|l| {
                 Ok(VistaLugar {
                     id: l.id(),
@@ -809,7 +812,7 @@ fn proyectar_mundo(
                     descripcion: l.descripcion().into(),
                     arte: l.arte().cloned(),
                     simbolo: l.simbolo(),
-                    coordenada_central: l.coordenada_central(),
+                    coordenada_central: l.coordenada_central().ok_or("lugar fuera del mapa")?,
                     coordenadas_rotulo: l.coordenadas_rotulo().to_vec(),
                     caracteristicas: m
                         .lugar(l.id())
@@ -1181,7 +1184,12 @@ mod pruebas {
         p.observar_traslados(&r).unwrap();
         let vision = p.vision.proyectar(&p.mapa).1;
         let indice = |id| {
-            let c = c.presentacion().lugar(id).unwrap().coordenada_central();
+            let c = c
+                .presentacion()
+                .lugar(id)
+                .unwrap()
+                .coordenada_central()
+                .unwrap();
             c.y * p.mapa.ancho() + c.x
         };
         assert_eq!(vision[indice(oeste)], VisibilidadTile::Recordado);
@@ -1304,7 +1312,8 @@ mod pruebas {
                 .presentacion()
                 .lugar(p.mundo.ubicacion_grupo())
                 .unwrap()
-                .coordenada_central();
+                .coordenada_central()
+                .unwrap();
             assert_eq!(mapa.visibilidad_en(centro), VisibilidadTile::Visible);
             let (texto, detalle, progreso, escena) = match &vista {
                 VistaSesion::PresentandoAccion(v) => (&v.texto, &v.detalle, &v.progreso, v.escena),

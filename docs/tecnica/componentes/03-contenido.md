@@ -3,14 +3,19 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; ampliación causal aprobada para implementar |
-| Versión | 0.32 |
-| Fecha | 2026-11-02 |
+| Versión | 0.33 |
+| Fecha | 2026-11-04 |
 
 > Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
 
 > Ampliación implementada el 2026-10-26: nombres y biografías de
 > Actores, catálogo de características y consultas de presentación se definen
 > en [Acampar, sección 4](../acciones/07-acampar.md#4-contenido-y-compatibilidad).
+
+> Ampliación implementada el 2026-11-04: Lugares fuera del mapa y comercio
+> con mercancía. La [sección de lugares exteriores](#lugares-fuera-del-mapa)
+> define sus datos; el [contrato de comercio](./10-relaciones.md#14-comercio-dirigido-con-mercancía)
+> define `Vende`, `Compra` y su normalización.
 
 ## Revisión implementada el 2026-10-24: Validación de contenido para Viajar
 
@@ -1428,3 +1433,34 @@ catálogo ni otra instancia.
 
 - [RON y su integración con Serde](https://docs.rs/ron/latest/ron/)
 - [Gramática de RON y cadenas raw multilínea](https://docs.rs/crate/ron/latest/source/docs/grammar.md)
+
+## Lugares fuera del mapa
+
+Una ciudad exterior se registra en `world.ron` y en `places/<clave>.ron`, igual
+que cualquier otro Lugar. Declara `fuera_del_mapa: true` y omite coordenadas,
+rótulo, símbolo y arte:
+
+```ron
+(
+    clave: "ciudad_exterior",
+    nombre: "Ciudad exterior",
+    descripcion: "Una ciudad de otro continente, al oeste de la isla.",
+    fuera_del_mapa: true,
+    caracteristicas: ["civilizado", "poblado", "mercado", "puerto"],
+    relaciones: [],
+)
+```
+
+`fuera_del_mapa` vale `false` por defecto. Los Lugares cartografiados conservan
+el formato `coordenada_central: (x: ..., y: ...)`, obligatorio para ellos. Los
+exteriores carecen de centro: la aplicación almacena `None`, sin inventar una
+posición fuera de límites o en `(0,0)`. No aparecen en `VistaMundo.lugares`, que
+es la proyección del mapa; sí están en el núcleo y en el catálogo de presentación
+para abrir sus fichas y seguir referencias desde el campamento.
+
+La carga rechaza coordenadas, rótulos no vacíos, símbolo, arte o cualquier relación
+`Conectado` que involucre un Lugar exterior, y también actores inicialmente
+situados en él. Los actores exteriores siguen usando `FueraDelEscenario`.
+Se conservan los vínculos comerciales y las demás relaciones descriptivas.
+Como no tienen conexiones de tránsito, no se ofrecen como destinos ni forman
+parte de los caminos de Viajar. No afectan la visión, la memoria ni la cámara.

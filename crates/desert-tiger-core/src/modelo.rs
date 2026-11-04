@@ -271,11 +271,13 @@ pub enum TipoRelacion {
     OrigenDe,
     AfluenteDe,
     Bloquea,
+    Vende,
     Conoce,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelacionInicial {
+    pub mercancia: Option<String>,
     pub tipo: TipoRelacion,
     pub origen: ExtremoRelacion,
     pub destino: ExtremoRelacion,
@@ -283,6 +285,7 @@ pub struct RelacionInicial {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Relacion {
+    mercancia: Option<String>,
     id: IdRelacion,
     tipo: TipoRelacion,
     origen: ExtremoRelacion,
@@ -290,6 +293,9 @@ pub struct Relacion {
 }
 
 impl Relacion {
+    pub fn mercancia(&self) -> Option<&str> {
+        self.mercancia.as_deref()
+    }
     pub fn id(&self) -> IdRelacion {
         self.id
     }
@@ -615,12 +621,25 @@ impl Mundo {
             {
                 return Err(ErrorConstruirMundo::OrigenAbarcaNoEsRegion { posicion, lugar });
             }
+            let mercancia_valida = match (inicial.tipo, inicial.mercancia.as_deref()) {
+                (TipoRelacion::Vende, Some(texto)) => {
+                    !texto.is_empty()
+                        && texto.trim() == texto
+                        && !texto.chars().any(char::is_control)
+                }
+                (TipoRelacion::Vende, None) | (_, Some(_)) => false,
+                (_, None) => true,
+            };
+            if !mercancia_valida {
+                return Err(ErrorConstruirMundo::MercanciaRelacionInvalida { posicion });
+            }
             let clave_duplicado = match (inicial.tipo, inicial.origen, inicial.destino) {
                 (
                     TipoRelacion::Abarca
                     | TipoRelacion::OrigenDe
                     | TipoRelacion::AfluenteDe
-                    | TipoRelacion::Bloquea,
+                    | TipoRelacion::Bloquea
+                    | TipoRelacion::Vende,
                     ExtremoRelacion::Lugar(_),
                     ExtremoRelacion::Lugar(_),
                 ) => (inicial.tipo, inicial.origen, inicial.destino),
@@ -680,6 +699,7 @@ impl Mundo {
                     });
                 }
             };
+            let clave_duplicado = (clave_duplicado, inicial.mercancia.clone());
             if let Some(&primera) = relaciones_vistas.get(&clave_duplicado) {
                 return Err(ErrorConstruirMundo::RelacionDuplicada { posicion, primera });
             }
@@ -690,7 +710,8 @@ impl Mundo {
                     TipoRelacion::Abarca
                     | TipoRelacion::OrigenDe
                     | TipoRelacion::AfluenteDe
-                    | TipoRelacion::Bloquea,
+                    | TipoRelacion::Bloquea
+                    | TipoRelacion::Vende,
                     ExtremoRelacion::Lugar(origen),
                     ExtremoRelacion::Lugar(destino),
                 ) => {
@@ -731,6 +752,7 @@ impl Mundo {
                 _ => unreachable!("los extremos ya fueron validados"),
             }
             relaciones.push(Relacion {
+                mercancia: inicial.mercancia,
                 id,
                 tipo: inicial.tipo,
                 origen: inicial.origen,
@@ -1054,6 +1076,7 @@ impl Mundo {
                         let id = IdRelacion::desde_posicion(relaciones_virtuales.len())
                             .map_err(|_| ErrorOperacionMundo::EstadoGrupoInconsistente)?;
                         relaciones_virtuales.push(Relacion {
+                            mercancia: None,
                             id,
                             tipo: TipoRelacion::Conoce,
                             origen: ExtremoRelacion::Actor(actor),
@@ -1288,6 +1311,9 @@ pub enum ErrorConstruirMundo {
         posicion: usize,
         tipo: TipoRelacion,
         extremo: ExtremoRelacion,
+    },
+    MercanciaRelacionInvalida {
+        posicion: usize,
     },
     RelacionDuplicada {
         posicion: usize,
@@ -1595,6 +1621,7 @@ mod pruebas {
             (TipoRelacion::MatadoPor, 7, 8),
         ] {
             datos.relaciones.push(RelacionInicial {
+                mercancia: None,
                 tipo,
                 origen: ExtremoRelacion::Actor(id_actor(hijo)),
                 destino: ExtremoRelacion::Actor(id_actor(progenitor)),
@@ -1754,6 +1781,7 @@ mod pruebas {
             let mut datos = datos_validos();
             for padre in [1, 2] {
                 datos.relaciones.push(RelacionInicial {
+                    mercancia: None,
                     tipo,
                     origen: ExtremoRelacion::Actor(id_actor(0)),
                     destino: ExtremoRelacion::Actor(id_actor(padre)),
@@ -1767,6 +1795,7 @@ mod pruebas {
         let mut datos = datos_validos();
         for tipo in [TipoRelacion::Padre, TipoRelacion::Madre] {
             datos.relaciones.push(RelacionInicial {
+                mercancia: None,
                 tipo,
                 origen: ExtremoRelacion::Actor(id_actor(0)),
                 destino: ExtremoRelacion::Actor(id_actor(2)),
@@ -1783,6 +1812,7 @@ mod pruebas {
         ] {
             let mut datos = datos_validos();
             datos.relaciones.push(RelacionInicial {
+                mercancia: None,
                 tipo,
                 origen: ExtremoRelacion::Actor(id_actor(0)),
                 destino: ExtremoRelacion::Actor(id_actor(0)),
@@ -1793,6 +1823,7 @@ mod pruebas {
             ));
             let mut datos = datos_validos();
             datos.relaciones.push(RelacionInicial {
+                mercancia: None,
                 tipo,
                 origen: ExtremoRelacion::Actor(id_actor(0)),
                 destino: ExtremoRelacion::Lugar(id_lugar(0)),
@@ -1813,6 +1844,7 @@ mod pruebas {
             (2, 0, TipoRelacion::Padre),
         ] {
             datos.relaciones.push(RelacionInicial {
+                mercancia: None,
                 tipo,
                 origen: ExtremoRelacion::Actor(id_actor(hijo)),
                 destino: ExtremoRelacion::Actor(id_actor(padre)),
@@ -1828,6 +1860,7 @@ mod pruebas {
         let mut datos = datos_validos();
         for (a, b) in [(0, 2), (2, 0)] {
             datos.relaciones.push(RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::MatadoPor,
                 origen: ExtremoRelacion::Actor(id_actor(a)),
                 destino: ExtremoRelacion::Actor(id_actor(b)),
@@ -1848,6 +1881,7 @@ mod pruebas {
         }
         for i in 2..19_999 {
             datos.relaciones.push(RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::Padre,
                 origen: ExtremoRelacion::Actor(id_actor(i)),
                 destino: ExtremoRelacion::Actor(id_actor(i + 1)),
@@ -1909,6 +1943,7 @@ mod pruebas {
                 },
             ],
             relaciones: vec![RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::Conectado,
                 origen: ExtremoRelacion::Lugar(id_lugar(0)),
                 destino: ExtremoRelacion::Lugar(id_lugar(1)),
@@ -1924,6 +1959,7 @@ mod pruebas {
             caracteristicas: vec![caracteristica("region")],
         });
         datos.relaciones.push(RelacionInicial {
+            mercancia: None,
             tipo: TipoRelacion::Abarca,
             origen: ExtremoRelacion::Lugar(id_lugar(2)),
             destino: ExtremoRelacion::Lugar(id_lugar(0)),
@@ -1953,6 +1989,7 @@ mod pruebas {
         for (a, b) in [(0, 2), (2, 0)] {
             let mut invalido = datos.clone();
             invalido.relaciones.push(RelacionInicial {
+                mercancia: None,
                 tipo: TipoRelacion::Conectado,
                 origen: ExtremoRelacion::Lugar(id_lugar(a)),
                 destino: ExtremoRelacion::Lugar(id_lugar(b)),
@@ -1976,6 +2013,61 @@ mod pruebas {
     }
 
     #[test]
+    fn comercio_indexa_mercancias_sin_crear_conectividad() {
+        let mut datos = datos_validos();
+        datos.relaciones = ["grano", "cerveza"]
+            .into_iter()
+            .map(|mercancia| RelacionInicial {
+                tipo: TipoRelacion::Vende,
+                origen: ExtremoRelacion::Lugar(id_lugar(0)),
+                destino: ExtremoRelacion::Lugar(id_lugar(1)),
+                mercancia: Some(mercancia.into()),
+            })
+            .collect();
+        let mundo = Mundo::nuevo(datos.clone()).unwrap();
+        assert_eq!(mundo.relaciones().len(), 2);
+        for id in [id_lugar(0), id_lugar(1)] {
+            assert_eq!(
+                mundo
+                    .relaciones_de(ExtremoRelacion::Lugar(id))
+                    .unwrap()
+                    .len(),
+                2
+            );
+            assert!(mundo.lugares_conectados(id).unwrap().is_empty());
+        }
+        assert_eq!(mundo.relaciones()[0].mercancia(), Some("grano"));
+        datos.relaciones.push(datos.relaciones[0].clone());
+        assert!(matches!(
+            Mundo::nuevo(datos),
+            Err(ErrorConstruirMundo::RelacionDuplicada { .. })
+        ));
+    }
+
+    #[test]
+    fn mercancia_es_obligatoria_y_exclusiva_del_comercio() {
+        for (tipo, mercancia) in [
+            (TipoRelacion::Vende, None),
+            (TipoRelacion::Vende, Some("")),
+            (TipoRelacion::Vende, Some("  ")),
+            (TipoRelacion::Vende, Some("grano\n")),
+            (TipoRelacion::Conectado, Some("grano")),
+        ] {
+            let mut datos = datos_validos();
+            datos.relaciones = vec![RelacionInicial {
+                tipo,
+                mercancia: mercancia.map(str::to_owned),
+                origen: ExtremoRelacion::Lugar(id_lugar(0)),
+                destino: ExtremoRelacion::Lugar(id_lugar(1)),
+            }];
+            assert!(matches!(
+                Mundo::nuevo(datos),
+                Err(ErrorConstruirMundo::MercanciaRelacionInvalida { .. })
+            ));
+        }
+    }
+
+    #[test]
     fn relaciones_geograficas_son_dirigidas_y_no_alteran_los_caminos() {
         for tipo in [
             TipoRelacion::OrigenDe,
@@ -1991,6 +2083,7 @@ mod pruebas {
             // región puede participar sin convertirse en destino transitable.
             for (origen, destino) in [(0, 1), (0, 2), (2, 0)] {
                 datos.relaciones.push(RelacionInicial {
+                    mercancia: None,
                     tipo,
                     origen: ExtremoRelacion::Lugar(id_lugar(origen)),
                     destino: ExtremoRelacion::Lugar(id_lugar(destino)),
@@ -2158,6 +2251,7 @@ mod pruebas {
 
         let mut duplicada = datos_validos();
         duplicada.relaciones.push(RelacionInicial {
+            mercancia: None,
             tipo: TipoRelacion::Conectado,
             origen: ExtremoRelacion::Lugar(id_lugar(1)),
             destino: ExtremoRelacion::Lugar(id_lugar(0)),

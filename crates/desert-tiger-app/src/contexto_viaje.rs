@@ -30,11 +30,13 @@ pub(crate) fn construir(
             let origen = presentacion
                 .lugar(a.id())
                 .ok_or("centro de origen ausente")?
-                .coordenada_central();
+                .coordenada_central()
+                .ok_or("conexión con lugar fuera del mapa")?;
             let destino = presentacion
                 .lugar(b)
                 .ok_or("centro de destino ausente")?
-                .coordenada_central();
+                .coordenada_central()
+                .ok_or("conexión con lugar fuera del mapa")?;
             let dx = destino.x as f64 - origen.x as f64;
             let dy = origen.y as f64 - destino.y as f64;
             if dx == 0.0 && dy == 0.0 {

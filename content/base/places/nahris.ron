@@ -2,7 +2,7 @@
     clave: "nahris",
     nombre: "Nahris",
     nombre_abreviado: "Nahris",
-    simbolo: "☗",
+    simbolo: "⏏",
     descripcion: "Ves casas de adobe alrededor de un pozo y corrales ceñidos por cercas bajas. Entre los patios descansan las recuas que recorren la península.",
     caracteristicas: ["civilizado", "poblado", "arido"],
     relaciones: [

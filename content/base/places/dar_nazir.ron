@@ -7,6 +7,9 @@
     descripcion: "Ves torres estrechas sobre un puñado de almacenes junto al embarcadero. Las fachadas lucen azulejos azules, aunque el polvo del interior se acumula en cada umbral.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("talassia"), mercancia: "pescado seco"),
+        (tipo: Compra, destino: Lugar("talassia"), mercancia: "aceite"),
+        (tipo: Vende, destino: Lugar("mehrabad"), mercancia: "pescado seco"),
         (tipo: Conectado, destino: Lugar("nahris")),
         (tipo: Conectado, destino: Lugar("zafirat")),
         (tipo: Conectado, destino: Lugar("punta_de_namar")),

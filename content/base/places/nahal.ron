@@ -5,6 +5,10 @@
     simbolo:"☗",
     caracteristicas: ["civilizado", "poblado", "mercado", "puerto", "muelle"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("ishkarun"), mercancia: "sal"),
+        (tipo: Compra, destino: Lugar("ishkarun"), mercancia: "herramientas"),
+        (tipo: Vende, destino: Lugar("sulun"), mercancia: "grano"),
+        (tipo: Vende, destino: Lugar("nalume"), mercancia: "cerámica"),
         (tipo: Conectado, destino: Lugar("golfo_del_siroco")),
         (tipo: Conectado, destino: Lugar("mar_de_levante")),
     ],

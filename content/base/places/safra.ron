@@ -2,7 +2,7 @@
     clave: "safra",
     nombre: "Safra",
     nombre_abreviado: "Safra",
-    simbolo: "☗",
+    simbolo: "⏏",
     descripcion: "Ves un caserío de muros ocres y toldos remendados junto al camino. Desde las azoteas se distinguen las tierras secas de la península y las caravanas que se aproximan.",
     caracteristicas: ["civilizado", "poblado", "arido"],
     relaciones: [

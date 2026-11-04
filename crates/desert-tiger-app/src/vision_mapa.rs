@@ -248,7 +248,8 @@ mod pruebas {
             .presentacion()
             .lugar(mundo.ubicacion_grupo())
             .unwrap()
-            .coordenada_central();
+            .coordenada_central()
+            .unwrap();
         let mut vision = VisionMapa::nueva(&mapa);
         let inicio = std::time::Instant::now();
         vision.observar(&mapa, origen);

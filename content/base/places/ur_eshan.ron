@@ -7,6 +7,9 @@
     descripcion: "Ves terrazas de ladrillo y canales bordeados de huertos que se pierden entre barrios extensos. Por encima de los tejados se eleva un santuario escalonado, claro contra el cielo.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "fertil", "aguaDulce"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("naram"), mercancia: "grano"),
+        (tipo: Vende, destino: Lugar("esh_kadur"), mercancia: "arcilla"),
+        (tipo: Vende, destino: Lugar("mehrabad"), mercancia: "grano"),
         (tipo: Conectado, destino: Lugar("camino_de_tazar")),
         (tipo: Conectado, destino: Lugar("tazar")),
     ],

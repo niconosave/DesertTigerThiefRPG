@@ -103,7 +103,7 @@ fn datos<'a>(
             let p = contenido.presentacion().lugar(id).ok_or_else(falta)?;
             (
                 p.nombre(),
-                None,
+                (!p.descripcion().is_empty()).then(|| p.descripcion()),
                 lugar
                     .caracteristicas()
                     .map(|c| c.como_str())
@@ -216,6 +216,10 @@ pub(crate) fn proyectar(
                 (SentidoRelacionFicha::Saliente, "Bloquea:")
             }
             TipoRelacion::Bloquea => (SentidoRelacionFicha::Entrante, "Bloqueado por:"),
+            TipoRelacion::Vende if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Vende a:")
+            }
+            TipoRelacion::Vende => (SentidoRelacionFicha::Entrante, "Compra a:"),
             TipoRelacion::Conoce if relacion.origen() == elemento => {
                 (SentidoRelacionFicha::Saliente, "Conoce")
             }
@@ -240,7 +244,16 @@ pub(crate) fn proyectar(
                 sentido,
             },
             explicacion: None,
-            etiqueta: format!("{prefijo} {}", referencia.nombre),
+            etiqueta: if let Some(mercancia) = relacion.mercancia() {
+                let verbo = if relacion.origen() == elemento {
+                    "Vende"
+                } else {
+                    "Compra"
+                };
+                format!("{verbo} {mercancia} a: {}", referencia.nombre)
+            } else {
+                format!("{prefijo} {}", referencia.nombre)
+            },
             referencia,
         }));
     }
@@ -315,6 +328,44 @@ pub(crate) fn proyectar(
 #[cfg(test)]
 mod pruebas {
     use super::*;
+    #[test]
+    fn comercio_se_explora_en_ambos_sentidos_y_muestra_descripciones_exteriores() {
+        let c = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mundo, _) = c.instanciar_estado().unwrap();
+        let lugar = |nombre| {
+            c.presentacion()
+                .lugares()
+                .iter()
+                .find(|l| l.nombre() == nombre)
+                .unwrap()
+                .id()
+        };
+        let zarabad = ExtremoRelacion::Lugar(lugar("Zarabad la Bienaventurada"));
+        let compra = proyectar(&mundo, &c, zarabad)
+            .unwrap()
+            .entradas
+            .into_iter()
+            .find_map(|e| match e {
+                EntradaFicha::Relacion(r) if r.etiqueta == "Compra cobre a: Vardanes" => Some(r),
+                _ => None,
+            })
+            .unwrap();
+        let vardanes = proyectar(&mundo, &c, compra.referencia.elemento).unwrap();
+        assert!(
+            vardanes
+                .biografia
+                .as_deref()
+                .unwrap()
+                .contains("al otro lado del mar")
+        );
+        assert!(vardanes.entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r)
+            if r.etiqueta == "Vende cobre a: Zarabad la Bienaventurada" && r.referencia.elemento == zarabad)));
+        assert!(compra.referencia.texto.contains("Vardanes"));
+    }
+
     #[test]
     fn fichas_permiten_explorar_abarca_y_dentro_de_en_ambos_sentidos() {
         let c = crate::cargar_contenido(
@@ -525,6 +576,6 @@ mod pruebas {
             );
         }
         assert_eq!(mundo, antes);
-        assert_eq!(mundo.relaciones().len(), 177);
+        assert_eq!(mundo.relaciones().len(), 215);
     }
 }

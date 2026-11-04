@@ -7,6 +7,9 @@
     descripcion: "Ves una ciudad extensa de terrazas blancas y patios porticados que descienden hacia los muelles. El olor del grano almacenado se mezcla con el de las cuerdas mojadas y las redes tendidas.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle", "fertil", "aguaDulce"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("ishkarun"), mercancia: "tejidos"),
+        (tipo: Compra, destino: Lugar("ishkarun"), mercancia: "seda"),
+        (tipo: Vende, destino: Lugar("naram"), mercancia: "sal"),
         (tipo: Conectado, destino: Lugar("valle_de_azen")),
     ],
     coordenada_central: (x: 171, y: 14),

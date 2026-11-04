@@ -7,6 +7,8 @@
     descripcion: "Ves amplias murallas de ladrillo cocido y torres cuadradas sobre una llanura cultivada. En las puertas se cruzan las recuas de mercaderes con campesinos que llevan cestos y sacos al mercado.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "fertil", "aguaDulce"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("til_azur"), mercancia: "tejidos"),
+        (tipo: Vende, destino: Lugar("ur_eshan"), mercancia: "cerámica"),
         (tipo: Conectado, destino: Lugar("valle_de_azen")),
     ],
     coordenada_central: (x: 144, y: 8),

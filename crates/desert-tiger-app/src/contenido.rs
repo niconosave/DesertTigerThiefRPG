@@ -443,7 +443,7 @@ pub(crate) struct PresentacionLugar {
     simbolo: Option<char>,
     descripcion: String,
     arte: Option<ArteLugar>,
-    coordenada_central: CoordenadaMapa,
+    coordenada_central: Option<CoordenadaMapa>,
     coordenadas_rotulo: Vec<CoordenadaMapa>,
 }
 
@@ -505,7 +505,7 @@ impl PresentacionLugar {
     pub(crate) fn simbolo(&self) -> Option<char> {
         self.simbolo
     }
-    pub(crate) fn coordenada_central(&self) -> CoordenadaMapa {
+    pub(crate) fn coordenada_central(&self) -> Option<CoordenadaMapa> {
         self.coordenada_central
     }
     pub(crate) fn coordenadas_rotulo(&self) -> &[CoordenadaMapa] {
@@ -785,8 +785,17 @@ struct LugarDto {
     arte: Option<ArteLugarDto>,
     caracteristicas: Vec<String>,
     relaciones: Vec<DeclaracionRelacionDto>,
-    coordenada_central: CoordenadaDto,
+    #[serde(default)]
+    fuera_del_mapa: bool,
+    #[serde(default, deserialize_with = "coordenada_opcional")]
+    coordenada_central: Option<CoordenadaDto>,
+    #[serde(default)]
     coordenadas_rotulo: Vec<CoordenadaDto>,
+}
+
+// Conserva el formato `(x: ..., y: ...)` de los lugares cartografiados.
+fn coordenada_opcional<'de, D: Deserializer<'de>>(d: D) -> Result<Option<CoordenadaDto>, D::Error> {
+    CoordenadaDto::deserialize(d).map(Some)
 }
 
 #[derive(Deserialize)]
@@ -949,6 +958,8 @@ enum TipoRelacionDto {
     OrigenDe,
     AfluenteDe,
     Bloquea,
+    Vende,
+    Compra,
     Conoce,
 }
 
@@ -958,9 +969,15 @@ enum DestinoRelacionDto {
     Actor(String),
 }
 
+fn mercancia_opcional<'de, D: Deserializer<'de>>(d: D) -> Result<Option<String>, D::Error> {
+    String::deserialize(d).map(Some)
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct DeclaracionRelacionDto {
+    #[serde(default, deserialize_with = "mercancia_opcional")]
+    mercancia: Option<String>,
     tipo: TipoRelacionDto,
     destino: DestinoRelacionDto,
 }
@@ -1270,6 +1287,26 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
             .flat_map(|lugar| lugar.relaciones.iter())
             .chain(actores.iter().flat_map(|actor| actor.relaciones.iter())),
     )?;
+    let externos: BTreeSet<_> = lugares
+        .iter()
+        .filter(|l| l.presentacion.coordenada_central.is_none())
+        .map(|l| l.inicial.id)
+        .collect();
+    if relaciones.iter().any(|r| {
+        r.tipo == TipoRelacion::Conectado
+            && [r.origen, r.destino]
+                .iter()
+                .any(|e| matches!(e, ExtremoRelacion::Lugar(id) if externos.contains(id)))
+    }) {
+        return Err(error_mundo(
+            ClaseDiagnosticoContenido::ValorInvalido,
+            "un lugar fuera_del_mapa no admite relaciones Conectado".into(),
+        ));
+    }
+    if actores.iter().any(|a| matches!(a.inicial.ubicacion, desert_tiger_core::UbicacionActor::EnLugar(id) if externos.contains(&id))) {
+        return Err(error_mundo(ClaseDiagnosticoContenido::ValorInvalido,
+            "un actor no puede iniciar en un lugar fuera_del_mapa; usá FueraDelEscenario".into()));
+    }
     let datos = DatosInicialesMundo {
         mapa: id_mapa,
         fecha,
@@ -1783,16 +1820,42 @@ fn validar_lugar(
             "el rótulo no tiene una coordenada por carácter".to_owned(),
         ));
     }
-    let central = convertir_coordenada(
-        dto.coordenada_central,
-        ancho,
-        alto,
-        ruta,
-        TipoElementoContenido::Lugar,
-        esperada,
-    )?;
+    let invalido = |detalle: &str| {
+        error_archivo(
+            ruta,
+            TipoElementoContenido::Lugar,
+            Some(esperada),
+            ClaseDiagnosticoContenido::ValorInvalido,
+            None,
+            detalle.to_owned(),
+        )
+    };
+    let central = if dto.fuera_del_mapa {
+        if dto.coordenada_central.is_some()
+            || !dto.coordenadas_rotulo.is_empty()
+            || simbolo.is_some()
+            || dto.arte.is_some()
+        {
+            return Err(invalido(
+                "un lugar fuera_del_mapa no admite coordenadas, rótulo, símbolo ni arte",
+            ));
+        }
+        None
+    } else {
+        Some(convertir_coordenada(
+            dto.coordenada_central
+                .ok_or_else(|| invalido("falta coordenada_central del lugar"))?,
+            ancho,
+            alto,
+            ruta,
+            TipoElementoContenido::Lugar,
+            esperada,
+        )?)
+    };
     let mut vistas = BTreeSet::new();
-    vistas.insert(central);
+    if let Some(central) = central {
+        vistas.insert(central);
+    }
     let mut rotulo = Vec::with_capacity(dto.coordenadas_rotulo.len());
     for coordenada in dto.coordenadas_rotulo {
         let coordenada = convertir_coordenada(
@@ -1997,8 +2060,49 @@ fn validar_relaciones(
             TipoRelacionDto::OrigenDe => TipoRelacion::OrigenDe,
             TipoRelacionDto::AfluenteDe => TipoRelacion::AfluenteDe,
             TipoRelacionDto::Bloquea => TipoRelacion::Bloquea,
+            TipoRelacionDto::Vende | TipoRelacionDto::Compra => TipoRelacion::Vende,
             TipoRelacionDto::Conoce => TipoRelacion::Conoce,
         };
+        let mercancia = match (tipo, declaracion.mercancia) {
+            (TipoRelacion::Vende, Some(texto)) => Some(
+                validar_texto_presentacion(&texto, false, true)
+                    .map_err(|detalle| {
+                        error_archivo(
+                            ruta,
+                            tipo_elemento,
+                            Some(clave_elemento),
+                            ClaseDiagnosticoContenido::ValorInvalido,
+                            None,
+                            format!("relaciones[{posicion}].mercancia: {detalle}"),
+                        )
+                    })?
+                    .trim()
+                    .to_owned(),
+            ),
+            (TipoRelacion::Vende, None) | (_, Some(_)) => {
+                return Err(error_archivo(
+                    ruta,
+                    tipo_elemento,
+                    Some(clave_elemento),
+                    ClaseDiagnosticoContenido::ValorInvalido,
+                    None,
+                    format!(
+                        "relaciones[{posicion}]: mercancia es obligatoria solo en Vende/Compra"
+                    ),
+                ));
+            }
+            (_, None) => None,
+        };
+        if mercancia.as_deref().is_some_and(str::is_empty) {
+            return Err(error_archivo(
+                ruta,
+                tipo_elemento,
+                Some(clave_elemento),
+                ClaseDiagnosticoContenido::ValorInvalido,
+                None,
+                format!("relaciones[{posicion}].mercancia no puede estar vacía"),
+            ));
+        }
         let destino = match declaracion.destino {
             DestinoRelacionDto::Lugar(clave) => {
                 validar_clave_externa(&clave).map_err(|detalle| {
@@ -2062,7 +2166,8 @@ fn validar_relaciones(
                     | TipoRelacion::Abarca
                     | TipoRelacion::OrigenDe
                     | TipoRelacion::AfluenteDe
-                    | TipoRelacion::Bloquea,
+                    | TipoRelacion::Bloquea
+                    | TipoRelacion::Vende,
                 ExtremoRelacion::Lugar(_),
                 ExtremoRelacion::Lugar(_)
             ) | (
@@ -2088,6 +2193,7 @@ fn validar_relaciones(
                 TipoRelacion::OrigenDe => "OrigenDe exige dos Lugares",
                 TipoRelacion::AfluenteDe => "AfluenteDe exige dos Lugares",
                 TipoRelacion::Bloquea => "Bloquea exige dos Lugares",
+                TipoRelacion::Vende => "Vende y Compra exigen dos Lugares",
                 TipoRelacion::Abarca => "Abarca exige dos Lugares, con una región de origen",
                 TipoRelacion::Conoce => "Conoce exige un Actor de origen y un Lugar de destino",
             };
@@ -2110,8 +2216,14 @@ fn validar_relaciones(
                 format!("relaciones[{posicion}]: una Relación no puede ser reflexiva"),
             ));
         }
+        let (origen, destino) = if matches!(declaracion.tipo, TipoRelacionDto::Compra) {
+            (destino, origen)
+        } else {
+            (origen, destino)
+        };
         resultado.push(RelacionDeclarada {
             inicial: RelacionInicial {
+                mercancia,
                 tipo,
                 origen,
                 destino,
@@ -2128,8 +2240,7 @@ fn validar_relaciones(
 fn normalizar_relaciones<'a>(
     declaraciones: impl Iterator<Item = &'a RelacionDeclarada>,
 ) -> Result<Vec<RelacionInicial>, ErrorContenido> {
-    let mut vistas: BTreeMap<(TipoRelacion, ExtremoRelacion, ExtremoRelacion), (PathBuf, usize)> =
-        BTreeMap::new();
+    let mut vistas: BTreeMap<_, (PathBuf, usize)> = BTreeMap::new();
     let mut resultado = Vec::new();
     for declaracion in declaraciones {
         let par = match (
@@ -2149,6 +2260,7 @@ fn normalizar_relaciones<'a>(
                 | TipoRelacion::OrigenDe
                 | TipoRelacion::AfluenteDe
                 | TipoRelacion::Bloquea
+                | TipoRelacion::Vende
                 | TipoRelacion::Padre
                 | TipoRelacion::Madre
                 | TipoRelacion::MatadoPor
@@ -2157,6 +2269,7 @@ fn normalizar_relaciones<'a>(
                 destino,
             ) => (declaracion.inicial.tipo, origen, destino),
         };
+        let par = (par, declaracion.inicial.mercancia.clone());
         if let Some((ruta_primera, posicion_primera)) = vistas.get(&par) {
             return Err(error_archivo(
                 &declaracion.ruta,
@@ -3438,9 +3551,15 @@ mod pruebas {
             // Los tres ríos no tienen una región declarada.
             assert_eq!(
                 tiene_region,
-                ![39, 40, 41]
-                    .into_iter()
-                    .any(|i| lugar.id() == IdLugar::desde_posicion(i).unwrap())
+                contenido
+                    .presentacion()
+                    .lugar(lugar.id())
+                    .unwrap()
+                    .coordenada_central()
+                    .is_some()
+                    && ![39, 40, 41]
+                        .into_iter()
+                        .any(|i| lugar.id() == IdLugar::desde_posicion(i).unwrap())
             );
         }
         let fixture = fixture_temporal();
@@ -3460,6 +3579,98 @@ mod pruebas {
         fs::write(&archivo, original.replace("\"region\", ", "")).unwrap();
         let error = cargar_contenido(&fixture.0).err().unwrap();
         assert!(error.diagnosticos[0].detalle.contains("origen de Abarca"));
+    }
+
+    #[test]
+    fn compra_se_normaliza_y_las_mercancias_distinguen_vinculos() {
+        let fixture = fixture_temporal();
+        let archivo = fixture.0.join("places/talassia.ron");
+        let original = fs::read_to_string(&archivo).unwrap();
+        let agregar = |mercancia: &str| {
+            original.replace("relaciones: [",
+            &format!("relaciones: [\n (tipo: Compra, destino: Lugar(\"vardanes\"), mercancia: \"{mercancia}\"),"))
+        };
+        fs::write(&archivo, agregar("cobre")).unwrap();
+        let error = cargar_contenido(&fixture.0).err().unwrap();
+        assert_eq!(
+            error.diagnosticos[0].clase,
+            ClaseDiagnosticoContenido::Duplicado
+        );
+        fs::write(&archivo, agregar("hierro")).unwrap();
+        let c = cargar_contenido(&fixture.0).unwrap();
+        let (mundo, _) = c.instanciar_estado().unwrap();
+        let venta = mundo
+            .relaciones()
+            .iter()
+            .find(|r| r.mercancia() == Some("hierro"))
+            .unwrap();
+        assert_eq!(venta.tipo(), TipoRelacion::Vende);
+        let ExtremoRelacion::Lugar(origen) = venta.origen() else {
+            panic!("origen Lugar")
+        };
+        assert_eq!(c.presentacion().lugar(origen).unwrap().nombre(), "Vardanes");
+        for texto in [
+            "(tipo: Vende, destino: Lugar(\"talassia\"))",
+            "(tipo: Vende, destino: Lugar(\"talassia\"), mercancia: \" \")",
+            "(tipo: Conectado, destino: Lugar(\"talassia\"), mercancia: \"cobre\")",
+            "(tipo: Vende, destino: Actor(\"rey\"), mercancia: \"cobre\")",
+        ] {
+            fs::write(
+                &archivo,
+                original.replace("relaciones: [", &format!("relaciones: [{texto},")),
+            )
+            .unwrap();
+            assert!(cargar_contenido(&fixture.0).is_err(), "{texto}");
+        }
+    }
+
+    #[test]
+    fn ciudades_exteriores_no_tienen_centro_mapa_ni_destinos() {
+        let c = cargar_contenido(&raiz_base()).unwrap();
+        let (mundo, _) = c.instanciar_estado().unwrap();
+        let partida =
+            crate::Partida::nueva(&c, crate::ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let vista = partida.mundo_visible();
+        let destinos =
+            desert_tiger_core::acciones::destinos_disponibles(&mundo, mundo.actor_jugador())
+                .unwrap();
+        let externos: Vec<_> = c
+            .presentacion()
+            .lugares()
+            .iter()
+            .filter(|l| l.coordenada_central().is_none())
+            .collect();
+        assert_eq!(externos.len(), 4);
+        for lugar in externos {
+            assert!(!lugar.descripcion().is_empty());
+            assert!(lugar.coordenadas_rotulo().is_empty());
+            assert!(!vista.lugares.iter().any(|l| l.id == lugar.id()));
+            assert!(!destinos.contains(&lugar.id()));
+            assert!(mundo.lugares_conectados(lugar.id()).unwrap().is_empty());
+        }
+        let fixture = fixture_temporal();
+        let archivo = fixture.0.join("places/vardanes.ron");
+        let original = fs::read_to_string(&archivo).unwrap();
+        for cambio in [
+            original.replace(
+                "fuera_del_mapa: true,",
+                "fuera_del_mapa: true, coordenada_central: (x: 0, y: 0),",
+            ),
+            original.replace("fuera_del_mapa: true,", "fuera_del_mapa: false,"),
+            original
+                .replace("tipo: Vende", "tipo: Conectado")
+                .replace(", mercancia: \"cobre\"", ""),
+        ] {
+            fs::write(&archivo, cambio).unwrap();
+            assert!(cargar_contenido(&fixture.0).is_err());
+        }
+        fs::write(&archivo, original).unwrap();
+        let actor = fixture.0.join("actors/principe_perdido.ron");
+        let texto = fs::read_to_string(&actor)
+            .unwrap()
+            .replace("Lugar(\"zona_arida\")", "Lugar(\"vardanes\")");
+        fs::write(&actor, texto).unwrap();
+        assert!(cargar_contenido(&fixture.0).is_err());
     }
 
     #[test]
@@ -3485,7 +3696,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 177);
+        assert_eq!(mundo.relaciones().len(), 215);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -3498,7 +3709,7 @@ mod pruebas {
                 .as_slice()
             )
         );
-        assert_eq!(contenido.presentacion().lugares().len(), 77);
+        assert_eq!(contenido.presentacion().lugares().len(), 81);
         for (origen, intermedio, destino) in [
             (0, 20, 5),
             (1, 21, 2),
@@ -3938,6 +4149,7 @@ mod pruebas {
             ]),
         };
         let declaracion = || DeclaracionRelacionDto {
+            mercancia: None,
             tipo: TipoRelacionDto::Conectado,
             destino: DestinoRelacionDto::Lugar("destino".to_owned()),
         };
@@ -3952,6 +4164,7 @@ mod pruebas {
         .unwrap_or_else(|_| panic!("Relación válida"));
         let inversa = validar_relaciones(
             vec![DeclaracionRelacionDto {
+                mercancia: None,
                 tipo: TipoRelacionDto::Conectado,
                 destino: DestinoRelacionDto::Lugar("origen".to_owned()),
             }],
@@ -3986,6 +4199,7 @@ mod pruebas {
 
         let desconocida = validar_relaciones(
             vec![DeclaracionRelacionDto {
+                mercancia: None,
                 tipo: TipoRelacionDto::Conectado,
                 destino: DestinoRelacionDto::Lugar("ausente".to_owned()),
             }],

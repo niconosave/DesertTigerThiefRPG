@@ -164,8 +164,12 @@ impl EstadoCampamento {
             ));
         }
         if let Some(bio) = &ficha.biografia {
+            let titulo = match ficha.elemento {
+                ExtremoRelacion::Actor(_) => "Biografía",
+                ExtremoRelacion::Lugar(_) => "Descripción",
+            };
             texto.push_str(&format!(
-                "\n\nBiografía de {}\n{}",
+                "\n\n{titulo} de {}\n{}",
                 ficha.nombre,
                 if bio.trim().is_empty() {
                     "Sin biografía disponible"

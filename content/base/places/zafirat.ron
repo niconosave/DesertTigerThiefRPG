@@ -7,6 +7,9 @@
     descripcion: "Ves un pequeño puerto de casas encaladas que anuncia su grandeza con una puerta dorada. Bajo sus toldos, los mercaderes pesan sal y descargan fardos llegados por mar.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("kembara"), mercancia: "cerámica"),
+        (tipo: Compra, destino: Lugar("kembara"), mercancia: "tintes"),
+        (tipo: Vende, destino: Lugar("qasar"), mercancia: "sal"),
         (tipo: Conectado, destino: Lugar("punta_de_namar")),
     ],
     coordenada_central: (x: 62, y: 58),

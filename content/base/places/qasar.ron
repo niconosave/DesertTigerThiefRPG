@@ -7,6 +7,7 @@
     descripcion: "Ante vos se alzan murallas bajas de adobe y una cúpula de cobre. Entre las barcas y las puertas del mercado, una multitud negocia bajo banderines descoloridos.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("azravan"), mercancia: "sal"),
         (tipo: Conectado, destino: Lugar("playa_dorada")),
     ],
     coordenada_central: (x: 84, y: 55),

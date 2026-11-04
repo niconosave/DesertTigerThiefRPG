@@ -1,0 +1,8 @@
+(
+    clave: "talassia",
+    nombre: "Talassia",
+    descripcion: "Talassia ocupa una bahía de columnas blancas en la costa norte de Meridia, el mismo continente donde se encuentra Vardanes. Sus astilleros y talleres reciben metales de aquellas mesetas, aunque sus habitantes hablan otra lengua y siguen otras costumbres.",
+    fuera_del_mapa: true,
+    caracteristicas: ["civilizado", "poblado", "mercado", "puerto", "muelle"],
+    relaciones: [],
+)

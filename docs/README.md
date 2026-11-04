@@ -247,3 +247,12 @@ Los lugares pueden conservar su nombre en las listas sin rotularse sobre el mapa
 una coordenada por carácter. Los caminos y puentes nuevos usan esta opción;
 su trazado visual se edita con `:` en `mapa_inicial.ron`, y sus conexiones de
 viaje se declaran en los RON de los lugares.
+
+Las ciudades pueden declarar comercio con `(tipo: Vende, destino:
+Lugar("otra_ciudad"), mercancia: "cerveza")`, o `Compra` desde el comprador.
+La lectura inversa se genera automáticamente; no se declara dos veces el mismo
+vínculo. `mercancia` es obligatoria en esas dos formas y no se admite en las demás
+relaciones. Las cuatro ciudades exteriores usan `fuera_del_mapa: true`, sin
+coordenadas; se consultan desde las relaciones de las fichas en el campamento.
+Los contratos están en [Relaciones](./tecnica/componentes/10-relaciones.md#14-comercio-dirigido-con-mercancía)
+y [Contenido](./tecnica/componentes/03-contenido.md#lugares-fuera-del-mapa).

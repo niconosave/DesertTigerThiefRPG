@@ -7,6 +7,7 @@
     descripcion: "Ves casas de piedra oscura dispuestas en terrazas y un recinto de altos pilares sobre el valle. Entre los muros, las puertas talladas dan a patios donde descansan las caravanas.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("mehrabad"), mercancia: "piedra tallada"),
         (tipo: Conectado, destino: Lugar("valle_gris")),
     ],
     coordenada_central: (x: 110, y: 43),

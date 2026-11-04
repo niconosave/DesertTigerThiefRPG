@@ -327,21 +327,52 @@ fn nombre_fondo_durdraw(indice: u8) -> Option<Option<&'static str>> {
 #[cfg(test)]
 mod pruebas {
     use super::*;
+    use flate2::{Compression, write::GzEncoder};
+
+    // Archivo mínimo propio de las pruebas: dos fotogramas y tres estilos.
+    fn durdraw_de_prueba() -> Vec<u8> {
+        let archivo = serde_json::json!({
+            "DurMovie": {
+                "formatVersion": 8,
+                "colorFormat": "16",
+                "encoding": "utf-8",
+                "columns": 3,
+                "lines": 2,
+                "frames": [
+                    {
+                        "frameNumber": 1, "delay": 0.0,
+                        "contents": ["█o ", " / "],
+                        "colorMap": [[[14, 0], [8, 8], [9, 7]], [[8, 8], [8, 8], [8, 8]]]
+                    },
+                    {
+                        "frameNumber": 2, "delay": 0.0,
+                        "contents": ["█- ", " / "],
+                        "colorMap": [[[14, 0], [8, 8], [9, 7]], [[8, 8], [8, 8], [8, 8]]]
+                    }
+                ]
+            }
+        });
+        let mut gzip = GzEncoder::new(Vec::new(), Compression::default());
+        gzip.write_all(&serde_json::to_vec(&archivo).unwrap())
+            .unwrap();
+        gzip.finish().unwrap()
+    }
 
     #[test]
-    fn convierte_el_retrato_oficial_de_forma_reproducible() {
-        let bytes = include_bytes!("../../../../assets/principe.dur");
-        let primera = convertir_bytes(bytes, 1).expect("fixture Durdraw válido");
-        let segunda = convertir_bytes(bytes, 1).expect("segunda conversión válida");
+    fn convierte_un_archivo_durdraw_minimo_de_forma_reproducible() {
+        let bytes = durdraw_de_prueba();
+        let primera = convertir_bytes(&bytes, 1).expect("fixture Durdraw válido");
+        let segunda = convertir_bytes(&bytes, 1).expect("segunda conversión válida");
 
         assert_eq!(primera, segunda);
         assert_eq!(primera.matches("arte:").count(), 1);
         assert!(primera.contains("base:"));
         assert!(!primera.contains("fotogramas:"));
-        assert!(primera.contains('█'));
+        assert!(primera.contains("█o \n / "));
+        assert!(primera.contains("012\n111"));
         assert!(primera.contains("frente: \"magentaClaro\""));
         assert!(primera.contains("'1': (frente: \"gris\", fondo: None)"));
-        assert!(primera.contains("'7': (frente: \"grisOscuro\", fondo: Some(\"gris\"))"));
+        assert!(primera.contains("'2': (frente: \"grisOscuro\", fondo: Some(\"gris\"))"));
     }
 
     #[test]
@@ -361,14 +392,15 @@ mod pruebas {
 
     #[test]
     fn selecciona_un_grafico_base_sin_adivinar_el_parpadeo() {
-        let bytes = include_bytes!("../../../../assets/principe.dur");
-        let primero = convertir_bytes(bytes, 1).unwrap();
-        let segundo = convertir_bytes(bytes, 2).unwrap();
+        let bytes = durdraw_de_prueba();
+        let primero = convertir_bytes(&bytes, 1).unwrap();
+        let segundo = convertir_bytes(&bytes, 2).unwrap();
         assert_ne!(primero, segundo);
+        assert!(segundo.contains("█- \n / "));
         assert_eq!(segundo.matches("arte:").count(), 1);
         assert!(segundo.contains("parpadeo: None"));
-        assert!(convertir_bytes(bytes, 0).is_err());
-        assert!(convertir_bytes(bytes, 3).is_err());
+        assert!(convertir_bytes(&bytes, 0).is_err());
+        assert!(convertir_bytes(&bytes, 3).is_err());
     }
 
     #[test]

@@ -7,6 +7,7 @@
     descripcion: "Ves casas sobre basamentos altos, comunicadas por pasarelas de madera. En los canales entre los patios descansan barcas estrechas cargadas de juncos y cestos.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("nahal"), mercancia: "juncos"),
         (tipo: Conectado, destino: Lugar("nahal")),
     ],
     coordenada_central: (x: 160, y: 49),

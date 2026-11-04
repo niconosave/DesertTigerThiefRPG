@@ -1,0 +1,10 @@
+(
+    clave: "kembara",
+    nombre: "Kembara",
+    descripcion: "Más al sudoeste, Kembara se levanta sobre los estuarios del continente de Kémbu, frente a Meridia. Sus barcos de velas tejidas llevan maderas aromáticas y tintes hasta Talassia y los puertos de la isla.",
+    fuera_del_mapa: true,
+    caracteristicas: ["civilizado", "poblado", "mercado", "puerto", "muelle"],
+    relaciones: [
+        (tipo: Vende, destino: Lugar("talassia"), mercancia: "maderas aromáticas"),
+    ],
+)

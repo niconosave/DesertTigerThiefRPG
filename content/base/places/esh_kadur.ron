@@ -7,6 +7,8 @@
     descripcion: "Ante vos se extiende una ciudad de puertas monumentales y patios sombreados. Los carros cargados de grano avanzan entre acequias y largas hileras de almacenes de ladrillo.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "fertil", "aguaDulce"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("til_azur"), mercancia: "cerveza"),
+        (tipo: Vende, destino: Lugar("tazar"), mercancia: "cerveza"),
         (tipo: Conectado, destino: Lugar("camino_de_naram")),
         (tipo: Conectado, destino: Lugar("valle_fertil")),
     ],

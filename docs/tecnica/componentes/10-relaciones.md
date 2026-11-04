@@ -3,13 +3,16 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado |
-| Versión | 0.5 |
-| Fecha | 2026-10-29 |
+| Versión | 0.6 |
+| Fecha | 2026-11-04 |
 
 > Ampliación implementada el 2026-10-26. Filiación, MatadoPor e índices familiares: [contrato 14, secciones 4–5](./14-parentesco-actores-contexto.md#5-almacenamiento-índices-y-consultas-familiares).
 
 > Ampliación implementada el 2026-10-29. `OrigenDe`, `AfluenteDe` y `Bloquea`:
 > [sección 13](#13-nacimiento-afluentes-y-bloqueo--implementados-el-2026-10-29).
+
+> Ampliación implementada el 2026-11-04: comercio dirigido con mercancía y
+> lectura inversa, según la [sección 14](#14-comercio-dirigido-con-mercancía).
 
 ## Revisión implementada el 2026-10-24: Conoce adquirido durante el viaje
 
@@ -133,6 +136,7 @@ pub enum TipoRelacion {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RelacionInicial {
+    pub mercancia: Option<String>,
     pub tipo: TipoRelacion,
     pub origen: ExtremoRelacion,
     pub destino: ExtremoRelacion,
@@ -140,6 +144,7 @@ pub struct RelacionInicial {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Relacion {
+    mercancia: Option<String>,
     id: IdRelacion,
     tipo: TipoRelacion,
     origen: ExtremoRelacion,
@@ -166,6 +171,7 @@ La API de solo lectura es:
 
 ```rust
 impl Relacion {
+    pub fn mercancia(&self) -> Option<&str>;
     pub fn id(&self) -> IdRelacion;
     pub fn tipo(&self) -> TipoRelacion;
     pub fn origen(&self) -> ExtremoRelacion;
@@ -782,3 +788,43 @@ caudal, cambios de audio ni nuevas líneas en el visor de conexiones.
 La verificación cubre la carga RON, la orientación e índices de las relaciones,
 las lecturas navegables en ambas fichas, las declaraciones inválidas y que los
 destinos de viaje continúen dependiendo exclusivamente de `Conectado`.
+
+## 14. Comercio dirigido con mercancía
+
+`Vende` y `Compra` son las dos lecturas de un intercambio habitual entre dos
+Lugares. El autor puede declarar cualquiera de ellas desde el archivo de una
+ciudad:
+
+```ron
+// En la ciudad vendedora:
+(tipo: Vende, destino: Lugar("esh_kadur"), mercancia: "grano"),
+// Alternativa equivalente, en la ciudad compradora (no declarar ambas):
+(tipo: Compra, destino: Lugar("tazar"), mercancia: "grano"),
+```
+
+La carga convierte `Compra` en `Vende` intercambiando origen y destino.
+El núcleo almacena una sola Relación cuyo origen es el vendedor y cuyo destino
+es el comprador. Ambos extremos se indexan como en las demás relaciones dirigidas;
+no se añade un vecino al grafo `Conectado`. El comercio no habilita rutas.
+
+`mercancia` es texto obligatorio, no vacío ni compuesto solo de espacios, de una
+línea y sin caracteres de control. Puede contener varias palabras, como
+`"pescado seco"`. La carga recorta espacios en sus extremos y conserva mayúsculas,
+acentos y espacios interiores; debe usarse la misma escritura para identificar
+una misma mercancía. El núcleo comprueba que el texto ya esté normalizado.
+No representa un objeto de inventario ni requiere un catálogo de productos.
+
+Este campo es específico del comercio: los demás tipos lo rechazan. La clave
+de duplicados incorpora mercancía, dirección y ambos extremos. Dos ciudades
+pueden comerciar varias mercancías y hacerlo en ambos sentidos. Declarar la misma
+venta y su compra inversa constituye un duplicado; las mercancías distintas no.
+Los autoenlaces y los extremos de Actor se rechazan.
+
+Las fichas muestran `Vende grano a: Esh Kadur` y `Compra grano a: Tazar`;
+Enter abre la ficha del otro Lugar, también si está fuera del mapa. Las fichas y
+los resúmenes de Lugar utilizan su descripción cuando está presente.
+
+Esta incorporación registra el contexto comercial del mundo. No transfiere
+existencias ni dinero, no calcula cantidades, precios, transporte o producción y
+no ejecuta compras durante el viaje. Las relaciones no comerciales conservan
+sus contratos sin mercancía ni otros atributos.

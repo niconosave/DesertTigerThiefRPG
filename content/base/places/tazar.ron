@@ -5,6 +5,7 @@
     simbolo:"⏏",
     caracteristicas: ["civilizado", "poblado", "posada", "aguaDulce"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("esh_kadur"), mercancia: "grano"),
         (tipo: Conectado, destino: Lugar("camino_de_tazar")),
     ],
     coordenada_central: (x: 126, y: 17),

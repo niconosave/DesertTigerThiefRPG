@@ -7,6 +7,8 @@
     descripcion: "Ves una ciudad de patios elevados y tejados de caña junto a las aguas bajas. Por las pasarelas pasan cargadores, mientras los barqueros vocean desde los pequeños muelles.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("nahal"), mercancia: "barcas"),
+        (tipo: Vende, destino: Lugar("teshara"), mercancia: "barcas"),
         (tipo: Conectado, destino: Lugar("marisma_verde")),
     ],
     coordenada_central: (x: 172, y: 51),

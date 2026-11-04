@@ -7,6 +7,9 @@
     descripcion: "Ves una ciudad de muros ocres abierta hacia los embarcaderos del norte. Los estandartes bordados de sus comerciantes se agitan sobre almacenes bajos y calles estrechas.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "puerto", "muelle"],
     relaciones: [
+        (tipo: Vende, destino: Lugar("vardanes"), mercancia: "sal"),
+        (tipo: Compra, destino: Lugar("vardanes"), mercancia: "cobre"),
+        (tipo: Vende, destino: Lugar("shahraz"), mercancia: "aceite"),
         (tipo: Conectado, destino: Lugar("mesa_del_sol")),
     ],
     coordenada_central: (x: 54, y: 6),
