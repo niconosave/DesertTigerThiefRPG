@@ -151,6 +151,7 @@ pub enum CausaIndisponibilidad {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaFragmento {
+    pub fogata_encendida: bool,
     pub id: IdFragmento,
     pub titulo: String,
     pub texto: String,
@@ -605,7 +606,7 @@ impl Partida {
         self.mundo_visible.mostrar_expresion_grupo(texto.expresion);
         let escena = Some(match registro.tarjeta {
             ClaveTarjeta::Llegada => ClaveEscena::ViajeLlegada,
-            ClaveTarjeta::Navegar => ClaveEscena::ViajeMarcha,
+            ClaveTarjeta::PasoMontanoso | ClaveTarjeta::Navegar => ClaveEscena::ViajeMarcha,
             ClaveTarjeta::Andar | ClaveTarjeta::Caballo | ClaveTarjeta::Camello => {
                 ClaveEscena::ViajeMarcha
             }
@@ -680,6 +681,7 @@ impl Partida {
         } else {
             self.opciones.clear();
             VistaSesion::PresentandoAccion(VistaFragmento {
+                fogata_encendida: matches!(&registro.contenido, acciones::ContenidoEscena::PasoMontanoso(p) if p.momento == acciones::MomentoPaso::Campamento),
                 id: IdFragmento(self.ordinal),
                 titulo: texto.titulo,
                 texto: texto.texto,

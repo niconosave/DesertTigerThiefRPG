@@ -61,6 +61,9 @@ pub(crate) fn base_mitad(
     con_monturas: bool,
 ) -> u64 {
     if lugar_tiene(mundo, lugar, "montanoso") {
+        if lugar_tiene(mundo, lugar, "paso") {
+            return 84;
+        }
         return if animales > 0 || con_monturas {
             120
         } else {

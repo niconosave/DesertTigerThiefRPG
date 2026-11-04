@@ -20,7 +20,7 @@ impl FuenteAzar for Dados {
     }
 }
 
-fn escenario(terrenos: &[&[&str]], actores: &[&[&str]]) -> Mundo {
+pub(super) fn escenario(terrenos: &[&[&str]], actores: &[&[&str]]) -> Mundo {
     let mut iniciales: Vec<_> = actores
         .iter()
         .enumerate()
@@ -1497,5 +1497,76 @@ fn especialidad_no_elude_la_habilitacion_de_la_ruta_optima() {
                 .unwrap()
                 .is_empty()
         );
+    }
+}
+
+#[test]
+fn planificador_prefiere_el_paso_a_un_pico_equivalente() {
+    let base = escenario(
+        &[
+            &["paso", "montanoso"],
+            &["paso", "montanoso"],
+            &["paso", "montanoso"],
+            &["montanoso"],
+        ],
+        &[&["viajero"], &[]],
+    );
+    let m = Mundo::nuevo(DatosInicialesMundo {
+        mapa: IdMapa::desde_posicion(0).unwrap(),
+        fecha: base.fecha(),
+        lugares: base
+            .lugares()
+            .iter()
+            .map(|l| LugarInicial {
+                id: l.id(),
+                caracteristicas: l.caracteristicas().cloned().collect(),
+            })
+            .collect(),
+        actores: base
+            .actores()
+            .iter()
+            .map(|a| ActorInicial {
+                id: a.id(),
+                ubicacion: a.ubicacion(),
+                caracteristicas: a.caracteristicas().cloned().collect(),
+            })
+            .collect(),
+        actor_jugador: actor(0),
+        companeros: vec![actor(1)],
+        variables_globales: vec![],
+        relaciones: [(0, 1), (1, 2), (0, 3), (3, 2)]
+            .into_iter()
+            .map(|(a, b)| RelacionInicial {
+                tipo: TipoRelacion::Conectado,
+                origen: ExtremoRelacion::Lugar(id(a)),
+                destino: ExtremoRelacion::Lugar(id(b)),
+            })
+            .collect(),
+    })
+    .unwrap();
+    let viajeros = [actor(0), actor(1)];
+    let paso = [id(0), id(1), id(2)];
+    let pico = [id(0), id(3), id(2)];
+    assert_eq!(
+        rutas::sumar_horas(&rutas::tiempos(&m, &paso, &viajeros, 2, 2, 0).unwrap()).unwrap(),
+        336
+    );
+    assert_eq!(
+        rutas::sumar_horas(&rutas::tiempos(&m, &pico, &viajeros, 2, 2, 0).unwrap()).unwrap(),
+        408
+    );
+    for semilla in 0..32 {
+        assert_eq!(
+            rutas::rapida(&m, id(0), id(2), &viajeros, &mut Azar(semilla)).unwrap(),
+            paso
+        );
+    }
+    for medio in [Medio::Pie, Medio::Caballo, Medio::Camello, Medio::Barco] {
+        for (animales, monturas) in [(0, false), (1, false), (0, true)] {
+            assert_eq!(
+                rutas::mitad(&m, id(1), medio, animales, monturas, 0).unwrap(),
+                84
+            );
+        }
     }
 }

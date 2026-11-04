@@ -151,7 +151,11 @@ Un Lugar con `Pequeño` y `Vasto` a la vez es un error de diseño: no tiene fact
 definido. En una ruta, cada Lugar intermedio aporta una mitad de llegada y otra
 de salida; los extremos solo aportan una.
 
-En terreno `Montañoso`, todos los medios usan una base de **9 días** por
+En un Lugar con `paso` y `montanoso`, la base es **7 días por Lugar normal
+completo (84 horas por mitad)**, con cualquier medio y aunque haya animales.
+La regla rige planificación y ejecución antes de tamaño y demoras.
+
+En terreno `Montañoso` sin `paso`, todos los medios usan una base de **9 días** por
 Lugar normal completo (**108 horas por mitad**). Si el Grupo lleva alguna
 montura o animal de carga, incluso sin monturas suficientes para todos, la base
 es **10 días** (**120 horas por mitad**). Se aplica antes del tamaño y de las

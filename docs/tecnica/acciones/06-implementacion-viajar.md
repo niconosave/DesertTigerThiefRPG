@@ -12,6 +12,11 @@
 > sustitución de la planificación binaria y su selección en el mapa. Su sección 1
 > delimita los apartados que reemplaza; el resto de este contrato se conserva.
 
+> Ampliación implementada el 2026-11-03: el [episodio montañoso](./09-cruce-pasos-montanosos.md)
+> sustituye las tarjetas de movimiento solo entre Lugares consecutivos con `paso`
+> y `montanoso`. Define sus momentos y contabilidad parcial; las tarjetas
+> ordinarias conservan sus reglas.
+
 ## 1. Alcance y autoridad
 
 La fuente de las mecánicas es el
@@ -282,8 +287,11 @@ La muerte de montura solo cambia la referencia temporal del destino cuando
 su tarjeta lo indica. No crea una prueba de `Andar` ni aplica estados de andar
 en esa sustitución temporal.
 
-`rutas::base_mitad` establece la referencia temporal por terreno. `montanoso`
-prevalece sobre bosque y pantano: 108 horas por mitad normal (9 días por Lugar
+`rutas::base_mitad` establece la referencia temporal por terreno.
+`paso` junto con `montanoso`
+usa 84 horas por mitad normal (7 días por Lugar completo), con cualquier medio
+y presencia de animales. Sin `paso`, `montanoso` prevalece sobre bosque y
+pantano: 108 horas por mitad normal (9 días por Lugar
 completo), o 120 horas (10 días) si hay monturas o animales de carga. Afecta a
 todos los medios, incluido caminar, sin convertir el medio ni la prueba. Basta
 una montura, aunque no alcance para todo el Grupo. Todavía no interviene un

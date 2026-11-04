@@ -23,6 +23,7 @@ use rutas::Medio;
 use tiempo::HorasViaje;
 
 mod estado;
+mod pasos_montanosos;
 mod propuestas;
 use estado::{EfectosEscena, Fase, Preparacion};
 pub use estado::{EjecucionAccion, InicioAccion};
@@ -114,6 +115,7 @@ pub fn iniciar(
         fase: if directo { Fase::Preparar } else { Fase::Plan },
         ordinal: 0,
         espera: None,
+        paso_montanoso: None,
     };
     let paso = ejecucion.producir(mundo, azar)?;
     Ok(InicioAccion { ejecucion, paso })
@@ -259,19 +261,30 @@ impl EjecucionAccion {
         efectos: EfectosEscena,
         azar: &mut dyn FuenteAzar,
     ) -> Resultado<RegistroEscena> {
-        let EfectosEscena {
-            participantes,
-            operaciones,
-        } = efectos;
+        let consumo = self.contabilizar(duracion, efectos.participantes.len(), azar)?;
+        self.publicar_contabilizado(mundo, tarjeta, contenido, duracion, consumo, efectos)
+    }
+
+    fn contabilizar(
+        &mut self,
+        duracion: HorasViaje,
+        participantes: usize,
+        azar: &mut dyn FuenteAzar,
+    ) -> Resultado<RegistroConsumo> {
         let total = self.total.sumar(duracion)?;
-        let instante = proyectar_tiempo(self.inicio, total.tiempo()?)
+        proyectar_tiempo(self.inicio, total.tiempo()?)
             .map_err(|_| fallo("calendario desbordado"))?;
         let mut consumo = RegistroConsumo::default();
         if let Some(reservas) = &mut self.reservas {
-            let (h, c) = reservas::consumir(reservas, self.h, duracion, participantes.len(), azar)?;
+            let (h, c) = reservas::consumir(reservas, self.h, duracion, participantes, azar)?;
             self.h = h;
             consumo = c;
         }
+        self.total = total;
+        Ok(consumo)
+    }
+
+    fn acumular_carencias(&mut self, consumo: &RegistroConsumo) -> Resultado<()> {
         let partes = |t: crate::TiempoAccion| -> u128 {
             u128::from(t.duracion.dias()) * crate::calendario::PARTES_POR_DIA
                 + u128::from(t.fraccion.partes())
@@ -290,6 +303,26 @@ impl EjecucionAccion {
                     .sumar(HorasViaje(partes(t)))?,
             );
         }
+        Ok(())
+    }
+
+    fn publicar_contabilizado(
+        &mut self,
+        mundo: &mut Mundo,
+        tarjeta: ClaveTarjeta,
+        contenido: ContenidoEscena,
+        duracion: HorasViaje,
+        mut consumo: RegistroConsumo,
+        efectos: EfectosEscena,
+    ) -> Resultado<RegistroEscena> {
+        let EfectosEscena {
+            participantes,
+            operaciones,
+        } = efectos;
+        self.acumular_carencias(&consumo)?;
+        let total = self.total;
+        let instante = proyectar_tiempo(self.inicio, total.tiempo()?)
+            .map_err(|_| fallo("calendario desbordado"))?;
         if tarjeta == ClaveTarjeta::Llegada {
             // Some(0) distingue la ración que faltó justo al llegar del saldo
             // que llegó a cero después de pagar completa la última ración.
@@ -413,6 +446,11 @@ impl EjecucionAccion {
         )
     }
     fn restante(&self, mundo: &Mundo) -> Resultado<HorasViaje> {
+        if let Some(paso) = &self.paso_montanoso
+            && paso.conexion.is_some()
+        {
+            return paso.tiempo_pendiente(self, mundo);
+        }
         rutas::total(&self.tiempos_restantes(mundo)?)?.sumar(carga::suma_plan(
             self.demoras.get(self.posicion..).unwrap_or(&[]),
         )?)
@@ -469,6 +507,19 @@ impl EjecucionAccion {
                     return self.advertir_provisiones(mundo, azar, inicial);
                 }
                 Fase::Mover => {
+                    if self.paso_montanoso.is_some() {
+                        return self.producir_paso_montanoso(mundo, azar);
+                    }
+                    if self.lugar == self.destino {
+                        self.fase = Fase::Llegar;
+                        continue;
+                    }
+                    if let Some(segmento) =
+                        pasos_montanosos::reconocer(mundo, &self.ruta, self.posicion)
+                    {
+                        self.iniciar_paso_montanoso(mundo, segmento)?;
+                        return self.producir_paso_montanoso(mundo, azar);
+                    }
                     let destino = *self
                         .ruta
                         .get(self.posicion + 1)
@@ -565,7 +616,7 @@ impl EjecucionAccion {
                     )?));
                 }
                 Fase::Entre { revisar, busco } => {
-                    if self.lugar == self.destino {
+                    if self.lugar == self.destino && self.paso_montanoso.is_none() {
                         self.fase = Fase::Llegar;
                         continue;
                     }

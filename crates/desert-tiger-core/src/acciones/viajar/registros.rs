@@ -17,6 +17,7 @@ pub enum ClaveTarjeta {
     Caballo,
     Camello,
     Navegar,
+    PasoMontanoso,
     Forrajeo,
     Sobrecarga,
     Llegada,
@@ -33,6 +34,7 @@ impl ClaveTarjeta {
             Self::Caballo => "VIA-DES-CAB",
             Self::Camello => "VIA-DES-CAM",
             Self::Navegar => "VIA-DES-NAV",
+            Self::PasoMontanoso => "VIA-DES-PAS",
             Self::Forrajeo => "VIA-APR-02",
             Self::Sobrecarga => "VIA-APR-06",
             Self::Llegada => "VIA-LLE-01",
@@ -115,6 +117,7 @@ pub enum ContenidoEscena {
         alternativa: ConfiguracionVista,
     },
     Desplazamiento(Desplazamiento),
+    PasoMontanoso(RegistroPasoMontanoso),
     Forrajeo {
         chequeos: Vec<ResultadoChequeo>,
         obtenido: ReservasViaje,
@@ -224,4 +227,31 @@ pub struct PropuestaRuta {
     pub ruta: Vec<IdLugar>,
     pub previsto: TiempoAccion,
     pub respaldos: Vec<RespaldoRuta>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum MomentoPaso {
+    Panorama,
+    CaminoDificil,
+    Cornisa,
+    Rodeos,
+    AbrirPaso,
+    Campamento,
+    OtraVertiente,
+    Interrupcion,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RegistroPasoMontanoso {
+    pub momento: MomentoPaso,
+    pub origen: IdLugar,
+    pub destino: IdLugar,
+    pub cantidad_lugares: usize,
+    pub lugar_confirmado: IdLugar,
+    pub previsto: TiempoAccion,
+    pub traslado_acumulado: TiempoAccion,
+    pub otras_actividades: TiempoAccion,
+    pub chequeo: Option<ResultadoChequeo>,
+    pub demora: TiempoAccion,
+    pub animales_perdidos: u64,
+    pub comida_perdida: [u64; 4],
 }

@@ -32,6 +32,7 @@ impl Narrador<'_> {
                 self.lugar(r.lugar),
                 recursos(*falta_comida, *falta_agua),
             ),
+            ContenidoEscena::PasoMontanoso(p)=>self.relato_paso(r,p),
             ContenidoEscena::Desplazamiento(d) => self.resumen_desplazamiento(r, d),
             ContenidoEscena::Forrajeo { obtenido, busca_comida, busca_agua, .. } => {
                 let resultado = if obtenido.comidas.iter().any(|&n| n > 0)

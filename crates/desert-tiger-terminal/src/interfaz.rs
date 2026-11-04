@@ -200,7 +200,8 @@ impl Interfaz {
         AmbienteSonoro::del_lugar(
             &self.ultima_vista_mundo,
             lugar,
-            matches!(self.vista, VistaSesion::Acampando(_)),
+            matches!(self.vista, VistaSesion::Acampando(_))
+                || matches!(&self.vista,VistaSesion::PresentandoAccion(f) if f.fogata_encendida),
         )
     }
 
@@ -4028,5 +4029,36 @@ mod pruebas {
         i.manejar_tecla(tecla(KeyCode::Enter));
         assert_ne!(i.partida.vista(), sesion);
         assert!(i.decision_planificacion().is_none());
+    }
+    #[test]
+    fn fogata_de_vineta_conserva_el_ambiente_y_se_apaga_al_continuar() {
+        let (mut i, _, _) = preparar_inspector();
+        let ambiente = i.ambiente_sonoro();
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        while let VistaSesion::EsperandoDecision(d) = i.vista.clone() {
+            i.enviar(IntencionFrontend::ResponderDecision {
+                decision: d.id,
+                opcion: d.opciones[0].id,
+            });
+        }
+        let VistaSesion::PresentandoAccion(f) = &mut i.vista else {
+            panic!("se esperaba viñeta");
+        };
+        assert!(!f.fogata_encendida);
+        f.fogata_encendida = true;
+        let id = f.id;
+        let con_fuego = i.ambiente_sonoro();
+        assert!(con_fuego.fogata);
+        assert_eq!(con_fuego.exterior, ambiente.exterior);
+        assert_eq!(con_fuego.rio, ambiente.rio);
+        assert_eq!(con_fuego.mar, ambiente.mar);
+        assert_eq!(con_fuego.bosque, ambiente.bosque);
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        assert!(i.ambiente_sonoro().fogata);
+        i.manejar_tecla(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+        assert!(i.ambiente_sonoro().fogata);
+        i.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: id });
+        assert!(!i.ambiente_sonoro().fogata);
     }
 }

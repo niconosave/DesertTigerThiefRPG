@@ -31,6 +31,7 @@ pub(super) struct EfectosEscena {
 }
 #[derive(Clone)]
 pub struct EjecucionAccion {
+    pub(super) paso_montanoso: Option<pasos_montanosos::EstadoPaso>,
     pub(super) dirigente: IdActor,
     pub(super) viajeros: Vec<IdActor>,
     pub(super) destino: IdLugar,

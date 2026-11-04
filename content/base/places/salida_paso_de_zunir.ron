@@ -3,7 +3,7 @@
     nombre: "Paso de Zunir",
     nombre_abreviado: "P. Zunir",
     simbolo:"≫",
-    caracteristicas: ["montanoso", "rocoso"],
+    caracteristicas: ["paso", "montanoso", "rocoso"],
     relaciones: [
         (tipo: Conectado, destino: Lugar("paso_de_zunir")),
         (tipo: Conectado, destino: Lugar("pico_de_izir")),

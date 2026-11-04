@@ -3,6 +3,7 @@ use crate::tiempo::formatear;
 use desert_tiger_core::acciones::*;
 use desert_tiger_core::{IdActor, IdLugar, TiempoAccion};
 
+mod pasos_montanosos;
 mod resumen;
 
 pub(crate) fn lugar_paisaje(registro: &RegistroEscena) -> IdLugar {
@@ -25,6 +26,11 @@ pub(crate) struct TextoEscena {
 fn expresion_escena(contenido: &ContenidoEscena) -> Option<&'static str> {
     match contenido {
         ContenidoEscena::Llegada { .. } => Some("happy"),
+        ContenidoEscena::PasoMontanoso(p) => match p.momento {
+            MomentoPaso::Campamento | MomentoPaso::OtraVertiente => Some("happy"),
+            _ if p.chequeo.as_ref().is_some_and(|c| !c.exito) => Some("scared"),
+            _ => None,
+        },
         ContenidoEscena::Desplazamiento(d) => {
             if d.incidente.is_some() || d.chequeos.iter().any(|c| !c.exito) {
                 Some("scared")
@@ -258,6 +264,7 @@ impl Narrador<'_> {
             ContenidoEscena::CargaInicial{base,alternativa}=>format!("Durante la preparación, {} evalúan cómo llevar las provisiones. El peso obliga a decidir.\nEvitar la demora:\n{}\nLlevar un animal menos:\n{}",r.participantes.iter().map(|&id|self.actor(id)).collect::<Vec<_>>().join(", "),self.configuracion(base,r.plan_visible),self.configuracion(alternativa,r.plan_visible)),
             ContenidoEscena::Incompleto{inicial:true,..}=>"Conseguís menos provisiones de las que habían calculado. No sabés si alcanzarán. Podés partir con lo reunido o cancelar y devolver los suministros.".into(),
             ContenidoEscena::Incompleto{falta_comida,falta_agua,..}=>format!("En {} queda una ración diaria para todos, pero la previsión restante señala insuficiencia de {}{}. Debés decidir si seguir o detener el viaje.",self.lugar(r.lugar),if *falta_comida{"alimento "}else{""},if *falta_agua{"agua"}else{""}),
+            ContenidoEscena::PasoMontanoso(p)=>self.detalle_paso(r,p),
             ContenidoEscena::Desplazamiento(d)=>{
                 let lider=self.actor(d.chequeos[0].responsable);let viajeros=r.participantes.iter().map(|&id|self.actor(id)).collect::<Vec<_>>().join(", ");
                 let inicio=match d.medio {
@@ -378,7 +385,11 @@ impl Narrador<'_> {
         };
         detalle.push(texto);
         TextoEscena {
-            titulo: titulo(r.tarjeta).into(),
+            titulo: match &r.contenido {
+                ContenidoEscena::PasoMontanoso(p) => pasos_montanosos::titulo_momento(p.momento),
+                _ => titulo(r.tarjeta),
+            }
+            .into(),
             texto: resumen,
             detalle,
             expresion: expresion_escena(&r.contenido),
@@ -429,6 +440,7 @@ fn titulo(t: ClaveTarjeta) -> &'static str {
         ClaveTarjeta::Caballo => "Al ritmo de los caballos",
         ClaveTarjeta::Camello => "Sobre el paso de los camellos",
         ClaveTarjeta::Navegar => "Una travesía en barco",
+        ClaveTarjeta::PasoMontanoso => "Cruzar el paso montañoso",
         ClaveTarjeta::Forrajeo => "Buscar alimento y agua",
         ClaveTarjeta::Sobrecarga => "Una carga difícil de llevar",
         ClaveTarjeta::Llegada => "Llegada",
