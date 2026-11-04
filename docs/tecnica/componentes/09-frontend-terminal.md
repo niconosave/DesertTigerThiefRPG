@@ -1894,7 +1894,7 @@ la paginación y atajos ordinarios únicamente mientras se compara el itinerario
 
 ## Tráfico marítimo decorativo
 
-`barcos::TraficoMaritimo` pertenece exclusivamente al frontend. Al crear la
+`barcos::crear` prepara el tráfico marítimo exclusivamente en el frontend. Al crear la
 interfaz calcula recorridos sobre tiles de tipo `agua`, sin utilizar `aguaRio`
 ni cruzar tierra. Para cada Lugar con `puerto` busca el tile de mar más cercano
 hasta diez celdas de distancia Manhattan, enlaza los dos puertos accesibles más
@@ -1922,3 +1922,43 @@ No es un tipo de terreno ni se declara en la matriz del mapa. La versión normal
 usa `◣`, la ASCII `^` y la de fuente especial puede sustituirlo por un glifo
 propio. Si un conjunto antiguo no define la apariencia, no se dibujan barcos.
 Las reglas de ancho de una celda y validación de recursos se conservan.
+
+## Tráfico terrestre decorativo
+
+Las caravanas pertenecen al frontend y comparten con los barcos el mecanismo de
+animación del módulo `trafico_decorativo`. Los recorridos se calculan una sola
+vez al crear la interfaz. Una búsqueda en anchura recorre únicamente tiles de
+tipo `camino`, con ocho vecinos: el dibujo existente contiene tramos diagonales
+que no forman una red continua con solo cuatro vecinos.
+
+Los extremos son Lugares que tengan a la vez `civilizado` y `poblado`. Cada
+poblado se ancla al tile de camino más cercano hasta dos celdas de distancia
+Chebyshev; si no hay ninguno, no participa del tráfico. Los Lugares que solo
+representan caminos o puentes pueden formar parte del recorrido, pero no son
+extremos. Desde cada poblado se eligen los dos poblados accesibles más cercanos
+por la red, y se descartan pares repetidos. Las caravanas no tienen recorridos
+hacia los bordes del mapa.
+
+El reloj visual determina hasta tres caravanas, cada una de tres animales.
+Avanzan una celda cada 1,5 segundos y los animales ocupan posiciones separadas
+por una celda del recorrido, con desplazamientos `0`, `2` y `4`. Entre recorridos
+hay una pausa de doce segundos. No se usa el generador de azar del juego ni se
+crean actores, inventarios, transacciones o estado de simulación. Redibujar o
+mover la cámara conserva la posición correspondiente al mismo instante visual.
+
+Cada animal se dibuja con la apariencia `caravanaDecorativa` de `tiles.ron`:
+`🬌` en los recursos normales y de fuente especial, y `h` en los ASCII. Se aplica
+el mismo sistema de variantes parciales y validación de glifos que para
+`barcoDecorativo`. El dibujo ocupa una celda por animal y su apariencia puede
+editarse sin cambiar el código.
+
+Las caravanas usan las mismas capas y restricciones de visibilidad que los
+barcos: quedan por encima de los nombres, debajo de paisajes, retratos y ventanas,
+y solo se dibujan sobre camino actualmente visible. No quedan animales estáticos
+en la memoria de exploración. El revelado de mapa para desarrollo utiliza la
+misma proyección visual que para los barcos.
+
+Interpretar el dibujo de los tiles aquí es una decisión estética del frontend.
+No crea ni deduce relaciones `Conectado`, no habilita viajes, no modifica sus
+tiempos y no intenta representar los vínculos `Vende` o `Compra`. El grafo y las
+reglas de Viajar siguen siendo independientes del dibujo de caminos.

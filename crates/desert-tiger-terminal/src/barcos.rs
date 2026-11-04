@@ -1,150 +1,93 @@
 //! Tráfico ilustrativo: no crea actores ni utiliza el reloj o el azar del juego.
 use std::collections::{BTreeSet, VecDeque};
 
-use desert_tiger_app::{ClaveTipoTile, CoordenadaMapa, VisibilidadTile, VistaMapa, VistaMundo};
-use ratatui::Frame;
-
-use crate::recursos::RecursosVisuales;
+use crate::trafico_decorativo::{ConfiguracionTrafico, TraficoDecorativo};
+use desert_tiger_app::{CoordenadaMapa, VistaMapa, VistaMundo};
 
 const MAX_BARCOS: usize = 5;
 const PASOS_POR_CELDA: usize = 4; // Un movimiento por segundo del reloj visual.
 
-pub(crate) struct TraficoMaritimo {
-    rutas: Vec<Vec<CoordenadaMapa>>,
-    periodo: usize,
-    apariencia: ClaveTipoTile,
-}
-
-impl TraficoMaritimo {
-    pub(crate) fn nuevo(mundo: &VistaMundo) -> Self {
-        let mapa = &mundo.mapa;
-        let mut puertos = BTreeSet::new();
-        for lugar in &mundo.lugares {
-            if lugar.caracteristicas.iter().any(|c| c == "puerto") {
-                // El símbolo de la ciudad puede estar tierra adentro: buscar su embarcadero visual.
-                let centro = lugar.coordenada_central;
-                let cercano = mapa
-                    .celdas
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, t)| t.como_str() == "agua")
-                    .map(|(i, _)| {
-                        (
-                            centro.x.abs_diff(i % mapa.ancho) + centro.y.abs_diff(i / mapa.ancho),
-                            i,
-                        )
-                    })
-                    .filter(|(distancia, _)| *distancia <= 10)
-                    .min();
-                if let Some((_, i)) = cercano {
-                    puertos.insert(i);
-                }
-            }
-        }
-        let mut rutas = Vec::new();
-        let mut pares = BTreeSet::new();
-        for &origen in &puertos {
-            let (padres, distancias) = recorrer_mar(mapa, origen);
-            let mut destinos: Vec<_> = puertos
+pub(crate) fn crear(mundo: &VistaMundo) -> TraficoDecorativo {
+    let mapa = &mundo.mapa;
+    let mut puertos = BTreeSet::new();
+    for lugar in &mundo.lugares {
+        if lugar.caracteristicas.iter().any(|c| c == "puerto") {
+            // El símbolo de la ciudad puede estar tierra adentro: buscar su embarcadero visual.
+            let centro = lugar.coordenada_central;
+            let cercano = mapa
+                .celdas
                 .iter()
-                .copied()
-                .filter(|&i| i != origen && distancias[i] != usize::MAX)
-                .collect();
-            destinos.sort_by_key(|&i| (distancias[i], i));
-            // Pocos enlaces locales por puerto, en lugar de una red de todos con todos.
-            destinos.truncate(2);
-            let borde = (0..mapa.celdas.len())
-                .filter(|&i| {
-                    let (x, y) = (i % mapa.ancho, i / mapa.ancho);
-                    distancias[i] != usize::MAX
-                        && (x == 0 || y == 0 || x + 1 == mapa.ancho || y + 1 == mapa.alto)
+                .enumerate()
+                .filter(|(_, t)| t.como_str() == "agua")
+                .map(|(i, _)| {
+                    (
+                        centro.x.abs_diff(i % mapa.ancho) + centro.y.abs_diff(i / mapa.ancho),
+                        i,
+                    )
                 })
-                .min_by_key(|&i| (distancias[i], i));
-            if let Some(borde) = borde {
-                destinos.push(borde);
+                .filter(|(distancia, _)| *distancia <= 10)
+                .min();
+            if let Some((_, i)) = cercano {
+                puertos.insert(i);
             }
-            for destino in destinos {
-                let par = (origen.min(destino), origen.max(destino));
-                if origen == destino || !pares.insert(par) {
-                    continue;
-                }
-                let mut camino = vec![destino];
-                let mut actual = destino;
-                while actual != origen {
-                    actual = padres[actual];
-                    camino.push(actual);
-                }
-                camino.reverse();
-                rutas.push(
-                    camino
-                        .into_iter()
-                        .map(|i| CoordenadaMapa {
-                            x: i % mapa.ancho,
-                            y: i / mapa.ancho,
-                        })
-                        .collect::<Vec<_>>(),
-                );
-            }
-        }
-        let periodo = rutas.iter().map(|r| r.len() + 12).sum::<usize>().max(1);
-        Self {
-            rutas,
-            periodo,
-            apariencia: ClaveTipoTile::nueva("barcoDecorativo".into()).expect("clave constante"),
         }
     }
-
-    fn posiciones(&self, paso: usize) -> impl Iterator<Item = CoordenadaMapa> + '_ {
-        let cantidad = MAX_BARCOS.min(self.rutas.len());
-        (0..cantidad).filter_map(move |barco| {
-            let t = paso / PASOS_POR_CELDA + barco * self.periodo / cantidad;
-            let ciclo = t / self.periodo;
-            let mut posicion = t % self.periodo;
-            for (numero, ruta) in self.rutas.iter().enumerate() {
-                if posicion < ruta.len() {
-                    let indice = if (ciclo + barco + numero).is_multiple_of(2) {
-                        posicion
-                    } else {
-                        ruta.len() - 1 - posicion
-                    };
-                    return Some(ruta[indice]);
-                }
-                if posicion < ruta.len() + 12 {
-                    return None;
-                }
-                posicion -= ruta.len() + 12;
-            }
-            None
-        })
-    }
-
-    pub(crate) fn dibujar(
-        &self,
-        frame: &mut Frame<'_>,
-        mundo: &VistaMundo,
-        recursos: &RecursosVisuales,
-        paso: usize,
-        proyectar: impl Fn(CoordenadaMapa) -> Option<(u16, u16)>,
-    ) {
-        // Un conjunto de recursos antiguo puede omitir la apariencia sin mostrar signos '?'.
-        if !recursos.contiene_tile(&self.apariencia) {
-            return;
+    let mut rutas = Vec::new();
+    let mut pares = BTreeSet::new();
+    for &origen in &puertos {
+        let (padres, distancias) = recorrer_mar(mapa, origen);
+        let mut destinos: Vec<_> = puertos
+            .iter()
+            .copied()
+            .filter(|&i| i != origen && distancias[i] != usize::MAX)
+            .collect();
+        destinos.sort_by_key(|&i| (distancias[i], i));
+        // Pocos enlaces locales por puerto, en lugar de una red de todos con todos.
+        destinos.truncate(2);
+        let borde = (0..mapa.celdas.len())
+            .filter(|&i| {
+                let (x, y) = (i % mapa.ancho, i / mapa.ancho);
+                distancias[i] != usize::MAX
+                    && (x == 0 || y == 0 || x + 1 == mapa.ancho || y + 1 == mapa.alto)
+            })
+            .min_by_key(|&i| (distancias[i], i));
+        if let Some(borde) = borde {
+            destinos.push(borde);
         }
-        for c in self.posiciones(paso) {
-            if mundo.mapa.visibilidad_en(c) != VisibilidadTile::Visible || !es_mar(&mundo.mapa, c) {
+        for destino in destinos {
+            let par = (origen.min(destino), origen.max(destino));
+            if origen == destino || !pares.insert(par) {
                 continue;
             }
-            if let Some((x, y)) = proyectar(c) {
-                let apariencia = recursos.tile(&self.apariencia, c.x, c.y, paso);
-                if let Some(celda) = frame.buffer_mut().cell_mut((x, y)) {
-                    let estilo = apariencia.estilo.remove_modifier(
-                        ratatui::style::Modifier::all().difference(apariencia.estilo.add_modifier),
-                    );
-                    celda.set_char(apariencia.glifo).set_style(estilo);
-                }
+            let mut camino = vec![destino];
+            let mut actual = destino;
+            while actual != origen {
+                actual = padres[actual];
+                camino.push(actual);
             }
+            camino.reverse();
+            rutas.push(
+                camino
+                    .into_iter()
+                    .map(|i| CoordenadaMapa {
+                        x: i % mapa.ancho,
+                        y: i / mapa.ancho,
+                    })
+                    .collect::<Vec<_>>(),
+            );
         }
     }
+    TraficoDecorativo::nuevo(
+        rutas,
+        ConfiguracionTrafico {
+            apariencia: "barcoDecorativo",
+            terreno: "agua",
+            max_grupos: MAX_BARCOS,
+            integrantes: 1,
+            separacion: 0,
+            pasos_por_celda: PASOS_POR_CELDA,
+        },
+    )
 }
 
 fn es_mar(mapa: &VistaMapa, c: CoordenadaMapa) -> bool {
@@ -188,6 +131,8 @@ fn recorrer_mar(mapa: &VistaMapa, origen: usize) -> (Vec<usize>, Vec<usize>) {
 mod pruebas {
     use super::*;
     use crate::graficos::ModoGraficos;
+    use crate::recursos::RecursosVisuales;
+    use desert_tiger_app::{ClaveTipoTile, VisibilidadTile};
     use desert_tiger_app::{ConfiguracionPartida, Partida, cargar_contenido};
     use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 
@@ -220,7 +165,7 @@ mod pruebas {
     }
 
     fn cuadro(
-        trafico: &TraficoMaritimo,
+        trafico: &TraficoDecorativo,
         mundo: &VistaMundo,
         recursos: &RecursosVisuales,
         paso: usize,
@@ -240,9 +185,9 @@ mod pruebas {
     #[test]
     fn recorridos_solo_por_mar_unen_puertos_y_alcanzan_bordes() {
         let m = mundo();
-        let t = TraficoMaritimo::nuevo(&m);
+        let t = crear(&m);
         assert!(!t.rutas.is_empty());
-        assert_eq!(t.rutas, TraficoMaritimo::nuevo(&m).rutas);
+        assert_eq!(t.rutas, crear(&m).rutas);
         let puertos: Vec<_> = m.lugares.iter().map(|l| l.coordenada_central).collect();
         assert!(
             t.rutas.iter().any(
@@ -276,7 +221,7 @@ mod pruebas {
     fn niebla_oculta_barcos_y_el_dibujo_respeta_camara_y_modos_graficos() {
         let mut m = mundo();
         let original = m.clone();
-        let t = TraficoMaritimo::nuevo(&m);
+        let t = crear(&m);
         let r = recursos(ModoGraficos::Predeterminado);
         let visible = cuadro(&t, &m, &r, 0, 0);
         assert!(visible.content.iter().any(|c| c.symbol() == "◣"));
@@ -313,16 +258,16 @@ mod pruebas {
         m.mapa
             .celdas
             .fill(ClaveTipoTile::nueva("arena".into()).unwrap());
-        assert!(TraficoMaritimo::nuevo(&m).rutas.is_empty());
+        assert!(crear(&m).rutas.is_empty());
         m = mundo();
         m.lugares.clear();
-        assert!(TraficoMaritimo::nuevo(&m).posiciones(0).next().is_none());
+        assert!(crear(&m).posiciones(0).next().is_none());
         let raiz = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let c = cargar_contenido(&raiz.join("content/base")).unwrap();
         let p = Partida::nueva(&c, ConfiguracionPartida { semilla: Some(0) }).unwrap();
         let antes = p.vista();
         let mapa = p.mundo_visible();
-        let t = TraficoMaritimo::nuevo(&mapa);
+        let t = crear(&mapa);
         assert!(!t.rutas.is_empty());
         assert!(t.rutas.iter().flatten().all(|&c| es_mar(&mapa.mapa, c)));
         assert_eq!(p.vista(), antes);

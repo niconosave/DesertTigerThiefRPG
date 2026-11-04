@@ -6,6 +6,10 @@
         estilo: (frente: "blanco", fondo: None, modificadores: ["invertido"]),
     ),
     apariencias: {
+        "caravanaDecorativa": (
+            glifo: '🬌',
+            estilo: (frente: "blanco", fondo: None, modificadores: []),
+        ),
         // Barcos ilustrativos sobre el mar; no es un terreno de la matriz.
         "barcoDecorativo": (
             glifo: '◣',

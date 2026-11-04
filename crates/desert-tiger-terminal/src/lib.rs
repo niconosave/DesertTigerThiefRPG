@@ -3,6 +3,7 @@ mod arte_lugares;
 mod audio;
 mod barcos;
 mod campamento;
+mod caravanas;
 mod colores;
 mod consulta_paleta;
 mod desarrollo;
@@ -13,6 +14,7 @@ mod interfaz;
 mod musica_campamento;
 mod planificacion_rutas;
 mod recursos;
+mod trafico_decorativo;
 mod trazado;
 
 use std::collections::HashMap;

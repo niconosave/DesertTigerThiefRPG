@@ -62,7 +62,8 @@ pub(crate) struct Interfaz {
     pagina: usize,
     pagina_antes_detalle: usize,
     reloj: RelojVisual,
-    trafico_maritimo: crate::barcos::TraficoMaritimo,
+    trafico_maritimo: crate::trafico_decorativo::TraficoDecorativo,
+    trafico_terrestre: crate::trafico_decorativo::TraficoDecorativo,
     campamento: Option<crate::campamento::EstadoCampamento>,
     musica: crate::musica_campamento::MusicaCampamento,
     aviso_audio: Option<AvisoAudio>,
@@ -76,7 +77,8 @@ impl Interfaz {
             return Err("la partida no comenzó en una vista disponible".to_owned());
         };
         let ultima_vista_mundo = mundo.clone();
-        let trafico_maritimo = crate::barcos::TraficoMaritimo::nuevo(mundo);
+        let trafico_maritimo = crate::barcos::crear(mundo);
+        let trafico_terrestre = crate::caravanas::crear(mundo);
         Ok(Self {
             partida,
             vista,
@@ -99,6 +101,7 @@ impl Interfaz {
             pagina_antes_detalle: 0,
             reloj: RelojVisual::default(),
             trafico_maritimo,
+            trafico_terrestre,
             campamento: None,
             musica: crate::musica_campamento::MusicaCampamento::default(),
             aviso_audio: None,
@@ -958,6 +961,10 @@ impl Interfaz {
             }
         }
         self.trafico_maritimo
+            .dibujar(frame, mundo, recursos, self.reloj.paso_250_ms(), |c| {
+                geometria.a_pantalla(c)
+            });
+        self.trafico_terrestre
             .dibujar(frame, mundo, recursos, self.reloj.paso_250_ms(), |c| {
                 geometria.a_pantalla(c)
             });
@@ -2190,7 +2197,10 @@ mod pruebas {
             .unwrap();
         let civilizado = &terminal.backend().buffer()[(20, 8)];
         assert_eq!(civilizado.fg, recursos.ui.lugar_civilizado.fg.unwrap());
-        assert!(civilizado.modifier.contains(Modifier::BOLD));
+        assert_eq!(
+            civilizado.modifier,
+            recursos.ui.lugar_civilizado.add_modifier
+        );
         assert!(!civilizado.modifier.contains(Modifier::DIM));
         let mut interfaz = interfaz;
         interfaz.modo = ModoLocal::Seleccion {
