@@ -62,6 +62,7 @@ pub(crate) struct Interfaz {
     pagina: usize,
     pagina_antes_detalle: usize,
     reloj: RelojVisual,
+    trafico_maritimo: crate::barcos::TraficoMaritimo,
     campamento: Option<crate::campamento::EstadoCampamento>,
     musica: crate::musica_campamento::MusicaCampamento,
     aviso_audio: Option<AvisoAudio>,
@@ -75,6 +76,7 @@ impl Interfaz {
             return Err("la partida no comenzó en una vista disponible".to_owned());
         };
         let ultima_vista_mundo = mundo.clone();
+        let trafico_maritimo = crate::barcos::TraficoMaritimo::nuevo(mundo);
         Ok(Self {
             partida,
             vista,
@@ -96,6 +98,7 @@ impl Interfaz {
             pagina: 0,
             pagina_antes_detalle: 0,
             reloj: RelojVisual::default(),
+            trafico_maritimo,
             campamento: None,
             musica: crate::musica_campamento::MusicaCampamento::default(),
             aviso_audio: None,
@@ -954,6 +957,10 @@ impl Interfaz {
                 }
             }
         }
+        self.trafico_maritimo
+            .dibujar(frame, mundo, recursos, self.reloj.paso_250_ms(), |c| {
+                geometria.a_pantalla(c)
+            });
         if let Some(arte) = self.arte_lugar_visible() {
             crate::arte_lugares::dibujar(frame, area, arte, recursos);
         }

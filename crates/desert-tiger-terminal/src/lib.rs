@@ -1,6 +1,7 @@
 mod animacion;
 mod arte_lugares;
 mod audio;
+mod barcos;
 mod campamento;
 mod colores;
 mod consulta_paleta;

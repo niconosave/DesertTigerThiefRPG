@@ -1891,3 +1891,34 @@ después la elección por barras y la previsualización del
 [contrato 08](../acciones/08-planificacion-rutas.md#5-selección-y-previsualización-terminal).
 Se confirma con Enter después de considerar una opción; sus controles sustituyen
 la paginación y atajos ordinarios únicamente mientras se compara el itinerario.
+
+## Tráfico marítimo decorativo
+
+`barcos::TraficoMaritimo` pertenece exclusivamente al frontend. Al crear la
+interfaz calcula recorridos sobre tiles de tipo `agua`, sin utilizar `aguaRio`
+ni cruzar tierra. Para cada Lugar con `puerto` busca el tile de mar más cercano
+hasta diez celdas de distancia Manhattan, enlaza los dos puertos accesibles más
+cercanos y el borde de mar accesible más próximo. Descarta pares repetidos.
+Son recorridos ilustrativos, independientes del grafo de viaje y del comercio:
+no pretenden reproducir una transacción concreta ni crear transporte disponible.
+
+Los recorridos se calculan una vez por sesión. Como el resto de animaciones,
+las posiciones se derivan del reloj visual: una celda por segundo, un máximo de
+cinco barcos y fases distintas. Entre recorridos hay una pausa de doce segundos;
+se alternan sentidos para ilustrar partidas y llegadas. Al alcanzar el final del
+recorrido el barco desaparece. Redibujar o mover la cámara no sortea posiciones,
+crea actores, avanza la fecha ni consume el azar de la simulación.
+
+La capa se dibuja después del terreno, las rutas, los símbolos y los nombres,
+para que los rótulos no oculten los barcos. Queda debajo de paisajes, retratos,
+marcadores del grupo y ventanas. Comprueba el recorte de cámara, la visibilidad
+actual y que el tile siga siendo mar: no muestra barcos en niebla o memoria ni
+los graba en la exploración. La opción de desarrollo para revelar todo el mapa
+los hace visibles igual que al resto de la capa actual.
+
+La apariencia `barcoDecorativo` se configura en `tiles.ron` y admite las mismas
+variantes parciales, patrones o fotogramas que otros gráficos de ese archivo.
+No es un tipo de terreno ni se declara en la matriz del mapa. La versión normal
+usa `◣`, la ASCII `^` y la de fuente especial puede sustituirlo por un glifo
+propio. Si un conjunto antiguo no define la apariencia, no se dibujan barcos.
+Las reglas de ancho de una celda y validación de recursos se conservan.

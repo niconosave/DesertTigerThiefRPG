@@ -256,3 +256,10 @@ relaciones. Las cuatro ciudades exteriores usan `fuera_del_mapa: true`, sin
 coordenadas; se consultan desde las relaciones de las fichas en el campamento.
 Los contratos están en [Relaciones](./tecnica/componentes/10-relaciones.md#14-comercio-dirigido-con-mercancía)
 y [Contenido](./tecnica/componentes/03-contenido.md#lugares-fuera-del-mapa).
+
+Los barcos decorativos del mapa usan la apariencia `barcoDecorativo` de
+`assets/terminal/tiles.ron`. Sus variantes están en
+`assets/terminal/alternativos/ascii/tiles.ron` y
+`assets/terminal/alternativos/fuente/tiles.ron`. Se pueden cambiar el glifo y el
+estilo con el mismo formato que los tiles; no se añade a la leyenda del terreno.
+Solo aparecen sobre mar actualmente visible y no representan actores reales.
