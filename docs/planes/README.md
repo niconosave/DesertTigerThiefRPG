@@ -3,6 +3,11 @@
 Los planes convierten documentación técnica ya discutida en pasos de desarrollo
 pequeños, ordenados y verificables.
 
+El sistema de eventos narrativos está implementado:
+[PLAN-2026-046](./completados/2026-11-04-46-implementar-eventos-narrativos.md),
+basado en el [contrato 23](../tecnica/componentes/23-eventos-narrativos.md).
+El plan registra las verificaciones y la demo jugable aislada.
+
 El audio procedural de la fogata está completado y aceptado por el usuario en
 [PLAN-2026-041](./completados/2026-10-26-41-incorporar-audio-fogata.md), según los
 [contratos 17](../tecnica/componentes/17-audio-procedural.md) y

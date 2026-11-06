@@ -15,7 +15,7 @@ pub use modelo::{
     ErrorConsultaRelacion, ErrorConsultaVariableGlobal, ErrorIdentificador, ErrorOperacionMundo,
     ErrorTraslado, ExtremoRelacion, Grupo, IdActor, IdLugar, IdMapa, IdRelacion, LoteOperaciones,
     Lugar, LugarInicial, MAX_BYTES_CARACTERISTICA, MAX_BYTES_CLAVE_VARIABLE_GLOBAL, Mundo,
-    OperacionMundo, Relacion, RelacionInicial, TipoRelacion, TipoVariableGlobal,
+    MundoPreparado, OperacionMundo, Relacion, RelacionInicial, TipoRelacion, TipoVariableGlobal,
     TrasladoConfirmado, ValorVariableGlobal, VariableGlobalInicial,
 };
 

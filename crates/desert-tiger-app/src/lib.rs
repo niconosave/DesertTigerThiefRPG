@@ -1,6 +1,8 @@
 //! Composición de partidas y fachada independiente del frontend.
 
 mod contenido;
+mod eventos;
+pub use eventos::{IdOpcionEvento, IdPresentacionEvento, OpcionEvento, VistaEvento};
 mod contexto_viaje;
 mod fase_npc;
 mod fichas;

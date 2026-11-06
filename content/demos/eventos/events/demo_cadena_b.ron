@@ -1,0 +1,4 @@
+(clave:"demo_cadena_b", puntos:["partida.disponible"], condicion:r#"return mundo:booleana("demoCadenaA",false)"#, inicio:"noticia",  pasos:[
+Vigneta(clave: "noticia", presentacion: r#"return {titulo="Una noticia compartida", texto="Mientras descansás, tus compañeros comentan lo sucedido. Este segundo evento reconoce los cambios que dejó el anterior antes de retomar el viaje."}"#, siguiente: Some("fin")),
+Fin(clave:"fin",control:Continuar)
+])

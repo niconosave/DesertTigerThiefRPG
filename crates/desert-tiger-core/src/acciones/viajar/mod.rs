@@ -661,3 +661,13 @@ impl EjecucionAccion {
         }
     }
 }
+
+impl EjecucionAccion {
+    pub(crate) fn validar_avance_intervenido(
+        &self,
+        paso: IdPaso,
+        c: &ContextoAccion<'_>,
+    ) -> Resultado<()> {
+        validar(self, paso, c, false)
+    }
+}

@@ -7,6 +7,7 @@ use std::{
     num::NonZeroUsize,
 };
 mod acampar;
+pub mod intervenciones;
 mod particulares;
 pub use acampar::{
     Acampada, ErrorAcampada, ResultadoAcampada, finalizar_acampada, iniciar_acampada,

@@ -2,11 +2,22 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar |
-| Versión | 0.9 |
-| Fecha | 2026-10-26 |
+| Estado | Implementado para políticas heredadas; integración común diseñada en contrato 24 |
+| Versión | 0.10 |
+| Fecha | 2026-11-06 |
+
+> Evolución diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
+> define un único modelo de EventoNarrativo, con autoría externa o incrustada en un
+> actor. Allí se especifican `this`, los ámbitos de identidad, las activaciones y
+> la normalización de `politica` al catálogo común. Este documento conserva la API
+> heredada que necesita su adaptador; no define un segundo sistema futuro.
 
 > Ampliación implementada el 2026-10-26. Actores fuera del escenario: [contrato 14, sección 3.3](./14-parentesco-actores-contexto.md#33-npc-y-lua).
+
+> La separación entre la API implementada de [eventos v1](./23-eventos-narrativos.md#8-lua-de-eventos)
+> y las políticas describe el código actual. El contrato 24 integra su coordinación
+> mediante adaptadores, conservando la sintaxis y los permisos del bloque legado.
+> Vincular `this` al propietario no concede por sí mismo permisos adicionales.
 
 ## 1. Propósito y alcance
 

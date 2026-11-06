@@ -350,6 +350,9 @@ impl Narrador<'_> {
         if let Some(cierre) = r.cierre {
             let razon = match cierre {
                 CierreViaje::Llegada => None,
+                CierreViaje::InterrumpidoPorEvento => {
+                    Some("Los acontecimientos ponen fin al viaje.")
+                }
                 CierreViaje::SinRecursos => Some(
                     "No reunís una ración diaria de ambos recursos para todos. El viaje termina aquí.",
                 ),

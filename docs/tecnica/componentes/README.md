@@ -29,6 +29,8 @@ Todos desarrollan el
 | [`20-musica-campamento.md`](./20-musica-campamento.md) | Música y notas del campamento; expresión compartida `music` y pausas configurables. |
 | [`21-arte-lugares.md`](./21-arte-lugares.md) | Implementado: paisaje sobre el mapa, contexto narrativo, anclaje, transparencia y composición por debajo de actores y ventanas. |
 | [`22-alturas-visibilidad-memoria.md`](./22-alturas-visibilidad-memoria.md) | Implementado: matriz de relieve, visión con alcance y obstáculos, memoria de exploración y tiles recordados en gris sin animación. |
+| [`23-eventos-narrativos.md`](./23-eventos-narrativos.md) | Implementado: autoría RON/Lua, puntos de intervención, viñetas, efectos atómicos, cola, sustitución de relatos y continuación/interrupción de Viajar. |
+| [`24-agenda-eventos-mundo.md`](./24-agenda-eventos-mundo.md) | Diseñado: modelo común de eventos, autoría local/externa, `this`, integración de políticas, fechas y observación remota. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen

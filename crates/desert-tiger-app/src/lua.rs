@@ -232,7 +232,7 @@ pub(crate) fn evaluar_politica<R: ResolucionClavesLua>(
     convertir_respuesta(politica, respuesta, claves)
 }
 
-fn crear_maquina() -> mlua::Result<Lua> {
+pub(crate) fn crear_maquina() -> mlua::Result<Lua> {
     let lua = Lua::new_with(StdLib::NONE, LuaOptions::new())?;
     lua.set_memory_limit(LIMITE_MEMORIA_LUA_BYTES)?;
     Ok(lua)
@@ -311,9 +311,14 @@ fn crear_entorno(
     proxy_solo_lectura(lua, entorno_datos)
 }
 
-fn proxy_solo_lectura(lua: &Lua, datos: Table) -> mlua::Result<Table> {
+pub(crate) fn proxy_solo_lectura(lua: &Lua, datos: Table) -> mlua::Result<Table> {
     let proxy = lua.create_table()?;
     let metatabla = lua.create_table()?;
+    let longitud = datos.raw_len();
+    metatabla.set(
+        "__len",
+        lua.create_function(move |_, _: MultiValue| Ok(longitud))?,
+    )?;
     metatabla.set("__index", datos)?;
     metatabla.set(
         "__newindex",

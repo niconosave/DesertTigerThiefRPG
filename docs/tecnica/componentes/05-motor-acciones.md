@@ -10,6 +10,11 @@
 > propia, definida en [su sección 3](../acciones/07-acampar.md#3-regla-del-núcleo).
 > No se introduce en los registros y opciones específicos de Viajar.
 
+> La ampliación implementada de [eventos narrativos, sección 4](./23-eventos-narrativos.md#4-puntos-de-intervención-del-motor)
+> añade cesiones explícitas antes/después de unidades y un cierre reglado por
+> evento. Conserva el estado reanudable y no autoriza deshacer resultados ya
+> confirmados. Su sustitución inicial solo afecta al relato de llegada.
+
 ## Revisión implementada el 2026-10-24: Motor reanudable vigente
 
 Las firmas activas son iniciar, avanzar y responder del contrato 06, sección 9. PasoAccion contiene Escena, Decision o Finalizada. Las particulares solo hacen el chequeo de la sección 8; las tarjetas resuelven sus consecuencias. Los estados, pronósticos y trazas del cuerpo histórico no son APIs activas.

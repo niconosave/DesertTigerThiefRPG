@@ -7,6 +7,12 @@ las verificaciones y cualquier desviación encontrada.
 Mover un plan aquí no sustituye actualizar la documentación técnica cuando la
 implementación cambia una decisión o un contrato.
 
+## Eventos narrativos
+
+| Fecha | Plan | Resultado |
+|---|---|---|
+| 2026-11-05 | [PLAN-2026-046](./2026-11-04-46-implementar-eventos-narrativos.md) | Eventos RON/Lua, puntos seguros, efectos atómicos, decisiones, encadenamiento, interrupción y sustitución del relato de llegada; demo aislada. |
+
 ## Incremento jugable de Relaciones y viaje contextual
 
 | Fecha | Plan | Resultado |

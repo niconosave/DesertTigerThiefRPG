@@ -78,6 +78,7 @@ pub(crate) struct RecursosVisuales {
     apariencias: BTreeMap<ClaveTipoTile, PatronTile>,
     pub ui: PaletaUi,
     escenas: Vec<(ClaveEscena, Vec<String>)>,
+    eventos: BTreeMap<String, Vec<String>>,
     pub(crate) fogata: Vec<String>,
     pub(crate) estilo_fogata: Style,
     pub(crate) efecto_fogata: Option<ConfiguracionFogata>,
@@ -122,6 +123,11 @@ impl RecursosVisuales {
             }
             recursos.apariencias.extend(apariencias);
         }
+        let alternativos = cargar_arte_eventos(&carpeta.join("events.ron"))?;
+        for arte in alternativos.values() {
+            modo.validar_glifos(arte.iter().flat_map(|f| f.chars()))?;
+        }
+        recursos.eventos.extend(alternativos);
         let ruta = carpeta.join("scenes.ron");
         if let Some(dto) = leer_ron_opcional::<EscenasDto>(&ruta)? {
             let escenas = convertir_escenas(dto)
@@ -186,6 +192,7 @@ impl RecursosVisuales {
             apariencias,
             ui: convertir_ui(ui)?,
             escenas: ilustraciones,
+            eventos: cargar_arte_eventos(&raiz.join("events.ron"))?,
             fogata,
             estilo_fogata,
             efecto_fogata,
@@ -213,6 +220,9 @@ impl RecursosVisuales {
             .unwrap_or_else(|| self.reserva.clone())
     }
 
+    pub(crate) fn ilustracion_evento(&self, clave: &str) -> Option<&[String]> {
+        self.eventos.get(clave).map(Vec::as_slice)
+    }
     pub(crate) fn escena(&self, clave: ClaveEscena) -> Option<&[String]> {
         self.escenas
             .iter()
@@ -306,6 +316,25 @@ pub(crate) struct PaletaUi {
     pub deshabilitado: Style,
     pub barra_contextual: Style,
     pub barra_acciones: Style,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ArteEventosDto {
+    ilustraciones: BTreeMap<String, String>,
+}
+fn cargar_arte_eventos(ruta: &Path) -> Result<BTreeMap<String, Vec<String>>, ErrorRecursos> {
+    let Some(dto) = leer_ron_opcional::<ArteEventosDto>(ruta)? else {
+        return Ok(BTreeMap::new());
+    };
+    dto.ilustraciones
+        .into_iter()
+        .map(|(k, arte)| {
+            normalizar_arte(&arte)
+                .map(|a| (k, a))
+                .map_err(|e| ErrorRecursos(format!("{}: {e}", ruta.display())))
+        })
+        .collect()
 }
 
 #[derive(Deserialize)]
@@ -1116,6 +1145,29 @@ mod pruebas {
         ] {
             assert!(ron::from_str::<EfectoFogataDto>(texto).is_err());
         }
+    }
+    #[test]
+    fn ilustraciones_de_evento_admiten_variantes_parciales_y_validan_ascii() {
+        let temporal = RecursosTemporales::nuevos();
+        fs::write(
+            temporal.0.join("events.ron"),
+            r#"(ilustraciones:{"uno":"/^^\\", "dos":"...."})"#,
+        )
+        .unwrap();
+        for modo in [ModoGraficos::Fuente, ModoGraficos::Ascii] {
+            temporal.escribir(modo, "events.ron", r#"(ilustraciones:{"uno":"ABCD"})"#);
+            let r = RecursosVisuales::cargar_modo(&temporal.0, modo).unwrap();
+            assert_eq!(r.ilustracion_evento("uno").unwrap(), &["ABCD"]);
+            assert_eq!(r.ilustracion_evento("dos").unwrap(), &["...."]);
+            assert!(r.ilustracion_evento("ausente").is_none());
+        }
+        temporal.escribir(
+            ModoGraficos::Ascii,
+            "events.ron",
+            r#"(ilustraciones:{"uno":"á"})"#,
+        );
+        assert!(RecursosVisuales::cargar_modo(&temporal.0, ModoGraficos::Ascii).is_err());
+        assert!(RecursosVisuales::cargar(&temporal.0).is_ok());
     }
 }
 

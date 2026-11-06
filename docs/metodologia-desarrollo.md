@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Vigente |
-| Versión | 0.5 |
-| Fecha | 2026-10-17 |
+| Versión | 0.6 |
+| Fecha | 2026-11-06 |
 
 ## 1. Propósito
 
@@ -152,7 +152,10 @@ decisión nueva dentro de una desviación del plan.
   composición visual.
 - El frontend presenta información y recoge decisiones; no duplica ni evita las
   reglas del backend.
-- Jugador y NPC utilizan el mismo sistema de ejecución de acciones.
+- Cuando un jugador o NPC solicita una acción general, utiliza el mismo sistema
+  de ejecución de acciones. Los sucesos históricos de autoría pueden confirmar
+  consecuencias fijas mediante operaciones validadas, según el alcance
+  explícito de su contrato; no se presentan como tiradas de una acción general.
 - Lua consulta el contexto permitido y solicita acciones; no evita su validación
   ni modifica directamente el mundo.
 - La posición visual sobre el mapa nunca se usa como estado de gameplay.

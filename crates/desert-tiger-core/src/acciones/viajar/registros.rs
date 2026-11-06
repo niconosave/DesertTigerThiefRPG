@@ -186,6 +186,7 @@ pub struct SolicitudDecision {
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CierreViaje {
+    InterrumpidoPorEvento,
     Llegada,
     Cancelado,
     SinRecursos,

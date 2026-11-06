@@ -60,6 +60,7 @@ pub(crate) struct Interfaz {
     error_recuperable: Option<String>,
     mostrar_detalle: bool,
     pagina: usize,
+    foco_evento: usize,
     pagina_antes_detalle: usize,
     reloj: RelojVisual,
     trafico_maritimo: crate::trafico_decorativo::TraficoDecorativo,
@@ -73,9 +74,7 @@ pub(crate) struct Interfaz {
 impl Interfaz {
     pub(crate) fn nueva(partida: Partida) -> Result<Self, String> {
         let vista = partida.vista();
-        let VistaSesion::Disponible(mundo) = &vista else {
-            return Err("la partida no comenzó en una vista disponible".to_owned());
-        };
+        let mundo = &partida.mundo_visible();
         let ultima_vista_mundo = mundo.clone();
         let trafico_maritimo = crate::barcos::crear(mundo);
         let trafico_terrestre = crate::caravanas::crear(mundo);
@@ -98,6 +97,7 @@ impl Interfaz {
             error_recuperable: None,
             mostrar_detalle: false,
             pagina: 0,
+            foco_evento: 0,
             pagina_antes_detalle: 0,
             reloj: RelojVisual::default(),
             trafico_maritimo,
@@ -308,6 +308,42 @@ impl Interfaz {
         if normalizar_letra(evento.code) == Some('q') {
             self.confirmar_salida = true;
             self.inspector.puntero = None;
+            return;
+        }
+        if let Some(v) = self.evento().cloned() {
+            let paginas = paginar_texto(if self.mostrar_detalle {
+                v.detalle.as_deref().unwrap_or("")
+            } else {
+                &v.texto
+            });
+            match evento.code {
+                KeyCode::Char('d' | 'D') if v.detalle.is_some() => {
+                    self.mostrar_detalle = !self.mostrar_detalle;
+                    self.pagina = 0;
+                }
+                KeyCode::Left => self.pagina = self.pagina.saturating_sub(1),
+                KeyCode::Right => {
+                    self.pagina = (self.pagina + 1).min(paginas.len().saturating_sub(1))
+                }
+                KeyCode::Up => self.foco_evento = self.foco_evento.saturating_sub(1),
+                KeyCode::Down => {
+                    self.foco_evento =
+                        (self.foco_evento + 1).min(v.opciones.len().saturating_sub(1))
+                }
+                KeyCode::Enter if self.pagina + 1 < paginas.len() => self.pagina += 1,
+                KeyCode::Enter if !self.mostrar_detalle => {
+                    let intencion = if let Some(o) = v.opciones.get(self.foco_evento) {
+                        IntencionFrontend::ResponderEvento {
+                            presentacion: v.id,
+                            opcion: o.id,
+                        }
+                    } else {
+                        IntencionFrontend::ContinuarEvento { presentacion: v.id }
+                    };
+                    self.enviar(intencion);
+                }
+                _ => {}
+            }
             return;
         }
         if self.menu_desarrollo {
@@ -585,7 +621,9 @@ impl Interfaz {
                     });
                 }
             }
-            VistaSesion::Acampando(_)
+            VistaSesion::PresentandoEvento(_)
+            | VistaSesion::EsperandoDecisionEvento(_)
+            | VistaSesion::Acampando(_)
             | VistaSesion::Fatal(_)
             | VistaSesion::Disponible(_)
             | VistaSesion::PresentandoAccion(_) => {}
@@ -603,6 +641,7 @@ impl Interfaz {
                 self.error_recuperable = None;
                 self.mostrar_detalle = false;
                 self.pagina = 0;
+                self.foco_evento = 0;
                 self.pagina_antes_detalle = 0;
                 self.actualizar_mundo();
                 self.campamento = match &self.vista {
@@ -610,7 +649,9 @@ impl Interfaz {
                         v.clone(),
                         &self.partida,
                     )),
-                    VistaSesion::Disponible(_)
+                    VistaSesion::PresentandoEvento(_)
+                    | VistaSesion::EsperandoDecisionEvento(_)
+                    | VistaSesion::Disponible(_)
                     | VistaSesion::PresentandoAccion(_)
                     | VistaSesion::EsperandoDecision(_)
                     | VistaSesion::Fatal(_) => None,
@@ -703,6 +744,22 @@ impl Interfaz {
             acciones,
         );
         match &self.vista {
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
+                let paginas = paginar_texto(if self.mostrar_detalle {
+                    v.detalle.as_deref().unwrap_or("")
+                } else {
+                    &v.texto
+                });
+                let pagina = self.pagina.min(paginas.len().saturating_sub(1));
+                self.dibujar_ventana(
+                    frame,
+                    region_mundo,
+                    &titulo_paginado(&v.titulo, pagina, paginas.len()),
+                    &paginas[pagina],
+                    None,
+                    recursos,
+                );
+            }
             VistaSesion::PresentandoAccion(fragmento) => {
                 let paginas = paginas_fragmento(fragmento, self.mostrar_detalle);
                 let pagina = self.pagina.min(paginas.len().saturating_sub(1));
@@ -1024,6 +1081,7 @@ impl Interfaz {
             return None;
         }
         let id = match &self.vista {
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => v.lugar,
             VistaSesion::Disponible(_) => self.ultima_vista_mundo.lugar_jugador,
             VistaSesion::PresentandoAccion(v) => v.progreso.lugar_paisaje,
             VistaSesion::EsperandoDecision(v) => v.progreso.lugar_paisaje,
@@ -1124,6 +1182,20 @@ impl Interfaz {
                 .unwrap_or_default(),
             VistaSesion::Fatal(_) => "La sesión encontró un error fatal.".to_owned(),
             VistaSesion::Disponible(mundo) => contexto_mundo(mundo),
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
+                let opcion = v
+                    .opciones
+                    .get(self.foco_evento)
+                    .map(|o| format!(" — {}", o.texto))
+                    .unwrap_or_default();
+                format!(
+                    "{} — {:02}/{:02}/{}{opcion}",
+                    v.titulo,
+                    v.fecha.dia(),
+                    v.fecha.mes().numero(),
+                    v.fecha.anio()
+                )
+            }
         }
     }
 
@@ -1232,13 +1304,37 @@ impl Interfaz {
                     };
                     format!(" {opciones}{navegar}{detalle}  [Q] Salir")
                 }
+                VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
+                    format!(
+                        " [Enter] {}  [←/→] Página  {}[D] Detalles  [Q] Salir",
+                        if v.opciones.is_empty() {
+                            "Continuar"
+                        } else {
+                            "Elegir"
+                        },
+                        if v.opciones.is_empty() {
+                            ""
+                        } else {
+                            "[↑/↓] Opción  "
+                        }
+                    )
+                }
                 VistaSesion::Acampando(_) | VistaSesion::Fatal(_) => String::new(),
             },
         }
     }
 
+    fn evento(&self) -> Option<&desert_tiger_app::VistaEvento> {
+        match &self.vista {
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => Some(v),
+            _ => None,
+        }
+    }
     fn vista_tiene_detalle(&self) -> bool {
         match &self.vista {
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
+                v.detalle.is_some()
+            }
             VistaSesion::PresentandoAccion(fragmento) => !fragmento.detalle.is_empty(),
             VistaSesion::EsperandoDecision(decision) => {
                 !decision.detalle.is_empty()
@@ -1252,6 +1348,14 @@ impl Interfaz {
     }
 
     fn paginas_vigentes(&self) -> usize {
+        if let Some(v) = self.evento() {
+            return paginar_texto(if self.mostrar_detalle {
+                v.detalle.as_deref().unwrap_or("")
+            } else {
+                &v.texto
+            })
+            .len();
+        }
         if let Some(d) = self.decision_planificacion() {
             return if self.mostrar_detalle {
                 paginar_texto(&crate::planificacion_rutas::detalle(
@@ -1292,7 +1396,13 @@ impl Interfaz {
         let ancho = 72.min(area.width.saturating_sub(4)).max(40);
         // Reservamos espacio real para las ocho líneas paginadas y el arte:
         // una ventana fija de doce filas ocultaba las últimas líneas del relato.
-        let arte = escena.and_then(|clave| recursos.escena(clave));
+        let arte = escena.and_then(|clave| recursos.escena(clave)).or_else(|| {
+            self.evento()
+                .filter(|_| !self.mostrar_detalle && !self.confirmar_salida)
+                .and_then(|v| v.ilustracion.as_deref())
+                .and_then(|k| recursos.ilustracion_evento(k))
+        });
+        let arte = arte.map(|a| &a[..a.len().min(usize::from(area.height.saturating_sub(14)))]);
         let filas_arte = arte.map_or(0, |filas| filas.len() + 1);
         let alto = (filas_arte + texto.lines().count() + 2)
             .max(12)
@@ -3337,6 +3447,9 @@ mod pruebas {
                     })
                 }
                 VistaSesion::Disponible(_) => break,
+                VistaSesion::PresentandoEvento(_) | VistaSesion::EsperandoDecisionEvento(_) => {
+                    panic!("evento inesperado sin catálogo")
+                }
                 VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                 VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
             }
@@ -4119,5 +4232,57 @@ mod pruebas {
         assert!(i.ambiente_sonoro().fogata);
         i.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: id });
         assert!(!i.ambiente_sonoro().fogata);
+    }
+    #[test]
+    fn evento_inicial_dibuja_paginas_detalle_y_decision_sin_avanzar_el_mundo() {
+        fn tecla(codigo: KeyCode) -> KeyEvent {
+            KeyEvent::new(codigo, KeyModifiers::NONE)
+        }
+        fn copiar(a: &std::path::Path, b: &std::path::Path) {
+            std::fs::create_dir_all(b).unwrap();
+            for e in std::fs::read_dir(a).unwrap() {
+                let e = e.unwrap();
+                if e.path().is_dir() {
+                    copiar(&e.path(), &b.join(e.file_name()));
+                } else {
+                    std::fs::copy(e.path(), b.join(e.file_name())).unwrap();
+                }
+            }
+        }
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let carpeta = std::env::temp_dir().join(format!("dt-ui-evento-{}", std::process::id()));
+        copiar(&raiz.join("content/base"), &carpeta);
+        std::fs::create_dir_all(carpeta.join("events")).unwrap();
+        let texto = "Un relato extenso que ocupa varias páginas y permite comprobar que leer no avanza el mundo. ".repeat(35);
+        let evento = format!(
+            r##"(clave:"prueba",puntos:["partida.disponible"],condicion:"return true",inicio:"ver",pasos:[Vigneta(clave:"ver",ilustracion:Some("demo_camino"),presentacion:r#"return {{titulo="Encuentro inicial",texto="{texto}",detalle="Información adicional"}}"#,opciones:[(clave:"seguir",texto:"Seguir",siguiente:"fin"),(clave:"otro",texto:"Otra opción",siguiente:"fin")]),Fin(clave:"fin",control:Continuar)])"##
+        );
+        std::fs::write(carpeta.join("events/prueba.ron"), evento).unwrap();
+        let contenido = cargar_contenido(&carpeta).unwrap();
+        std::fs::remove_dir_all(&carpeta).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let mut i = Interfaz::nueva(partida).unwrap();
+        let vista = i.partida.vista();
+        let mundo = i.partida.mundo_visible();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        assert!(i.paginas_vigentes() > 1);
+        for (ancho, alto) in [(80, 24), (120, 45), (90, 28)] {
+            let mut terminal = Terminal::new(TestBackend::new(ancho, alto)).unwrap();
+            terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        }
+        i.manejar_tecla(tecla(KeyCode::Right));
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        assert!(i.mostrar_detalle);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        assert_eq!(i.partida.vista(), vista);
+        assert_eq!(i.partida.mundo_visible(), mundo);
+        while i.pagina + 1 < i.paginas_vigentes() {
+            i.manejar_tecla(tecla(KeyCode::Enter));
+        }
+        i.manejar_tecla(tecla(KeyCode::Down));
+        assert_eq!(i.foco_evento, 1);
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert!(matches!(i.partida.vista(), VistaSesion::Disponible(_)));
     }
 }

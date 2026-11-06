@@ -343,7 +343,7 @@ pub struct DatosInicialesMundo {
     pub relaciones: Vec<RelacionInicial>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lugar {
     id: IdLugar,
     caracteristicas: BTreeSet<Caracteristica>,
@@ -413,7 +413,7 @@ impl Grupo {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Mundo {
     mapa: IdMapa,
     fecha: Fecha,
@@ -995,6 +995,16 @@ impl Mundo {
         })
     }
 
+    pub fn preparar_operaciones(
+        &self,
+        operaciones: Vec<OperacionMundo>,
+    ) -> Result<MundoPreparado, ErrorOperacionMundo> {
+        let mut mundo = self.clone();
+        if !operaciones.is_empty() {
+            mundo.aplicar_lote(LoteOperaciones { operaciones })?;
+        }
+        Ok(MundoPreparado { mundo })
+    }
     pub fn aplicar_lote(
         &mut self,
         lote: LoteOperaciones,
@@ -1005,10 +1015,20 @@ impl Mundo {
         let mut por_actor = self.relaciones_por_actor.clone();
         let mut por_lugar = self.relaciones_por_lugar.clone();
         let mut conocidos = self.lugares_conocidos_por_actor.clone();
+        let mut globales = self.variables_globales.clone();
         let mut cambios = Vec::with_capacity(lote.operaciones.len());
 
         for operacion in lote.operaciones {
             match operacion {
+                OperacionMundo::EstablecerGlobal { clave, valor } => {
+                    if let Some(anterior) = globales.get(&clave)
+                        && std::mem::discriminant(anterior) != std::mem::discriminant(&valor)
+                    {
+                        return Err(ErrorOperacionMundo::TipoGlobalIncompatible);
+                    }
+                    globales.insert(clave.clone(), valor.clone());
+                    cambios.push(CambioConfirmado::GlobalEstablecida { clave, valor });
+                }
                 OperacionMundo::Trasladar { actor, destino } => {
                     let traslado = trasladar_en_estado(
                         &mut actores_virtuales,
@@ -1092,6 +1112,7 @@ impl Mundo {
             }
         }
 
+        self.variables_globales = globales;
         self.actores = actores_virtuales;
         self.grupo = grupo_virtual;
         self.relaciones = relaciones_virtuales;
@@ -1099,6 +1120,19 @@ impl Mundo {
         self.relaciones_por_lugar = por_lugar;
         self.lugares_conocidos_por_actor = conocidos;
         Ok(CambiosConfirmados { cambios })
+    }
+}
+
+/// Provisional privado: se instala bajo la exclusión de la Partida, sin callbacks.
+pub struct MundoPreparado {
+    mundo: Mundo,
+}
+impl MundoPreparado {
+    pub fn mundo(&self) -> &Mundo {
+        &self.mundo
+    }
+    pub fn confirmar(self, mundo: &mut Mundo) {
+        *mundo = self.mundo;
     }
 }
 
@@ -1111,6 +1145,10 @@ pub struct TrasladoConfirmado {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OperacionMundo {
+    EstablecerGlobal {
+        clave: ClaveVariableGlobal,
+        valor: ValorVariableGlobal,
+    },
     SepararCompanero {
         actor: IdActor,
         lugar: IdLugar,
@@ -1174,6 +1212,10 @@ impl CambiosConfirmados {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CambioConfirmado {
+    GlobalEstablecida {
+        clave: ClaveVariableGlobal,
+        valor: ValorVariableGlobal,
+    },
     CompaneroSeparado {
         actor: IdActor,
         lugar: IdLugar,
@@ -1199,6 +1241,7 @@ pub enum CambioConfirmado {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorOperacionMundo {
+    TipoGlobalIncompatible,
     ActorFueraDelEscenario { actor: IdActor },
     LoteVacio,
     ActorDesconocido { actor: IdActor },
@@ -1556,9 +1599,9 @@ fn error_operacion_como_traslado(error: ErrorOperacionMundo) -> ErrorTraslado {
         ErrorOperacionMundo::IntegranteGrupoNoPuedeTrasladarseSolo { actor } => {
             ErrorTraslado::IntegranteGrupoNoPuedeTrasladarseSolo { actor }
         }
-        ErrorOperacionMundo::LoteVacio | ErrorOperacionMundo::EstadoGrupoInconsistente => {
-            ErrorTraslado::EstadoInconsistente
-        }
+        ErrorOperacionMundo::TipoGlobalIncompatible
+        | ErrorOperacionMundo::LoteVacio
+        | ErrorOperacionMundo::EstadoGrupoInconsistente => ErrorTraslado::EstadoInconsistente,
     }
 }
 
@@ -2624,5 +2667,46 @@ mod pruebas {
             Err(ErrorCalendario::Desbordamiento)
         );
         assert_eq!(mundo.fecha(), limite);
+    }
+    #[test]
+    fn preparacion_globales_es_atomica_admite_vacio_y_no_escribe_antes_de_confirmar() {
+        let mut mundo = Mundo::nuevo(datos_validos()).unwrap();
+        let antes = mundo.clone();
+        mundo
+            .preparar_operaciones(vec![])
+            .unwrap()
+            .confirmar(&mut mundo);
+        assert_eq!(mundo, antes);
+        let operaciones = vec![
+            OperacionMundo::EstablecerGlobal {
+                clave: clave("nueva"),
+                valor: ValorVariableGlobal::Booleana(true),
+            },
+            OperacionMundo::AnadirCaracteristicaActor {
+                actor: id_actor(0),
+                caracteristica: caracteristica("herido"),
+            },
+        ];
+        let preparado = mundo.preparar_operaciones(operaciones.clone()).unwrap();
+        assert_eq!(mundo, antes);
+        assert_eq!(
+            preparado.mundo().variable_booleana(&clave("nueva")),
+            Ok(true)
+        );
+        let mut fallido = operaciones;
+        fallido.push(OperacionMundo::EstablecerGlobal {
+            clave: clave("contador"),
+            valor: ValorVariableGlobal::Texto("invalido".into()),
+        });
+        assert!(mundo.preparar_operaciones(fallido).is_err());
+        assert_eq!(mundo, antes);
+        preparado.confirmar(&mut mundo);
+        assert_eq!(mundo.variable_booleana(&clave("nueva")), Ok(true));
+        assert!(
+            mundo
+                .actor(id_actor(0))
+                .unwrap()
+                .tiene_caracteristica(&caracteristica("herido"))
+        );
     }
 }

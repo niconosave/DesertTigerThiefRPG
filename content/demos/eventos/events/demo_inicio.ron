@@ -1,0 +1,4 @@
+(clave:"demo_inicio", puntos:["partida.disponible"], condicion:r#"return true"#, inicio:"saludo",  pasos:[
+Vigneta(clave: "saludo", presentacion: r#"return {titulo="Eventos narrativos", texto="Este mundo de prueba permite ver eventos durante un viaje. Al llegar a un nuevo lugar podrás continuar o detenerte; si continuás, verás un encadenamiento y una llegada particular."}"#, siguiente: Some("fin")),
+Fin(clave:"fin",control:Continuar)
+])

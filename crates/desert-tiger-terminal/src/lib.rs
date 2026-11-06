@@ -1,3 +1,5 @@
+#[cfg(test)]
+use desert_tiger_app::VistaSesion;
 mod animacion;
 mod arte_lugares;
 mod audio;
@@ -30,9 +32,7 @@ use crossterm::execute;
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
-use desert_tiger_app::{
-    ConfiguracionPartida, IdActor, Partida, RetratoActor, VistaSesion, cargar_contenido,
-};
+use desert_tiger_app::{ConfiguracionPartida, IdActor, Partida, RetratoActor, cargar_contenido};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 
@@ -81,12 +81,12 @@ where
         .map_err(|error| ErrorTerminal(format!("retratos alternativos: {error}")))?;
     let partida = Partida::nueva(&contenido, ConfiguracionPartida { semilla: None })
         .map_err(|error| ErrorTerminal(format!("partida: {error}")))?;
-    if let VistaSesion::Disponible(mundo) = partida.vista()
-        && let Some(faltante) = mundo
-            .mapa
-            .tipos_declarados
-            .iter()
-            .find(|clave| !recursos.contiene_tile(clave))
+    if let Some(faltante) = partida
+        .mundo_visible()
+        .mapa
+        .tipos_declarados
+        .iter()
+        .find(|clave| !recursos.contiene_tile(clave))
     {
         return Err(ErrorTerminal(format!(
             "recursos visuales: falta una apariencia oficial para {}",
@@ -484,6 +484,9 @@ mod pruebas {
                         break;
                     }
                     VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
+                    VistaSesion::PresentandoEvento(_) | VistaSesion::EsperandoDecisionEvento(_) => {
+                        panic!("catálogo vacío inesperado")
+                    }
                     VistaSesion::Fatal(fatal) => panic!("sesión fatal: {}", fatal.mensaje),
                 };
             }

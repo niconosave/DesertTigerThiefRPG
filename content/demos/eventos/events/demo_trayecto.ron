@@ -1,0 +1,7 @@
+(clave:"demo_trayecto", puntos:["viajar.entre_lugares"], condicion:r#"return true"#, inicio:"elegir", prioridad:100, pasos:[
+Vigneta(clave:"elegir", ilustracion:Some("demo_camino"), presentacion:r#"return {titulo="Un alto en el camino",texto="Te detenés con tus compañeros al terminar el tramo. Podés continuar la marcha o dar por concluido el viaje aquí.",detalle="Esta decisión pertenece a un evento de demostración. El tiempo y los recursos del tramo ya están confirmados."}"#, opciones:[(clave:"seguir",texto:"Continuar el viaje",siguiente:"seguir"),(clave:"detener",texto:"Detener el viaje",siguiente:"detener")]),
+Efectos(clave:"seguir", salidas:["fin"], resolver:r#"return {operaciones={op.establecer_booleana("demoContinuar",true)}, siguiente="fin"}"#),
+Efectos(clave:"detener", salidas:["interrumpir"], resolver:r#"return {operaciones={op.establecer_booleana("demoInterrumpir",true)}, siguiente="interrumpir"}"#),
+Fin(clave:"fin",control:Continuar),
+Fin(clave:"interrumpir",control:InterrumpirAccion)
+])

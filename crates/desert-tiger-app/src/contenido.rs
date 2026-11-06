@@ -336,9 +336,13 @@ struct ContenidoValidadoInterno {
     presentacion: CatalogoPresentacion,
     claves: CatalogoClaves,
     politicas: Vec<PoliticaLuaValidada>,
+    eventos: crate::eventos::contenido::Catalogo,
 }
 
 impl ContenidoValidado {
+    pub(crate) fn eventos(&self) -> &crate::eventos::contenido::Catalogo {
+        &self.interno.eventos
+    }
     /// Identifica los Actores por sus claves estables de contenido.
     pub fn claves_actores(&self) -> impl Iterator<Item = (IdActor, &str)> {
         self.interno
@@ -624,6 +628,12 @@ pub(crate) struct CatalogoClaves {
 }
 
 impl CatalogoClaves {
+    pub(crate) fn actor_por_clave(&self, s: &str) -> Option<IdActor> {
+        self.actores_por_clave.get(s).copied()
+    }
+    pub(crate) fn lugar_por_clave(&self, s: &str) -> Option<IdLugar> {
+        self.lugares_por_clave.get(s).copied()
+    }
     pub(crate) fn clave_actor(&self, actor: IdActor) -> Option<&str> {
         self.claves_por_actor.get(&actor).map(String::as_str)
     }
@@ -1022,7 +1032,7 @@ pub(crate) struct DescripcionCaracteristica {
     pub(crate) descripcion: String,
 }
 
-fn validar_texto_presentacion(
+pub(crate) fn validar_texto_presentacion(
     texto: &str,
     multilinea: bool,
     requerido: bool,
@@ -1338,6 +1348,8 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
                     .map(|actor| actor.presentacion)
                     .collect(),
             },
+            eventos: crate::eventos::contenido::cargar(&raiz_canonica, &claves)
+                .map_err(|e| error_mundo(ClaseDiagnosticoContenido::ValorInvalido, e))?,
             claves,
             politicas,
         }),

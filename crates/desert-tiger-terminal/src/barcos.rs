@@ -224,7 +224,9 @@ mod pruebas {
         let t = crear(&m);
         let r = recursos(ModoGraficos::Predeterminado);
         let visible = cuadro(&t, &m, &r, 0, 0);
-        assert!(visible.content.iter().any(|c| c.symbol() == "◣"));
+        let clave = ClaveTipoTile::nueva("barcoDecorativo".into()).unwrap();
+        let glifo = r.tile(&clave, 0, 0, 0).glifo.to_string();
+        assert!(visible.content.iter().any(|c| c.symbol() == glifo));
         assert_eq!(m, original);
         for estado in [VisibilidadTile::Desconocido, VisibilidadTile::Recordado] {
             m.mapa.visibilidad.fill(estado);
@@ -239,16 +241,20 @@ mod pruebas {
         assert_eq!(cuadro(&t, &m, &r, 0, 0), visible);
         let movido = cuadro(&t, &m, &r, 0, 2);
         for c in t.posiciones(0) {
-            assert_eq!(movido[(c.x as u16 + 2, c.y as u16)].symbol(), "◣");
+            assert_eq!(movido[(c.x as u16 + 2, c.y as u16)].symbol(), glifo);
         }
-        let ascii = cuadro(&t, &m, &recursos(ModoGraficos::Ascii), 0, 0);
-        assert!(ascii.content.iter().any(|c| c.symbol() == "^"));
+        let recursos_ascii = recursos(ModoGraficos::Ascii);
+        let glifo_ascii = recursos_ascii.tile(&clave, 0, 0, 0).glifo.to_string();
+        let ascii = cuadro(&t, &m, &recursos_ascii, 0, 0);
+        assert!(ascii.content.iter().any(|c| c.symbol() == glifo_ascii));
         assert!(ascii.content.iter().all(|c| c.symbol().is_ascii()));
+        let fuente = recursos(ModoGraficos::Fuente);
+        let glifo = fuente.tile(&clave, 0, 0, 0).glifo.to_string();
         assert!(
-            cuadro(&t, &m, &recursos(ModoGraficos::Fuente), 0, 0)
+            cuadro(&t, &m, &fuente, 0, 0)
                 .content
                 .iter()
-                .any(|c| c.symbol() == "◣")
+                .any(|c| c.symbol() == glifo)
         );
     }
 
