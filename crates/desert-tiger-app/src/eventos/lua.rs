@@ -203,6 +203,11 @@ impl Programa {
                     };
                     let t = lua.create_table()?;
                     match o {
+                        ExtremoRelacion::Concepto(id) => {
+                            t.set("tipo", "Concepto")?;
+                            t.set("clave", c.clave_concepto(id))?;
+                        }
+
                         ExtremoRelacion::Actor(a) => {
                             t.set("tipo", "Actor")?;
                             t.set("clave", c.clave_actor(a))?;
@@ -297,6 +302,17 @@ impl Programa {
                     move |_, v| {
                         let tipo = string(&v[0])?;
                         let tipos = [
+                            ("Desea", TipoRelacion::Desea),
+                            ("Debe", TipoRelacion::Debe),
+                            ("Necesita", TipoRelacion::Necesita),
+                            ("EsLlamadoA", TipoRelacion::EsLlamadoA),
+                            ("Gobierna", TipoRelacion::Gobierna),
+                            ("EnemigoDe", TipoRelacion::EnemigoDe),
+                            ("PactoCon", TipoRelacion::PactoCon),
+                            ("PrisioneroDe", TipoRelacion::PrisioneroDe),
+                            ("SalvadoPor", TipoRelacion::SalvadoPor),
+                            ("TratosCon", TipoRelacion::TratosCon),
+                            ("ComerciaCon", TipoRelacion::ComerciaCon),
                             ("Padre", TipoRelacion::Padre),
                             ("Madre", TipoRelacion::Madre),
                             ("Sirviente", TipoRelacion::Sirviente),
@@ -322,6 +338,10 @@ impl Programa {
                             campos(t, &["tipo", "clave"])?;
                             let k = t.get::<Value>("clave")?;
                             match campo(t, "tipo")?.as_str() {
+                                "Concepto" => c
+                                    .concepto_por_clave(&string(&k)?)
+                                    .map(ExtremoRelacion::Concepto)
+                                    .ok_or_else(|| err("concepto desconocido")),
                                 "Actor" => Ok(ExtremoRelacion::Actor(actor(c, &k)?)),
                                 "Lugar" => Ok(ExtremoRelacion::Lugar(lugar(c, &k)?)),
                                 _ => Err(err("extremo inválido")),
@@ -336,23 +356,7 @@ impl Programa {
                         if (tipo_r == TipoRelacion::Vende) != mercancia.is_some() {
                             return Err(err("mercancía incompatible con tipo de relación"));
                         }
-                        let valido = match tipo_r {
-                            TipoRelacion::Conoce => matches!(
-                                (a, b),
-                                (ExtremoRelacion::Actor(_), ExtremoRelacion::Lugar(_))
-                            ),
-                            TipoRelacion::Padre
-                            | TipoRelacion::Madre
-                            | TipoRelacion::Sirviente
-                            | TipoRelacion::MatadoPor => matches!(
-                                (a, b),
-                                (ExtremoRelacion::Actor(_), ExtremoRelacion::Actor(_))
-                            ),
-                            _ => matches!(
-                                (a, b),
-                                (ExtremoRelacion::Lugar(_), ExtremoRelacion::Lugar(_))
-                            ),
-                        };
+                        let valido = tipo_r.admite_extremos(a, b);
                         if !valido {
                             return Err(err("extremos incompatibles"));
                         }
@@ -366,7 +370,7 @@ impl Programa {
                                     r.tipo() == tipo_r
                                         && r.mercancia() == mercancia.as_deref()
                                         && ((r.origen() == a && r.destino() == b)
-                                            || (tipo_r == TipoRelacion::Conectado
+                                            || (tipo_r.es_simetrica()
                                                 && r.origen() == b
                                                 && r.destino() == a))
                                 }),
@@ -497,5 +501,65 @@ impl Programa {
             })
         };
         run().map_err(|e| format!("{}: {e}", self.nombre))
+    }
+}
+
+#[cfg(test)]
+mod pruebas_relaciones_personales {
+    use super::*;
+    use desert_tiger_core::{FraccionDia, InstanteAccion, acciones::intervenciones::ClasePunto};
+
+    #[test]
+    fn guiones_consultan_conceptos_y_pactos_sin_inferir_cumplimiento() {
+        let contenido = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mundo, _) = contenido.instanciar_estado().unwrap();
+        let antes = mundo.clone();
+        let ctx = ContextoIntervencion {
+            clase: ClasePunto::Disponible,
+            actor: mundo.actor_jugador(),
+            accion: None,
+            objetivo: None,
+            lugar: mundo.ubicacion_grupo(),
+            participantes: vec![mundo.actor_jugador()],
+            instante: InstanteAccion {
+                fecha: mundo.fecha(),
+                fraccion: FraccionDia::CERO,
+            },
+        };
+        for (fuente, esperado) in [
+            (
+                r#"return mundo:hay_relacion("Desea", {tipo="Actor", clave="zahrim"}, {tipo="Concepto", clave="controlar_salida_mar_del_viento"})"#,
+                true,
+            ),
+            (
+                r#"return mundo:hay_relacion("Debe", {tipo="Actor", clave="dahran"}, {tipo="Concepto", clave="proteger_tripulacion"})"#,
+                true,
+            ),
+            (
+                r#"return mundo:hay_relacion("PactoCon", {tipo="Actor", clave="miraz"}, {tipo="Actor", clave="sahmun"})"#,
+                true,
+            ),
+            (
+                r#"return mundo:hay_relacion("Necesita", {tipo="Actor", clave="farid"}, {tipo="Concepto", clave="abrir_casa_comidas_shahraz"})"#,
+                false,
+            ),
+        ] {
+            let mut p: Programa = ron::from_str(&ron::ser::to_string(&fuente).unwrap()).unwrap();
+            p.compilar("relaciones_personales").unwrap();
+            assert!(
+                matches!(p.ejecutar(TipoPrograma::Condicion, &mundo, contenido.claves(), &ctx).unwrap(), Respuesta::Condicion(v) if v == esperado)
+            );
+        }
+        let fuente = r#"return mundo:hay_relacion("Desea", {tipo="Actor", clave="zahrim"}, {tipo="Actor", clave="miraz"})"#;
+        let mut p: Programa = ron::from_str(&ron::ser::to_string(&fuente).unwrap()).unwrap();
+        p.compilar("extremos_invalidos").unwrap();
+        assert!(
+            p.ejecutar(TipoPrograma::Condicion, &mundo, contenido.claves(), &ctx)
+                .is_err()
+        );
+        assert_eq!(mundo, antes);
     }
 }

@@ -1,0 +1,15 @@
+(
+    clave: "sahmun",
+    nombre: "Sahmun",
+    biografia: "Consejero de Zahrim, formado entre navegantes e intérpretes de presagios. Busca conocer mediante artes ocultas los barcos y peligros que llegan por mar. El palacio sostiene sus estudios, pero mantiene un pacto secreto de información con Miraz para conservar contactos y recursos a ambos lados de la guerra.",
+    ubicacion_inicial: EnLugar("zarabad"),
+    caracteristicas: ["hombreTigre", "astuto", "adivino"],
+    relaciones: [
+        (tipo: Sirviente, destino: Actor("zahrim")),
+        (tipo: PactoCon, destino: Actor("miraz")),
+        (tipo: Desea, destino: Concepto("conocer_llegadas_por_mar")),
+        (tipo: Conoce, destino: Lugar("zarabad")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

@@ -166,7 +166,7 @@ impl EstadoCampamento {
         if let Some(bio) = &ficha.biografia {
             let titulo = match ficha.elemento {
                 ExtremoRelacion::Actor(_) => "Biografía",
-                ExtremoRelacion::Lugar(_) => "Descripción",
+                ExtremoRelacion::Lugar(_) | ExtremoRelacion::Concepto(_) => "Descripción",
             };
             texto.push_str(&format!(
                 "\n\n{titulo} de {}\n{}",
@@ -299,6 +299,7 @@ impl EstadoCampamento {
                     match f.elemento {
                         ExtremoRelacion::Actor(_) => "Actor",
                         ExtremoRelacion::Lugar(_) => "Lugar",
+                        ExtremoRelacion::Concepto(_) => "Concepto",
                     },
                     f.nombre
                 )
@@ -419,9 +420,46 @@ mod pruebas {
     }
 
     #[test]
+    fn la_referencia_de_deseo_abre_y_dibuja_un_concepto() {
+        let (p, mut e, recursos) = escenario();
+        e.entrada = e.ficha.as_ref().unwrap().entradas.iter().position(|entrada| {
+            matches!(entrada, EntradaFicha::Relacion(r) if r.etiqueta.starts_with("Desea:"))
+        });
+        assert!(e.entrada.is_some());
+        e.manejar(KeyCode::Enter, &p);
+        let ficha = e.ficha.as_ref().unwrap();
+        assert!(matches!(ficha.elemento, ExtremoRelacion::Concepto(_)));
+        assert_eq!(ficha.nombre, "Recuperar el trono del Drâa");
+        let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+        terminal
+            .draw(|f| {
+                e.dibujar(
+                    f,
+                    Rect::new(0, 0, 100, 28),
+                    &p.mundo_visible(),
+                    &recursos,
+                    &crate::animacion::RelojVisual::default(),
+                )
+            })
+            .unwrap();
+        let texto: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        assert!(texto.contains("Recuperar el trono del Drâa"));
+        assert!(texto.contains("Concepto"));
+    }
+
+    #[test]
     fn ficha_real_del_rey_navega_por_asesinato_y_hermandad_con_explicacion() {
         let (p, mut e, recursos) = escenario();
         let antes = p.mundo_visible();
+        e.entrada = e.ficha.as_ref().unwrap().entradas.iter().position(
+            |entrada| matches!(entrada, EntradaFicha::Relacion(r) if r.etiqueta == "Padre: Rey"),
+        );
         e.manejar(KeyCode::Enter, &p);
         assert_eq!(e.ficha.as_ref().unwrap().nombre, "Rey");
         assert!(e.detalle().contains("Fuera de la región"));

@@ -1,0 +1,15 @@
+(
+    clave: "samir",
+    nombre: "Samir",
+    biografia: "Pescador de la costa de Ámbar, hijo de Bahir y hermano de Farid. Salvó al capitán Dahran de un naufragio anterior. Ahora busca liberar a Farid, que está en poder de ese mismo capitán, mientras intenta conservar su sustento en la costa.",
+    ubicacion_inicial: EnLugar("costa_ambar"),
+    caracteristicas: ["hombreTigre", "pescador", "navegante"],
+    relaciones: [
+        (tipo: Padre, destino: Actor("bahir")),
+        (tipo: Desea, destino: Concepto("liberar_a_farid")),
+        (tipo: Conoce, destino: Lugar("nuris")),
+        (tipo: Conoce, destino: Lugar("costa_ambar")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

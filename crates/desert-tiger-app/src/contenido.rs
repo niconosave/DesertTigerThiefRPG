@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use desert_tiger_core::{
     ActorInicial, Caracteristica, ClaveVariableGlobal, DatosInicialesMundo, ExtremoRelacion, Fecha,
-    IdActor, IdLugar, IdMapa, LugarInicial, Mes, Mundo, RelacionInicial, TipoRelacion,
+    IdActor, IdConcepto, IdLugar, IdMapa, LugarInicial, Mes, Mundo, RelacionInicial, TipoRelacion,
     ValorVariableGlobal, VariableGlobalInicial,
 };
 use serde::de::{DeserializeOwned, MapAccess, Visitor};
@@ -246,6 +246,7 @@ pub enum ClaseDiagnosticoContenido {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TipoElementoContenido {
+    Concepto,
     Mundo,
     Mapa,
     Lugar,
@@ -355,8 +356,11 @@ impl ContenidoValidado {
     pub(crate) fn instanciar_estado(
         &self,
     ) -> Result<(Mundo, EstadoMapa), ErrorInstanciarContenido> {
-        let mundo = Mundo::nuevo(self.interno.plantilla_mundo.clone())
-            .map_err(ErrorInstanciarContenido::Mundo)?;
+        let mundo = Mundo::nuevo_con_conceptos(
+            self.interno.plantilla_mundo.clone(),
+            self.interno.presentacion.conceptos.len(),
+        )
+        .map_err(ErrorInstanciarContenido::Mundo)?;
         let mapa = self.interno.presentacion.instanciar_mapa();
         if mundo.id_mapa() != mapa.id() {
             return Err(ErrorInstanciarContenido::MapaNoCorresponde {
@@ -417,6 +421,7 @@ pub(crate) struct CatalogoPresentacion {
     mapa: PlantillaMapa,
     lugares: Vec<PresentacionLugar>,
     actores: Vec<PresentacionActor>,
+    conceptos: Vec<PresentacionConcepto>,
     pub(crate) caracteristicas: BTreeMap<String, DescripcionCaracteristica>,
 }
 
@@ -451,6 +456,20 @@ pub(crate) struct PresentacionLugar {
     coordenadas_rotulo: Vec<CoordenadaMapa>,
 }
 
+pub(crate) struct PresentacionConcepto {
+    id: IdConcepto,
+    nombre: String,
+    descripcion: String,
+}
+impl PresentacionConcepto {
+    pub(crate) fn nombre(&self) -> &str {
+        &self.nombre
+    }
+    pub(crate) fn descripcion(&self) -> &str {
+        &self.descripcion
+    }
+}
+
 pub(crate) struct PresentacionActor {
     id: IdActor,
     nombre: String,
@@ -459,6 +478,10 @@ pub(crate) struct PresentacionActor {
 }
 
 impl CatalogoPresentacion {
+    pub(crate) fn concepto(&self, id: IdConcepto) -> Option<&PresentacionConcepto> {
+        self.conceptos.get(id.indice()?).filter(|c| c.id == id)
+    }
+
     pub(crate) fn lugares(&self) -> &[PresentacionLugar] {
         &self.lugares
     }
@@ -625,9 +648,18 @@ pub(crate) struct CatalogoClaves {
     claves_por_actor: BTreeMap<IdActor, String>,
     lugares_por_clave: BTreeMap<String, IdLugar>,
     claves_por_lugar: BTreeMap<IdLugar, String>,
+    conceptos_por_clave: BTreeMap<String, IdConcepto>,
+    claves_por_concepto: BTreeMap<IdConcepto, String>,
 }
 
 impl CatalogoClaves {
+    pub(crate) fn concepto_por_clave(&self, clave: &str) -> Option<IdConcepto> {
+        self.conceptos_por_clave.get(clave).copied()
+    }
+    pub(crate) fn clave_concepto(&self, id: IdConcepto) -> Option<&str> {
+        self.claves_por_concepto.get(&id).map(String::as_str)
+    }
+
     pub(crate) fn actor_por_clave(&self, s: &str) -> Option<IdActor> {
         self.actores_por_clave.get(s).copied()
     }
@@ -659,6 +691,8 @@ impl ResolucionClavesLua for CatalogoClaves {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MundoDto {
+    #[serde(default)]
+    conceptos: Vec<String>,
     mapa: String,
     lugares: Vec<String>,
     actores: Vec<String>,
@@ -959,6 +993,17 @@ enum PoliticaDto {
 
 #[derive(Deserialize)]
 enum TipoRelacionDto {
+    Desea,
+    Debe,
+    Necesita,
+    EsLlamadoA,
+    Gobierna,
+    EnemigoDe,
+    PactoCon,
+    PrisioneroDe,
+    SalvadoPor,
+    TratosCon,
+    ComerciaCon,
     Sirviente,
     Padre,
     Madre,
@@ -975,6 +1020,7 @@ enum TipoRelacionDto {
 
 #[derive(Deserialize)]
 enum DestinoRelacionDto {
+    Concepto(String),
     Lugar(String),
     Actor(String),
 }
@@ -1013,6 +1059,14 @@ struct RelacionDeclarada {
     tipo_elemento: TipoElementoContenido,
     clave_elemento: String,
     posicion: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConceptoDto {
+    clave: String,
+    nombre: String,
+    descripcion: String,
 }
 
 #[derive(Deserialize)]
@@ -1167,6 +1221,9 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
     )?;
     validar_lista_claves(&mundo.lugares, "lugares", &raiz_canonica)?;
     validar_lista_claves(&mundo.actores, "actores", &raiz_canonica)?;
+    if !mundo.conceptos.is_empty() {
+        validar_lista_claves(&mundo.conceptos, "conceptos", &raiz_canonica)?;
+    }
     validar_lista_claves(
         &mundo.companeros_iniciales,
         "companeros_iniciales",
@@ -1214,11 +1271,48 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         actores_por_clave.insert(clave.clone(), id);
         claves_por_actor.insert(id, clave.clone());
     }
+    let mut conceptos_por_clave = BTreeMap::new();
+    let mut claves_por_concepto = BTreeMap::new();
+    let mut conceptos = Vec::new();
+    for (posicion, clave) in mundo.conceptos.iter().enumerate() {
+        let id = IdConcepto::desde_posicion(posicion).map_err(|e| {
+            error_mundo(ClaseDiagnosticoContenido::InvarianteDominio, e.to_string())
+        })?;
+        let ruta = PathBuf::from("concepts").join(format!("{clave}.ron"));
+        let dto: ConceptoDto = leer_ron(
+            &raiz_canonica,
+            &ruta,
+            TipoElementoContenido::Concepto,
+            Some(clave),
+        )?;
+        validar_clave_y_archivo(&dto.clave, clave, &ruta, TipoElementoContenido::Concepto)?;
+        let texto = |valor: &str, multilinea| {
+            validar_texto_presentacion(valor, multilinea, true).map_err(|detalle| {
+                error_archivo(
+                    &ruta,
+                    TipoElementoContenido::Concepto,
+                    Some(clave),
+                    ClaseDiagnosticoContenido::ValorInvalido,
+                    None,
+                    detalle,
+                )
+            })
+        };
+        conceptos.push(PresentacionConcepto {
+            id,
+            nombre: texto(&dto.nombre, false)?,
+            descripcion: texto(&dto.descripcion, true)?,
+        });
+        conceptos_por_clave.insert(clave.clone(), id);
+        claves_por_concepto.insert(id, clave.clone());
+    }
     let claves = CatalogoClaves {
         actores_por_clave,
         claves_por_actor,
         lugares_por_clave,
         claves_por_lugar,
+        conceptos_por_clave,
+        claves_por_concepto,
     };
 
     let mut lugares = Vec::with_capacity(mundo.lugares.len());
@@ -1327,7 +1421,8 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         variables_globales,
         relaciones,
     };
-    Mundo::nuevo(datos.clone()).map_err(|error| diagnosticar_modelo(error, &claves))?;
+    Mundo::nuevo_con_conceptos(datos.clone(), conceptos.len())
+        .map_err(|error| diagnosticar_modelo(error, &claves))?;
 
     let politicas: Vec<_> = actores
         .iter_mut()
@@ -1337,6 +1432,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         interno: Arc::new(ContenidoValidadoInterno {
             plantilla_mundo: datos,
             presentacion: CatalogoPresentacion {
+                conceptos,
                 caracteristicas: cargar_catalogo_caracteristicas(&raiz_canonica)?,
                 mapa: mapa.plantilla,
                 lugares: lugares
@@ -2063,6 +2159,18 @@ fn validar_relaciones(
     let mut resultado = Vec::with_capacity(declaraciones.len());
     for (posicion, declaracion) in declaraciones.into_iter().enumerate() {
         let tipo = match declaracion.tipo {
+            TipoRelacionDto::Desea => TipoRelacion::Desea,
+            TipoRelacionDto::Debe => TipoRelacion::Debe,
+            TipoRelacionDto::Necesita => TipoRelacion::Necesita,
+            TipoRelacionDto::EsLlamadoA => TipoRelacion::EsLlamadoA,
+            TipoRelacionDto::Gobierna => TipoRelacion::Gobierna,
+            TipoRelacionDto::EnemigoDe => TipoRelacion::EnemigoDe,
+            TipoRelacionDto::PactoCon => TipoRelacion::PactoCon,
+            TipoRelacionDto::PrisioneroDe => TipoRelacion::PrisioneroDe,
+            TipoRelacionDto::SalvadoPor => TipoRelacion::SalvadoPor,
+            TipoRelacionDto::TratosCon => TipoRelacion::TratosCon,
+            TipoRelacionDto::ComerciaCon => TipoRelacion::ComerciaCon,
+
             TipoRelacionDto::Sirviente => TipoRelacion::Sirviente,
             TipoRelacionDto::Padre => TipoRelacion::Padre,
             TipoRelacionDto::Madre => TipoRelacion::Madre,
@@ -2116,6 +2224,32 @@ fn validar_relaciones(
             ));
         }
         let destino = match declaracion.destino {
+            DestinoRelacionDto::Concepto(clave) => {
+                validar_clave_externa(&clave).map_err(|detalle| {
+                    error_archivo(
+                        ruta,
+                        tipo_elemento,
+                        Some(clave_elemento),
+                        ClaseDiagnosticoContenido::ClaveInvalida,
+                        None,
+                        detalle,
+                    )
+                })?;
+                ExtremoRelacion::Concepto(claves.concepto_por_clave(&clave).ok_or_else(|| {
+                    error_archivo(
+                        ruta,
+                        tipo_elemento,
+                        Some(clave_elemento),
+                        ClaseDiagnosticoContenido::ReferenciaInvalida,
+                        None,
+                        format!(
+                            "relaciones[{posicion}].destino: Concepto desconocido: {}",
+                            sanear(&clave)
+                        ),
+                    )
+                })?)
+            }
+
             DestinoRelacionDto::Lugar(clave) => {
                 validar_clave_externa(&clave).map_err(|detalle| {
                     error_archivo(
@@ -2171,32 +2305,24 @@ fn validar_relaciones(
                 )?)
             }
         };
-        let extremos_validos = matches!(
-            (tipo, origen, destino),
-            (
-                TipoRelacion::Conectado
-                    | TipoRelacion::Abarca
-                    | TipoRelacion::OrigenDe
-                    | TipoRelacion::AfluenteDe
-                    | TipoRelacion::Bloquea
-                    | TipoRelacion::Vende,
-                ExtremoRelacion::Lugar(_),
-                ExtremoRelacion::Lugar(_)
-            ) | (
-                TipoRelacion::Conoce,
-                ExtremoRelacion::Actor(_),
-                ExtremoRelacion::Lugar(_)
-            ) | (
-                TipoRelacion::Padre
-                    | TipoRelacion::Madre
-                    | TipoRelacion::MatadoPor
-                    | TipoRelacion::Sirviente,
-                ExtremoRelacion::Actor(_),
-                ExtremoRelacion::Actor(_)
-            )
-        );
+        let extremos_validos = tipo.admite_extremos(origen, destino);
         if !extremos_validos {
             let requisito = match tipo {
+                TipoRelacion::Desea
+                | TipoRelacion::Debe
+                | TipoRelacion::Necesita
+                | TipoRelacion::EsLlamadoA => {
+                    "esta relación exige un Actor de origen y un Concepto de destino"
+                }
+                TipoRelacion::Gobierna | TipoRelacion::ComerciaCon => {
+                    "esta relación exige un Actor de origen y un Lugar de destino"
+                }
+                TipoRelacion::EnemigoDe
+                | TipoRelacion::PactoCon
+                | TipoRelacion::PrisioneroDe
+                | TipoRelacion::SalvadoPor
+                | TipoRelacion::TratosCon => "esta relación exige dos Actores",
+
                 TipoRelacion::Padre
                 | TipoRelacion::Madre
                 | TipoRelacion::MatadoPor
@@ -2255,32 +2381,13 @@ fn normalizar_relaciones<'a>(
     let mut vistas: BTreeMap<_, (PathBuf, usize)> = BTreeMap::new();
     let mut resultado = Vec::new();
     for declaracion in declaraciones {
-        let par = match (
-            declaracion.inicial.tipo,
-            declaracion.inicial.origen,
-            declaracion.inicial.destino,
-        ) {
-            (TipoRelacion::Conectado, origen, destino) if origen < destino => {
-                (declaracion.inicial.tipo, origen, destino)
-            }
-            (TipoRelacion::Conectado, origen, destino) => {
-                (declaracion.inicial.tipo, destino, origen)
-            }
-            (
-                TipoRelacion::Conoce
-                | TipoRelacion::Abarca
-                | TipoRelacion::OrigenDe
-                | TipoRelacion::AfluenteDe
-                | TipoRelacion::Bloquea
-                | TipoRelacion::Vende
-                | TipoRelacion::Padre
-                | TipoRelacion::Madre
-                | TipoRelacion::MatadoPor
-                | TipoRelacion::Sirviente,
-                origen,
-                destino,
-            ) => (declaracion.inicial.tipo, origen, destino),
+        let r = &declaracion.inicial;
+        let (a, b) = if r.tipo.es_simetrica() && r.origen > r.destino {
+            (r.destino, r.origen)
+        } else {
+            (r.origen, r.destino)
         };
+        let par = (r.tipo, a, b);
         let par = (par, declaracion.inicial.mercancia.clone());
         if let Some((ruta_primera, posicion_primera)) = vistas.get(&par) {
             return Err(error_archivo(
@@ -2910,6 +3017,69 @@ mod pruebas {
         )));
         copiar(&raiz_base(), &fixture.0);
         fixture
+    }
+
+    #[test]
+    fn conceptos_rechazan_destinos_ausentes_tipos_incompatibles_y_simetria_duplicada() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("actors/zahrim.ron");
+        let original = fs::read_to_string(&ruta).unwrap();
+        for (antes, despues, clase) in [
+            (
+                "Concepto(\"controlar_salida_mar_del_viento\")",
+                "Concepto(\"concepto_ausente\")",
+                ClaseDiagnosticoContenido::ReferenciaInvalida,
+            ),
+            (
+                "Concepto(\"controlar_salida_mar_del_viento\")",
+                "Actor(\"miraz\")",
+                ClaseDiagnosticoContenido::ValorInvalido,
+            ),
+        ] {
+            fs::write(&ruta, original.replace(antes, despues)).unwrap();
+            let e = cargar_contenido(&fixture.0).err().unwrap();
+            assert_eq!(e.diagnosticos()[0].clase(), clase);
+        }
+        fs::write(&ruta, original).unwrap();
+        let ruta = fixture.0.join("actors/miraz.ron");
+        let original = fs::read_to_string(&ruta).unwrap();
+        fs::write(
+            &ruta,
+            original.replace(
+                "relaciones: [",
+                "relaciones: [\n        (tipo: EnemigoDe, destino: Actor(\"zahrim\")),",
+            ),
+        )
+        .unwrap();
+        let e = cargar_contenido(&fixture.0).err().unwrap();
+        assert_eq!(
+            e.diagnosticos()[0].clase(),
+            ClaseDiagnosticoContenido::Duplicado
+        );
+    }
+
+    #[test]
+    fn manifiestos_sin_conceptos_siguen_cargando() {
+        let fixture = fixture_temporal();
+        let ruta = fixture.0.join("world.ron");
+        let mut s = fs::read_to_string(&ruta).unwrap();
+        let inicio = s.find("    conceptos: [").unwrap();
+        let fin = inicio + s[inicio..].find("    ],").unwrap() + "    ],\n".len();
+        s.replace_range(inicio..fin, "");
+        fs::write(&ruta, s).unwrap();
+        for entry in fs::read_dir(fixture.0.join("actors")).unwrap() {
+            let ruta = entry.unwrap().path();
+            let texto = fs::read_to_string(&ruta).unwrap();
+            let texto = texto
+                .lines()
+                .filter(|l| !l.contains("destino: Concepto("))
+                .collect::<Vec<_>>()
+                .join("\n");
+            fs::write(ruta, texto).unwrap();
+        }
+        let c = cargar_contenido(&fixture.0).unwrap();
+        assert!(c.presentacion().conceptos.is_empty());
+        c.instanciar_estado().unwrap();
     }
 
     #[test]
@@ -3708,7 +3878,7 @@ mod pruebas {
             mundo.grupo().integrantes(),
             contenido.interno.plantilla_mundo.companeros.as_slice()
         );
-        assert_eq!(mundo.relaciones().len(), 215);
+        assert_eq!(mundo.relaciones().len(), 266);
         assert_eq!(
             mundo.lugares_conectados(IdLugar::desde_posicion(1).expect("ID válido")),
             Some(
@@ -3751,13 +3921,24 @@ mod pruebas {
                     .contains(&destino)
             );
         }
-        assert_eq!(contenido.presentacion().actores().len(), 11);
+        assert_eq!(contenido.presentacion().actores().len(), 21);
         let bandido = IdActor::desde_posicion(1).expect("ID válido");
         let cazador = IdActor::desde_posicion(2).expect("ID válido");
         let id_lugar = |posicion| IdLugar::desde_posicion(posicion).expect("ID válido");
         assert_eq!(
             mundo.lugares_conocidos(bandido),
-            Some([id_lugar(0), id_lugar(1), id_lugar(20), id_lugar(21)].as_slice())
+            Some(
+                [
+                    id_lugar(0),
+                    id_lugar(1),
+                    id_lugar(20),
+                    id_lugar(21),
+                    id_lugar(60),
+                    id_lugar(61),
+                    id_lugar(62)
+                ]
+                .as_slice()
+            )
         );
         assert!(
             mundo
@@ -4149,6 +4330,8 @@ mod pruebas {
         let lugar_uno = IdLugar::desde_posicion(1).expect("ID válido");
         let actor_cero = IdActor::desde_posicion(0).expect("ID válido");
         let claves = CatalogoClaves {
+            conceptos_por_clave: BTreeMap::new(),
+            claves_por_concepto: BTreeMap::new(),
             actores_por_clave: BTreeMap::from([("actor".to_owned(), actor_cero)]),
             claves_por_actor: BTreeMap::from([(actor_cero, "actor".to_owned())]),
             lugares_por_clave: BTreeMap::from([

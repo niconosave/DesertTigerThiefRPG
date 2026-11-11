@@ -82,6 +82,14 @@ fn datos<'a>(
     let falta =
         || ErrorConsultaFicha::EstadoInconsistente("falta la presentación del elemento".into());
     let mut resultado = match elemento {
+        ExtremoRelacion::Concepto(id) => {
+            mundo
+                .relaciones_de(elemento)
+                .ok_or(ErrorConsultaFicha::ElementoInexistente)?;
+            let p = contenido.presentacion().concepto(id).ok_or_else(falta)?;
+            (p.nombre(), Some(p.descripcion()), Vec::new())
+        }
+
         ExtremoRelacion::Actor(id) => {
             let actor = mundo
                 .actor(id)
@@ -195,6 +203,42 @@ pub(crate) fn proyectar(
         let otro = relacion.otro_extremo(elemento).ok_or_else(error)?;
         let referencia = resumen(mundo, contenido, otro)?;
         let (sentido, prefijo) = match relacion.tipo() {
+            TipoRelacion::Desea if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Desea:")
+            }
+            TipoRelacion::Desea => (SentidoRelacionFicha::Entrante, "Deseado por:"),
+            TipoRelacion::Debe if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Debe:")
+            }
+            TipoRelacion::Debe => (SentidoRelacionFicha::Entrante, "Deber de:"),
+            TipoRelacion::Necesita if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Necesita:")
+            }
+            TipoRelacion::Necesita => (SentidoRelacionFicha::Entrante, "Necesario para:"),
+            TipoRelacion::EsLlamadoA if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Es llamado a:")
+            }
+            TipoRelacion::EsLlamadoA => (SentidoRelacionFicha::Entrante, "Llama a:"),
+            TipoRelacion::Gobierna if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Gobierna:")
+            }
+            TipoRelacion::Gobierna => (SentidoRelacionFicha::Entrante, "Gobernado por:"),
+            TipoRelacion::PrisioneroDe if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Prisionero de:")
+            }
+            TipoRelacion::PrisioneroDe => (SentidoRelacionFicha::Entrante, "Tiene prisionero a:"),
+            TipoRelacion::SalvadoPor if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Fue salvado por:")
+            }
+            TipoRelacion::SalvadoPor => (SentidoRelacionFicha::Entrante, "Salvó a:"),
+            TipoRelacion::ComerciaCon if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Comercia con:")
+            }
+            TipoRelacion::ComerciaCon => (SentidoRelacionFicha::Entrante, "Recibe comercio de:"),
+            TipoRelacion::EnemigoDe => (SentidoRelacionFicha::Simetrica, "Enemigo de:"),
+            TipoRelacion::PactoCon => (SentidoRelacionFicha::Simetrica, "Tiene un pacto con:"),
+            TipoRelacion::TratosCon => (SentidoRelacionFicha::Simetrica, "Tiene tratos con:"),
+
             TipoRelacion::Sirviente if relacion.origen() == elemento => {
                 (SentidoRelacionFicha::Saliente, "Sirviente de:")
             }
@@ -497,6 +541,60 @@ mod pruebas {
     }
 
     #[test]
+    fn puertos_se_exploran_desde_el_grupo_hasta_los_conceptos_y_la_familia() {
+        let c = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mundo, _) = c.instanciar_estado().unwrap();
+        let actor = |k| c.claves().actor_por_clave(k).unwrap();
+        let ficha = |k| proyectar(&mundo, &c, ExtremoRelacion::Actor(actor(k))).unwrap();
+        let relacion = |f: &VistaFicha, etiqueta: &str| {
+            f.entradas
+                .iter()
+                .find_map(|e| match e {
+                    EntradaFicha::Relacion(r) if r.etiqueta == etiqueta => {
+                        Some(r.referencia.elemento)
+                    }
+                    _ => None,
+                })
+                .unwrap()
+        };
+        let rey = relacion(&ficha("bandido"), "Tiene tratos con: Zahrim");
+        let rey = proyectar(&mundo, &c, rey).unwrap();
+        assert_eq!(
+            relacion(&rey, "Enemigo de: Miraz"),
+            ExtremoRelacion::Actor(actor("miraz"))
+        );
+        let capitan = relacion(&rey, "Servido por: Dahran");
+        let capitan = proyectar(&mundo, &c, capitan).unwrap();
+        let deber = relacion(&capitan, "Debe: Proteger a su tripulación");
+        let concepto = proyectar(&mundo, &c, deber).unwrap();
+        assert!(concepto.ubicacion.is_none());
+        assert!(concepto.biografia.as_deref().unwrap().contains("personas"));
+        assert_eq!(relacion(&concepto, "Deber de: Dahran"), capitan.elemento);
+        let libertad = relacion(&ficha("farid"), "Necesita: Recuperar la libertad");
+        assert_eq!(
+            relacion(&ficha("rima"), "Necesita: Recuperar la libertad"),
+            libertad
+        );
+        let compartido = proyectar(&mundo, &c, libertad).unwrap();
+        assert_eq!(compartido.entradas.len(), 2);
+        assert!(
+            mundo
+                .hermanos_de(actor("farid"))
+                .unwrap()
+                .iter()
+                .any(|h| h.actor == actor("samir"))
+        );
+        assert_eq!(
+            relacion(&ficha("farid"), "Prisionero de: Dahran"),
+            capitan.elemento
+        );
+        assert!(!ficha("bandido").entradas.iter().any(|e| matches!(e, EntradaFicha::Relacion(r) if r.etiqueta == "Sirviente de: Príncipe Perdido")));
+    }
+
+    #[test]
     fn familia_del_principe_expone_hechos_y_deducciones_sin_ids_ficticios() {
         let c = crate::cargar_contenido(
             &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
@@ -506,8 +604,8 @@ mod pruebas {
         let (antes, _) = c.instanciar_estado().unwrap();
         let id = |i| IdActor::desde_posicion(i).unwrap();
         let ficha = |i| proyectar(&mundo, &c, ExtremoRelacion::Actor(id(i))).unwrap();
-        assert_eq!(mundo.actores().len(), 11);
-        for actor in [1, 3] {
+        assert_eq!(mundo.actores().len(), 21);
+        for actor in [3] {
             let sirviente = ficha(actor);
             assert!(sirviente.entradas.iter().any(|e| matches!(e,
                 EntradaFicha::Relacion(r) if r.etiqueta == "Sirviente de: Príncipe Perdido"
@@ -576,6 +674,6 @@ mod pruebas {
             );
         }
         assert_eq!(mundo, antes);
-        assert_eq!(mundo.relaciones().len(), 215);
+        assert_eq!(mundo.relaciones().len(), 266);
     }
 }

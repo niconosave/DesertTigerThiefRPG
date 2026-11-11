@@ -7,7 +7,7 @@ mod contexto_viaje;
 mod fase_npc;
 mod fichas;
 pub use desert_tiger_core::acciones::ErrorAcampada;
-pub use desert_tiger_core::{ExtremoRelacion, IdRelacion, TipoRelacion};
+pub use desert_tiger_core::{ExtremoRelacion, IdConcepto, IdRelacion, TipoRelacion};
 pub use fichas::{
     EntradaFicha, ErrorConsultaFicha, ResumenElemento, SentidoRelacionFicha, VistaFicha,
     VistaRelacionFicha,

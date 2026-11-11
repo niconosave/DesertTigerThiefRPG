@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Diseño conceptual en elaboración; no modifica código ni RON |
+| Estado | Conceptos, relaciones y fichas implementados; finales pendientes |
 | Versión | 0.2 |
 | Fecha | 2026-11-11 |
 
@@ -15,8 +15,9 @@ Los vínculos ya son relaciones; no se duplican en otra clasificación.
 
 Estas relaciones tienen una relevancia particular para comprender a un Actor,
 orientar al jugador y escribir sus finales. Se aplican al mismo personaje tanto
-cuando lo controla el jugador como cuando actúa como NPC. No se aprueba aquí
-un nuevo motor de objetivos, una psicología automática ni el formato técnico.
+cuando lo controla el jugador como cuando actúa como NPC. El [contrato técnico](../../tecnica/componentes/25-conceptos-relaciones-personales.md)
+define el formato implementado. No se añade un motor de objetivos ni una
+psicología automática.
 
 ## 2. Relaciones propuestas por el usuario
 
@@ -62,7 +63,7 @@ nombre legible y una descripción. Por ejemplo:
 | `proteger_al_principe` | Proteger al príncipe | Preservar su vida y su seguridad frente a quienes lo persiguen. |
 | `recuperar_la_libertad` | Recuperar la libertad | Dejar de estar retenido o sometido a una custodia que impide decidir el propio rumbo. |
 
-Son muestras para discutir, no un esquema RON ya aprobado. La clave distingue
+Son muestras del formato de contenido implementado. La clave distingue
 ideas y el texto explica su sentido al diseñador y al jugador. Pueden existir
 Conceptos generales o particulares; no es necesario una interpretación universal
 de «proteger» que resuelva todos los contextos.
@@ -99,7 +100,7 @@ Estas relaciones ayudan a seleccionar Actores con algo concreto en juego,
 junto con sus relaciones familiares, sociales e históricas. El criterio se
 probará con pocos personajes; no obliga a completar toda familia o ciudad ni
 a escribir una campaña exclusiva para cada uno. Farid y los nuevos personajes
-de Sahran siguen siendo propuestas de contenido.
+de los dos puertos ya tienen archivos RON y se cargan en la partida.
 
 La primera aplicación a un reparto concreto se desarrolla en
 [Personajes de Zarabad y Nuris](./personajes-zarabad-nuris.md), con pocas
@@ -150,13 +151,12 @@ automáticamente sus moralejas ni sus desenlaces.
 
 ## 6. Alcance respecto del juego actual
 
-El grafo actual reconoce Actores y Lugares como extremos. Agregar Conceptos y
-estos cuatro tipos de relación requiere extender el modelo, la carga de contenido,
-la validación y la navegación de fichas. Se reutiliza el grafo; no se supone que
-baste añadir una palabra nueva a los RON para que ya funcione.
+El grafo reconoce Actores, Lugares y Conceptos. El contenido declara los Conceptos
+por clave en `world.ron` y los carga desde archivos con clave, nombre y descripción.
+La navegación de fichas presenta referencias directas e inversas y permite
+seguirlas sin convertir a los Conceptos en destinos geográficos.
 
-Este borrador no implementa esas extensiones ni una selección de finales.
-Tampoco modifica las propuestas de cautividad, reclutamiento y **Esperar órdenes**
-en [Sahran](./sahran-apertura-y-personajes.md#servicio-naval-y-avance-del-tiempo).
-Esas situaciones siguen representando hechos y posibilidades de acción que
-pueden influir en deseos, deberes y necesidades, sin confundirse con ellos.
+Las condiciones Lua pueden consultar estas relaciones. No se implementa todavía
+una selección de finales ni las propuestas de cautividad, reclutamiento y
+**Esperar órdenes** de [Sahran](./sahran-apertura-y-personajes.md#servicio-naval-y-avance-del-tiempo).
+La relación PrisioneroDe registra una custodia; por sí sola no restringe acciones.

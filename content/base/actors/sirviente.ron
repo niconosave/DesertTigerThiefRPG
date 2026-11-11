@@ -5,6 +5,7 @@
     ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: ["musico"],
     relaciones: [
+        (tipo: Debe, destino: Concepto("proteger_al_principe")),
         (tipo: Sirviente, destino: Actor("principe_perdido")),
     ],
     retrato: Some((

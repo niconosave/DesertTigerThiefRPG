@@ -25,6 +25,7 @@ macro_rules! identificador {
 identificador!(IdActor);
 identificador!(IdLugar);
 identificador!(IdMapa);
+identificador!(IdConcepto);
 identificador!(IdRelacion);
 
 impl IdActor {
@@ -34,6 +35,12 @@ impl IdActor {
 }
 
 impl IdLugar {
+    pub fn indice(self) -> Option<usize> {
+        usize::try_from(self.0).ok()
+    }
+}
+
+impl IdConcepto {
     pub fn indice(self) -> Option<usize> {
         usize::try_from(self.0).ok()
     }
@@ -256,12 +263,24 @@ pub struct HermanoDerivado {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ExtremoRelacion {
+    Concepto(IdConcepto),
     Actor(IdActor),
     Lugar(IdLugar),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum TipoRelacion {
+    Desea,
+    Debe,
+    Necesita,
+    EsLlamadoA,
+    Gobierna,
+    EnemigoDe,
+    PactoCon,
+    PrisioneroDe,
+    SalvadoPor,
+    TratosCon,
+    ComerciaCon,
     Sirviente,
     Padre,
     Madre,
@@ -273,6 +292,42 @@ pub enum TipoRelacion {
     Bloquea,
     Vende,
     Conoce,
+}
+
+impl TipoRelacion {
+    pub fn es_simetrica(self) -> bool {
+        matches!(
+            self,
+            Self::Conectado | Self::EnemigoDe | Self::PactoCon | Self::TratosCon
+        )
+    }
+
+    pub fn admite_extremos(self, origen: ExtremoRelacion, destino: ExtremoRelacion) -> bool {
+        use ExtremoRelacion::{Actor, Concepto, Lugar};
+        match self {
+            Self::Desea | Self::Debe | Self::Necesita | Self::EsLlamadoA => {
+                matches!((origen, destino), (Actor(_), Concepto(_)))
+            }
+            Self::Conoce | Self::Gobierna | Self::ComerciaCon => {
+                matches!((origen, destino), (Actor(_), Lugar(_)))
+            }
+            Self::Padre
+            | Self::Madre
+            | Self::MatadoPor
+            | Self::Sirviente
+            | Self::EnemigoDe
+            | Self::PactoCon
+            | Self::PrisioneroDe
+            | Self::SalvadoPor
+            | Self::TratosCon => matches!((origen, destino), (Actor(_), Actor(_))),
+            Self::Conectado
+            | Self::Abarca
+            | Self::OrigenDe
+            | Self::AfluenteDe
+            | Self::Bloquea
+            | Self::Vende => matches!((origen, destino), (Lugar(_), Lugar(_))),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -425,6 +480,7 @@ pub struct Mundo {
     relaciones: Vec<Relacion>,
     relaciones_por_lugar: Vec<Vec<IdRelacion>>,
     relaciones_por_actor: Vec<Vec<IdRelacion>>,
+    relaciones_por_concepto: Vec<Vec<IdRelacion>>,
     conectados_por_lugar: Vec<Vec<IdLugar>>,
     lugares_conocidos_por_actor: Vec<Vec<IdLugar>>,
     progenitores_por_actor: Vec<Progenitores>,
@@ -464,6 +520,22 @@ impl Mundo {
     }
 
     pub fn nuevo(datos: DatosInicialesMundo) -> Result<Self, ErrorConstruirMundo> {
+        Self::nuevo_con_conceptos(datos, 0)
+    }
+
+    /// Los Conceptos son identidades pasivas; sus textos pertenecen al contenido.
+    pub fn nuevo_con_conceptos(
+        datos: DatosInicialesMundo,
+        cantidad: usize,
+    ) -> Result<Self, ErrorConstruirMundo> {
+        if cantidad > 0 {
+            IdConcepto::desde_posicion(cantidad - 1).map_err(|_| {
+                ErrorConstruirMundo::PosicionConceptoFueraDeRango {
+                    posicion: cantidad - 1,
+                }
+            })?;
+        }
+        let mut relaciones_por_concepto = vec![Vec::new(); cantidad];
         if datos.lugares.is_empty() {
             return Err(ErrorConstruirMundo::SinLugares);
         }
@@ -591,6 +663,7 @@ impl Mundo {
                 let existe = match extremo {
                     ExtremoRelacion::Actor(actor) => resolver_actor(&actores, actor).is_some(),
                     ExtremoRelacion::Lugar(lugar) => resolver_lugar(&lugares, lugar).is_some(),
+                    ExtremoRelacion::Concepto(id) => id.indice().is_some_and(|i| i < cantidad),
                 };
                 if !existe {
                     return Err(ErrorConstruirMundo::ExtremoRelacionDesconocido {
@@ -633,123 +706,55 @@ impl Mundo {
             if !mercancia_valida {
                 return Err(ErrorConstruirMundo::MercanciaRelacionInvalida { posicion });
             }
-            let clave_duplicado = match (inicial.tipo, inicial.origen, inicial.destino) {
-                (
-                    TipoRelacion::Abarca
-                    | TipoRelacion::OrigenDe
-                    | TipoRelacion::AfluenteDe
-                    | TipoRelacion::Bloquea
-                    | TipoRelacion::Vende,
-                    ExtremoRelacion::Lugar(_),
-                    ExtremoRelacion::Lugar(_),
-                ) => (inicial.tipo, inicial.origen, inicial.destino),
-                (
-                    TipoRelacion::Conectado,
-                    ExtremoRelacion::Lugar(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => {
-                    if origen == destino {
-                        return Err(ErrorConstruirMundo::RelacionReflexiva {
-                            posicion,
-                            tipo: inicial.tipo,
-                            extremo: inicial.origen,
-                        });
-                    }
-                    if origen < destino {
-                        (
-                            inicial.tipo,
-                            ExtremoRelacion::Lugar(origen),
-                            ExtremoRelacion::Lugar(destino),
-                        )
-                    } else {
-                        (
-                            inicial.tipo,
-                            ExtremoRelacion::Lugar(destino),
-                            ExtremoRelacion::Lugar(origen),
-                        )
-                    }
-                }
-                (
-                    TipoRelacion::Conoce,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => (
-                    inicial.tipo,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ),
-                (
-                    TipoRelacion::Padre
-                    | TipoRelacion::Madre
-                    | TipoRelacion::MatadoPor
-                    | TipoRelacion::Sirviente,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Actor(destino),
-                ) => (
-                    inicial.tipo,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Actor(destino),
-                ),
-                _ => {
-                    return Err(ErrorConstruirMundo::ExtremosRelacionIncompatibles {
-                        posicion,
-                        tipo: inicial.tipo,
-                        origen: inicial.origen,
-                        destino: inicial.destino,
-                    });
-                }
-            };
+            if !inicial
+                .tipo
+                .admite_extremos(inicial.origen, inicial.destino)
+            {
+                return Err(ErrorConstruirMundo::ExtremosRelacionIncompatibles {
+                    posicion,
+                    tipo: inicial.tipo,
+                    origen: inicial.origen,
+                    destino: inicial.destino,
+                });
+            }
+            let (origen, destino) =
+                if inicial.tipo.es_simetrica() && inicial.origen > inicial.destino {
+                    (inicial.destino, inicial.origen)
+                } else {
+                    (inicial.origen, inicial.destino)
+                };
+            let clave_duplicado = (inicial.tipo, origen, destino);
             let clave_duplicado = (clave_duplicado, inicial.mercancia.clone());
             if let Some(&primera) = relaciones_vistas.get(&clave_duplicado) {
                 return Err(ErrorConstruirMundo::RelacionDuplicada { posicion, primera });
             }
             relaciones_vistas.insert(clave_duplicado, id);
 
-            match (inicial.tipo, inicial.origen, inicial.destino) {
-                (
-                    TipoRelacion::Abarca
-                    | TipoRelacion::OrigenDe
-                    | TipoRelacion::AfluenteDe
-                    | TipoRelacion::Bloquea
-                    | TipoRelacion::Vende,
-                    ExtremoRelacion::Lugar(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => {
-                    relaciones_por_lugar[origen.indice().expect("Lugar validado")].push(id);
-                    relaciones_por_lugar[destino.indice().expect("Lugar validado")].push(id);
+            for extremo in [inicial.origen, inicial.destino] {
+                match extremo {
+                    ExtremoRelacion::Actor(a) => {
+                        relaciones_por_actor[a.indice().expect("Actor validado")].push(id)
+                    }
+                    ExtremoRelacion::Lugar(l) => {
+                        relaciones_por_lugar[l.indice().expect("Lugar validado")].push(id)
+                    }
+                    ExtremoRelacion::Concepto(c) => {
+                        relaciones_por_concepto[c.indice().expect("Concepto validado")].push(id)
+                    }
                 }
-                (
-                    TipoRelacion::Conectado,
-                    ExtremoRelacion::Lugar(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => {
-                    relaciones_por_lugar[origen.indice().expect("Lugar validado")].push(id);
-                    relaciones_por_lugar[destino.indice().expect("Lugar validado")].push(id);
-                    conectados_por_lugar[origen.indice().expect("Lugar validado")].push(destino);
-                    conectados_por_lugar[destino.indice().expect("Lugar validado")].push(origen);
-                }
-                (
-                    TipoRelacion::Conoce,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => {
-                    relaciones_por_actor[origen.indice().expect("Actor validado")].push(id);
-                    relaciones_por_lugar[destino.indice().expect("Lugar validado")].push(id);
-                    lugares_conocidos_por_actor[origen.indice().expect("Actor validado")]
-                        .push(destino);
-                }
-                (
-                    TipoRelacion::Padre
-                    | TipoRelacion::Madre
-                    | TipoRelacion::MatadoPor
-                    | TipoRelacion::Sirviente,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Actor(destino),
-                ) => {
-                    relaciones_por_actor[origen.indice().expect("Actor validado")].push(id);
-                    relaciones_por_actor[destino.indice().expect("Actor validado")].push(id);
-                }
-                _ => unreachable!("los extremos ya fueron validados"),
+            }
+            if let (ExtremoRelacion::Lugar(a), ExtremoRelacion::Lugar(b)) =
+                (inicial.origen, inicial.destino)
+                && inicial.tipo == TipoRelacion::Conectado
+            {
+                conectados_por_lugar[a.indice().expect("Lugar validado")].push(b);
+                conectados_por_lugar[b.indice().expect("Lugar validado")].push(a);
+            }
+            if let (ExtremoRelacion::Actor(a), ExtremoRelacion::Lugar(l)) =
+                (inicial.origen, inicial.destino)
+                && inicial.tipo == TipoRelacion::Conoce
+            {
+                lugares_conocidos_por_actor[a.indice().expect("Actor validado")].push(l);
             }
             relaciones.push(Relacion {
                 mercancia: inicial.mercancia,
@@ -783,6 +788,7 @@ impl Mundo {
             relaciones,
             relaciones_por_lugar,
             relaciones_por_actor,
+            relaciones_por_concepto,
             conectados_por_lugar,
             lugares_conocidos_por_actor,
         })
@@ -844,6 +850,10 @@ impl Mundo {
 
     pub fn relaciones_de(&self, extremo: ExtremoRelacion) -> Option<&[IdRelacion]> {
         match extremo {
+            ExtremoRelacion::Concepto(id) => self
+                .relaciones_por_concepto
+                .get(id.indice()?)
+                .map(Vec::as_slice),
             ExtremoRelacion::Actor(actor) => {
                 self.actor(actor)?;
                 self.relaciones_por_actor
@@ -1281,6 +1291,9 @@ pub enum ErrorConstruirMundo {
     SinLugares,
     SinActores,
     PosicionLugarFueraDeRango {
+        posicion: usize,
+    },
+    PosicionConceptoFueraDeRango {
         posicion: usize,
     },
     PosicionActorFueraDeRango {
@@ -1992,6 +2005,60 @@ mod pruebas {
                 destino: ExtremoRelacion::Lugar(id_lugar(1)),
             }],
         }
+    }
+
+    #[test]
+    fn conceptos_tienen_indices_propios_y_no_son_lugares_transitables() {
+        let mut datos = datos_validos();
+        let c = ExtremoRelacion::Concepto(IdConcepto::desde_posicion(0).unwrap());
+        for (tipo, actor) in [(TipoRelacion::Desea, 0), (TipoRelacion::Necesita, 1)] {
+            datos.relaciones.push(RelacionInicial {
+                mercancia: None,
+                tipo,
+                origen: ExtremoRelacion::Actor(id_actor(actor)),
+                destino: c,
+            });
+        }
+        assert!(matches!(
+            Mundo::nuevo(datos.clone()),
+            Err(ErrorConstruirMundo::ExtremoRelacionDesconocido { .. })
+        ));
+        let mundo = Mundo::nuevo_con_conceptos(datos.clone(), 1).unwrap();
+        assert_eq!(mundo.relaciones_de(c).unwrap().len(), 2);
+        assert_eq!(
+            mundo.lugares_conectados(id_lugar(0)),
+            Some([id_lugar(1)].as_slice())
+        );
+        assert_eq!(mundo.actores().len(), 3);
+        assert!(
+            mundo
+                .relaciones_de(ExtremoRelacion::Concepto(
+                    IdConcepto::desde_posicion(1).unwrap()
+                ))
+                .is_none()
+        );
+        datos.relaciones[1].destino = ExtremoRelacion::Lugar(id_lugar(0));
+        assert!(matches!(
+            Mundo::nuevo_con_conceptos(datos, 1),
+            Err(ErrorConstruirMundo::ExtremosRelacionIncompatibles { .. })
+        ));
+    }
+
+    #[test]
+    fn enemistad_mutua_rechaza_declarar_dos_veces_el_mismo_hecho() {
+        let mut datos = datos_validos();
+        for (a, b) in [(0, 1), (1, 0)] {
+            datos.relaciones.push(RelacionInicial {
+                mercancia: None,
+                tipo: TipoRelacion::EnemigoDe,
+                origen: ExtremoRelacion::Actor(id_actor(a)),
+                destino: ExtremoRelacion::Actor(id_actor(b)),
+            });
+        }
+        assert!(matches!(
+            Mundo::nuevo(datos),
+            Err(ErrorConstruirMundo::RelacionDuplicada { .. })
+        ));
     }
 
     #[test]

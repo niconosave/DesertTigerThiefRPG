@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Diseño de contenido; lugares, personajes y eventos aún sin implementar |
+| Estado | Reparto RON implementado; apertura, lugares nuevos y eventos pendientes |
 | Versión | 0.5 |
 | Fecha | 2026-11-11 |
 
@@ -50,12 +50,12 @@ trayectoria obligatoria de campaña.
 
 **Incidente propuesto para discutir:** Neshra decide sacar un cargamento de
 Shahraz por Nuris. Farid lo transporta con una autorización de ese puerto.
-Dahira intercepta el barco alegando los derechos de Zarabad sobre el paso,
+Dahran intercepta el barco alegando los derechos de Zarabad sobre el paso,
 confisca la carga y retiene a Farid. Nuris exige la devolución y toma represalias.
 Ambos reyes afirman defender un derecho que el otro vulneró. Es una posibilidad
 para conectar el reparto, no el origen aprobado de la guerra.
 
-En esa versión, Dahira pudo entender que cumplía su deber; Neshra perdió una
+En esa versión, Dahran pudo entender que cumplía su deber; Neshra perdió una
 mercancía y la seguridad de sus acuerdos; Farid quedó cautivo al hacer su trabajo.
 Las respuestas concretas siguen siendo de autoría. El incidente involucra a
 personas anteriores a la llegada del príncipe y puede interesar a otros
@@ -220,7 +220,8 @@ están definidos en el mismo documento.
 Bandido, Samir y Neshra conectan ese reparto con la costa y Shahraz. Ruzan se
 conserva como reserva: un jefe de banda que hizo negocios con Bandido y amenaza
 los cargamentos de Neshra. Todavía no se incorpora al núcleo de los dos puertos.
-No se han añadido Actores, Conceptos ni tipos de relaciones a los RON.
+Los Actores, los Conceptos y los tipos de relaciones de ese reparto ya están
+incorporados al contenido y se pueden explorar en Acampar.
 
 ### Figuras sugeridas por el usuario
 
@@ -228,7 +229,7 @@ Las referencias a Yojimbo, Por un puñado de dólares y las aventuras de Conan
 orientan la rivalidad local y las oportunidades del forastero. Se consideran
 estas figuras sin incorporarlas todas de una vez:
 
-- La propuesta desarrolla a Dahira como autoridad severa al servicio del rey,
+- La propuesta desarrolla a Dahran como autoridad severa al servicio del rey,
   cuyo respeto puede ganarse el recién llegado.
 - Sahmun ocupa el papel propuesto de consejero traicionero con conocimientos
   de artes ocultas. Su interés y sus vínculos se describen en el nuevo reparto.
@@ -257,9 +258,9 @@ precondiciones coherentes con la situación actual de cada personaje.
 | El precio de un guerrero | Antes de que el jugador se comprometa a ver al rey. | Un indicio revela que el Bandido espera cobrar por llevarle un guerrero. Permite reconsiderar la audiencia y buscar otras oportunidades en la ciudad. |
 | La audiencia de Zarabad | Si el jugador acepta acudir después de la advertencia. | El rey compra al príncipe y lo destina a sus barcos. La escena establece el servicio forzoso y sus consecuencias; las condiciones precisas de captura siguen por diseñar. |
 | Un hombre de Nuris | Durante una estancia o llegada a Zarabad, con Farid todavía cautivo. | El grupo conoce a Farid y su vínculo con Samir. El enemigo que presenta la guerra tiene una historia personal, y aparece un futuro objetivo de rescate. |
-| La deuda de la capitana | Al encontrar a Samir en la costa, si su hermano sigue cautivo. | El pescador cuenta cómo salvó a Dahira y pide ayuda por Farid. La petición abre un conflicto entre gratitud, obligación naval y libertad. |
+| La deuda del capitán | Al encontrar a Samir en la costa, si su hermano sigue cautivo. | El pescador cuenta cómo salvó a Dahran y pide ayuda por Farid. La petición abre un conflicto entre gratitud, obligación naval y libertad. |
 | Mercancías detenidas | Al pasar por Shahraz y tratar con Neshra. | Un cargamento está retenido por la banda de Ruzan. Se concreta una disputa local para una futura negociación, ataque o recuperación; su resolución no se simula todavía con Atacar. |
-| Los preparativos del rey | Tras un umbral temporal por fijar, cuando pueda observarse en Zarabad. | La preparación de una salida naval hace visible que la guerra sigue su curso. Un personaje libre puede decidir si se involucra; uno sometido a la capitana podría recibir un encargo según su situación. |
+| Los preparativos del rey | Tras un umbral temporal por fijar, cuando pueda observarse en Zarabad. | La preparación de una salida naval hace visible que la guerra sigue su curso. Un personaje libre puede decidir si se involucra; uno sometido al capitán podría recibir un encargo según su situación. |
 
 El primer evento no inicia automáticamente un viaje. La audiencia tampoco
 convierte cada llegada a Zarabad en una captura: debe depender de las decisiones
@@ -302,9 +303,9 @@ la apertura:
    descripciones no constituyen por sí solos nuevas reglas de supervivencia.
 
 El contenido actual sigue iniciando al grupo en Hamada Roja y el Bandido conserva
-datos del escenario de prueba. Cambiar esa apertura exige revisar su conocimiento,
-sus medios disponibles y su vínculo con el príncipe. El naufragio propuesto aún
-no cambió la partida ejecutable.
+sus medios de viaje del escenario de prueba. Ya tiene relaciones de negocio
+con Zahrim y Neshra, deseo de fortuna y conocimiento de los puertos del norte.
+El naufragio y la nueva apertura todavía no cambiaron la partida ejecutable.
 
 ## 6. Orden de trabajo acordado y decisiones pendientes
 

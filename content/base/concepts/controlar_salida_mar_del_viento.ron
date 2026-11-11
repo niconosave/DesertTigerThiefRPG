@@ -1,0 +1,5 @@
+(
+    clave: "controlar_salida_mar_del_viento",
+    nombre: "Controlar la salida comercial del Mar del Viento",
+    descripcion: "Hacer que el comercio entre el interior y el exterior dependa de las condiciones impuestas por Zarabad.",
+)

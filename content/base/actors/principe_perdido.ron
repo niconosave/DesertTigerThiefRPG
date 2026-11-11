@@ -5,6 +5,7 @@
     ubicacion_inicial: EnLugar("zona_arida"),
     caracteristicas: [],
     relaciones: [
+        (tipo: Desea, destino: Concepto("recuperar_trono_del_draa")),
         (tipo: Padre, destino: Actor("rey")),
         (tipo: Madre, destino: Actor("madre_del_principe")),
     ],
