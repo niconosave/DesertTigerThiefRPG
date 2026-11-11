@@ -1,0 +1,5 @@
+(
+    clave: "restablecer_madera_nuris",
+    nombre: "Restablecer el suministro de madera de Nuris",
+    descripcion: "Recuperar las entregas necesarias para construir y reparar barcos en sus astilleros.",
+)

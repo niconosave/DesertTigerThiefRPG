@@ -1,0 +1,17 @@
+(
+    clave: "neshra",
+    nombre: "Neshra",
+    biografia: "Comerciante de Shahraz. Mantiene negocios en Zarabad y Nuris y conoce al Bandido por tratos anteriores. Intenta conservar ambas salidas para sus mercancías pese a la guerra y las presiones de los dos puertos.",
+    ubicacion_inicial: EnLugar("shahraz"),
+    caracteristicas: ["hombreTigre", "administrador", "calculador"],
+    relaciones: [
+        (tipo: ComerciaCon, destino: Lugar("zarabad")),
+        (tipo: ComerciaCon, destino: Lugar("nuris")),
+        (tipo: Desea, destino: Concepto("conservar_intercambios_dos_puertos")),
+        (tipo: Conoce, destino: Lugar("zarabad")),
+        (tipo: Conoce, destino: Lugar("nuris")),
+        (tipo: Conoce, destino: Lugar("shahraz")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

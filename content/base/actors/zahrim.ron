@@ -1,0 +1,16 @@
+(
+    clave: "zahrim",
+    nombre: "Zahrim",
+    biografia: "Rey de Zarabad. Orgulloso de sus muelles y de sus barcos, quiere que su pequeña ciudad sea recordada como un gran puerto. Disputa a Nuris el comercio del Mar del Viento y busca guerreros para sus tripulaciones. Recompensa los servicios que le resultan útiles sin renunciar a la autoridad sobre quienes lo sirven.",
+    ubicacion_inicial: EnLugar("zarabad"),
+    caracteristicas: ["hombreTigre", "orgulloso", "calculador"],
+    relaciones: [
+        (tipo: Gobierna, destino: Lugar("zarabad")),
+        (tipo: EnemigoDe, destino: Actor("miraz")),
+        (tipo: Desea, destino: Concepto("controlar_salida_mar_del_viento")),
+        (tipo: Necesita, destino: Concepto("reforzar_tripulaciones_zarabad")),
+        (tipo: Conoce, destino: Lugar("zarabad")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

@@ -1,0 +1,15 @@
+(
+    clave: "zulema",
+    nombre: "Zulema",
+    biografia: "Organiza los contratos de escolta de Nuris al servicio de Miraz. Empezó llevando cuentas de comerciantes y se ganó una posición cumpliendo lo acordado. Necesita guerreros para defender los convoyes; ofrece trabajo con obligaciones concretas, no promesas gratuitas.",
+    ubicacion_inicial: EnLugar("nuris"),
+    caracteristicas: ["hombreTigre", "administrador", "riguroso"],
+    relaciones: [
+        (tipo: Sirviente, destino: Actor("miraz")),
+        (tipo: Debe, destino: Concepto("cumplir_acuerdos_escolta")),
+        (tipo: Necesita, destino: Concepto("reunir_guerreros_convoyes_nuris")),
+        (tipo: Conoce, destino: Lugar("nuris")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)
