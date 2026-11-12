@@ -6,6 +6,9 @@
 | Versión | 1.4 |
 | Fecha | 2026-10-26 |
 
+> Ampliación implementada el 2026-11-11: el [contrato 25](../componentes/25-conceptos-relaciones-personales.md)
+> extiende la navegación a Conceptos y las etiquetas de relaciones personales.
+
 > Ampliación implementada el 2026-10-26: la ubicación visible y la
 > representación de vínculos registrados/deducidos se definen en el
 > [contrato 14, sección 6](../componentes/14-parentesco-actores-contexto.md#6-fichas-ubicación-inversas-y-deducciones).

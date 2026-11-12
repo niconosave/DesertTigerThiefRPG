@@ -7,6 +7,10 @@
 | Fecha | 2026-11-06 |
 | Alcance | Primera versión acotada y contratos de extensión |
 
+> Ampliación implementada el 2026-11-11: el [contrato 25](./25-conceptos-relaciones-personales.md)
+> incorpora Conceptos, relaciones personales, índices, autoría RON, fichas y
+> consultas Lua. Gobierna esas extensiones respecto de los esquemas previos.
+
 > Evolución diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
 > integra eventos externos, eventos dentro del actor y `politica` heredada bajo
 > un catálogo, un coordinador y un registro común. Define `this`, fechas y

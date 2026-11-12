@@ -113,8 +113,8 @@ acción que lo ejecute.
 ## 6. Contenido incluido y comprobaciones
 
 Se incorporan Zahrim, Dahran, Sahmun, Rima, Miraz, Zulema, Bahir, Farid, Samir
-y Neshra, además de diecisiete Conceptos. Dahran es el capitán masculino que
-sustituye a Dahira en el diseño. Se adaptan las relaciones de Bandido y se
+y Neshra, además de diecisiete Conceptos. Dahran es el capitán masculino elegido
+para este reparto. Se adaptan las relaciones de Bandido y se
 declaran el deseo del príncipe y el deber del sirviente. Los nuevos rasgos tienen
 descripciones en el glosario existente.
 

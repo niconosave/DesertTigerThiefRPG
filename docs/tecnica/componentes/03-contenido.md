@@ -6,6 +6,10 @@
 | Versión | 0.33 |
 | Fecha | 2026-11-04 |
 
+> Ampliación implementada el 2026-11-11: el [contrato 25](./25-conceptos-relaciones-personales.md)
+> incorpora Conceptos, relaciones personales, índices, autoría RON, fichas y
+> consultas Lua. Gobierna esas extensiones respecto de los esquemas previos.
+
 > Ampliación diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
 > normaliza los eventos externos v1, las definiciones incrustadas en Actores y
 > `politica` heredada en un catálogo común, con identidades por ámbito. No reserva

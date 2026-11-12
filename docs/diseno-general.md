@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Base inicial aprobada |
-| Versión | 0.23 |
-| Fecha | 2026-11-06 |
+| Versión | 0.24 |
+| Fecha | 2026-11-11 |
 
 ## 1. Propósito
 
@@ -162,6 +162,22 @@ Los Actores de contexto fuera del escenario no actúan localmente ni forman
 parte del Grupo; se pueden consultar siguiendo relaciones desde Acampar. Esta
 ampliación está implementada según el
 [contrato de parentesco y contexto](./tecnica/componentes/14-parentesco-actores-contexto.md).
+
+### Concepto
+
+Un Concepto es una idea que puede ser objeto de una Relación, como recuperar
+el trono o proteger a una persona. Puede expresar algo simple o complejo,
+incluida una acción como idea. Solo tiene clave, nombre y descripción; no tiene
+ubicación, características, conducta ni un progreso que se resuelva por sí mismo.
+
+Las Relaciones Desea, Debe, Necesita y EsLlamadoA conectan un Actor con un Concepto.
+Permiten comprender qué importa al personaje y orientan los finales particulares
+que escriba el diseñador. Los eventos y las reglas determinan qué ocurre; estas
+relaciones no ejecutan acciones ni imponen una condición universal de victoria.
+Los Conceptos se pueden explorar siguiendo referencias desde Acampar.
+
+El [contrato de Conceptos y relaciones personales](./tecnica/componentes/25-conceptos-relaciones-personales.md)
+define el formato, la carga y los índices implementados.
 
 ### Grupo
 

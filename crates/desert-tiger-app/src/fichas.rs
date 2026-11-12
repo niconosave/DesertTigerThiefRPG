@@ -605,7 +605,8 @@ mod pruebas {
         let id = |i| IdActor::desde_posicion(i).unwrap();
         let ficha = |i| proyectar(&mundo, &c, ExtremoRelacion::Actor(id(i))).unwrap();
         assert_eq!(mundo.actores().len(), 21);
-        for actor in [3] {
+        {
+            let actor = 3;
             let sirviente = ficha(actor);
             assert!(sirviente.entradas.iter().any(|e| matches!(e,
                 EntradaFicha::Relacion(r) if r.etiqueta == "Sirviente de: Príncipe Perdido"

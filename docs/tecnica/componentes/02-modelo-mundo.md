@@ -6,6 +6,10 @@
 | Versión | 0.15 |
 | Fecha | 2026-10-26 |
 
+> Ampliación implementada el 2026-11-11: el [contrato 25](./25-conceptos-relaciones-personales.md)
+> incorpora Conceptos, relaciones personales, índices, autoría RON, fichas y
+> consultas Lua. Gobierna esas extensiones respecto de los esquemas previos.
+
 > Ampliación implementada el 2026-10-26. Ubicación y parentesco: [contrato 14, secciones 3–5](./14-parentesco-actores-contexto.md#3-ubicación-del-actor).
 
 > Ampliación implementada el 2026-10-26: el acceso público comprobado
