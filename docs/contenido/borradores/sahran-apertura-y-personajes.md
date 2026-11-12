@@ -326,20 +326,20 @@ iniciales. Zarabad conecta con el Mar del Viento, que también conecta con Shahr
 Los pasajes entre Shahraz, Zarabad y Nuris se derivan de Compra/Vende entre puertos
 y recorren las conexiones marítimas intermedias. Su pago es narrativo provisional; el monedero y las tarifas quedan pendientes.
 
-### Pendiente: diálogos de Actores dentro de eventos narrativos
+### Diálogos de Actores dentro de eventos narrativos
 
 Los eventos podrán alternar una descripción narrativa con intervenciones de
 Actores identificados. El texto del diálogo aparecerá en la barra inferior.
 Mientras alguien habla, su retrato conservará el color y los demás retratos
 se mostrarán en tonos de gris. Al terminar la intervención se recuperará la
-presentación habitual. Queda por diseñar la conversión a gris: tabla de
-equivalencias o cálculo automático, respetando las opciones de paleta existentes.
-Esta función todavía no se implementa.
+presentación habitual. La conversión a gris combina equivalencias ANSI y cálculo de luminancia RGB,
+respetando las opciones de paleta existentes. La fogata puede dar su tono cálido
+a los retratos en gris. La implementación se describe en
+[Diálogos de eventos narrativos](../../tecnica/componentes/28-dialogos-eventos-narrativos.md).
 
 Como primera aplicación, se revisará la advertencia previa a la audiencia de
 Zarabad. Nadin dirá a Ashur que desconfía de Rashak y recomendará alejarse y
 dejarlo atrás. No tendrá pruebas: será una sospecha. La escena no mostrará al
 jugador una conversación sobre el precio ni otra evidencia que confirme la
 venta. La elección deberá conservar esa incertidumbre, sin asegurar que Nadin
-tiene razón. Esta revisión narrativa queda pendiente junto con los diálogos;
-el evento ejecutable actual todavía conserva la advertencia explícita anterior.
+tiene razón. Esta revisión narrativa está implementada en la advertencia previa a la audiencia.

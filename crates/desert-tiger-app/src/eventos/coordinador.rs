@@ -19,6 +19,11 @@ pub struct OpcionEvento {
 pub struct IdOpcionEvento(usize);
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VistaEvento {
+    pub hablante: Option<desert_tiger_core::IdActor>,
+    pub momento: usize,
+    pub total_momentos: usize,
+    pendientes: VecDeque<super::lua::Momento>,
+    opciones_finales: Vec<OpcionEvento>,
     pub id: IdPresentacionEvento,
     pub evento: String,
     pub paso: String,
@@ -175,6 +180,24 @@ impl Coordinador {
             .as_ref()
             .filter(|v| v.id == id)
             .ok_or("presentación de evento vencida")?;
+        if !v.pendientes.is_empty() {
+            if opcion.is_some() {
+                return Err("opciones disponibles solo al final de la viñeta".into());
+            }
+            let mut vista = v.clone();
+            let momento = vista.pendientes.pop_front().ok_or("momento ausente")?;
+            let ordinal = self.ordinal.checked_add(1).ok_or("IDs agotados")?;
+            vista.id = IdPresentacionEvento(ordinal);
+            vista.momento += 1;
+            vista.hablante = momento.actor;
+            vista.texto = momento.texto;
+            if vista.pendientes.is_empty() {
+                vista.opciones = std::mem::take(&mut vista.opciones_finales);
+            }
+            self.ordinal = ordinal;
+            self.vista = Some(vista);
+            return Ok(());
+        }
         let e = cat.eventos.get(&v.evento).ok_or("evento ausente")?;
         let Paso::Vigneta {
             opciones,
@@ -236,24 +259,37 @@ impl Coordinador {
         else {
             return Err("presentación inválida".into());
         };
+        let mut momentos: VecDeque<_> = p.momentos.into();
+        let total_momentos = momentos.len();
+        let primero = momentos.pop_front().ok_or("presentación vacía")?;
+        let opciones_finales: Vec<_> = opciones
+            .iter()
+            .enumerate()
+            .map(|(i, o)| OpcionEvento {
+                id: IdOpcionEvento(i),
+                clave: o.clave.clone(),
+                texto: o.texto.clone(),
+            })
+            .collect();
         Ok(Some(VistaEvento {
+            hablante: primero.actor,
+            momento: 0,
+            total_momentos,
+            opciones: if momentos.is_empty() {
+                opciones_finales.clone()
+            } else {
+                vec![]
+            },
+            pendientes: momentos,
+            opciones_finales,
             id: IdPresentacionEvento(self.ordinal.checked_add(1).ok_or("IDs agotados")?),
             evento: e.clave.clone(),
             paso: paso.into(),
             titulo: p.titulo,
-            texto: p.texto,
+            texto: primero.texto,
             detalle: p.detalle,
             ilustracion: ilustracion.clone(),
             expresion: expresion.clone(),
-            opciones: opciones
-                .iter()
-                .enumerate()
-                .map(|(i, o)| OpcionEvento {
-                    id: IdOpcionEvento(i),
-                    clave: o.clave.clone(),
-                    texto: o.texto.clone(),
-                })
-                .collect(),
             lugar: m.ubicacion_grupo(),
             fecha: ctx.instante.fecha,
             fecha_suceso: self.fecha_suceso,

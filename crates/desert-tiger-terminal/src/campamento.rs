@@ -19,6 +19,8 @@ pub(crate) struct EstadoCampamento {
     pagina: Cell<usize>,
     dimensiones_detalle: Cell<(u16, u16)>,
     error: Option<String>,
+    pub(crate) estado_musica: String,
+    pub(crate) modo_musica: crate::musica_campamento::ModoMusica,
     pub(crate) musica: Option<crate::musica_campamento::NotasMusicales>,
 }
 
@@ -26,16 +28,19 @@ pub(crate) struct EstadoCampamento {
 enum AccionCampamento {
     Abandonar,
     EsperarOrdenes,
+    Musica,
 }
 impl AccionCampamento {
-    fn intencion(self, campamento: desert_tiger_app::IdCampamento) -> IntencionFrontend {
+    fn intencion(self, campamento: desert_tiger_app::IdCampamento) -> Option<IntencionFrontend> {
         match self {
-            Self::Abandonar => IntencionFrontend::AbandonarCampamento { campamento },
-            Self::EsperarOrdenes => IntencionFrontend::EsperarOrdenes { campamento },
+            Self::Abandonar => Some(IntencionFrontend::AbandonarCampamento { campamento }),
+            Self::EsperarOrdenes => Some(IntencionFrontend::EsperarOrdenes { campamento }),
+            Self::Musica => None,
         }
     }
     fn nombre(self) -> &'static str {
         match self {
+            Self::Musica => "Música",
             Self::Abandonar => "Abandonar campamento",
             Self::EsperarOrdenes => "Esperar órdenes",
         }
@@ -46,6 +51,7 @@ fn acciones_campamento(puede_esperar: bool) -> Vec<AccionCampamento> {
     if puede_esperar {
         acciones.push(AccionCampamento::EsperarOrdenes);
     }
+    acciones.push(AccionCampamento::Musica);
     acciones
 }
 impl EstadoCampamento {
@@ -60,6 +66,8 @@ impl EstadoCampamento {
             pagina: Cell::new(0),
             dimensiones_detalle: Cell::new((53, 6)),
             error: None,
+            estado_musica: String::new(),
+            modo_musica: Default::default(),
             musica: None,
         };
         estado.seleccionar(horizontal, partida);
@@ -139,11 +147,17 @@ impl EstadoCampamento {
                 self.accion = 0;
                 self.seleccionar(self.vista.integrantes.len(), partida);
             }
+            KeyCode::Enter
+                if self.saliendo()
+                    && self.acciones().get(self.accion) == Some(&AccionCampamento::Musica) =>
+            {
+                self.modo_musica = self.modo_musica.siguiente();
+            }
             KeyCode::Enter if self.saliendo() => {
                 return self
                     .acciones()
                     .get(self.accion)
-                    .map(|a| a.intencion(self.vista.id));
+                    .and_then(|a| a.intencion(self.vista.id));
             }
             KeyCode::Enter => {
                 let destino = self
@@ -257,6 +271,9 @@ impl EstadoCampamento {
         if let Some(error) = &self.error {
             return format!("Error: {error}");
         }
+        if self.saliendo() && self.acciones().get(self.accion) == Some(&AccionCampamento::Musica) {
+            return "Enter: cambiar entre A gusto, Todo el tiempo y No tocar. Requiere un músico en el grupo.".into();
+        }
         if self.esperando() {
             return "Esperar órdenes: ver el mapa y dejar pasar el tiempo. Enter confirma; Esc cancela durante la espera.".into();
         }
@@ -365,14 +382,20 @@ impl EstadoCampamento {
                 lineas.push(format!(
                     "{} {}",
                     if i == self.accion { ">" } else { " " },
-                    accion.nombre()
+                    if *accion == AccionCampamento::Musica {
+                        format!("Música: {} (Enter para cambiar)", self.modo_musica.nombre())
+                    } else {
+                        accion.nombre().to_owned()
+                    }
                 ));
             }
             lineas.push(String::new());
+            lineas.push(self.estado_musica.clone());
             lineas.push(self.contexto());
             lineas.push("↑/↓: elegir acción · Enter: confirmar · ←/→: cambiar sección".into());
             frame.render_widget(
-                Paragraph::new(lineas.join("\n")).style(recursos.ui.foco),
+                Paragraph::new(lineas.join("\n"))
+                    .style(recursos.ui.texto_normal.fg(ratatui::style::Color::Cyan)),
                 Rect::new(area.x, area.y, area.width, ficha_alto),
             );
             return;
@@ -830,13 +853,14 @@ mod pruebas_acciones_campamento {
     fn acciones_contextuales_comparten_una_lista() {
         assert_eq!(
             acciones_campamento(false),
-            vec![AccionCampamento::Abandonar]
+            vec![AccionCampamento::Abandonar, AccionCampamento::Musica]
         );
         assert_eq!(
             acciones_campamento(true),
             vec![
                 AccionCampamento::Abandonar,
-                AccionCampamento::EsperarOrdenes
+                AccionCampamento::EsperarOrdenes,
+                AccionCampamento::Musica
             ]
         );
     }

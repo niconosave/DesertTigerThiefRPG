@@ -32,9 +32,15 @@ impl<'de> Deserialize<'de> for Programa {
 #[derive(Clone)]
 struct Operacion(OperacionMundo);
 impl UserData for Operacion {}
-pub struct Presentacion {
-    pub titulo: String,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Momento {
+    pub actor: Option<IdActor>,
     pub texto: String,
+}
+impl UserData for Momento {}
+pub struct Presentacion {
+    pub momentos: Vec<Momento>,
+    pub titulo: String,
     pub detalle: Option<String>,
 }
 pub struct Efectos {
@@ -546,6 +552,25 @@ impl Programa {
                         ))
                     },
                 )?;
+                if matches!(tipo, TipoPrograma::Presentacion) {
+                    let ui = lua.create_table()?;
+                    funcion(scope, &ui, "narrar", 1, 1, false, move |lua, v| {
+                        let texto = validar_texto_presentacion(&string(&v[0])?, true, false)
+                            .map_err(err)?;
+                        Ok(Value::UserData(
+                            lua.create_userdata(Momento { actor: None, texto })?,
+                        ))
+                    })?;
+                    funcion(scope, &ui, "decir", 2, 2, false, move |lua, v| {
+                        let texto = validar_texto_presentacion(&string(&v[1])?, true, false)
+                            .map_err(err)?;
+                        Ok(Value::UserData(lua.create_userdata(Momento {
+                            actor: Some(actor(c, &v[0])?),
+                            texto,
+                        })?))
+                    })?;
+                    env.set("ui", proxy_solo_lectura(&lua, ui)?)?;
+                }
                 env.set("ctx", proxy_solo_lectura(&lua, contexto)?)?;
                 env.set("mundo", proxy_solo_lectura(&lua, consultas)?)?;
                 if matches!(tipo, TipoPrograma::Efectos) {
@@ -740,11 +765,45 @@ impl Programa {
                 };
                 match tipo {
                     TipoPrograma::Presentacion => {
-                        campos(&t, &["titulo", "texto", "detalle"])?;
+                        campos(&t, &["titulo", "texto", "detalle", "momentos"])?;
                         let titulo = validar_texto_presentacion(&campo(&t, "titulo")?, false, true)
                             .map_err(err)?;
-                        let texto = validar_texto_presentacion(&campo(&t, "texto")?, true, true)
-                            .map_err(err)?;
+                        let texto_original = t.get::<Value>("texto")?;
+                        let secuencia = t.get::<Value>("momentos")?;
+                        let momentos = match (texto_original, secuencia) {
+                            (Value::Nil, Value::Table(lista_momentos)) => {
+                                let mut momentos = Vec::new();
+                                for (indice, v) in lista(lista_momentos)?.into_iter().enumerate() {
+                                    let Value::UserData(u) = v else {
+                                        return Err(err(format!(
+                                            "momento {} no autorizado",
+                                            indice + 1
+                                        )));
+                                    };
+                                    momentos.push(
+                                        u.borrow::<Momento>()
+                                            .map_err(|_| {
+                                                err(format!("momento {} no autorizado", indice + 1))
+                                            })?
+                                            .clone(),
+                                    );
+                                }
+                                if momentos.is_empty() {
+                                    return Err(err("momentos no puede estar vacío"));
+                                }
+                                momentos
+                            }
+                            (v, Value::Nil) if !matches!(v, Value::Nil) => vec![Momento {
+                                actor: None,
+                                texto: validar_texto_presentacion(&string(&v)?, true, true)
+                                    .map_err(err)?,
+                            }],
+                            _ => {
+                                return Err(err(
+                                    "debe especificarse exactamente uno de texto o momentos",
+                                ));
+                            }
+                        };
                         let detalle = match t.get::<Value>("detalle")? {
                             Value::Nil => None,
                             v => Some(
@@ -753,8 +812,8 @@ impl Programa {
                             ),
                         };
                         Ok(Respuesta::Presentacion(Presentacion {
+                            momentos,
                             titulo,
-                            texto,
                             detalle,
                         }))
                     }
@@ -810,6 +869,58 @@ impl Programa {
 mod pruebas_relaciones_personales {
     use super::*;
     use desert_tiger_core::{FraccionDia, InstanteAccion, acciones::intervenciones::ClasePunto};
+
+    #[test]
+    fn dialogos_lua_valida_secuencia_completa_y_constructores() {
+        let contenido = crate::cargar_contenido(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base"),
+        )
+        .unwrap();
+        let (mundo, _) = contenido.instanciar_estado().unwrap();
+        let ctx = ContextoIntervencion {
+            clase: ClasePunto::Disponible,
+            actor: mundo.actor_jugador(),
+            accion: None,
+            objetivo: None,
+            lugar: mundo.ubicacion_grupo(),
+            participantes: vec![mundo.actor_jugador()],
+            instante: InstanteAccion {
+                fecha: mundo.fecha(),
+                fraccion: FraccionDia::CERO,
+            },
+        };
+        for (fuente, valido) in [
+            (
+                r#"return {titulo="Escena",momentos={ui.narrar("Llegás al puerto."),ui.decir("sirviente","Vamos."),ui.decir("zahrim","Bienvenidos.")}}"#,
+                true,
+            ),
+            (r#"return {titulo="Escena",texto="Legado"}"#, true),
+            (r#"return {titulo="Escena",momentos={}}"#, false),
+            (
+                r#"return {titulo="Escena",texto="Otro",momentos={ui.narrar("Relato")}}"#,
+                false,
+            ),
+            (
+                r#"return {titulo="Escena",momentos={ui.narrar("Relato"),ui.decir("no_existe","Hola")}}"#,
+                false,
+            ),
+            (
+                r#"return {titulo="Escena",momentos={[1]=ui.narrar("Uno"),[3]=ui.narrar("Tres")}}"#,
+                false,
+            ),
+            (
+                r#"return {titulo="Escena",momentos={{actor="sirviente",texto="Sin constructor"}}}"#,
+                false,
+            ),
+        ] {
+            let mut programa: Programa =
+                ron::from_str(&ron::ser::to_string(fuente).unwrap()).unwrap();
+            programa.compilar("dialogos_prueba").unwrap();
+            let resultado =
+                programa.ejecutar(TipoPrograma::Presentacion, &mundo, contenido.claves(), &ctx);
+            assert_eq!(resultado.is_ok(), valido, "{fuente}");
+        }
+    }
 
     #[test]
     fn guiones_consultan_conceptos_y_pactos_sin_inferir_cumplimiento() {

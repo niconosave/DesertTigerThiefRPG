@@ -3,6 +3,30 @@ use desert_tiger_app::{
 };
 use std::time::Duration;
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum ModoMusica {
+    #[default]
+    AGusto,
+    Continua,
+    Silencio,
+}
+impl ModoMusica {
+    pub(crate) fn siguiente(self) -> Self {
+        match self {
+            Self::AGusto => Self::Continua,
+            Self::Continua => Self::Silencio,
+            Self::Silencio => Self::AGusto,
+        }
+    }
+    pub(crate) fn nombre(self) -> &'static str {
+        match self {
+            Self::AGusto => "A gusto",
+            Self::Continua => "Todo el tiempo",
+            Self::Silencio => "No tocar",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct AgendaMusica {
     pub inicial: (u32, u32),
@@ -45,6 +69,7 @@ fn es_musico(entradas: &[EntradaFicha]) -> bool {
 }
 
 pub(crate) struct MusicaCampamento {
+    pub(crate) modo: ModoMusica,
     campamento: Option<IdCampamento>,
     candidatos: Vec<IdActor>,
     proxima: Duration,
@@ -57,6 +82,7 @@ pub(crate) struct MusicaCampamento {
 impl Default for MusicaCampamento {
     fn default() -> Self {
         Self {
+            modo: ModoMusica::default(),
             campamento: None,
             candidatos: Vec::new(),
             proxima: Duration::ZERO,
@@ -69,6 +95,28 @@ impl Default for MusicaCampamento {
 }
 
 impl MusicaCampamento {
+    pub(crate) fn cambiar_modo(
+        &mut self,
+        modo: ModoMusica,
+        ahora: Duration,
+        ajustes: AgendaMusica,
+    ) {
+        if self.modo == modo {
+            return;
+        }
+        let estaba_tocando = self.notas.is_some();
+        self.modo = modo;
+        self.evento = None;
+        self.notas = None;
+        // Una orden pendiente sin audio confirmado no cuenta como música sonando.
+        // Interrumpir una pieza deja una pausa antes de aplicar la nueva agenda.
+        self.proxima = if estaba_tocando {
+            ahora.saturating_add(self.intervalo(ajustes.pausa))
+        } else {
+            ahora
+        };
+    }
+
     pub(crate) fn campamento(&self) -> Option<IdCampamento> {
         self.campamento
     }
@@ -92,7 +140,11 @@ impl MusicaCampamento {
         self.cancelar();
         self.campamento = Some(id);
         self.candidatos = candidatos;
-        self.proxima = ahora.saturating_add(self.intervalo(ajustes.inicial));
+        self.proxima = if self.modo == ModoMusica::Continua {
+            ahora
+        } else {
+            ahora.saturating_add(self.intervalo(ajustes.inicial))
+        };
     }
     pub(crate) fn cancelar(&mut self) {
         self.campamento = None;
@@ -108,11 +160,19 @@ impl MusicaCampamento {
         ajustes: AgendaMusica,
     ) {
         self.notas = None;
+        if self.modo == ModoMusica::Silencio {
+            self.evento = None;
+            return;
+        }
         if let Some((id, actor)) = self.evento {
             if let Some(progreso) = progreso.filter(|p| p.evento == id) {
                 if progreso.finalizada {
                     self.evento = None;
-                    self.proxima = ahora.saturating_add(self.intervalo(ajustes.pausa));
+                    self.proxima = if self.modo == ModoMusica::Continua {
+                        ahora
+                    } else {
+                        ahora.saturating_add(self.intervalo(ajustes.pausa))
+                    };
                 } else {
                     self.notas = Some(NotasMusicales {
                         actor,
@@ -200,6 +260,45 @@ mod pruebas {
     use desert_tiger_app::{
         ConfiguracionPartida, IntencionFrontend, VistaSesion, cargar_contenido,
     };
+
+    #[test]
+    fn modos_musica_continua_silencio_y_reanudacion() {
+        let ajustes = AgendaMusica {
+            inicial: (60, 60),
+            pausa: (20, 20),
+        };
+        let ahora = Duration::from_secs(100);
+        let mut musica = MusicaCampamento::default();
+        let actor = IdActor::desde_posicion(0).unwrap();
+        musica.evento = Some((1, actor));
+        musica.notas = Some(NotasMusicales {
+            actor,
+            transcurrido: Duration::from_secs(1),
+        });
+        musica.cambiar_modo(ModoMusica::Continua, ahora, ajustes);
+        assert_eq!(musica.solicitud(), 0);
+        assert!(musica.notas().is_none());
+        assert_eq!(musica.proxima, ahora + Duration::from_secs(20));
+        musica.evento = Some((2, actor));
+        musica.notas = Some(NotasMusicales {
+            actor,
+            transcurrido: Duration::ZERO,
+        });
+        musica.cambiar_modo(ModoMusica::Silencio, ahora, ajustes);
+        assert_eq!(musica.solicitud(), 0);
+        assert!(musica.notas().is_none());
+        musica.actualizar(ahora + Duration::from_secs(500), None, false, ajustes);
+        assert_eq!(musica.solicitud(), 0);
+        musica.cambiar_modo(ModoMusica::AGusto, ahora, ajustes);
+        assert_eq!(musica.proxima, ahora);
+        musica.cambiar_modo(ModoMusica::Continua, ahora, ajustes);
+        musica.cancelar();
+        assert_eq!(musica.modo, ModoMusica::Continua);
+        assert_eq!(
+            ModoMusica::AGusto.siguiente().siguiente().siguiente(),
+            ModoMusica::AGusto
+        );
+    }
 
     fn escenario() -> (Partida, VistaCampamento) {
         let raiz = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");

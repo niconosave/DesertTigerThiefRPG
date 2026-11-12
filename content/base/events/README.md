@@ -6,7 +6,8 @@ antes de la primera acción, y presenta a Bandido. Al confirmar el encuentro,
 Bandido se incorpora de verdad al grupo y recomienda Zarabad.
 
 Cuando una acción termina con el grupo en Zarabad, `bandido_venta_zarabad`
-presenta una advertencia antes de la audiencia. Seguir a Bandido lleva a la venta;
+presenta una advertencia antes de la audiencia: Nadin expresa su sospecha sobre
+Rashak mediante un diálogo, sin ofrecer pruebas de la venta. Seguir a Bandido lleva a la venta;
 rechazar la audiencia permite continuar sin quedar incorporado a la compañía.
 En ambos casos Bandido deja el grupo. La venta registra `EsclavoDe` hacia Zahrim para el príncipe y el
 sirviente y los incorpora juntos a la compañía de Dahran, al servicio de Zahrim.

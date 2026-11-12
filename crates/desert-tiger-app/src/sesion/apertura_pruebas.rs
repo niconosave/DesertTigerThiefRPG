@@ -227,3 +227,61 @@ fn es_esclavo(p: &Partida, actor: desert_tiger_core::IdActor) -> bool {
                 )
     })
 }
+
+#[test]
+fn dialogos_encadenan_momentos_y_rechazan_confirmaciones_vencidas() {
+    let mut p = nueva();
+    relatos(&mut p, 0);
+    let ciudad = p.contenido.claves().lugar_por_clave("zarabad").unwrap();
+    p.mundo.trasladar(p.mundo.actor_jugador(), ciudad).unwrap();
+    p.abrir_eventos(
+        p.contexto_sesion(ClasePunto::Disponible),
+        eventos_partida::Continuacion::Disponible,
+    )
+    .unwrap();
+    let VistaSesion::PresentandoEvento(primero) = p.vista() else {
+        panic!("se esperaba narración")
+    };
+    assert_eq!(primero.total_momentos, 3);
+    assert!(primero.hablante.is_none() && primero.opciones.is_empty());
+    p.procesar(IntencionFrontend::ContinuarEvento {
+        presentacion: primero.id,
+    })
+    .unwrap();
+    let VistaSesion::PresentandoEvento(dialogo) = p.vista() else {
+        panic!("se esperaba diálogo")
+    };
+    assert_eq!(
+        dialogo.hablante,
+        p.contenido.claves().actor_por_clave("sirviente")
+    );
+    assert_eq!(dialogo.momento, 1);
+    assert!(dialogo.opciones.is_empty());
+    assert!(
+        p.procesar(IntencionFrontend::ContinuarEvento {
+            presentacion: primero.id
+        })
+        .is_err()
+    );
+    let VistaSesion::PresentandoEvento(vigente) = p.vista() else {
+        panic!()
+    };
+    assert_eq!(vigente.id, dialogo.id);
+    p.procesar(IntencionFrontend::ContinuarEvento {
+        presentacion: dialogo.id,
+    })
+    .unwrap();
+    let VistaSesion::EsperandoDecisionEvento(final_) = p.vista() else {
+        panic!("se esperaba decisión final")
+    };
+    assert!(final_.hablante.is_none());
+    assert_eq!(final_.momento, 2);
+    assert_eq!(final_.opciones.len(), 2);
+    p.procesar(IntencionFrontend::ResponderEvento {
+        presentacion: final_.id,
+        opcion: final_.opciones[1].id,
+    })
+    .unwrap();
+    relatos(&mut p, 0);
+    assert!(!es_esclavo(&p, p.mundo.actor_jugador()));
+}

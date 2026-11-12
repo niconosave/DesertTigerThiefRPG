@@ -6,9 +6,39 @@
     condicion:r#"return mundo:actor_jugador()=="principe_perdido""#,
     inicio:"orilla",
     pasos:[
-        Vigneta(clave:"orilla",presentacion:r#"return {titulo="Los restos del naufragio",texto="Despertás en Costa Ámbar entre maderos rotos y jirones de vela. Nadin, tu sirviente, ha logrado sacarte del agua; del barco que debía alejarte de los hombres de tu tío apenas quedan restos. Un hombre con cabeza de tigre baja hasta la orilla y examina lo que el mar ha devuelto."}"#,siguiente:Some("unirse")),
+        Vigneta(
+            clave:"orilla",
+            presentacion:r#"
+                return {
+                    titulo="Los restos del naufragio",
+                    momentos={
+                        ui.narrar("Despertás sobre la arena húmeda, entre maderos rotos y jirones de vela. Nadin se arrodilla a tu lado; todavía tiene la ropa empapada."),
+                        ui.decir("sirviente", "¡Señor! ¿Puede levantarse? Lo vi golpearse contra la borda cuando cedió el mástil."),
+                        ui.decir("principe_perdido", "Estoy bien, Nadin. Solo tragué agua. ¿Qué fue del barco?"),
+                        ui.decir("sirviente", "Se lo llevó el mar. Logré alcanzarlo a usted entre los restos, pero no vi salir a nadie más."),
+                        ui.decir("principe_perdido", "¿Y dónde hemos venido a parar? No reconozco esta costa."),
+                        ui.narrar("Nadin mira las dunas y niega con la cabeza. Más allá de los restos, un desconocido con cabeza de tigre baja hasta la orilla y se detiene al verlos.")
+                    }
+                }
+            "#,
+            siguiente:Some("unirse"),
+        ),
         Efectos(clave:"unirse",salidas:["propuesta"],resolver:r#"return {operaciones={op.incorporar_companero("bandido"), op.establecer_booleana("aperturaBandido",true)},siguiente="propuesta"}"#),
-        Vigneta(clave:"propuesta",presentacion:r#"return {titulo="Una ayuda en la costa",texto="El desconocido se presenta como Rashak y se ofrece a acompañarlos. «Zarabad está al norte. Su rey necesita hombres para sus barcos, y yo sé cómo llegar hasta él. Un príncipe sin fortuna todavía puede encontrar quien lo ayude». Tu sirviente recoge lo poco que conservan; Rashak ya señala el camino."}"#,siguiente:Some("fin")),
+        Vigneta(
+            clave:"propuesta",
+            presentacion:r#"
+                return {
+                    titulo="Una ayuda en la costa",
+                    momentos={
+                        ui.decir("bandido", "Mal lugar para desembarcar. Me llamo Rashak. Esto es Costa Ámbar; si buscaban un puerto, el mar los dejó bastante lejos."),
+                        ui.decir("sirviente", "No buscábamos esta costa. Necesitamos agua y algún lugar donde nos reciban."),
+                        ui.decir("bandido", "Entonces vengan conmigo a Zarabad, al norte. Tengo amigos entre la gente del puerto y conozco al rey Zahrim. Siempre necesita hombres para sus barcos; podría ayudarlos a empezar de nuevo."),
+                        ui.narrar("Nadin recoge lo poco que el agua no se llevó. Rashak señala el norte y se dispone a acompañarlos; por primera vez desde el naufragio, tenés un lugar hacia el que dirigirte.")
+                    }
+                }
+            "#,
+            siguiente:Some("fin"),
+        ),
         Fin(clave:"fin",control:Continuar),
     ],
 )

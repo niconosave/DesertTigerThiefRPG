@@ -923,6 +923,22 @@ fn progreso(r: &RegistroEscena, n: &crate::narracion_viaje::Narrador<'_>) -> Vis
         fecha_proyectada: r.instante.fecha,
     }
 }
+impl Partida {
+    pub fn nombre_actor_dialogo(&self, id: IdActor) -> String {
+        self.contenido
+            .presentacion()
+            .actor(id)
+            .map(|a| a.nombre().to_owned())
+            .unwrap_or_else(|| "Actor desconocido".into())
+    }
+    pub fn presentacion_actor(&self, id: IdActor) -> Result<VistaActor, String> {
+        if self.mundo.actor(id).is_none() {
+            return Err("Actor desconocido".into());
+        }
+        proyectar_actor(&self.contenido, id)
+    }
+}
+
 fn proyectar_actor(contenido: &ContenidoValidado, id: IdActor) -> Result<VistaActor, String> {
     let actor = contenido
         .presentacion()

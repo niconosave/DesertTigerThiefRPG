@@ -34,6 +34,7 @@ Todos desarrollan el
 | [`25-conceptos-relaciones-personales.md`](./25-conceptos-relaciones-personales.md) | Implementado: Conceptos pasivos, relaciones de motivación y vínculos sociales, RON, fichas y consultas Lua. |
 | [`26-actores-colectivos-y-espera.md`](./26-actores-colectivos-y-espera.md) | Implementado: colectivos físicos, entrada y salida, ubicación efectiva, modo reclutado, marco del mapa y espera continua cancelable con eventos fechados. |
 | [`27-pasajes-maritimos.md`](./27-pasajes-maritimos.md) | Implementado: pasajes derivados del comercio, recorrido marítimo, pago narrativo y rutas combinadas. |
+| [`28-dialogos-eventos-narrativos.md`](./28-dialogos-eventos-narrativos.md) | Implementado: secuencias de narración y diálogo desde Lua, foco de hablante y retratos en gris. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen
