@@ -65,7 +65,33 @@ fn apertura_pruebas_naufragio_introduce_y_recluta_bandido_una_sola_vez() {
         matches!(p.vista(),VistaSesion::PresentandoEvento(v) if v.evento=="naufragio_y_bandido")
     );
     let fecha = p.mundo.fecha();
-    relatos(&mut p, 0);
+    let mut externo = false;
+    let mut incorporado = false;
+    for _ in 0..30 {
+        let VistaSesion::PresentandoEvento(v) = p.vista() else {
+            break;
+        };
+        if v.hablante == Some(bandido) {
+            if p.mundo.grupo().contiene(bandido) {
+                incorporado = true;
+            } else {
+                externo = true;
+            }
+        }
+        p.procesar(IntencionFrontend::ContinuarEvento { presentacion: v.id })
+            .unwrap();
+    }
+    assert!(externo && incorporado);
+    let rey = p.contenido.claves().actor_por_clave("zahrim").unwrap();
+    let silueta = p.presentacion_actor(rey).unwrap();
+    assert!(
+        silueta
+            .retrato
+            .base()
+            .celdas()
+            .iter()
+            .any(|c| c.glifo != ' ')
+    );
     assert_eq!(p.mundo.fecha(), fecha);
     assert!(p.mundo.grupo().contiene(bandido));
     let ciudad = p.contenido.claves().lugar_por_clave("zarabad").unwrap();

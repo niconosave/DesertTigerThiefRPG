@@ -1240,7 +1240,7 @@ impl Interfaz {
             celda.set_style(Style::default().add_modifier(Modifier::REVERSED));
         }
         let hablante = self.evento().and_then(|v| v.hablante);
-        let fin = dibujar_retratos_dialogo(
+        dibujar_retratos_dialogo(
             frame,
             exterior,
             exterior,
@@ -1258,6 +1258,7 @@ impl Interfaz {
                 .any(|a| a.id == id)
             && let Some(actor) = self.actor_interlocutor(id)
         {
+            let x = i64::from(exterior.right()).saturating_sub(actor.retrato.base().ancho() as i64);
             let y = i64::from(exterior.bottom()).saturating_sub(actor.retrato.base().alto() as i64);
             for (origen, grafico) in actor
                 .retrato
@@ -1271,7 +1272,7 @@ impl Interfaz {
                 dibujar_grafico_retrato(
                     frame,
                     exterior,
-                    fin + 1 + origen.x as i64,
+                    x + origen.x as i64,
                     y + origen.y as i64,
                     grafico,
                     recursos,

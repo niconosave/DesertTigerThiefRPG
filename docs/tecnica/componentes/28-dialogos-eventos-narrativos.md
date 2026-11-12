@@ -172,12 +172,14 @@ intervención que no se está mostrando.
 ### Hablante dentro o fuera del grupo
 
 Si el hablante está entre los retratos del grupo, se destaca en su posición
-habitual. Si no está, se añade un retrato temporal de interlocutor a la derecha
-del grupo, únicamente durante su intervención. No se cambia su ubicación,
+habitual. Si no está, se añade un retrato temporal de interlocutor anclado al borde derecho de la
+ventana, únicamente durante su intervención. Su posición se recalcula al cambiar
+el ancho de la terminal. No se cambia su ubicación,
 pertenencia al grupo o al colectivo. No se duplican retratos de un mismo actor.
 
-Si no tiene retrato o falta espacio, el nombre y el texto siguen siendo
-suficientes para identificarlo. No es un error narrativo ni se omite su frase.
+Si no tiene retrato se utiliza una silueta provisional compartida, hecha solo
+con ASCII y con espacios transparentes. No modifica los archivos del actor.
+Si falta espacio, el nombre y el texto siguen siendo suficientes para identificarlo. No es un error narrativo ni se omite su frase.
 No se reorganiza la pertenencia real del grupo para acomodar el dibujo.
 
 ### Color y expresión
@@ -247,3 +249,20 @@ Pruebas centradas en esta ampliación:
 La prueba manual principal será llegar a Zarabad, leer la sospecha de Nadin y
 comprobar ambos desenlaces de la elección. No se requiere correr toda la suite
 para cada ajuste de texto o de apariencia.
+
+## Pendiente: retratos orientados hacia la izquierda
+
+Aplazado expresamente por el usuario. Los interlocutores externos ya aparecen
+anclados al borde derecho de la ventana, pero conservan la orientación original
+de sus retratos. Más adelante se quiere que miren hacia la izquierda, frente al
+grupo que mira hacia la derecha.
+
+La propuesta a evaluar combina una tabla de caracteres reflejados para cada
+modo gráfico (Unicode, ASCII y fuente personalizada) con un retrato izquierdo
+opcional dibujado a mano. Invertir las columnas por sí solo no refleja la forma
+de los glifos. Algunos caracteres carecen de una pareja adecuada; para los
+glifos privados se podrán diseñar sus reflejos en la fuente propia.
+
+Al desarrollar esta función habrá que transformar también los estilos de las
+celdas, las posiciones y gráficos de expresiones y el parpadeo, conservando la
+transparencia y los gráficos alternativos. No se implementa en esta etapa.

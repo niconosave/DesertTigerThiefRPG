@@ -135,6 +135,34 @@ pub struct RetratoActor {
 }
 
 impl RetratoActor {
+    pub(crate) fn provisional() -> Self {
+        let filas = [
+            "   ###   ",
+            "  #####  ",
+            "  #####  ",
+            "   ###   ",
+            "  #####  ",
+            " ####### ",
+            "#########",
+        ];
+        let estilo = Some(EstiloCeldaRetrato {
+            frente: ColorRetrato::GrisOscuro,
+            fondo: None,
+        });
+        Self {
+            base: GraficoRetrato {
+                ancho: 9,
+                alto: filas.len(),
+                celdas: filas
+                    .iter()
+                    .flat_map(|f| f.chars().map(|glifo| CeldaRetrato { glifo, estilo }))
+                    .collect(),
+            },
+            rostro: None,
+            parpadeo: None,
+        }
+    }
+
     /// Recorre la base y todos los gráficos de expresiones y parpadeo.
     pub fn graficos(&self) -> impl Iterator<Item = &GraficoRetrato> {
         std::iter::once(&self.base)

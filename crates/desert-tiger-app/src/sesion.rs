@@ -949,7 +949,7 @@ fn proyectar_actor(contenido: &ContenidoValidado, id: IdActor) -> Result<VistaAc
         .actor(id)
         .and_then(|a| a.retrato())
         .cloned()
-        .ok_or("Actor sin retrato")?;
+        .unwrap_or_else(RetratoActor::provisional);
     Ok(VistaActor {
         nombre: actor.nombre().to_owned(),
         id,
