@@ -2,10 +2,16 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aprobado para implementar; código pendiente |
-| Versión | 2.0 |
-| Fecha | 2026-11-06 |
+| Estado | Implementación parcial: PorPuntos y EnFecha; integración completa pendiente |
+| Versión | 2.1 |
+| Fecha | 2026-11-12 |
 | Alcance | Integrar los mecanismos existentes bajo un único EventoNarrativo |
+
+> El [contrato 26](./26-actores-colectivos-y-espera.md) implementa las citas
+> EnFecha sobre el coordinador existente, las observaciones Local/Silenciosa y
+> EnColectivo, y la espera cancelable. No crea otra agenda. Los eventos incrustados,
+> `this`, EnFaseNpc, repetibles y AccionNpc continúan pendientes; las políticas
+> legadas conservan una fase por cierre hasta su migración.
 
 ## 1. Propósito y autoridad
 

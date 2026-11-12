@@ -1,0 +1,11 @@
+(
+    clave: "demo_jornada_a_bordo",
+    activacion: EnFecha(fecha: (anio: 2025, mes: 2, dia: 2)),
+    observacion: EnColectivo(colectivo: "compania_dahran"),
+    condicion: "return true",
+    inicio: "relato",
+    pasos: [
+        Vigneta(clave: "relato", presentacion: r#"return {titulo="Una jornada tranquila",texto="Desde la cubierta ves pasar las velas de un mercante. Nadie da una nueva orden. Cuando termines de leer, la espera continuará; podés cancelarla con Esc."}"#, siguiente: Some("fin")),
+        Fin(clave: "fin", control: Continuar),
+    ],
+)

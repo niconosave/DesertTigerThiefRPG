@@ -97,7 +97,7 @@ impl Contabilidad {
         duracion: HorasViaje,
         azar: &mut dyn FuenteAzar,
     ) -> Resultado<()> {
-        let consumo = e.contabilizar(duracion, e.viajeros.len(), azar)?;
+        let consumo = e.contabilizar(duracion, e.viajeros.len(), true, azar)?;
         self.incorporar(duracion, consumo)
     }
 }

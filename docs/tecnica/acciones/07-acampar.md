@@ -6,6 +6,13 @@
 | Versión | 1.4 |
 | Fecha | 2026-10-26 |
 
+> Ampliación implementada el 2026-11-12: el
+> [contrato 26](../componentes/26-actores-colectivos-y-espera.md) añade Esperar
+> órdenes al estar incorporado. Incluye avance automático sobre el mapa,
+> cancelación con retorno al campamento y un crédito de descanso para no cobrar
+> dos veces el tiempo ya transcurrido. El cierre normal aquí descrito sigue
+> aplicándose a las acampadas que no hayan cubierto su descanso esperando.
+
 > Ampliación implementada el 2026-11-11: el [contrato 25](../componentes/25-conceptos-relaciones-personales.md)
 > extiende la navegación a Conceptos y las etiquetas de relaciones personales.
 

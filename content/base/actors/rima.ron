@@ -3,9 +3,9 @@
     nombre: "Rima",
     biografia: "Sirvienta esclavizada de la casa de Zahrim. Lleva años trabajando con los abastos del palacio y conoce sus rutinas. Quiere recuperar su libertad y abrir una pequeña casa de comidas en Shahraz para vivir de su propio trabajo.",
     ubicacion_inicial: EnLugar("zarabad"),
-    caracteristicas: ["hombreTigre", "administrador", "esclavo"],
+    caracteristicas: ["hombreTigre", "administrador"],
     relaciones: [
-        (tipo: Sirviente, destino: Actor("zahrim")),
+        (tipo: EsclavoDe, destino: Actor("zahrim")),
         (tipo: Necesita, destino: Concepto("recuperar_la_libertad")),
         (tipo: Desea, destino: Concepto("abrir_casa_comidas_shahraz")),
         (tipo: Conoce, destino: Lugar("zarabad")),

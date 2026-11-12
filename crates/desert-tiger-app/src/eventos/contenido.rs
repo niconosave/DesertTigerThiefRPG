@@ -1,7 +1,7 @@
 use super::lua::Programa;
 use crate::contenido::{CatalogoClaves, clave_externa_valida, validar_texto_presentacion};
-use desert_tiger_core::ExtremoRelacion;
 use desert_tiger_core::acciones::intervenciones::ClasePunto;
+use desert_tiger_core::{ExtremoRelacion, Fecha, Mes};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -23,10 +23,12 @@ pub enum Repeticion {
 pub enum Objetivo {
     Actor(String),
     Lugar(String),
+    Colectivo(String),
 }
 impl Objetivo {
     pub fn resolver(&self, c: &CatalogoClaves) -> Result<ExtremoRelacion, String> {
         match self {
+            Self::Colectivo(s) => c.colectivo_por_clave(s).map(ExtremoRelacion::Colectivo),
             Self::Actor(s) => c.actor_por_clave(s).map(ExtremoRelacion::Actor),
             Self::Lugar(s) => c.lugar_por_clave(s).map(ExtremoRelacion::Lugar),
         }
@@ -40,11 +42,67 @@ pub struct Filtros {
     pub lugar: Option<String>,
     pub objetivo: Option<Objetivo>,
 }
+#[derive(Clone, Debug, Default, Deserialize)]
+pub enum Activacion {
+    #[default]
+    #[serde(skip)]
+    Legada,
+    PorPuntos {
+        puntos: Vec<String>,
+    },
+    EnFecha {
+        fecha: FechaEvento,
+    },
+}
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FechaEvento {
+    anio: u16,
+    mes: u8,
+    dia: u8,
+}
+impl FechaEvento {
+    fn resolver(&self) -> Result<Fecha, String> {
+        Fecha::nueva(
+            self.anio,
+            Mes::desde_numero(self.mes).map_err(|e| e.to_string())?,
+            self.dia,
+        )
+        .map_err(|e| e.to_string())
+    }
+}
+#[derive(Clone, Debug, Default, Deserialize)]
+pub enum Observacion {
+    #[default]
+    #[serde(skip)]
+    Predeterminada,
+    DelPunto,
+    Local {
+        lugar: String,
+    },
+    Silenciosa,
+    EnColectivo {
+        colectivo: String,
+    },
+}
+
+fn puntos_legados<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Vec<String>>, D::Error> {
+    Vec::<String>::deserialize(d).map(Some)
+}
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Definicion {
     pub clave: String,
+    #[serde(default, rename = "puntos", deserialize_with = "puntos_legados")]
+    puntos_legados: Option<Vec<String>>,
+    #[serde(skip)]
     pub puntos: Vec<String>,
+    #[serde(default)]
+    pub activacion: Activacion,
+    #[serde(default)]
+    pub observacion: Observacion,
+    #[serde(skip)]
+    pub fecha: Option<Fecha>,
     #[serde(default)]
     pub modo: Modo,
     #[serde(default)]
@@ -146,6 +204,7 @@ impl Definicion {
 pub struct Catalogo {
     pub eventos: BTreeMap<String, Definicion>,
     pub indice: BTreeMap<ClasePunto, Vec<String>>,
+    pub fechas: BTreeMap<Fecha, Vec<String>>,
 }
 fn clave(s: &str) -> Result<(), String> {
     if clave_externa_valida(s) {
@@ -234,7 +293,64 @@ pub fn cargar(raiz: &Path, claves: &CatalogoClaves) -> Result<Catalogo, String> 
             if ruta.file_stem().and_then(|s| s.to_str()) != Some(&e.clave) {
                 return Err("clave no coincide con archivo".into());
             }
-            if e.puntos.is_empty() || e.pasos.is_empty() {
+            match &e.activacion {
+                Activacion::Legada => {
+                    e.puntos = e
+                        .puntos_legados
+                        .take()
+                        .filter(|p| !p.is_empty())
+                        .ok_or("activación ausente o vacía")?;
+                }
+                Activacion::PorPuntos { puntos } => {
+                    if e.puntos_legados.is_some() || puntos.is_empty() {
+                        return Err("activación duplicada o vacía".into());
+                    }
+                    e.puntos = puntos.clone();
+                }
+                Activacion::EnFecha { fecha } => {
+                    if e.puntos_legados.is_some() {
+                        return Err("activación duplicada".into());
+                    }
+                    e.fecha = Some(fecha.resolver()?);
+                }
+            }
+            if matches!(e.observacion, Observacion::Predeterminada) {
+                e.observacion = if e.fecha.is_some() {
+                    Observacion::Silenciosa
+                } else {
+                    Observacion::DelPunto
+                };
+            }
+            match &e.observacion {
+                Observacion::Local { lugar } if claves.lugar_por_clave(lugar).is_none() => {
+                    return Err(format!("Lugar desconocido {lugar}"));
+                }
+                Observacion::EnColectivo { colectivo }
+                    if claves.colectivo_por_clave(colectivo).is_none() =>
+                {
+                    return Err(format!("colectivo desconocido {colectivo}"));
+                }
+                Observacion::DelPunto if e.fecha.is_some() => {
+                    return Err("EnFecha no admite DelPunto".into());
+                }
+                _ => {}
+            }
+            let automatico = e.fecha.is_some() || !matches!(e.observacion, Observacion::DelPunto);
+            if automatico
+                && (e.modo != Modo::Insertar
+                    || e.interrumpe()
+                    || e.pasos
+                        .iter()
+                        .any(|p| matches!(p,Paso::Vigneta{opciones,..} if !opciones.is_empty())))
+            {
+                return Err(
+                    "evento automático no admite opciones, sustitución o interrupción".into(),
+                );
+            }
+            if e.fecha.is_some() && !e.encadena.is_empty() {
+                return Err("EnFecha no admite encadenamiento".into());
+            }
+            if e.pasos.is_empty() {
                 return Err("puntos/pasos vacíos".into());
             }
             let mut puntos = BTreeSet::new();
@@ -329,6 +445,14 @@ pub fn cargar(raiz: &Path, claves: &CatalogoClaves) -> Result<Catalogo, String> 
         grafo(&g, k)?;
     }
     for (k, e) in &c.eventos {
+        for destino in &e.encadena {
+            if c.eventos[destino].fecha.is_some() {
+                return Err("no se encadena una cita fechada".into());
+            }
+        }
+        if let Some(fecha) = e.fecha {
+            c.fechas.entry(fecha).or_default().push(k.clone());
+        }
         for p in &e.puntos {
             c.indice
                 .entry(ClasePunto::desde_clave(p).ok_or("punto inválido")?)
@@ -336,7 +460,7 @@ pub fn cargar(raiz: &Path, claves: &CatalogoClaves) -> Result<Catalogo, String> 
                 .push(k.clone());
         }
     }
-    for v in c.indice.values_mut() {
+    for v in c.indice.values_mut().chain(c.fechas.values_mut()) {
         v.sort_by(|a, b| {
             c.eventos[b]
                 .prioridad

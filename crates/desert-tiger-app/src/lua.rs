@@ -152,7 +152,7 @@ pub(crate) fn evaluar_politica<R: ResolucionClavesLua>(
             "el actor asociado no existe en el Mundo".to_owned(),
         )
     })?;
-    let Some(lugar) = actor.lugar() else {
+    let Some(lugar) = mundo.ubicacion_actor(actor.id()) else {
         return Ok(ResultadoPoliticaLua::Ninguna);
     };
     let clave_actor = claves.clave_actor(actor.id()).ok_or_else(|| {
@@ -534,6 +534,7 @@ mod pruebas {
 
     fn mundo_y_claves() -> (Mundo, ClavesPrueba) {
         let mundo = Mundo::nuevo(DatosInicialesMundo {
+            colectivos: vec![],
             mapa: IdMapa::desde_posicion(0).expect("ID válido"),
             fecha: Fecha::nueva(2025, Mes::Febrero, 2).expect("fecha válida"),
             lugares: vec![

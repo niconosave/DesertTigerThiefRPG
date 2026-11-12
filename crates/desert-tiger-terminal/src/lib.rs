@@ -248,6 +248,7 @@ fn ejecutar_interactivo(
                 _ => {}
             }
         }
+        interfaz.avanzar_espera();
         sincronizar_audio(&mut interfaz, &mut audio, inicio_musica.elapsed());
     }
 }
@@ -483,6 +484,10 @@ mod pruebas {
                         termino = true;
                         break;
                     }
+                    VistaSesion::ProcesandoCierre { token } => partida
+                        .procesar(desert_tiger_app::IntencionFrontend::ContinuarCierre { token })
+                        .unwrap(),
+                    VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
                     VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                     VistaSesion::PresentandoEvento(_) | VistaSesion::EsperandoDecisionEvento(_) => {
                         panic!("catálogo vacío inesperado")

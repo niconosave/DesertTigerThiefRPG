@@ -16,7 +16,6 @@ use desert_tiger_app::{
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
-#[cfg(test)]
 use ratatui::style::Color;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -43,6 +42,9 @@ enum ModoLocal {
 
 pub(crate) struct Interfaz {
     partida: Partida,
+    transcurrido_espera: Duration,
+    campamento_suspendido: Option<crate::campamento::EstadoCampamento>,
+    area_retratos_mapa: Cell<Option<Rect>>,
     vista: VistaSesion,
     ultima_vista_mundo: VistaMundo,
     retratos: HashMap<IdActor, RetratoActor>,
@@ -80,6 +82,9 @@ impl Interfaz {
         let trafico_terrestre = crate::caravanas::crear(mundo);
         Ok(Self {
             partida,
+            transcurrido_espera: Duration::ZERO,
+            campamento_suspendido: None,
+            area_retratos_mapa: Cell::new(None),
             vista,
             ultima_vista_mundo,
             retratos: HashMap::new(),
@@ -141,7 +146,10 @@ impl Interfaz {
         self.inspector.activo
             && !self.confirmar_salida
             && !self.salir
-            && matches!(self.vista, VistaSesion::Disponible(_))
+            && matches!(
+                self.vista,
+                VistaSesion::Disponible(_) | VistaSesion::EsperandoOrdenes(_)
+            )
     }
 
     pub(crate) fn invalidar_geometria_mouse(&mut self) {
@@ -152,15 +160,17 @@ impl Interfaz {
     fn coordenada_bajo_mouse(&self) -> Option<desert_tiger_app::CoordenadaMapa> {
         let (x, y) = self.inspector.puntero?;
         let geometria = self.geometria_mapa.get()?;
-        let sobre_retrato = disposicion_retratos(&self.ultima_vista_mundo, geometria.area).any(
-            |(actor, rx, ry)| {
-                let base = actor.retrato.base();
-                let ancho = i64::try_from(base.ancho()).unwrap_or(i64::MAX);
-                let alto = i64::try_from(base.alto()).unwrap_or(i64::MAX);
-                (rx..rx.saturating_add(ancho)).contains(&i64::from(x))
-                    && (ry..ry.saturating_add(alto)).contains(&i64::from(y))
-            },
-        );
+        let sobre_retrato = disposicion_retratos(
+            &self.ultima_vista_mundo,
+            self.area_retratos_mapa.get().unwrap_or(geometria.area),
+        )
+        .any(|(actor, rx, ry)| {
+            let base = actor.retrato.base();
+            let ancho = i64::try_from(base.ancho()).unwrap_or(i64::MAX);
+            let alto = i64::try_from(base.alto()).unwrap_or(i64::MAX);
+            (rx..rx.saturating_add(ancho)).contains(&i64::from(x))
+                && (ry..ry.saturating_add(alto)).contains(&i64::from(y))
+        });
         if sobre_retrato {
             None
         } else {
@@ -268,7 +278,36 @@ impl Interfaz {
         }
     }
 
+    pub(crate) fn avanzar_espera(&mut self) {
+        if self.menu_desarrollo || self.confirmar_salida || self.salir {
+            self.transcurrido_espera = Duration::ZERO;
+            return;
+        }
+        match self.vista.clone() {
+            VistaSesion::ProcesandoCierre { token } => {
+                self.enviar(IntencionFrontend::ContinuarCierre { token })
+            }
+            VistaSesion::EsperandoOrdenes(v)
+                if self.transcurrido_espera >= Duration::from_millis(500) =>
+            {
+                self.transcurrido_espera = Duration::ZERO;
+                self.enviar(IntencionFrontend::AvanzarEspera {
+                    espera: v.id,
+                    intervalo: v.intervalo,
+                });
+            }
+            _ => {}
+        }
+    }
     pub(crate) fn avanzar_animacion(&mut self, transcurrido: Duration) {
+        if matches!(self.vista, VistaSesion::EsperandoOrdenes(_))
+            && !self.confirmar_salida
+            && !self.menu_desarrollo
+        {
+            self.transcurrido_espera = self.transcurrido_espera.saturating_add(transcurrido);
+        } else {
+            self.transcurrido_espera = Duration::ZERO;
+        }
         if !self.confirmar_salida {
             self.reloj.avanzar(transcurrido);
         }
@@ -293,6 +332,7 @@ impl Interfaz {
             return;
         }
         self.geometria_mapa.set(None);
+        self.transcurrido_espera = Duration::ZERO;
         if self.aviso_audio_mostrado.replace(false) {
             self.aviso_audio = None;
         }
@@ -308,6 +348,13 @@ impl Interfaz {
         if normalizar_letra(evento.code) == Some('q') {
             self.confirmar_salida = true;
             self.inspector.puntero = None;
+            return;
+        }
+        if evento.code == KeyCode::Esc
+            && !self.menu_desarrollo
+            && let Some(espera) = self.partida.espera_activa()
+        {
+            self.enviar(IntencionFrontend::CancelarEspera { espera });
             return;
         }
         if let Some(v) = self.evento().cloned() {
@@ -380,7 +427,10 @@ impl Interfaz {
             return;
         }
         if normalizar_letra(evento.code) == Some('d')
-            && matches!(self.vista, VistaSesion::Disponible(_))
+            && matches!(
+                self.vista,
+                VistaSesion::Disponible(_) | VistaSesion::EsperandoOrdenes(_)
+            )
         {
             self.menu_desarrollo = true;
             self.foco_desarrollo = 0;
@@ -621,6 +671,7 @@ impl Interfaz {
                     });
                 }
             }
+            VistaSesion::EsperandoOrdenes(_) | VistaSesion::ProcesandoCierre { .. } => {}
             VistaSesion::PresentandoEvento(_)
             | VistaSesion::EsperandoDecisionEvento(_)
             | VistaSesion::Acampando(_)
@@ -635,7 +686,10 @@ impl Interfaz {
             Ok(vista) => {
                 self.vista = vista;
                 self.planificacion = crate::planificacion_rutas::EstadoPlanificacion::default();
-                if !matches!(self.vista, VistaSesion::Disponible(_)) {
+                if !matches!(
+                    self.vista,
+                    VistaSesion::Disponible(_) | VistaSesion::EsperandoOrdenes(_)
+                ) {
                     self.inspector.puntero = None;
                 }
                 self.error_recuperable = None;
@@ -644,18 +698,24 @@ impl Interfaz {
                 self.foco_evento = 0;
                 self.pagina_antes_detalle = 0;
                 self.actualizar_mundo();
-                self.campamento = match &self.vista {
-                    VistaSesion::Acampando(v) => Some(crate::campamento::EstadoCampamento::nuevo(
-                        v.clone(),
-                        &self.partida,
-                    )),
-                    VistaSesion::PresentandoEvento(_)
-                    | VistaSesion::EsperandoDecisionEvento(_)
-                    | VistaSesion::Disponible(_)
-                    | VistaSesion::PresentandoAccion(_)
-                    | VistaSesion::EsperandoDecision(_)
-                    | VistaSesion::Fatal(_) => None,
+                self.transcurrido_espera = Duration::ZERO;
+                if self.partida.espera_activa().is_some()
+                    && let Some(camp) = self.campamento.take()
+                {
+                    self.campamento_suspendido = Some(camp);
+                }
+                self.campamento = if let VistaSesion::Acampando(v) = &self.vista {
+                    Some(if let Some(camp) = self.campamento_suspendido.take() {
+                        camp.reanudar(v.clone(), &self.partida)
+                    } else {
+                        crate::campamento::EstadoCampamento::nuevo(v.clone(), &self.partida)
+                    })
+                } else {
+                    None
                 };
+                if self.partida.espera_activa().is_none() {
+                    self.campamento_suspendido = None;
+                }
             }
             Err(error) => self.error_recuperable = Some(texto_error_intencion(error)),
         }
@@ -821,7 +881,10 @@ impl Interfaz {
             VistaSesion::Fatal(fatal) => {
                 self.dibujar_ventana(frame, region_mundo, "Error", &fatal.mensaje, None, recursos)
             }
-            VistaSesion::Disponible(_) | VistaSesion::Acampando(_) => {}
+            VistaSesion::Disponible(_)
+            | VistaSesion::Acampando(_)
+            | VistaSesion::EsperandoOrdenes(_)
+            | VistaSesion::ProcesandoCierre { .. } => {}
         }
         if self.menu_desarrollo {
             crate::desarrollo::dibujar_menu(
@@ -891,6 +954,41 @@ impl Interfaz {
         mundo: &VistaMundo,
         recursos: &RecursosVisuales,
     ) {
+        let exterior = area;
+        self.area_retratos_mapa.set(Some(exterior));
+        let area = if let Some(colectivo) = &mundo.colectivo {
+            let grosor = 3
+                .min(area.width.saturating_sub(1) / 2)
+                .min(area.height.saturating_sub(1) / 2);
+            let interior = Rect::new(
+                area.x + grosor,
+                area.y + grosor,
+                area.width.saturating_sub(grosor * 2),
+                area.height.saturating_sub(grosor * 2),
+            );
+            let estilo = Style::reset()
+                .bg(recursos.paleta.fondo_pantalla(Some(Color::Black)))
+                .fg(Color::White);
+            for y in area.y..area.bottom() {
+                for x in area.x..area.right() {
+                    if !interior.contains((x, y).into())
+                        && let Some(c) = frame.buffer_mut().cell_mut((x, y))
+                    {
+                        c.reset();
+                        c.set_char(' ').set_style(estilo);
+                    }
+                }
+            }
+            frame.render_widget(
+                Paragraph::new(format!("Dentro de: {}", colectivo.nombre))
+                    .alignment(ratatui::layout::Alignment::Center)
+                    .style(estilo),
+                Rect::new(area.x, area.y, area.width, 1),
+            );
+            interior
+        } else {
+            area
+        };
         let objetivo = if let Some(d) = self.decision_planificacion() {
             self.planificacion.objetivo(d, mundo, area)
         } else {
@@ -1063,8 +1161,8 @@ impl Interfaz {
         }
         dibujar_retratos(
             frame,
-            area,
-            area,
+            exterior,
+            exterior,
             mundo,
             recursos,
             self.reloj.paso_250_ms(),
@@ -1082,7 +1180,9 @@ impl Interfaz {
         }
         let id = match &self.vista {
             VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => v.lugar,
-            VistaSesion::Disponible(_) => self.ultima_vista_mundo.lugar_jugador,
+            VistaSesion::Disponible(_)
+            | VistaSesion::EsperandoOrdenes(_)
+            | VistaSesion::ProcesandoCierre { .. } => self.ultima_vista_mundo.lugar_jugador,
             VistaSesion::PresentandoAccion(v) => v.progreso.lugar_paisaje,
             VistaSesion::EsperandoDecision(v) => v.progreso.lugar_paisaje,
             VistaSesion::Acampando(_) | VistaSesion::Fatal(_) => return None,
@@ -1173,6 +1273,20 @@ impl Interfaz {
             }
         }
         match &self.vista {
+            VistaSesion::EsperandoOrdenes(_) | VistaSesion::ProcesandoCierre { .. } => {
+                let f = self.partida.fecha_actual();
+                format!(
+                    "{} — {:02}/{:02}/{}",
+                    if matches!(self.vista, VistaSesion::EsperandoOrdenes(_)) {
+                        "Esperando órdenes"
+                    } else {
+                        "Resolviendo sucesos"
+                    },
+                    f.dia(),
+                    f.mes().numero(),
+                    f.anio()
+                )
+            }
             VistaSesion::PresentandoAccion(fragmento) => texto_progreso(&fragmento.progreso),
             VistaSesion::EsperandoDecision(decision) => texto_progreso(&decision.progreso),
             VistaSesion::Acampando(_) => self
@@ -1242,11 +1356,23 @@ impl Interfaz {
                     .to_owned()
             }
             ModoLocal::Normal => match &self.vista {
+                VistaSesion::EsperandoOrdenes(_) => {
+                    " [Esc] Volver al campamento  [D] Desarrollo  [Q] Salir".into()
+                }
+                VistaSesion::ProcesandoCierre { .. } => if self.partida.espera_activa().is_some() {
+                    " [Esc] Cancelar espera  [Q] Salir"
+                } else {
+                    " [Q] Salir"
+                }
+                .into(),
                 VistaSesion::Disponible(mundo) => match destinos_viaje(mundo) {
                     Some([]) => {
                         " Viajar (no disponible)  [A] Acampar  [D] Desarrollo  [Q] Salir".to_owned()
                     }
                     Some(_) => " [V] Viajar  [A] Acampar  [D] Desarrollo  [Q] Salir".to_owned(),
+                    None if mundo.acciones.contains(&AccionDisponible::Acampar) => {
+                        " [A] Acampar  [D] Desarrollo  [Q] Salir".into()
+                    }
                     None => " [D] Desarrollo  [Q] Salir".to_owned(),
                 },
                 VistaSesion::PresentandoAccion(fragmento) => {
@@ -1909,6 +2035,97 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    #[test]
+    fn colectivos_marco_respeta_retratos_barras_y_coordenadas() {
+        let mut i = Interfaz::nueva(partida_preparada(None, false, true)).unwrap();
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let fecha = i.partida.fecha_actual();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let con_marco = terminal.backend().buffer().clone();
+        let geometria = i.geometria_mapa.get().unwrap();
+        assert_eq!(geometria.area, Rect::new(3, 3, 74, 16));
+        assert!(geometria.a_mapa(0, 5).is_none());
+        assert!(i.texto_acciones().contains("[A] Acampar"));
+        assert!(!i.texto_acciones().contains("[V] Viajar"));
+        let fila = (0..80)
+            .map(|x| con_marco[(x, 0)].symbol())
+            .collect::<String>();
+        assert!(fila.contains("Dentro de: Compañía de prueba"));
+        assert_eq!(con_marco[(0, 4)].bg, Color::Black);
+        let colectivo = i.ultima_vista_mundo.colectivo.take();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let sin_marco = terminal.backend().buffer();
+        for (actor, x, y) in disposicion_retratos(&i.ultima_vista_mundo, Rect::new(0, 0, 80, 22)) {
+            for (dy, fila) in actor
+                .retrato
+                .base()
+                .celdas()
+                .chunks(actor.retrato.base().ancho())
+                .enumerate()
+            {
+                for (dx, celda) in fila.iter().enumerate() {
+                    if celda.glifo != ' ' {
+                        let px = x + dx as i64;
+                        let py = y + dy as i64;
+                        if (0..80).contains(&px) && (0..22).contains(&py) {
+                            let a = &con_marco[(px as u16, py as u16)];
+                            let b = &sin_marco[(px as u16, py as u16)];
+                            assert_eq!(
+                                (a.symbol(), a.fg, a.modifier),
+                                (b.symbol(), b.fg, b.modifier)
+                            );
+                            // Los fondos transparentes dejan ver el marco cuando
+                            // coincide con ellos, conservando el arte y su frente.
+                        }
+                    }
+                }
+            }
+        }
+        i.ultima_vista_mundo.colectivo = colectivo;
+        terminal.backend_mut().resize(120, 40);
+        terminal.resize(Rect::new(0, 0, 120, 40)).unwrap();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(i.partida.fecha_actual(), fecha);
+    }
+    #[test]
+    fn colectivos_reloj_cancelacion_menu_y_retorno_conservan_tiempo_y_foco() {
+        let mut i = Interfaz::nueva(partida_preparada(None, false, true)).unwrap();
+        let tecla = |code| KeyEvent::new(code, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('a')));
+        i.manejar_tecla(tecla(KeyCode::Right));
+        i.manejar_tecla(tecla(KeyCode::Right));
+        assert!(i.texto_contextual().contains("Esperar órdenes"));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert!(matches!(i.vista, VistaSesion::EsperandoOrdenes(_)));
+        assert!(!i.ambiente_sonoro().fogata);
+        let fecha = i.partida.fecha_actual();
+        i.avanzar_animacion(Duration::from_millis(499));
+        i.avanzar_espera();
+        assert_eq!(i.partida.fecha_actual(), fecha);
+        i.avanzar_animacion(Duration::from_millis(1));
+        i.avanzar_espera();
+        let despues = i.partida.fecha_actual();
+        assert_ne!(despues, fecha);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        assert!(i.menu_desarrollo);
+        i.avanzar_animacion(Duration::from_secs(30));
+        i.avanzar_espera();
+        assert_eq!(i.partida.fecha_actual(), despues);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        i.avanzar_espera();
+        assert_eq!(i.partida.fecha_actual(), despues);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(matches!(i.vista, VistaSesion::Acampando(_)));
+        assert!(i.texto_contextual().contains("Esperar órdenes"));
+        assert!(i.ambiente_sonoro().fogata);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert_eq!(i.partida.fecha_actual(), despues);
+        assert!(matches!(i.vista, VistaSesion::Disponible(_)));
+    }
 
     fn preparar_inspector() -> (Interfaz, RecursosVisuales, Terminal<TestBackend>) {
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -2830,6 +3047,9 @@ mod pruebas {
         partida_con_retrato_y_arte_y_viajero(arte, false)
     }
     fn partida_con_retrato_y_arte_y_viajero(arte: Option<&str>, viajero: bool) -> Partida {
+        partida_preparada(arte, viajero, false)
+    }
+    fn partida_preparada(arte: Option<&str>, viajero: bool, colectivo: bool) -> Partida {
         use std::fs;
         use std::sync::atomic::{AtomicU64, Ordering};
         static NUMERO: AtomicU64 = AtomicU64::new(0);
@@ -2899,6 +3119,28 @@ mod pruebas {
                 ),
             )
             .unwrap();
+        }
+        if colectivo {
+            let world = destino.join("world.ron");
+            fs::write(
+                &world,
+                fs::read_to_string(&world).unwrap().replacen(
+                    '(',
+                    "(colectivos:[\"compania_prueba\"],",
+                    1,
+                ),
+            )
+            .unwrap();
+            fs::create_dir(destino.join("collectives")).unwrap();
+            fs::write(destino.join("collectives/compania_prueba.ron"),r#"(clave:"compania_prueba",nombre:"Compañía de prueba",descripcion:"Una compañía.",ubicacion_inicial:EnLugar("zona_arida"))"#).unwrap();
+            for nombre in ["principe_perdido", "bandido", "sirviente"] {
+                let ruta = destino.join("actors").join(format!("{nombre}.ron"));
+                let t = fs::read_to_string(&ruta).unwrap().replace(
+                    "ubicacion_inicial: EnLugar(\"zona_arida\")",
+                    "ubicacion_inicial: EnColectivo(\"compania_prueba\")",
+                );
+                fs::write(ruta, t).unwrap();
+            }
         }
         let contenido = cargar_contenido(&destino).unwrap();
         Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap()
@@ -3450,6 +3692,10 @@ mod pruebas {
                 VistaSesion::PresentandoEvento(_) | VistaSesion::EsperandoDecisionEvento(_) => {
                     panic!("evento inesperado sin catálogo")
                 }
+                VistaSesion::ProcesandoCierre { token } => {
+                    interfaz.enviar(IntencionFrontend::ContinuarCierre { token })
+                }
+                VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
                 VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                 VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
             }

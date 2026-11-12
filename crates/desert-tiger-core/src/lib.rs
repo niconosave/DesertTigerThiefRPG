@@ -21,3 +21,5 @@ pub use modelo::{
 };
 
 pub use modelo::{HermanoDerivado, Progenitores, UbicacionActor};
+
+pub use modelo::{ActorColectivo, ColectivoInicial, IdColectivo};

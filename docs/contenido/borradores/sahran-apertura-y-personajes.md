@@ -140,42 +140,39 @@ Una prohibición de seleccionar Viajar no basta: las acciones son las que hacen
 pasar el tiempo y permiten desarrollar los sucesos. La actividad bajo órdenes
 debe conservar una manera de ejecutar acciones y avanzar la partida.
 
-**Propuesta para resolverlo:** un encargo vigente establece el destino o la
-tarea autorizada. El jugador recibe su contexto narrativo y puede iniciarlo;
-un traslado se ejecuta con Viajar, con el recorrido y las restricciones que
-correspondan. Más adelante, un encargo puede dejar elegir entre destinos o
-procedimientos. Los acontecimientos intermedios siguen permitiendo las decisiones
-que tengan sentido para esa situación.
+**Diseño actual del usuario:** el Grupo se incorpora a un Actor colectivo,
+inicialmente la compañía del capitán. El mapa sigue visible y el jugador puede
+acampar y usar las herramientas de desarrollador, pero no inicia Viajar por su
+cuenta. Los traslados del colectivo se escribirán como sucesos fechados, hasta
+que otro evento saque al Grupo. La propuesta anterior de iniciar personalmente
+los viajes de un encargo queda para una etapa posterior de mayor autonomía.
 
 **Nueva propuesta del usuario:** usar mecánicas compartidas de cautividad y
 reclutamiento para representar esta situación, y añadir **Esperar órdenes**
 al menú de Acampar cuando el grupo está bajo mando. La espera debe permitir
-que transcurra tiempo y se presenten encargos del capitán. Los encargos se
-resuelven después mediante las acciones generales correspondientes.
+que transcurra tiempo y se presenten los acontecimientos de la compañía.
+Las acciones generales del colectivo siguen pendientes de diseño.
 
-**Alcance inicial propuesto:** confirmar una jornada de espera y evaluar los
-eventos al cerrarla. Acampar ya consume un día al finalizar en el código actual;
-la integración debe contabilizar esa jornada una sola vez. Esta duración es una
-propuesta, no una regla ya elegida para Esperar órdenes. Si no llega una orden,
-la partida debe seguir ofreciendo opciones compatibles con la situación, sin
-quedar esperando indefinidamente un evento que quizá no pueda ocurrir.
+**Regla elegida por el usuario:** Esperar órdenes vuelve al mapa y hace avanzar
+el tiempo automáticamente hasta que el colectivo actúe o el jugador pulse una
+tecla para cancelar y volver a Acampar. El contrato propone Esc como esa tecla.
+El avance se procesa en intervalos acotados para seguir atendiendo la entrada.
+Las viñetas pausan el reloj mientras se leen. Cancelar conserva lo transcurrido;
+la integración no cobra además otro día por salir o regresar al campamento.
 
-Quedan pendientes cómo se muestra una orden que ya existe, cuándo termina la
-espera y las consecuencias de postergar o desobedecer. La nueva opción no se
-ha incorporado al campamento ejecutable ni convierte por sí sola a Acampar
-en una simulación de servicio naval.
+El [contrato técnico implementado](../../tecnica/componentes/26-actores-colectivos-y-espera.md)
+concreta incorporación física, marco del mapa, espera cancelable, agenda y garantías
+contra bloqueos. La opción ya existe para grupos incorporados. La demo aislada
+permite probarla; el contenido base todavía no inicia el servicio naval del príncipe.
 
 La condición de esclavo, estar bajo custodia y disponer de permiso para viajar
-describen cosas distintas. Se propone ligar las restricciones al Actor y a
-quien lo manda, con un alcance concreto, evitando un bloqueo global del jugador
-que afecte también a otros protagonistas. Las variables globales pueden guardar
-el progreso de estos episodios sin sustituir esa situación personal. El formato
-definitivo y las consecuencias de desobedecer o escapar siguen pendientes.
-La situación debe conservar sus efectos cuando el Actor actúa como NPC; no
-es una restricción exclusiva de la interfaz del jugador.
-El reclutamiento por un tercero y la cautividad no son equivalentes: pueden
-coincidir en el caso del príncipe, pero también existir por separado. La forma
-de aplicarlos al Actor o al grupo y el destino del sirviente siguen por diseñar.
+describen cosas distintas. El contrato liga la restricción inicial a
+la incorporación física del Actor y mantiene unido al Grupo completo, incluido
+el sirviente. Se aplica también a los NPCs incorporados. Las variables globales
+pueden guardar el progreso del episodio sin sustituir esa situación personal.
+Salir del colectivo no borra por sí solo una relación de servidumbre o cautividad.
+Las reglas específicas para prisioneros, las consecuencias de desobedecer o
+escapar y la posterior libertad de movimiento durante el servicio siguen pendientes.
 
 ## 3. Primer reparto propuesto
 
@@ -319,3 +316,30 @@ los servicios de pasaje y sus condiciones, y el desarrollo de los encargos
 navales. La disputa comercial de fondo ya está establecida. Tampoco se decide
 todavía qué ocurre con el sirviente al vender al príncipe ni cómo se recupera
 la libertad.
+
+### Ajustes de nombres y orientación inicial
+
+El príncipe se llama **Ashur**, su sirviente **Nadin** y Bandido **Rashak**;
+sus claves RON se conservan. Ur Eshan es la capital natal que Ashur y Nadin
+conocen. Rashak solo declara conocimiento de Zarabad para acotar los destinos
+iniciales. Zarabad conecta con el Mar del Viento, que también conecta con Shahraz.
+Los pasajes entre Shahraz, Zarabad y Nuris se derivan de Compra/Vende entre puertos
+y recorren las conexiones marítimas intermedias. Su pago es narrativo provisional; el monedero y las tarifas quedan pendientes.
+
+### Pendiente: diálogos de Actores dentro de eventos narrativos
+
+Los eventos podrán alternar una descripción narrativa con intervenciones de
+Actores identificados. El texto del diálogo aparecerá en la barra inferior.
+Mientras alguien habla, su retrato conservará el color y los demás retratos
+se mostrarán en tonos de gris. Al terminar la intervención se recuperará la
+presentación habitual. Queda por diseñar la conversión a gris: tabla de
+equivalencias o cálculo automático, respetando las opciones de paleta existentes.
+Esta función todavía no se implementa.
+
+Como primera aplicación, se revisará la advertencia previa a la audiencia de
+Zarabad. Nadin dirá a Ashur que desconfía de Rashak y recomendará alejarse y
+dejarlo atrás. No tendrá pruebas: será una sospecha. La escena no mostrará al
+jugador una conversación sobre el precio ni otra evidencia que confirme la
+venta. La elección deberá conservar esa incertidumbre, sin asegurar que Nadin
+tiene razón. Esta revisión narrativa queda pendiente junto con los diálogos;
+el evento ejecutable actual todavía conserva la advertencia explícita anterior.

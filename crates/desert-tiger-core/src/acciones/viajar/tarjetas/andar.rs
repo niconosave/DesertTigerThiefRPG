@@ -7,7 +7,9 @@ pub(crate) fn resolver(
     let previo = geografia::estado_pie(c.mundo, c.viajeros);
     let mut estados = [previo; 2];
     let mut demora = 0;
-    let [a, b] = &m.dato.chequeos;
+    let [a, b] = m.dato.chequeos.as_slice() else {
+        return Err(fallo("se esperaban dos chequeos de desplazamiento"));
+    };
     if a.ajustado < 8 && b.ajustado < 8 && (a.ajustado < 5 || b.ajustado < 5) {
         let dado = (sortear(azar, 20)? + 1) as u8;
         let i = mitad_incidente(&m);

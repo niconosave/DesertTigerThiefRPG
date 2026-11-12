@@ -30,8 +30,10 @@ Todos desarrollan el
 | [`21-arte-lugares.md`](./21-arte-lugares.md) | Implementado: paisaje sobre el mapa, contexto narrativo, anclaje, transparencia y composición por debajo de actores y ventanas. |
 | [`22-alturas-visibilidad-memoria.md`](./22-alturas-visibilidad-memoria.md) | Implementado: matriz de relieve, visión con alcance y obstáculos, memoria de exploración y tiles recordados en gris sin animación. |
 | [`23-eventos-narrativos.md`](./23-eventos-narrativos.md) | Implementado: autoría RON/Lua, puntos de intervención, viñetas, efectos atómicos, cola, sustitución de relatos y continuación/interrupción de Viajar. |
-| [`24-agenda-eventos-mundo.md`](./24-agenda-eventos-mundo.md) | Diseñado: modelo común de eventos, autoría local/externa, `this`, integración de políticas, fechas y observación remota. |
+| [`24-agenda-eventos-mundo.md`](./24-agenda-eventos-mundo.md) | Parcial: PorPuntos y EnFecha, fechas y observación remota implementadas; autoría local, `this` e integración completa de políticas pendientes. |
 | [`25-conceptos-relaciones-personales.md`](./25-conceptos-relaciones-personales.md) | Implementado: Conceptos pasivos, relaciones de motivación y vínculos sociales, RON, fichas y consultas Lua. |
+| [`26-actores-colectivos-y-espera.md`](./26-actores-colectivos-y-espera.md) | Implementado: colectivos físicos, entrada y salida, ubicación efectiva, modo reclutado, marco del mapa y espera continua cancelable con eventos fechados. |
+| [`27-pasajes-maritimos.md`](./27-pasajes-maritimos.md) | Implementado: pasajes derivados del comercio, recorrido marítimo, pago narrativo y rutas combinadas. |
 
 Las reglas concretas de cada acción viven en
 [`../acciones/`](../acciones/README.md); los componentes anteriores solo definen

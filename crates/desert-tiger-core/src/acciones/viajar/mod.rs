@@ -58,7 +58,7 @@ pub fn iniciar(
         {
             return Err(fallo("tamaño contradictorio"));
         }
-        for &vecino in mundo.lugares_conectados(l.id()).unwrap_or(&[]) {
+        for &vecino in mundo.lugares_transitables(l.id()).unwrap_or(&[]) {
             if rutas::lugar_tiene(mundo, l.id(), "acuatico")
                 || rutas::lugar_tiene(mundo, vecino, "acuatico")
             {
@@ -81,7 +81,7 @@ pub fn iniciar(
         }
     }
     let directo = mundo
-        .lugares_conectados(lugar)
+        .lugares_transitables(lugar)
         .is_some_and(|v| v.contains(&destino));
     let (ruta, larga, propuestas) = if directo {
         (vec![lugar, destino], Vec::new(), Vec::new())
@@ -261,7 +261,14 @@ impl EjecucionAccion {
         efectos: EfectosEscena,
         azar: &mut dyn FuenteAzar,
     ) -> Resultado<RegistroEscena> {
-        let consumo = self.contabilizar(duracion, efectos.participantes.len(), azar)?;
+        let alimentacion_propia =
+            !matches!(&contenido, ContenidoEscena::Desplazamiento(d) if d.pasaje);
+        let consumo = self.contabilizar(
+            duracion,
+            efectos.participantes.len(),
+            alimentacion_propia,
+            azar,
+        )?;
         self.publicar_contabilizado(mundo, tarjeta, contenido, duracion, consumo, efectos)
     }
 
@@ -269,13 +276,14 @@ impl EjecucionAccion {
         &mut self,
         duracion: HorasViaje,
         participantes: usize,
+        alimentacion_propia: bool,
         azar: &mut dyn FuenteAzar,
     ) -> Resultado<RegistroConsumo> {
         let total = self.total.sumar(duracion)?;
         proyectar_tiempo(self.inicio, total.tiempo()?)
             .map_err(|_| fallo("calendario desbordado"))?;
         let mut consumo = RegistroConsumo::default();
-        if let Some(reservas) = &mut self.reservas {
+        if alimentacion_propia && let Some(reservas) = &mut self.reservas {
             let (h, c) = reservas::consumir(reservas, self.h, duracion, participantes, azar)?;
             self.h = h;
             consumo = c;
@@ -456,10 +464,31 @@ impl EjecucionAccion {
         )?)
     }
     fn necesarias(&self, mundo: &Mundo, horas_busqueda: u64) -> Resultado<u64> {
+        let tiempos = self.tiempos_restantes(mundo)?;
+        let mut cubierto_por_capitan = HorasViaje::CERO;
+        for (i, p) in self.ruta[self.posicion..].windows(2).enumerate() {
+            if !mundo.ofrece_pasaje(p[0], p[1]) && !mundo.es_tramo_pasaje(p[0], p[1]) {
+                continue;
+            }
+            for h in tiempos[i] {
+                cubierto_por_capitan = cubierto_por_capitan.sumar(HorasViaje::horas(h))?;
+            }
+            if let Some(d) = self.demoras.get(self.posicion + i) {
+                for &h in d {
+                    cubierto_por_capitan = cubierto_por_capitan.sumar(h)?;
+                }
+            }
+        }
+        let consumo_pendiente = HorasViaje(
+            self.restante(mundo)?
+                .0
+                .checked_sub(cubierto_por_capitan.0)
+                .ok_or_else(|| fallo("previsión de provisiones inconsistente"))?,
+        );
         u64::try_from(
             self.h
                 .sumar(HorasViaje::horas(horas_busqueda))?
-                .sumar(self.restante(mundo)?)?
+                .sumar(consumo_pendiente)?
                 .jornadas(),
         )
         .map_err(|_| fallo("necesidad fuera de rango"))
@@ -498,6 +527,7 @@ impl EjecucionAccion {
                     return self.proponer_ruta(mundo, azar);
                 }
                 Fase::Preparar => {
+                    self.ruta = mundo.expandir_pasajes(&self.ruta);
                     return self.preparar_viaje(mundo, azar);
                 }
                 Fase::ConfirmarPreparacion(chequeo, config) => {
@@ -618,6 +648,14 @@ impl EjecucionAccion {
                 Fase::Entre { revisar, busco } => {
                     if self.lugar == self.destino && self.paso_montanoso.is_none() {
                         self.fase = Fase::Llegar;
+                        continue;
+                    }
+                    if self
+                        .ruta
+                        .get(self.posicion + 1)
+                        .is_some_and(|&siguiente| mundo.es_tramo_pasaje(self.lugar, siguiente))
+                    {
+                        self.fase = Fase::Mover;
                         continue;
                     }
                     if revisar {

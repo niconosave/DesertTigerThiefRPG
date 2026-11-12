@@ -1,6 +1,8 @@
 (
+    colectivos: ["compania_dahran"],
     mapa: "mapa_inicial",
     lugares: [
+        "aguas_de_nuris",
         "zona_arida",
         "paso_escarpado",
         "valle_fertil",
@@ -129,7 +131,6 @@
     ],
     actor_jugador: "principe_perdido",
     companeros_iniciales: [
-        "bandido",
         "sirviente",
     ],
     fecha_inicial: (

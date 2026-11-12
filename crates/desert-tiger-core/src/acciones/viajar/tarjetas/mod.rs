@@ -66,10 +66,11 @@ pub(crate) fn comenzar(
     }
     Ok(Movimiento {
         dato: Desplazamiento {
+            pasaje: false,
             medio,
             origen: c.origen,
             destino: c.destino,
-            chequeos: [a, b],
+            chequeos: vec![a, b],
             mitades: Vec::new(),
             incidente: None,
             viento: None,
@@ -134,11 +135,19 @@ pub(crate) fn terminar_mitades(
         } else {
             c.caballos > 0 || c.camellos > 0
         };
-        let horas = geografia::mitad(c.mundo, lugar, medio, c.animales, con_monturas, estado)?;
+        let horas = if m.dato.pasaje {
+            geografia::mitad_pasaje(c.mundo, lugar)?
+        } else {
+            geografia::mitad(c.mundo, lugar, medio, c.animales, con_monturas, estado)?
+        };
         let duracion = HorasViaje::horas(horas).sumar(c.carga[i])?;
         m.duracion = m.duracion.sumar(duracion)?;
-        let montanoso = lugar_tiene(c.mundo, lugar, "montanoso");
-        let base = geografia::base_mitad(c.mundo, lugar, medio, c.animales, con_monturas);
+        let montanoso = !m.dato.pasaje && lugar_tiene(c.mundo, lugar, "montanoso");
+        let base = if m.dato.pasaje {
+            24
+        } else {
+            geografia::base_mitad(c.mundo, lugar, medio, c.animales, con_monturas)
+        };
         let lento = montanoso
             || (medio != Medio::Pie
                 && medio != Medio::Barco

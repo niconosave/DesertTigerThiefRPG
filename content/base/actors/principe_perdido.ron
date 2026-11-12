@@ -1,10 +1,11 @@
 (
     clave: "principe_perdido",
-    nombre: "Príncipe Perdido",
-    biografia: "Un príncipe que vive exiliado, lejos del continente del que procede. Viaja junto a sus compañeros.",
-    ubicacion_inicial: EnLugar("zona_arida"),
+    nombre: "Ashur",
+    biografia: "Heredero del reino del Drâa, huye después de que su tío matara a su padre y usurpara el trono. Un naufragio lo arroja a Costa Ámbar junto a su sirviente.",
+    ubicacion_inicial: EnLugar("costa_ambar"),
     caracteristicas: [],
     relaciones: [
+        (tipo: Conoce, destino: Lugar("ur_eshan")),
         (tipo: Desea, destino: Concepto("recuperar_trono_del_draa")),
         (tipo: Padre, destino: Actor("rey")),
         (tipo: Madre, destino: Actor("madre_del_principe")),

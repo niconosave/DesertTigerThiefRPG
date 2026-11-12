@@ -4,8 +4,8 @@ use crate::{
 };
 use desert_tiger_core::acciones::intervenciones::ContextoIntervencion;
 use desert_tiger_core::{
-    Caracteristica, ClaveVariableGlobal, ExtremoRelacion, IdActor, IdLugar, Mundo, OperacionMundo,
-    TipoRelacion, ValorVariableGlobal,
+    Caracteristica, ClaveVariableGlobal, ExtremoRelacion, Fecha, IdActor, IdColectivo, IdLugar,
+    Mundo, OperacionMundo, TipoRelacion, ValorVariableGlobal,
 };
 use mlua::{HookTriggers, Lua, MultiValue, Scope, Table, UserData, Value, VmState};
 use serde::{Deserialize, Deserializer};
@@ -38,6 +38,7 @@ pub struct Presentacion {
     pub detalle: Option<String>,
 }
 pub struct Efectos {
+    pub acciones_colectivas: Vec<IdColectivo>,
     pub operaciones: Vec<OperacionMundo>,
     pub siguiente: String,
     pub solicitar: Vec<String>,
@@ -108,6 +109,11 @@ fn actor(c: &CatalogoClaves, s: &Value) -> mlua::Result<IdActor> {
     c.actor_por_clave(&s)
         .ok_or_else(|| err(format!("Actor inexistente {s}")))
 }
+fn colectivo(c: &CatalogoClaves, v: &Value) -> mlua::Result<IdColectivo> {
+    let k = string(v)?;
+    c.colectivo_por_clave(&k)
+        .ok_or_else(|| err(format!("colectivo inexistente {k}")))
+}
 fn lugar(c: &CatalogoClaves, s: &Value) -> mlua::Result<IdLugar> {
     let s = string(s)?;
     c.lugar_por_clave(&s)
@@ -162,6 +168,7 @@ impl Programa {
         self.nombre = nombre.into();
         Ok(())
     }
+    #[cfg(test)]
     pub fn ejecutar(
         &self,
         tipo: TipoPrograma,
@@ -169,6 +176,17 @@ impl Programa {
         c: &CatalogoClaves,
         ctx: &ContextoIntervencion,
     ) -> Result<Respuesta, String> {
+        self.ejecutar_con_agenda(tipo, mundo, c, ctx, (None, &[], None, true))
+    }
+    pub fn ejecutar_con_agenda(
+        &self,
+        tipo: TipoPrograma,
+        mundo: &Mundo,
+        c: &CatalogoClaves,
+        ctx: &ContextoIntervencion,
+        agenda: (Option<Fecha>, &[IdColectivo], Option<IdLugar>, bool),
+    ) -> Result<Respuesta, String> {
+        let (fecha_suceso, futuras, sede, presente) = agenda;
         let run = || -> mlua::Result<Respuesta> {
             let lua = crear_maquina()?;
             let contador = Arc::new(AtomicU32::new(0));
@@ -188,21 +206,53 @@ impl Programa {
                 let consultas = lua.create_table()?;
                 let contexto = lua.create_table()?;
                 for (nombre, s) in [
-                    ("punto", Some(ctx.clase.clave())),
-                    ("accion", ctx.accion),
-                    ("actor", c.clave_actor(ctx.actor)),
-                    ("lugar", c.clave_lugar(ctx.lugar)),
+                    (
+                        "punto",
+                        Some(if fecha_suceso.is_some() {
+                            "mundo.fecha_programada"
+                        } else {
+                            ctx.clase.clave()
+                        }),
+                    ),
+                    (
+                        "accion",
+                        if fecha_suceso.is_some() {
+                            None
+                        } else {
+                            ctx.accion
+                        },
+                    ),
+                    (
+                        "actor",
+                        if fecha_suceso.is_some() {
+                            None
+                        } else {
+                            c.clave_actor(ctx.actor)
+                        },
+                    ),
+                    (
+                        "lugar",
+                        if fecha_suceso.is_some() {
+                            sede.and_then(|l| c.clave_lugar(l))
+                        } else {
+                            c.clave_lugar(ctx.lugar)
+                        },
+                    ),
                 ] {
                     funcion(scope, &contexto, nombre, 0, 0, true, move |lua, _| {
                         texto(lua, s)
                     })?;
                 }
                 funcion(scope, &contexto, "objetivo", 0, 0, true, move |lua, _| {
-                    let Some(o) = ctx.objetivo else {
+                    let Some(o) = ctx.objetivo.filter(|_| fecha_suceso.is_none()) else {
                         return Ok(Value::Nil);
                     };
                     let t = lua.create_table()?;
                     match o {
+                        ExtremoRelacion::Colectivo(id) => {
+                            t.set("tipo", "Colectivo")?;
+                            t.set("clave", c.clave_colectivo(id))?;
+                        }
                         ExtremoRelacion::Concepto(id) => {
                             t.set("tipo", "Concepto")?;
                             t.set("clave", c.clave_concepto(id))?;
@@ -228,13 +278,17 @@ impl Programa {
                     true,
                     move |lua, _| {
                         let t = lua.create_sequence_from(
-                            ctx.participantes.iter().map(|&a| c.clave_actor(a)),
+                            ctx.participantes
+                                .iter()
+                                .filter(|_| fecha_suceso.is_none())
+                                .map(|&a| c.clave_actor(a)),
                         )?;
                         Ok(Value::Table(proxy_solo_lectura(lua, t)?))
                     },
                 )?;
                 funcion(scope, &contexto, "ahora", 0, 0, true, move |lua, _| {
                     let t = lua.create_table()?;
+                    t.set("dia_absoluto", ctx.instante.fecha.ordinal())?;
                     t.set("anio", ctx.instante.fecha.anio())?;
                     t.set("mes", ctx.instante.fecha.mes().numero())?;
                     t.set("dia", ctx.instante.fecha.dia())?;
@@ -242,6 +296,119 @@ impl Programa {
                     t.set("fraccion_denominador", 2_400_000_000u64)?;
                     Ok(Value::Table(proxy_solo_lectura(lua, t)?))
                 })?;
+                funcion(
+                    scope,
+                    &contexto,
+                    "fecha_programada",
+                    0,
+                    0,
+                    true,
+                    move |lua, _| {
+                        let Some(f) = fecha_suceso else {
+                            return Ok(Value::Nil);
+                        };
+                        let t = lua.create_table()?;
+                        t.set("anio", f.anio())?;
+                        t.set("mes", f.mes().numero())?;
+                        t.set("dia", f.dia())?;
+                        Ok(Value::Table(proxy_solo_lectura(lua, t)?))
+                    },
+                )?;
+                funcion(
+                    scope,
+                    &contexto,
+                    "jugador_presente",
+                    0,
+                    0,
+                    true,
+                    move |_, _| Ok(Value::Boolean(presente)),
+                )?;
+                funcion(
+                    scope,
+                    &consultas,
+                    "actor_jugador",
+                    0,
+                    0,
+                    true,
+                    move |lua, _| texto(lua, c.clave_actor(mundo.actor_jugador())),
+                )?;
+                funcion(
+                    scope,
+                    &consultas,
+                    "colectivo_de",
+                    1,
+                    1,
+                    true,
+                    move |lua, v| {
+                        texto(
+                            lua,
+                            mundo
+                                .colectivo_de(actor(c, &v[0])?)
+                                .and_then(|id| c.clave_colectivo(id)),
+                        )
+                    },
+                )?;
+                funcion(
+                    scope,
+                    &consultas,
+                    "ubicacion_colectivo",
+                    1,
+                    1,
+                    true,
+                    move |lua, v| {
+                        texto(
+                            lua,
+                            mundo
+                                .colectivo(colectivo(c, &v[0])?)
+                                .and_then(|x| c.clave_lugar(x.lugar())),
+                        )
+                    },
+                )?;
+                funcion(
+                    scope,
+                    &consultas,
+                    "lider_colectivo",
+                    1,
+                    1,
+                    true,
+                    move |lua, v| {
+                        texto(
+                            lua,
+                            mundo
+                                .colectivo(colectivo(c, &v[0])?)
+                                .and_then(|x| x.lider())
+                                .and_then(|id| c.clave_actor(id)),
+                        )
+                    },
+                )?;
+                funcion(
+                    scope,
+                    &consultas,
+                    "miembros_colectivo",
+                    1,
+                    1,
+                    true,
+                    move |lua, v| {
+                        let id = colectivo(c, &v[0])?;
+                        let t = lua.create_sequence_from(
+                            mundo
+                                .miembros_colectivo(id)
+                                .unwrap_or(&[])
+                                .iter()
+                                .map(|&a| c.clave_actor(a)),
+                        )?;
+                        Ok(Value::Table(proxy_solo_lectura(lua, t)?))
+                    },
+                )?;
+                funcion(
+                    scope,
+                    &consultas,
+                    "hay_citas_futuras_del_colectivo",
+                    1,
+                    1,
+                    true,
+                    move |_, v| Ok(Value::Boolean(futuras.contains(&colectivo(c, &v[0])?))),
+                )?;
                 funcion(scope, &consultas, "actor_tiene", 2, 2, true, move |_, v| {
                     let id = actor(c, &v[0])?;
                     let s = string(&v[1])?;
@@ -315,6 +482,7 @@ impl Programa {
                             ("ComerciaCon", TipoRelacion::ComerciaCon),
                             ("Padre", TipoRelacion::Padre),
                             ("Madre", TipoRelacion::Madre),
+                            ("EsclavoDe", TipoRelacion::EsclavoDe),
                             ("Sirviente", TipoRelacion::Sirviente),
                             ("MatadoPor", TipoRelacion::MatadoPor),
                             ("Conoce", TipoRelacion::Conoce),
@@ -342,6 +510,7 @@ impl Programa {
                                     .concepto_por_clave(&string(&k)?)
                                     .map(ExtremoRelacion::Concepto)
                                     .ok_or_else(|| err("concepto desconocido")),
+                                "Colectivo" => Ok(ExtremoRelacion::Colectivo(colectivo(c, &k)?)),
                                 "Actor" => Ok(ExtremoRelacion::Actor(actor(c, &k)?)),
                                 "Lugar" => Ok(ExtremoRelacion::Lugar(lugar(c, &k)?)),
                                 _ => Err(err("extremo inválido")),
@@ -381,6 +550,14 @@ impl Programa {
                 env.set("mundo", proxy_solo_lectura(&lua, consultas)?)?;
                 if matches!(tipo, TipoPrograma::Efectos) {
                     let ops = lua.create_table()?;
+                    funcion(scope, &ops, "esclavizar", 2, 2, false, move |lua, v| {
+                        Ok(Value::UserData(lua.create_userdata(Operacion(
+                            OperacionMundo::RegistrarEsclavitud {
+                                actor: actor(c, &v[0])?,
+                                amo: actor(c, &v[1])?,
+                            },
+                        ))?))
+                    })?;
                     for (nombre, quitar) in [
                         ("anadir_caracteristica", false),
                         ("quitar_caracteristica", true),
@@ -436,6 +613,114 @@ impl Programa {
                             ))?))
                         })?;
                     }
+                    for (nombre, ingreso) in [
+                        ("ingresar_grupo_en_colectivo", true),
+                        ("salir_grupo_de_colectivo", false),
+                    ] {
+                        funcion(scope, &ops, nombre, 1, 1, false, move |lua, v| {
+                            let colectivo = colectivo(c, &v[0])?;
+                            let op = if ingreso {
+                                OperacionMundo::IngresarGrupoEnColectivo { colectivo }
+                            } else {
+                                OperacionMundo::SalirGrupoDeColectivo { colectivo }
+                            };
+                            Ok(Value::UserData(lua.create_userdata(Operacion(op))?))
+                        })?;
+                    }
+                    for (nombre, ingreso) in [
+                        ("ingresar_actor_en_colectivo", true),
+                        ("salir_actor_de_colectivo", false),
+                    ] {
+                        funcion(scope, &ops, nombre, 2, 2, false, move |lua, v| {
+                            let actor = actor(c, &v[0])?;
+                            let colectivo = colectivo(c, &v[1])?;
+                            let op = if ingreso {
+                                OperacionMundo::IngresarActorEnColectivo { actor, colectivo }
+                            } else {
+                                OperacionMundo::SalirActorDeColectivo { actor, colectivo }
+                            };
+                            Ok(Value::UserData(lua.create_userdata(Operacion(op))?))
+                        })?;
+                    }
+                    funcion(
+                        scope,
+                        &ops,
+                        "trasladar_colectivo",
+                        2,
+                        2,
+                        false,
+                        move |lua, v| {
+                            Ok(Value::UserData(lua.create_userdata(Operacion(
+                                OperacionMundo::TrasladarColectivo {
+                                    colectivo: colectivo(c, &v[0])?,
+                                    destino: lugar(c, &v[1])?,
+                                },
+                            ))?))
+                        },
+                    )?;
+                    funcion(
+                        scope,
+                        &ops,
+                        "establecer_lider_colectivo",
+                        2,
+                        2,
+                        false,
+                        move |lua, v| {
+                            Ok(Value::UserData(lua.create_userdata(Operacion(
+                                OperacionMundo::EstablecerLiderColectivo {
+                                    colectivo: colectivo(c, &v[0])?,
+                                    lider: if matches!(v[1], Value::Nil) {
+                                        None
+                                    } else {
+                                        Some(actor(c, &v[1])?)
+                                    },
+                                },
+                            ))?))
+                        },
+                    )?;
+                    funcion(scope, &ops, "trasladar_npc", 2, 2, false, move |lua, v| {
+                        let actor = actor(c, &v[0])?;
+                        if actor == mundo.actor_jugador() || mundo.grupo().contiene(actor) {
+                            return Err(err("trasladar_npc no acepta al Grupo del jugador"));
+                        }
+                        Ok(Value::UserData(lua.create_userdata(Operacion(
+                            OperacionMundo::Trasladar {
+                                actor,
+                                destino: lugar(c, &v[1])?,
+                            },
+                        ))?))
+                    })?;
+                    funcion(
+                        scope,
+                        &ops,
+                        "incorporar_companero",
+                        1,
+                        1,
+                        false,
+                        move |lua, v| {
+                            Ok(Value::UserData(lua.create_userdata(Operacion(
+                                OperacionMundo::IncorporarCompanero {
+                                    actor: actor(c, &v[0])?,
+                                },
+                            ))?))
+                        },
+                    )?;
+                    funcion(
+                        scope,
+                        &ops,
+                        "separar_companero",
+                        2,
+                        2,
+                        false,
+                        move |lua, v| {
+                            Ok(Value::UserData(lua.create_userdata(Operacion(
+                                OperacionMundo::SepararCompanero {
+                                    actor: actor(c, &v[0])?,
+                                    lugar: lugar(c, &v[1])?,
+                                },
+                            ))?))
+                        },
+                    )?;
                     env.set("op", proxy_solo_lectura(&lua, ops)?)?;
                 }
                 let f = lua
@@ -474,7 +759,15 @@ impl Programa {
                         }))
                     }
                     TipoPrograma::Efectos => {
-                        campos(&t, &["operaciones", "siguiente", "solicitar"])?;
+                        campos(
+                            &t,
+                            &[
+                                "operaciones",
+                                "siguiente",
+                                "solicitar",
+                                "acciones_colectivas",
+                            ],
+                        )?;
                         let mut operaciones = vec![];
                         for v in lista(t.get("operaciones")?)? {
                             let Value::UserData(u) = v else {
@@ -490,7 +783,16 @@ impl Programa {
                                 .collect::<mlua::Result<Vec<_>>>()?,
                             _ => return Err(err("solicitar requiere lista")),
                         };
+                        let acciones_colectivas = match t.get::<Value>("acciones_colectivas")? {
+                            Value::Nil => vec![],
+                            Value::Table(t) => lista(t)?
+                                .iter()
+                                .map(|v| colectivo(c, v))
+                                .collect::<mlua::Result<Vec<_>>>()?,
+                            _ => return Err(err("acciones_colectivas requiere lista")),
+                        };
                         Ok(Respuesta::Efectos(Efectos {
+                            acciones_colectivas,
                             operaciones,
                             siguiente: campo(&t, "siguiente")?,
                             solicitar,

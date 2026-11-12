@@ -2,7 +2,7 @@
     clave: "dahran",
     nombre: "Dahran",
     biografia: "Capitán al servicio de Zahrim. Severo con los recién llegados, juzga a sus hombres por lo que hacen a bordo. Sobrevivió a un naufragio gracias al pescador Samir y no ha olvidado aquella ayuda. Custodia a Farid, hermano de Samir, capturado al interceptar un barco de Nuris.",
-    ubicacion_inicial: EnLugar("zarabad"),
+    ubicacion_inicial: EnColectivo("compania_dahran"),
     caracteristicas: ["hombreTigre", "severo", "navegante", "fuerte"],
     relaciones: [
         (tipo: Sirviente, destino: Actor("zahrim")),

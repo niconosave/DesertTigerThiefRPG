@@ -101,7 +101,8 @@ pub(crate) fn ejecutar_fase_npc(
         if actor == mundo.actor_jugador()
             || mundo.grupo().contiene(actor)
             || mundo.actor(actor).is_none_or(|a| {
-                a.lugar().is_none() || a.caracteristicas().any(|c| c.como_str() == "muerto")
+                !matches!(a.ubicacion(), desert_tiger_core::UbicacionActor::EnLugar(_))
+                    || a.caracteristicas().any(|c| c.como_str() == "muerto")
             })
         {
             continue;
@@ -266,7 +267,7 @@ mod pruebas {
         .unwrap();
         let (mut mundo, _) = c.instanciar_estado().unwrap();
         let actor = IdActor::desde_posicion(8).unwrap();
-        assert!(mundo.actor(actor).unwrap().lugar().is_none());
+        assert!(mundo.actor(actor).unwrap().lugar_directo().is_none());
         assert!(
             !mundo
                 .actor(actor)

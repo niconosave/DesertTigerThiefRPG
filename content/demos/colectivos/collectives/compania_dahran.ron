@@ -1,0 +1,7 @@
+(
+    clave: "compania_dahran",
+    nombre: "Compañía de Dahran",
+    descripcion: "Una tripulación de prueba que recorre las costas bajo las órdenes de Dahran.",
+    ubicacion_inicial: EnLugar("zona_arida"),
+    lider: Some("dahran"),
+)

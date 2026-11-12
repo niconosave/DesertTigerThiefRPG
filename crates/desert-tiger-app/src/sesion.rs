@@ -1,6 +1,11 @@
+#[cfg(test)]
+mod apertura_pruebas;
+mod espera;
 mod eventos_partida;
 #[cfg(test)]
 mod eventos_pruebas;
+#[cfg(test)]
+mod pasajes_pruebas;
 use crate::contenido::{
     ArteLugar, ClaveTipoTile, ContenidoValidado, CoordenadaMapa, EstadoMapa, RetratoActor,
 };
@@ -15,7 +20,9 @@ use desert_tiger_core::acciones::{
     RechazoAccion, RegistroEscena, RegistroProyecto, RespuestaDecision, RolPresentacion,
 };
 use desert_tiger_core::azar::{ErrorFuenteAzar, FuenteAzar};
-use desert_tiger_core::{Duracion, Fecha, FraccionDia, IdActor, IdLugar, InstanteAccion, Mundo};
+use desert_tiger_core::{
+    Duracion, Fecha, FraccionDia, IdActor, IdColectivo, IdLugar, InstanteAccion, Mundo,
+};
 use rand::rngs::SysRng;
 use rand::{RngExt, SeedableRng, TryRng};
 use rand_chacha::ChaCha12Rng;
@@ -49,6 +56,19 @@ pub struct IdDecisionVista(u64);
 pub struct IdOpcionVista(u32);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntencionFrontend {
+    EsperarOrdenes {
+        campamento: IdCampamento,
+    },
+    AvanzarEspera {
+        espera: IdEspera,
+        intervalo: u64,
+    },
+    CancelarEspera {
+        espera: IdEspera,
+    },
+    ContinuarCierre {
+        token: IdContinuacionCierre,
+    },
     ContinuarEvento {
         presentacion: IdPresentacionEvento,
     },
@@ -83,6 +103,8 @@ pub enum ErrorIntencion {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum VistaSesion {
+    EsperandoOrdenes(VistaEsperaOrdenes),
+    ProcesandoCierre { token: IdContinuacionCierre },
     PresentandoEvento(VistaEvento),
     EsperandoDecisionEvento(VistaEvento),
     Acampando(VistaCampamento),
@@ -93,6 +115,7 @@ pub enum VistaSesion {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaMundo {
+    pub colectivo: Option<Box<VistaColectivo>>,
     pub mapa: VistaMapa,
     pub lugares: Vec<VistaLugar>,
     pub lugar_jugador: IdLugar,
@@ -253,6 +276,9 @@ pub struct IntegranteCampamento {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaCampamento {
+    pub descanso_cubierto: bool,
+    pub colectivo: Option<Box<VistaColectivo>>,
+    pub puede_esperar_ordenes: bool,
     pub id: IdCampamento,
     pub lugar: IdLugar,
     pub integrantes: Vec<IntegranteCampamento>,
@@ -278,6 +304,8 @@ impl FalloCierreAccion {
     }
 }
 pub struct Partida {
+    espera: Option<espera::EsperaOrdenes>,
+    cierre: Option<IdCierre>,
     eventos: crate::eventos::coordinador::Coordinador,
     continuacion_evento: Option<eventos_partida::Continuacion>,
     acampada: Option<acciones::Acampada>,
@@ -342,6 +370,8 @@ impl Partida {
         vision.observar(&mapa, origen);
         let base = proyectar_mundo(&mundo, &mapa, contenido, &vision, None).map_err(error_crear)?;
         let mut partida = Self {
+            espera: None,
+            cierre: None,
             eventos: Default::default(),
             continuacion_evento: None,
             acampada: None,
@@ -360,13 +390,13 @@ impl Partida {
             resto: FraccionDia::CERO,
             ordinal: 0,
         };
-        if let Err(e) = partida.abrir_eventos(
-            partida.contexto_sesion(ClasePunto::Disponible),
-            eventos_partida::Continuacion::Disponible,
-        ) {
+        if let Err(e) = partida.abrir_fechas(inicio, true, eventos_partida::Continuacion::Inicial) {
             partida.fatal(CodigoFatalSesion::EventoNarrativo, e);
         }
         Ok(partida)
+    }
+    pub fn fecha_actual(&self) -> Fecha {
+        self.mundo.fecha()
     }
     pub fn vista(&self) -> VistaSesion {
         self.vista.clone()
@@ -388,6 +418,15 @@ impl Partida {
         &mut self,
         intencion: IntencionFrontend,
     ) -> Result<VistaSesion, ErrorIntencion> {
+        if matches!(
+            intencion,
+            IntencionFrontend::EsperarOrdenes { .. }
+                | IntencionFrontend::AvanzarEspera { .. }
+                | IntencionFrontend::CancelarEspera { .. }
+                | IntencionFrontend::ContinuarCierre { .. }
+        ) {
+            return self.procesar_espera(intencion);
+        }
         if let IntencionFrontend::ContinuarEvento { presentacion } = intencion {
             if !matches!(&self.vista,VistaSesion::PresentandoEvento(v) if v.id==presentacion) {
                 return Err(ErrorIntencion::FragmentoNoVigente);
@@ -418,6 +457,10 @@ impl Partida {
             return Ok(self.vista());
         }
         match intencion {
+            IntencionFrontend::EsperarOrdenes { .. }
+            | IntencionFrontend::AvanzarEspera { .. }
+            | IntencionFrontend::CancelarEspera { .. }
+            | IntencionFrontend::ContinuarCierre { .. } => unreachable!("tratadas antes"),
             IntencionFrontend::ContinuarEvento { .. }
             | IntencionFrontend::ResponderEvento { .. } => {
                 return Err(ErrorIntencion::FaseIncompatible);
@@ -465,6 +508,9 @@ impl Partida {
                 };
                 self.acampada = Some(acampada);
                 self.vista = VistaSesion::Acampando(VistaCampamento {
+                    descanso_cubierto: false,
+                    colectivo: mundo.colectivo.clone(),
+                    puede_esperar_ordenes: mundo.colectivo.is_some(),
                     id: IdCampamento(ordinal),
                     lugar: mundo.lugar_jugador,
                     integrantes,
@@ -496,6 +542,18 @@ impl Partida {
                     return Ok(self.vista());
                 };
                 let resultado = acciones::finalizar_acampada(acampada);
+                if resultado.tiempo.duracion == Duracion::desde_dias(0)
+                    && resultado.tiempo.fraccion == FraccionDia::CERO
+                {
+                    if let Err(e) = self.terminar_cierre() {
+                        self.fatal(CodigoFatalSesion::EstadoInconsistente, e);
+                    }
+                    return Ok(self.vista());
+                }
+                self.inicio = InstanteAccion {
+                    fecha: self.mundo.fecha(),
+                    fraccion: self.resto,
+                };
                 if let Err(e) = self.concluir_accion(resultado.tiempo) {
                     self.fatal(e.codigo(), e.detalle());
                 }
@@ -506,6 +564,10 @@ impl Partida {
             | IntencionFrontend::ResponderDecision { .. } => {}
         }
         let resultado = match intencion {
+            IntencionFrontend::EsperarOrdenes { .. }
+            | IntencionFrontend::AvanzarEspera { .. }
+            | IntencionFrontend::CancelarEspera { .. }
+            | IntencionFrontend::ContinuarCierre { .. } => unreachable!("tratadas antes"),
             IntencionFrontend::ContinuarEvento { .. }
             | IntencionFrontend::ResponderEvento { .. }
             | IntencionFrontend::ComenzarCampamento
@@ -627,7 +689,18 @@ impl Partida {
         &mut self,
         tiempo: desert_tiger_core::TiempoAccion,
     ) -> Result<(), FalloCierreAccion> {
-        let mut ctx = if let Some(e) = &self.ejecucion {
+        self.ordinal = self
+            .ordinal
+            .checked_add(1)
+            .ok_or_else(|| FalloCierreAccion::Proyeccion("IDs agotados".into()))?;
+        self.cierre = Some(IdCierre(self.ordinal));
+        self.eventos.actividades.clear();
+        let mut ctx = if let Some(espera) = &self.espera {
+            let mut c = self.contexto_sesion(ClasePunto::AccionTerminada);
+            c.accion = Some("esperarOrdenes");
+            c.objetivo = Some(crate::ExtremoRelacion::Colectivo(espera.colectivo));
+            c
+        } else if let Some(e) = &self.ejecucion {
             e.contexto(ClasePunto::AccionTerminada)
         } else {
             let mut c = self.contexto_sesion(ClasePunto::AccionTerminada);
@@ -647,9 +720,17 @@ impl Partida {
         self.ejecucion = None;
         self.paso = None;
         self.opciones.clear();
-        self.acampada = None;
+        if self.espera.is_none() {
+            self.acampada = None;
+        }
         crate::tiempo::confirmar(&mut self.mundo, &mut self.resto, tiempo)
             .map_err(FalloCierreAccion::Calendario)?;
+        if let Some(camp) = self.acampada.as_mut().filter(|_| self.espera.is_some()) {
+            camp.cubrir_descanso_por_espera();
+        }
+        Ok(())
+    }
+    fn ejecutar_npc_cierre(&mut self) -> Result<(), FalloCierreAccion> {
         let inicio = InstanteAccion {
             fecha: self.mundo.fecha(),
             fraccion: self.resto,
@@ -733,12 +814,13 @@ impl Partida {
                         _ => None,
                     };
                     let (etiqueta, detalle, ruta) = if let Some(p) = propuesta {
-                        let (etiqueta, detalle, respaldos) = narrador.describir_propuesta(p);
+                        let (etiqueta, mut detalle, respaldos) = narrador.describir_propuesta(p);
+                        for tramo in p.ruta.windows(2) {if self.mundo.ofrece_pasaje(tramo[0],tramo[1]) {detalle.push_str(&format!("\nPasaje en barco: {} → {}.",narrador.lugar(tramo[0]),narrador.lugar(tramo[1])));}}
                         let mut actores=std::collections::BTreeSet::new();
                         let proponentes=p.respaldos.iter().filter(|r|actores.insert(r.actor)).map(|r|narrador.actor(r.actor)).collect();
                         let ruta = VistaRutaPropuesta {
                             proponentes,
-                            lugares: p.ruta.clone(),
+                            lugares: self.mundo.expandir_pasajes(&p.ruta),
                             tiempo_previsto: crate::tiempo::formatear(p.previsto),
                             respaldos,
                         };
@@ -819,6 +901,8 @@ impl Partida {
         Ok(())
     }
     fn fatal(&mut self, codigo: CodigoFatalSesion, mensaje: String) {
+        self.espera = None;
+        self.cierre = None;
         self.vista = VistaSesion::Fatal(VistaFatal {
             codigo,
             mensaje: crate::contenido::sanear(&mensaje),
@@ -870,8 +954,11 @@ fn proyectar_mundo(
         .ok_or("jugador ausente")?
         .caracteristicas()
         .any(|c| c.como_str() == "muerto");
+    let colectivo = proyectar_colectivo(m, c)?;
     let acciones = if muerto {
         Vec::new()
+    } else if colectivo.is_some() {
+        vec![AccionDisponible::Acampar]
     } else {
         vec![
             AccionDisponible::Viajar {
@@ -883,6 +970,7 @@ fn proyectar_mundo(
     };
     let (celdas, visibilidad) = vision.proyectar(mapa);
     Ok(VistaMundo {
+        colectivo,
         mapa: VistaMapa {
             ancho: mapa.ancho(),
             alto: mapa.alto(),
@@ -936,6 +1024,47 @@ fn proyectar_mundo(
         },
         resumen_npc_reciente: resumen,
     })
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct IdEspera(u64);
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct IdCierre(u64);
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct IdContinuacionCierre(u64);
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaEsperaOrdenes {
+    pub id: IdEspera,
+    pub intervalo: u64,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VistaColectivo {
+    pub id: IdColectivo,
+    pub nombre: String,
+    pub lugar: IdLugar,
+    pub lider: Option<String>,
+}
+fn proyectar_colectivo(
+    m: &Mundo,
+    c: &ContenidoValidado,
+) -> Result<Option<Box<VistaColectivo>>, String> {
+    let Some(id) = m.colectivo_de(m.actor_jugador()) else {
+        return Ok(None);
+    };
+    let colectivo = m.colectivo(id).ok_or("colectivo ausente")?;
+    let p = c
+        .presentacion()
+        .colectivo(id)
+        .ok_or("colectivo sin presentación")?;
+    Ok(Some(Box::new(VistaColectivo {
+        id,
+        nombre: p.nombre().into(),
+        lugar: colectivo.lugar(),
+        lider: colectivo
+            .lider()
+            .and_then(|a| c.presentacion().actor(a))
+            .map(|a| a.nombre().into()),
+    })))
 }
 
 #[cfg(test)]
@@ -1559,6 +1688,10 @@ mod pruebas {
                 VistaSesion::PresentandoEvento(_) | VistaSesion::EsperandoDecisionEvento(_) => {
                     panic!("evento inesperado sin catálogo")
                 }
+                VistaSesion::ProcesandoCierre { token } => p
+                    .procesar(IntencionFrontend::ContinuarCierre { token })
+                    .unwrap(),
+                VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
                 VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                 VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
             };
@@ -1629,6 +1762,10 @@ mod pruebas {
                         | VistaSesion::EsperandoDecisionEvento(_) => {
                             panic!("evento inesperado sin catálogo")
                         }
+                        VistaSesion::ProcesandoCierre { token } => p
+                            .procesar(IntencionFrontend::ContinuarCierre { token })
+                            .unwrap(),
+                        VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
                         VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                         VistaSesion::Fatal(f) => {
                             panic!("destino {destino:?}, semilla {semilla}: {}", f.mensaje)
@@ -1665,6 +1802,10 @@ mod pruebas {
                     VistaSesion::PresentandoEvento(_) | VistaSesion::EsperandoDecisionEvento(_) => {
                         panic!("evento inesperado sin catálogo")
                     }
+                    VistaSesion::ProcesandoCierre { token } => p
+                        .procesar(IntencionFrontend::ContinuarCierre { token })
+                        .unwrap(),
+                    VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
                     VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                     VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
                 };

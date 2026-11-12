@@ -6,9 +6,9 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use desert_tiger_core::{
-    ActorInicial, Caracteristica, ClaveVariableGlobal, DatosInicialesMundo, ExtremoRelacion, Fecha,
-    IdActor, IdConcepto, IdLugar, IdMapa, LugarInicial, Mes, Mundo, RelacionInicial, TipoRelacion,
-    ValorVariableGlobal, VariableGlobalInicial,
+    ActorInicial, Caracteristica, ClaveVariableGlobal, ColectivoInicial, DatosInicialesMundo,
+    ExtremoRelacion, Fecha, IdActor, IdColectivo, IdConcepto, IdLugar, IdMapa, LugarInicial, Mes,
+    Mundo, RelacionInicial, TipoRelacion, ValorVariableGlobal, VariableGlobalInicial,
 };
 use serde::de::{DeserializeOwned, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -247,6 +247,7 @@ pub enum ClaseDiagnosticoContenido {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TipoElementoContenido {
     Concepto,
+    Colectivo,
     Mundo,
     Mapa,
     Lugar,
@@ -422,6 +423,7 @@ pub(crate) struct CatalogoPresentacion {
     lugares: Vec<PresentacionLugar>,
     actores: Vec<PresentacionActor>,
     conceptos: Vec<PresentacionConcepto>,
+    colectivos: Vec<PresentacionColectivo>,
     pub(crate) caracteristicas: BTreeMap<String, DescripcionCaracteristica>,
 }
 
@@ -456,6 +458,20 @@ pub(crate) struct PresentacionLugar {
     coordenadas_rotulo: Vec<CoordenadaMapa>,
 }
 
+pub(crate) struct PresentacionColectivo {
+    id: IdColectivo,
+    nombre: String,
+    descripcion: String,
+}
+impl PresentacionColectivo {
+    pub(crate) fn nombre(&self) -> &str {
+        &self.nombre
+    }
+    pub(crate) fn descripcion(&self) -> &str {
+        &self.descripcion
+    }
+}
+
 pub(crate) struct PresentacionConcepto {
     id: IdConcepto,
     nombre: String,
@@ -478,6 +494,9 @@ pub(crate) struct PresentacionActor {
 }
 
 impl CatalogoPresentacion {
+    pub(crate) fn colectivo(&self, id: IdColectivo) -> Option<&PresentacionColectivo> {
+        self.colectivos.get(id.indice()?).filter(|c| c.id == id)
+    }
     pub(crate) fn concepto(&self, id: IdConcepto) -> Option<&PresentacionConcepto> {
         self.conceptos.get(id.indice()?).filter(|c| c.id == id)
     }
@@ -644,6 +663,8 @@ pub(crate) enum ErrorCambiarTile {
 }
 
 pub(crate) struct CatalogoClaves {
+    colectivos_por_clave: BTreeMap<String, IdColectivo>,
+    claves_por_colectivo: BTreeMap<IdColectivo, String>,
     actores_por_clave: BTreeMap<String, IdActor>,
     claves_por_actor: BTreeMap<IdActor, String>,
     lugares_por_clave: BTreeMap<String, IdLugar>,
@@ -653,6 +674,12 @@ pub(crate) struct CatalogoClaves {
 }
 
 impl CatalogoClaves {
+    pub(crate) fn colectivo_por_clave(&self, k: &str) -> Option<IdColectivo> {
+        self.colectivos_por_clave.get(k).copied()
+    }
+    pub(crate) fn clave_colectivo(&self, id: IdColectivo) -> Option<&str> {
+        self.claves_por_colectivo.get(&id).map(String::as_str)
+    }
     pub(crate) fn concepto_por_clave(&self, clave: &str) -> Option<IdConcepto> {
         self.conceptos_por_clave.get(clave).copied()
     }
@@ -691,6 +718,8 @@ impl ResolucionClavesLua for CatalogoClaves {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MundoDto {
+    #[serde(default)]
+    colectivos: Vec<String>,
     #[serde(default)]
     conceptos: Vec<String>,
     mapa: String,
@@ -867,6 +896,7 @@ struct ActorDto {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 enum UbicacionInicialDto {
+    EnColectivo(String),
     EnLugar(String),
     FueraDelEscenario,
 }
@@ -1005,6 +1035,7 @@ enum TipoRelacionDto {
     TratosCon,
     ComerciaCon,
     Sirviente,
+    EsclavoDe,
     Padre,
     Madre,
     MatadoPor,
@@ -1059,6 +1090,19 @@ struct RelacionDeclarada {
     tipo_elemento: TipoElementoContenido,
     clave_elemento: String,
     posicion: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ColectivoDto {
+    clave: String,
+    nombre: String,
+    descripcion: String,
+    ubicacion_inicial: UbicacionInicialDto,
+    #[serde(default)]
+    caracteristicas: Vec<String>,
+    #[serde(default)]
+    lider: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -1221,6 +1265,9 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
     )?;
     validar_lista_claves(&mundo.lugares, "lugares", &raiz_canonica)?;
     validar_lista_claves(&mundo.actores, "actores", &raiz_canonica)?;
+    if !mundo.colectivos.is_empty() {
+        validar_lista_claves(&mundo.colectivos, "colectivos", &raiz_canonica)?;
+    }
     if !mundo.conceptos.is_empty() {
         validar_lista_claves(&mundo.conceptos, "conceptos", &raiz_canonica)?;
     }
@@ -1306,7 +1353,18 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         conceptos_por_clave.insert(clave.clone(), id);
         claves_por_concepto.insert(id, clave.clone());
     }
+    let mut colectivos_por_clave = BTreeMap::new();
+    let mut claves_por_colectivo = BTreeMap::new();
+    for (posicion, clave) in mundo.colectivos.iter().enumerate() {
+        let id = IdColectivo::desde_posicion(posicion).map_err(|e| {
+            error_mundo(ClaseDiagnosticoContenido::InvarianteDominio, e.to_string())
+        })?;
+        colectivos_por_clave.insert(clave.clone(), id);
+        claves_por_colectivo.insert(id, clave.clone());
+    }
     let claves = CatalogoClaves {
+        colectivos_por_clave,
+        claves_por_colectivo,
         actores_por_clave,
         claves_por_actor,
         lugares_por_clave,
@@ -1397,7 +1455,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         .map(|l| l.inicial.id)
         .collect();
     if relaciones.iter().any(|r| {
-        r.tipo == TipoRelacion::Conectado
+        matches!(r.tipo, TipoRelacion::Conectado)
             && [r.origen, r.destino]
                 .iter()
                 .any(|e| matches!(e, ExtremoRelacion::Lugar(id) if externos.contains(id)))
@@ -1411,7 +1469,66 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         return Err(error_mundo(ClaseDiagnosticoContenido::ValorInvalido,
             "un actor no puede iniciar en un lugar fuera_del_mapa; usá FueraDelEscenario".into()));
     }
+    let mut colectivos = Vec::new();
+    let mut presentacion_colectivos = Vec::new();
+    for clave in &mundo.colectivos {
+        let ruta = PathBuf::from("collectives").join(format!("{clave}.ron"));
+        let dto: ColectivoDto = leer_ron(
+            &raiz_canonica,
+            &ruta,
+            TipoElementoContenido::Colectivo,
+            Some(clave),
+        )?;
+        validar_clave_y_archivo(&dto.clave, clave, &ruta, TipoElementoContenido::Colectivo)?;
+        let error = |detalle| {
+            error_archivo(
+                &ruta,
+                TipoElementoContenido::Colectivo,
+                Some(clave),
+                ClaseDiagnosticoContenido::ValorInvalido,
+                None,
+                detalle,
+            )
+        };
+        let nombre = validar_texto_presentacion(&dto.nombre, false, true).map_err(error)?;
+        let descripcion =
+            validar_texto_presentacion(&dto.descripcion, true, true).map_err(error)?;
+        let UbicacionInicialDto::EnLugar(lugar) = dto.ubicacion_inicial else {
+            return Err(error("el colectivo exige EnLugar".into()));
+        };
+        let lugar = claves
+            .lugar_por_clave(&lugar)
+            .filter(|l| !externos.contains(l))
+            .ok_or_else(|| error("Lugar local desconocido".into()))?;
+        let lider = dto
+            .lider
+            .map(|k| {
+                claves
+                    .actor_por_clave(&k)
+                    .ok_or_else(|| error(format!("líder desconocido {k}")))
+            })
+            .transpose()?;
+        let id = claves.colectivo_por_clave(clave).expect("clave registrada");
+        let caracteristicas = validar_caracteristicas(
+            dto.caracteristicas,
+            &ruta,
+            TipoElementoContenido::Colectivo,
+            clave,
+        )?;
+        colectivos.push(ColectivoInicial {
+            id,
+            lugar,
+            lider,
+            caracteristicas,
+        });
+        presentacion_colectivos.push(PresentacionColectivo {
+            id,
+            nombre,
+            descripcion,
+        });
+    }
     let datos = DatosInicialesMundo {
+        colectivos,
         mapa: id_mapa,
         fecha,
         lugares: lugares.iter().map(|lugar| lugar.inicial.clone()).collect(),
@@ -1428,10 +1545,19 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         .iter_mut()
         .filter_map(|actor| actor.politica.take())
         .collect();
+    let eventos = crate::eventos::contenido::cargar(&raiz_canonica, &claves)
+        .map_err(|e| error_mundo(ClaseDiagnosticoContenido::ValorInvalido, e))?;
+    if eventos.fechas.keys().any(|f| *f < fecha) {
+        return Err(error_mundo(
+            ClaseDiagnosticoContenido::ValorInvalido,
+            "cita anterior a la fecha inicial".into(),
+        ));
+    }
     let contenido = ContenidoValidado {
         interno: Arc::new(ContenidoValidadoInterno {
             plantilla_mundo: datos,
             presentacion: CatalogoPresentacion {
+                colectivos: presentacion_colectivos,
                 conceptos,
                 caracteristicas: cargar_catalogo_caracteristicas(&raiz_canonica)?,
                 mapa: mapa.plantilla,
@@ -1444,8 +1570,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
                     .map(|actor| actor.presentacion)
                     .collect(),
             },
-            eventos: crate::eventos::contenido::cargar(&raiz_canonica, &claves)
-                .map_err(|e| error_mundo(ClaseDiagnosticoContenido::ValorInvalido, e))?,
+            eventos,
             claves,
             politicas,
         }),
@@ -2065,6 +2190,18 @@ fn validar_actor(
         )
     })?;
     let ubicacion = match dto.ubicacion_inicial {
+        UbicacionInicialDto::EnColectivo(k) => desert_tiger_core::UbicacionActor::EnColectivo(
+            claves.colectivo_por_clave(&k).ok_or_else(|| {
+                error_archivo(
+                    ruta,
+                    TipoElementoContenido::Actor,
+                    Some(esperada),
+                    ClaseDiagnosticoContenido::ReferenciaInvalida,
+                    None,
+                    format!("colectivo desconocido {k}"),
+                )
+            })?,
+        ),
         UbicacionInicialDto::FueraDelEscenario => {
             desert_tiger_core::UbicacionActor::FueraDelEscenario
         }
@@ -2171,6 +2308,7 @@ fn validar_relaciones(
             TipoRelacionDto::TratosCon => TipoRelacion::TratosCon,
             TipoRelacionDto::ComerciaCon => TipoRelacion::ComerciaCon,
 
+            TipoRelacionDto::EsclavoDe => TipoRelacion::EsclavoDe,
             TipoRelacionDto::Sirviente => TipoRelacion::Sirviente,
             TipoRelacionDto::Padre => TipoRelacion::Padre,
             TipoRelacionDto::Madre => TipoRelacion::Madre,
@@ -2326,6 +2464,7 @@ fn validar_relaciones(
                 TipoRelacion::Padre
                 | TipoRelacion::Madre
                 | TipoRelacion::MatadoPor
+                | TipoRelacion::EsclavoDe
                 | TipoRelacion::Sirviente => "esta relación exige dos Actores",
                 TipoRelacion::Conectado => "Conectado exige dos Lugares",
                 TipoRelacion::OrigenDe => "OrigenDe exige dos Lugares",
@@ -4330,6 +4469,8 @@ mod pruebas {
         let lugar_uno = IdLugar::desde_posicion(1).expect("ID válido");
         let actor_cero = IdActor::desde_posicion(0).expect("ID válido");
         let claves = CatalogoClaves {
+            colectivos_por_clave: BTreeMap::new(),
+            claves_por_colectivo: BTreeMap::new(),
             conceptos_por_clave: BTreeMap::new(),
             claves_por_concepto: BTreeMap::new(),
             actores_por_clave: BTreeMap::from([("actor".to_owned(), actor_cero)]),

@@ -681,3 +681,16 @@ No hay decisiones técnicas abiertas para el alcance v1. Las capacidades de la
 sección 14 no se presentan como implementadas ni como sintaxis aceptada. El
 contenido dramático definitivo y los puntos de acciones todavía inexistentes se
 diseñarán en sus documentos específicos.
+
+## Ampliación de la apertura del príncipe
+
+La campaña en `content/base/events/apertura/` utiliza dos constructores nuevos
+de Efectos: `op.incorporar_companero(actor)` y
+`op.separar_companero(actor, lugar)`. La incorporación exige un Actor vivo,
+distinto del jugador, en el mismo Lugar directo y fuera de un colectivo. Es
+idempotente y se confirma con el resto del lote, conservando su atomicidad.
+La composición no puede cambiar en un Viajar que después vaya a continuar.
+
+`ctx:ahora().dia_absoluto` expone el ordinal del calendario, comenzando en cero
+el 1 de enero del año 1. Sirve para plazos relativos entre fechas reales, sin
+contar meses artificialmente ni incrementar contadores por cada consulta.

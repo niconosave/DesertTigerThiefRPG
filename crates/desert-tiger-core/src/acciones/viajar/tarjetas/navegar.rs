@@ -3,6 +3,29 @@ pub(crate) fn resolver(
     c: &ContextoMovimiento<'_>,
     azar: &mut dyn FuenteAzar,
 ) -> Resultado<Movimiento> {
+    if c.mundo.es_tramo_pasaje(c.origen, c.destino) {
+        let mut m = Movimiento {
+            dato: Desplazamiento {
+                pasaje: true,
+                medio: Medio::Barco,
+                origen: c.origen,
+                destino: c.destino,
+                chequeos: vec![],
+                mitades: vec![],
+                incidente: None,
+                viento: None,
+            },
+            duracion: HorasViaje::CERO,
+            operaciones: vec![],
+            viajeros: c.viajeros.to_vec(),
+            lugar: c.destino,
+            cierre: None,
+            caballos: c.caballos,
+            camellos: c.camellos,
+        };
+        terminar_mitades(c, &mut m, [0, 0], false)?;
+        return Ok(m);
+    }
     let rumbo = c.rumbo.ok_or_else(|| fallo("rumbo navegable ausente"))?;
     let viento = match c.mes {
         1..=3 => 0,

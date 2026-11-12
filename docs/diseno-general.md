@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Base inicial aprobada |
-| Versión | 0.24 |
-| Fecha | 2026-11-11 |
+| Versión | 0.27 |
+| Fecha | 2026-11-12 |
 
 ## 1. Propósito
 
@@ -178,6 +178,25 @@ Los Conceptos se pueden explorar siguiendo referencias desde Acampar.
 
 El [contrato de Conceptos y relaciones personales](./tecnica/componentes/25-conceptos-relaciones-personales.md)
 define el formato, la carga y los índices implementados.
+
+### Actor colectivo
+
+Representa una pluralidad física con identidad propia, como una compañía,
+caravana, multitud o bandada. Puede contener Actores concretos y tener un líder
+opcional, sin exigir crear a cada integrante anónimo como Actor. Se distingue
+de un Lugar, un Actor individual y un Concepto.
+
+El Grupo del jugador puede incorporarse entero y desplazarse con el colectivo,
+sin convertir al capitán ni al resto de sus miembros en compañeros del jugador.
+En el alcance inicial, esa incorporación limita las acciones individuales y
+permite esperar órdenes desde Acampar. Los cambios de ubicación y composición
+proceden de eventos narrativos; todavía no se diseñan acciones colectivas.
+
+El [contrato técnico](./tecnica/componentes/26-actores-colectivos-y-espera.md)
+define ubicación efectiva, entrada y salida e interfaz. Esperar órdenes muestra
+el mapa y hace avanzar el tiempo automáticamente hasta que actúe el colectivo
+o el jugador cancele para volver al campamento. Esta incorporación física no
+equivale por sí sola a la condición de esclavo, prisionero o servidor de otra persona.
 
 ### Grupo
 

@@ -27,6 +27,32 @@ impl Fixture {
         ));
         let raiz = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         copiar(&raiz.join("content/base"), &p);
+        // Estas pruebas aíslan las mecánicas de la apertura de campaña.
+        std::fs::remove_dir_all(p.join("events")).unwrap();
+        std::fs::remove_dir_all(p.join("collectives")).unwrap();
+        let world = p.join("world.ron");
+        let texto = std::fs::read_to_string(&world)
+            .unwrap()
+            .replace("colectivos: [\"compania_dahran\"],", "")
+            .replace(
+                "companeros_iniciales: [",
+                "companeros_iniciales: [\"bandido\",",
+            );
+        std::fs::write(world, texto).unwrap();
+        for k in ["principe_perdido", "sirviente", "bandido"] {
+            let ruta = p.join("actors").join(format!("{k}.ron"));
+            let texto = std::fs::read_to_string(&ruta).unwrap().replace(
+                "ubicacion_inicial: EnLugar(\"costa_ambar\")",
+                "ubicacion_inicial: EnLugar(\"zona_arida\")",
+            );
+            std::fs::write(ruta, texto).unwrap();
+        }
+        let ruta = p.join("actors/dahran.ron");
+        let texto = std::fs::read_to_string(&ruta).unwrap().replace(
+            "ubicacion_inicial: EnColectivo(\"compania_dahran\")",
+            "ubicacion_inicial: EnLugar(\"zarabad\")",
+        );
+        std::fs::write(ruta, texto).unwrap();
         std::fs::create_dir(p.join("events")).unwrap();
         Self(p)
     }
@@ -531,3 +557,5 @@ fn acampar_y_cierre_ofrecen_sus_puntos_sin_repetir_el_dia() {
     assert!(matches!(p.vista(), VistaSesion::Disponible(_)));
     assert_eq!(p.mundo.fecha(), finalizada);
 }
+
+mod colectivos_pruebas;

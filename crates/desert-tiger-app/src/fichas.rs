@@ -1,7 +1,5 @@
 use crate::contenido::ContenidoValidado;
-use desert_tiger_core::{
-    ExtremoRelacion, IdActor, IdLugar, IdRelacion, Mundo, TipoRelacion, UbicacionActor,
-};
+use desert_tiger_core::{ExtremoRelacion, IdActor, IdLugar, IdRelacion, Mundo, TipoRelacion};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaFicha {
@@ -32,6 +30,9 @@ pub enum VinculoFicha {
         tipo: TipoRelacion,
         sentido: SentidoRelacionFicha,
     },
+    Incorporacion,
+    Integrante,
+    Liderazgo,
     Hermandad {
         progenitores_compartidos: Vec<IdActor>,
     },
@@ -82,6 +83,17 @@ fn datos<'a>(
     let falta =
         || ErrorConsultaFicha::EstadoInconsistente("falta la presentación del elemento".into());
     let mut resultado = match elemento {
+        ExtremoRelacion::Colectivo(id) => {
+            let c = mundo
+                .colectivo(id)
+                .ok_or(ErrorConsultaFicha::ElementoInexistente)?;
+            let p = contenido.presentacion().colectivo(id).ok_or_else(falta)?;
+            (
+                p.nombre(),
+                Some(p.descripcion()),
+                c.caracteristicas().map(|c| c.como_str()).collect(),
+            )
+        }
         ExtremoRelacion::Concepto(id) => {
             mundo
                 .relaciones_de(elemento)
@@ -160,7 +172,7 @@ fn resumen(
         texto
     };
     if let ExtremoRelacion::Actor(id) = elemento
-        && mundo.actor(id).is_some_and(|a| a.lugar().is_none())
+        && mundo.ubicacion_actor(id).is_none()
     {
         texto = format!("Fuera de la región. {texto}");
     }
@@ -239,6 +251,10 @@ pub(crate) fn proyectar(
             TipoRelacion::PactoCon => (SentidoRelacionFicha::Simetrica, "Tiene un pacto con:"),
             TipoRelacion::TratosCon => (SentidoRelacionFicha::Simetrica, "Tiene tratos con:"),
 
+            TipoRelacion::EsclavoDe if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Esclavo de:")
+            }
+            TipoRelacion::EsclavoDe => (SentidoRelacionFicha::Entrante, "Tiene como esclavo a:"),
             TipoRelacion::Sirviente if relacion.origen() == elemento => {
                 (SentidoRelacionFicha::Saliente, "Sirviente de:")
             }
@@ -301,10 +317,53 @@ pub(crate) fn proyectar(
             referencia,
         }));
     }
+    let mut enlace = |destino, vinculo, etiqueta: &str| -> Result<(), ErrorConsultaFicha> {
+        let referencia = resumen(mundo, contenido, destino)?;
+        entradas.push(EntradaFicha::Relacion(VistaRelacionFicha {
+            vinculo,
+            etiqueta: format!("{etiqueta}: {}", referencia.nombre),
+            referencia,
+            explicacion: None,
+        }));
+        Ok(())
+    };
+    match elemento {
+        ExtremoRelacion::Actor(id) => {
+            if let Some(c) = mundo.colectivo_de(id) {
+                enlace(
+                    ExtremoRelacion::Colectivo(c),
+                    VinculoFicha::Incorporacion,
+                    "Incorporado a",
+                )?;
+            }
+        }
+        ExtremoRelacion::Colectivo(id) => {
+            let c = mundo
+                .colectivo(id)
+                .ok_or(ErrorConsultaFicha::ElementoInexistente)?;
+            enlace(
+                ExtremoRelacion::Lugar(c.lugar()),
+                VinculoFicha::Incorporacion,
+                "Ubicación",
+            )?;
+            if let Some(l) = c.lider() {
+                enlace(
+                    ExtremoRelacion::Actor(l),
+                    VinculoFicha::Liderazgo,
+                    "Liderado por",
+                )?;
+            }
+            for &a in mundo.miembros_colectivo(id).unwrap_or(&[]) {
+                enlace(
+                    ExtremoRelacion::Actor(a),
+                    VinculoFicha::Integrante,
+                    "Integrante",
+                )?;
+            }
+        }
+        _ => {}
+    }
     let ubicacion = if let ExtremoRelacion::Actor(id) = elemento {
-        let actor = mundo
-            .actor(id)
-            .ok_or(ErrorConsultaFicha::ElementoInexistente)?;
         let hermanos = mundo
             .hermanos_de(id)
             .ok_or(ErrorConsultaFicha::ElementoInexistente)?;
@@ -343,9 +402,9 @@ pub(crate) fn proyectar(
                 explicacion: Some(explicacion),
             }));
         }
-        Some(match actor.ubicacion() {
-            UbicacionActor::FueraDelEscenario => VistaUbicacionActor::FueraDelEscenario,
-            UbicacionActor::EnLugar(lugar) => VistaUbicacionActor::EnLugar {
+        Some(match mundo.ubicacion_actor(id) {
+            None => VistaUbicacionActor::FueraDelEscenario,
+            Some(lugar) => VistaUbicacionActor::EnLugar {
                 lugar,
                 nombre: contenido
                     .presentacion()

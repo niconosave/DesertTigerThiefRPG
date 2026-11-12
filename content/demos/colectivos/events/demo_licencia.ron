@@ -1,0 +1,12 @@
+(
+    clave: "demo_licencia",
+    activacion: EnFecha(fecha: (anio: 2025, mes: 2, dia: 3)),
+    observacion: EnColectivo(colectivo: "compania_dahran"),
+    condicion: r#"return mundo:colectivo_de("principe_perdido") == "compania_dahran""#,
+    inicio: "salida",
+    pasos: [
+        Efectos(clave: "salida", salidas: ["relato"], resolver: r#"return {operaciones={op.trasladar_colectivo("compania_dahran", "costa_ambar"), op.salir_grupo_de_colectivo("compania_dahran")}, siguiente="relato"}"#),
+        Vigneta(clave: "relato", presentacion: r#"return {titulo="De nuevo por tu cuenta",texto="La compañía alcanza Costa Ámbar y termina tu breve servicio. Bajás a tierra con tus compañeros: ya podés elegir nuevamente adónde viajar."}"#, siguiente: Some("fin")),
+        Fin(clave: "fin", control: Continuar),
+    ],
+)

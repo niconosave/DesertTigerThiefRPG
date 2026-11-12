@@ -265,6 +265,7 @@ impl Narrador<'_> {
             ContenidoEscena::Incompleto{inicial:true,..}=>"Conseguís menos provisiones de las que habían calculado. No sabés si alcanzarán. Podés partir con lo reunido o cancelar y devolver los suministros.".into(),
             ContenidoEscena::Incompleto{falta_comida,falta_agua,..}=>format!("En {} queda una ración diaria para todos, pero la previsión restante señala insuficiencia de {}{}. Debés decidir si seguir o detener el viaje.",self.lugar(r.lugar),if *falta_comida{"alimento "}else{""},if *falta_agua{"agua"}else{""}),
             ContenidoEscena::PasoMontanoso(p)=>self.detalle_paso(r,p),
+            ContenidoEscena::Desplazamiento(d) if d.pasaje=>format!("Pasaje contratado: {} → {}. La tripulación del carguero conduce este tramo del recorrido contratado.",self.lugar(d.origen),self.lugar(d.destino)),
             ContenidoEscena::Desplazamiento(d)=>{
                 let lider=self.actor(d.chequeos[0].responsable);let viajeros=r.participantes.iter().map(|&id|self.actor(id)).collect::<Vec<_>>().join(", ");
                 let inicio=match d.medio {
@@ -614,10 +615,11 @@ mod pruebas {
         let chequeo =
             resolver_chequeo(&mundo, actor, AccionParticular::Cabalgar, 15, &mut Cero).unwrap();
         let desplazamiento = Desplazamiento {
+            pasaje: false,
             medio: Medio::Caballo,
             origen: registro.lugar,
             destino,
-            chequeos: [chequeo.clone(), chequeo],
+            chequeos: vec![chequeo.clone(), chequeo],
             mitades: vec![],
             incidente: None,
             viento: None,
@@ -627,6 +629,7 @@ mod pruebas {
         let caballo = narrador.redactar(&registro);
         registro.tarjeta = ClaveTarjeta::Camello;
         registro.contenido = ContenidoEscena::Desplazamiento(Desplazamiento {
+            pasaje: false,
             medio: Medio::Camello,
             ..desplazamiento
         });
