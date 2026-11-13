@@ -11,6 +11,63 @@
         (tipo: Necesita, destino: Concepto("reforzar_tripulaciones_zarabad")),
         (tipo: Conoce, destino: Lugar("zarabad")),
     ],
-    retrato: None,
+    retrato: Some((
+        paleta: {
+            '0': (frente: "gris", fondo: None),
+            '1': (frente: "amarillo", fondo: None),
+            '2': (frente: "amarilloClaro", fondo: None),
+            '3': (frente: "blanco", fondo: None),
+            '4': (frente: "negro", fondo: None),
+            '5': (frente: "amarillo", fondo: Some("gris")),
+            '6': (frente: "negro", fondo: Some("amarillo")),
+            '7': (frente: "negro", fondo: Some("gris")),
+            '8': (frente: "gris", fondo: None),
+            '9': (frente: "gris", fondo: Some("gris")),
+            'A': (frente: "grisOscuro", fondo: None),
+            'B': (frente: "amarillo", fondo: Some("amarillo")),
+            'C': (frente: "rojoClaro", fondo: None),
+            'D': (frente: "rojo", fondo: None),
+            'E': (frente: "amarilloClaro", fondo: Some("rojo")),
+            'F': (frente: "amarilloClaro", fondo: Some("amarillo")),
+            'G': (frente: "azul", fondo: None),
+            'H': (frente: "azul", fondo: Some("gris")),
+        },
+        base: (
+            arte: r#"
+                    
+                    
+                    
+                    
+                    
+     █▄█▄█▄█        
+    ▐██▀▄█▀▄▄▄      
+    █▀▄███ )▄ ▀█    
+   ██▄▀█▄███▀███    
+   █▌▀██▀▀▀▀▄██     
+   ██▄▀▀▀▀▀▀█▄█     
+ ███▀▀▀▀▀▄▀▀▀██████ 
+█████████▄▀▀▀▀▀▄████
+████████████████████
+"#,
+        estilos: Some(r#"
+00000000000000000000
+00000000000000000000
+00000000000000000000
+00000000000000000000
+00000000000000000000
+00000122222300000000
+00004415636641440000
+00004677881266660000
+00046666778793380000
+00046661666778800000
+00A466B66677878CC000
+0DCCEEEE2F667882CCC0
+DCCCCCCCGG22222GHCCC
+DCCCCCCCCHH123GHHCCC
+"#),
+        ),
+        rostro: None,
+        parpadeo: None,
+    )),
     politica: Ninguna,
 )
