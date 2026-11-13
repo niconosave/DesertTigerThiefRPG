@@ -84,10 +84,11 @@ pub struct MitadRecorrida {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Desplazamiento {
+    pub pasaje: bool,
     pub medio: Medio,
     pub origen: IdLugar,
     pub destino: IdLugar,
-    pub chequeos: [ResultadoChequeo; 2],
+    pub chequeos: Vec<ResultadoChequeo>,
     pub mitades: Vec<MitadRecorrida>,
     pub incidente: Option<IncidenteResuelto>,
     pub viento: Option<(u8, u8, i16)>,
@@ -186,6 +187,7 @@ pub struct SolicitudDecision {
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CierreViaje {
+    InterrumpidoPorEvento,
     Llegada,
     Cancelado,
     SinRecursos,

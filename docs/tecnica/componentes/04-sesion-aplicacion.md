@@ -6,6 +6,11 @@
 | Versión | 0.27 |
 | Fecha | 2026-10-29 |
 
+> Ampliación diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
+> integra el cierre temporal y la actividad NPC mediante un único coordinador
+> y registro de ocurrencias. Fechas, puntos y fase NPC son activaciones de ese
+> modelo; la implementación de sesión actual todavía no realiza esa integración.
+
 > Ampliación implementada el 2026-11-02: la partida posee `VisionMapa` y proyecta
 > en `VistaMapa` una máscara `VisibilidadTile`. Las observaciones se actualizan
 > con traslados confirmados del jugador, conforme al
@@ -19,6 +24,11 @@
 > Ampliación implementada el 2026-10-26: fichas, fase Acampando e
 > intenciones se definen en [Acampar](../acciones/07-acampar.md#5-proyección-de-fichas);
 > la finalización compartida con Viajar, en su sección 6.3.
+
+> La ampliación implementada de [eventos narrativos](./23-eventos-narrativos.md)
+> define el coordinador de la Partida, sus vistas y sus intenciones. Ese documento
+> es canónico para la suspensión y reanudación por eventos; la fachada incorpora
+> `PresentandoEvento`, `EsperandoDecisionEvento` y sus intenciones.
 
 ## Revisión implementada el 2026-10-24: Sesión y vistas del viaje activo
 

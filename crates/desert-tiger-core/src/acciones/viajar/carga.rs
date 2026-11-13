@@ -56,7 +56,14 @@ pub(crate) fn preparar(
                  t: &[[u64; 2]],
                  azar: &mut dyn FuenteAzar|
      -> Resultado<ReservasViaje> {
-        let dias = sumar(rutas::sumar_horas(t)?, 24)? / 24;
+        let horas = ruta
+            .windows(2)
+            .zip(t)
+            .filter(|(p, _)| !mundo.ofrece_pasaje(p[0], p[1]) && !mundo.es_tramo_pasaje(p[0], p[1]))
+            .try_fold(0u64, |total, (_, mitades)| {
+                sumar(total, sumar(mitades[0], mitades[1])?)
+            })?;
+        let dias = sumar(horas, 24)? / 24;
         lote.materializar(
             multiplicar(multiplicar(multiplicar(4, a)?, dias)?, multiplicador)?,
             multiplicar(multiplicar(multiplicar(500, a)?, dias)?, multiplicador)?,

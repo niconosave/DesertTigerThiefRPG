@@ -60,7 +60,7 @@ pub(super) fn buscar(
             continue;
         }
         for &b in mundo
-            .lugares_conectados(a)
+            .lugares_transitables(a)
             .ok_or_else(|| fallo("índice de conexiones ausente"))?
         {
             let medio = rutas::medio(
@@ -189,7 +189,7 @@ pub(super) fn generar(
                     || ruta.iter().collect::<BTreeSet<_>>().len() != ruta.len()
                     || ruta.windows(2).any(|p| {
                         !mundo
-                            .lugares_conectados(p[0])
+                            .lugares_transitables(p[0])
                             .unwrap_or(&[])
                             .contains(&p[1])
                     })

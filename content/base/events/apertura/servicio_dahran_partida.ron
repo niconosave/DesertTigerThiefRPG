@@ -1,0 +1,13 @@
+(
+    clave:"servicio_dahran_partida",
+    activacion:PorPuntos(puntos:["fase_npc.terminada"]),
+    observacion:EnColectivo(colectivo:"compania_dahran"),
+    prioridad:20,
+    condicion:r#"return mundo:actor_jugador()=="principe_perdido" and mundo:booleana("vendidoEnZarabad",false) and mundo:colectivo_de("principe_perdido")=="compania_dahran" and ctx:ahora().dia_absoluto >= mundo:entera("inicioServicioDahran",0)+1"#,
+    inicio:"zarpar",
+    pasos:[
+        Efectos(clave:"zarpar",salidas:["relato"],resolver:r#"return {operaciones={op.trasladar_colectivo("compania_dahran","mar_del_viento"), op.establecer_booleana("primeraSalidaDahran",true)},siguiente="relato",acciones_colectivas={"compania_dahran"}}"#),
+        Vigneta(clave:"relato",presentacion:r#"return {titulo="Las órdenes de Dahran",texto="Dahran ordena zarpar para escoltar mercancías de Zarabad. Aprendés a tirar de los cabos junto a tu sirviente, mientras los marineros vigilan las velas que podrían venir de Nuris. Nadie les pregunta por el Drâa ni por el trono perdido: hoy les toca mantener este barco en marcha."}"#,siguiente:Some("fin")),
+        Fin(clave:"fin",control:Continuar),
+    ],
+)

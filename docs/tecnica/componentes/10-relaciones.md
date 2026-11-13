@@ -6,6 +6,15 @@
 | Versión | 0.6 |
 | Fecha | 2026-11-04 |
 
+> Ampliación implementada el 2026-11-11: el [contrato 25](./25-conceptos-relaciones-personales.md)
+> incorpora Conceptos, relaciones personales, índices, autoría RON, fichas y
+> consultas Lua. Gobierna esas extensiones respecto de los esquemas previos.
+
+> Ampliación diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
+> incorpora el registro histórico de rescate y sus índices como operaciones
+> del modelo común de eventos. No crea categorías distintas de relaciones para
+> rutinas de actor y episodios externos.
+
 > Ampliación implementada el 2026-10-26. Filiación, MatadoPor e índices familiares: [contrato 14, secciones 4–5](./14-parentesco-actores-contexto.md#5-almacenamiento-índices-y-consultas-familiares).
 
 > Ampliación implementada el 2026-10-29. `OrigenDe`, `AfluenteDe` y `Bloquea`:

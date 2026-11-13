@@ -1,5 +1,16 @@
 (
     entradas: [
+        (clave: "hombreTigre", nombre: "Gente tigre", descripcion: "Pertenece a un pueblo de personas con cabeza de tigre y cuerpo humano."),
+        (clave: "orgulloso", nombre: "Orgulloso", descripcion: "Da importancia a su posición y al reconocimiento que recibe."),
+        (clave: "calculador", nombre: "Calculador", descripcion: "Sopesa las ventajas y los riesgos de sus decisiones."),
+        (clave: "severo", nombre: "Severo", descripcion: "Exige disciplina y juzga con dureza las faltas."),
+        (clave: "astuto", nombre: "Astuto", descripcion: "Busca oportunidades y sabe ocultar sus intenciones."),
+        (clave: "adivino", nombre: "Adivino", descripcion: "Practica artes de interpretación de presagios; este rasgo no garantiza sus resultados."),
+        (clave: "esclavo", nombre: "Esclavitud", descripcion: "Está sometido al servicio y la autoridad de otra persona. Sus restricciones se definen en las reglas y los acontecimientos correspondientes."),
+        (clave: "riguroso", nombre: "Riguroso", descripcion: "Da importancia a cumplir los acuerdos y las tareas asumidas."),
+        (clave: "carpintero", nombre: "Carpintero", descripcion: "Conoce el trabajo de la madera y la reparación de construcciones o embarcaciones."),
+        (clave: "prisionero", nombre: "Prisionero", descripcion: "Está retenido bajo custodia. Sus posibilidades de actuar dependen de las reglas y acontecimientos de su situación."),
+        (clave: "pescador", nombre: "Pescador", descripcion: "Conoce la pesca y el trabajo cotidiano de las aguas donde obtiene su sustento."),
         (clave: "puente", nombre: "Puente", descripcion: "Una construcción que permite atravesar un cauce u otro obstáculo."),
         (clave: "montaraz", nombre: "Montaraz", descripcion: "Conoce el terreno montañoso y puede proponer caminos a través de las montañas."),
         (

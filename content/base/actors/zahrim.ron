@@ -1,0 +1,73 @@
+(
+    clave: "zahrim",
+    nombre: "Zahrim",
+    biografia: "Rey de Zarabad. Orgulloso de sus muelles y de sus barcos, quiere que su pequeña ciudad sea recordada como un gran puerto. Disputa a Nuris el comercio del Mar del Viento y busca guerreros para sus tripulaciones. Recompensa los servicios que le resultan útiles sin renunciar a la autoridad sobre quienes lo sirven.",
+    ubicacion_inicial: EnLugar("zarabad"),
+    caracteristicas: ["hombreTigre", "orgulloso", "calculador"],
+    relaciones: [
+        (tipo: Gobierna, destino: Lugar("zarabad")),
+        (tipo: EnemigoDe, destino: Actor("miraz")),
+        (tipo: Desea, destino: Concepto("controlar_salida_mar_del_viento")),
+        (tipo: Necesita, destino: Concepto("reforzar_tripulaciones_zarabad")),
+        (tipo: Conoce, destino: Lugar("zarabad")),
+    ],
+    retrato: Some((
+        paleta: {
+            '0': (frente: "gris", fondo: None),
+            '1': (frente: "amarillo", fondo: None),
+            '2': (frente: "amarilloClaro", fondo: None),
+            '3': (frente: "blanco", fondo: None),
+            '4': (frente: "negro", fondo: None),
+            '5': (frente: "amarillo", fondo: Some("gris")),
+            '6': (frente: "negro", fondo: Some("amarillo")),
+            '7': (frente: "negro", fondo: Some("gris")),
+            '8': (frente: "gris", fondo: None),
+            '9': (frente: "gris", fondo: Some("gris")),
+            'A': (frente: "grisOscuro", fondo: None),
+            'B': (frente: "amarillo", fondo: Some("amarillo")),
+            'C': (frente: "rojoClaro", fondo: None),
+            'D': (frente: "rojo", fondo: None),
+            'E': (frente: "amarilloClaro", fondo: Some("rojo")),
+            'F': (frente: "amarilloClaro", fondo: Some("amarillo")),
+            'G': (frente: "azul", fondo: None),
+            'H': (frente: "azul", fondo: Some("gris")),
+        },
+        base: (
+            arte: r#"
+                    
+                    
+                    
+                    
+                    
+     █▄█▄█▄█        
+    ▐██▀▄█▀▄▄▄      
+    █▀▄███ )▄ ▀█    
+   ██▄▀█▄███▀███    
+   █▌▀██▀▀▀▀▄██     
+   ██▄▀▀▀▀▀▀█▄█     
+ ███▀▀▀▀▀▄▀▀▀██████ 
+█████████▄▀▀▀▀▀▄████
+████████████████████
+"#,
+        estilos: Some(r#"
+00000000000000000000
+00000000000000000000
+00000000000000000000
+00000000000000000000
+00000000000000000000
+00000122222300000000
+00004415636641440000
+00004677881266660000
+00046666778793380000
+00046661666778800000
+00A466B66677878CC000
+0DCCEEEE2F667882CCC0
+DCCCCCCCGG22222GHCCC
+DCCCCCCCCHH123GHHCCC
+"#),
+        ),
+        rostro: None,
+        parpadeo: None,
+    )),
+    politica: Ninguna,
+)

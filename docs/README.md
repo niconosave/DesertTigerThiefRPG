@@ -33,6 +33,19 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 La [metodología de desarrollo](./metodologia-desarrollo.md) gobierna este flujo,
 los estándares de implementación, las pruebas y la definición de terminado.
 
+El [sistema de eventos narrativos](./tecnica/componentes/23-eventos-narrativos.md)
+está implementado. Su versión inicial acota puntos, efectos y
+sustituciones; las extensiones previstas se distinguen del funcionamiento actual.
+La [demo aislada](../content/demos/eventos/README.md) permite probar decisiones,
+interrupción, encadenamiento y sustitución sin cambiar el contenido base.
+
+El [modelo común de eventos](./tecnica/componentes/24-agenda-eventos-mundo.md)
+está diseñado y pendiente de implementación: autoría en Actores o archivos
+externos, `this`, integración de las políticas existentes, fechas y observación
+local o remota. Las ideas de historia y sus
+[referencias míticas](./contenido/borradores/drama-y-mitos.md) se conservan en un
+borrador separado, sin fijarlas todavía como contenido canónico.
+
 ## Herramientas de desarrollo
 
 Desde el mapa o la selección de destino, `D` abre el menú de desarrollo.

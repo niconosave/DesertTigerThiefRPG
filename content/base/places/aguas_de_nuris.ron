@@ -1,0 +1,28 @@
+(
+    clave: "aguas_de_nuris",
+    nombre: "Aguas de Nuris",
+    nombre_abreviado: "A. Nuris",
+    caracteristicas: ["acuatico", "maritimo", "marAbierto", "aguaSalada"],
+    relaciones: [
+        (tipo: Conectado, destino: Lugar("nuris")),
+        (tipo: Conectado, destino: Lugar("zarabad")),
+        (tipo: Conectado, destino: Lugar("mar_del_viento")),
+    ],
+    coordenada_central: (x: 24, y: 3),
+    coordenadas_rotulo: [
+        (x: 22, y: 0),
+        (x: 23, y: 0),
+        (x: 24, y: 0),
+        (x: 25, y: 0),
+        (x: 26, y: 0),
+        (x: 27, y: 0),
+        (x: 23, y: 1),
+        (x: 24, y: 1),
+        (x: 25, y: 1),
+        (x: 22, y: 2),
+        (x: 23, y: 2),
+        (x: 24, y: 2),
+        (x: 25, y: 2),
+        (x: 26, y: 2),
+    ],
+)

@@ -179,7 +179,8 @@ impl Fecha {
         Ok(Self::desde_ordinal(destino))
     }
 
-    fn ordinal(self) -> u64 {
+    /// Días completos desde el inicio del calendario (1 de enero del año 1).
+    pub fn ordinal(self) -> u64 {
         let mut dias = dias_antes_del_anio(self.anio);
         for numero in 1..self.mes.numero() {
             let mes = match Mes::desde_numero(numero) {

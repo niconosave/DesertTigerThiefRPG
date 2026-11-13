@@ -1,0 +1,45 @@
+(
+    clave:"naufragio_y_bandido",
+    activacion:EnFecha(fecha:(anio:2025,mes:1,dia:31)),
+    observacion:Local(lugar:"costa_ambar"),
+    prioridad:0,
+    condicion:r#"return mundo:actor_jugador()=="principe_perdido""#,
+    inicio:"orilla",
+    pasos:[
+        Vigneta(
+            clave:"orilla",
+            presentacion:r#"
+                return {
+                    titulo="Los restos del naufragio",
+                    momentos={
+                        ui.narrar("Despertás sobre la arena húmeda, entre maderos rotos y jirones de vela. Nadin se arrodilla a tu lado; todavía tiene la ropa empapada."),
+                        ui.decir("sirviente", "¡Señor! ¿Puede levantarse? Lo vi golpearse contra la borda cuando cedió el mástil."),
+                        ui.decir("principe_perdido", "Estoy bien, Nadin. Solo tragué agua. ¿Qué fue del barco?"),
+                        ui.decir("sirviente", "Se lo llevó el mar. Logré alcanzarlo a usted entre los restos, pero no vi salir a nadie más."),
+                        ui.decir("principe_perdido", "¿Y dónde hemos venido a parar? No reconozco esta costa."),
+                        ui.narrar("Nadin mira las dunas y niega con la cabeza. Más allá de los restos, un desconocido con cabeza de tigre baja hasta la orilla y se detiene al verlos.")
+                    }
+                }
+            "#,
+            siguiente:Some("propuesta"),
+        ),
+        Efectos(clave:"unirse",salidas:["aceptado"],resolver:r#"return {operaciones={op.incorporar_companero("bandido"), op.establecer_booleana("aperturaBandido",true)},siguiente="aceptado"}"#),
+        Vigneta(
+            clave:"propuesta",
+            presentacion:r#"
+                return {
+                    titulo="Una ayuda en la costa",
+                    momentos={
+                        ui.decir("bandido", "Mal lugar para desembarcar. Me llamo Rashak. Esto es Costa Ámbar; si buscaban un puerto, el mar los dejó bastante lejos."),
+                        ui.decir("sirviente", "No buscábamos esta costa. Necesitamos agua y algún lugar donde nos reciban."),
+                        ui.decir("bandido", "Entonces vengan conmigo a Zarabad, al norte. Tengo amigos entre la gente del puerto y conozco al rey Zahrim. Siempre necesita hombres para sus barcos; podría ayudarlos a empezar de nuevo."),
+                        ui.decir("principe_perdido", "Está bien, Rashak. Vení con nosotros. Nos vendrá bien alguien que conozca el camino.")
+                    }
+                }
+            "#,
+            siguiente:Some("unirse"),
+        ),
+        Vigneta(clave:"aceptado",presentacion:r#"return {titulo="Un nuevo compañero",momentos={ui.decir("bandido","Muy bien. No se van a arrepentir. Zarabad es un buen lugar para buscar fortuna."),ui.narrar("Nadin recoge lo poco que el agua no se llevó. Rashak se acomoda junto a ustedes y señala el norte.")}}"#,siguiente:Some("fin")),
+        Fin(clave:"fin",control:Continuar),
+    ],
+)

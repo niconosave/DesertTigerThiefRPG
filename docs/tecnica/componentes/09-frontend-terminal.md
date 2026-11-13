@@ -6,6 +6,11 @@
 | Versión | 0.76 |
 | Fecha | 2026-11-02 |
 
+> Ampliación diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
+> conserva las vistas existentes para el modelo común; añade fecha nominal
+> de suceso y observación local o silenciosa. La terminal no evalúa guiones ni
+> decide qué cambios deben ocurrir fuera de escena.
+
 > Audio integrado, con revisión auditiva pendiente: el [contrato 17](./17-audio-procedural.md)
 > define el audio opcional del frontend y su integración con el bucle. El
 > [contrato 18](./18-crepitar-fogata.md) define el primer efecto: el crepitar del
@@ -38,6 +43,10 @@
 > la frecuencia de la sección 8 por un reloj con vencimientos de 50/250 ms.
 > Los pasos de tiles y retratos siguen representando 250 ms; sus formatos,
 > duraciones y pruebas de compatibilidad se conservan.
+
+> La ampliación implementada de [eventos narrativos, sección 11](./23-eventos-narrativos.md#11-vistas-y-recursos-gráficos)
+> define vistas narrativas propias y recursos opcionales `events.ron`. Reutiliza
+> las ventanas y paginación sin ejecutar condiciones o efectos al dibujar.
 
 ## Revisión implementada el 2026-10-24: Presentación por pasos
 

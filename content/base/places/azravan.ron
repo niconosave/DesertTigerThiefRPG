@@ -8,7 +8,7 @@
     caracteristicas: ["civilizado", "poblado", "mercado", "posada"],
     relaciones: [
         (tipo: Vende, destino: Lugar("qasar"), mercancia: "telas teñidas"),
-        (tipo: Conectado, destino: Lugar("costa_ambar")),
+        (tipo: Conectado, destino: Lugar("zona_arida")),
     ],
     coordenada_central: (x: 36, y: 41),
     coordenadas_rotulo: [

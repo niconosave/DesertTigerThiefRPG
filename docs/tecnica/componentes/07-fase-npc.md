@@ -2,9 +2,16 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Implementado parcialmente; proyecto y ampliación causal aprobados para implementar |
-| Versión | 0.15 |
-| Fecha | 2026-10-26 |
+| Estado | Implementación actual con antecedentes históricos; integración común diseñada en contrato 24 |
+| Versión | 0.16 |
+| Fecha | 2026-11-06 |
+
+> Evolución diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
+> integra las políticas heredadas como eventos locales dentro de un único catálogo,
+> coordinador y registro de ocurrencias. La fase NPC pasa a seleccionar activaciones
+> del modelo común; no conserva un recorrido paralelo de políticas ya adaptadas.
+> Ese contrato gobierna el objetivo de integración. Las revisiones de abajo describen
+> el código actual y delimitan los antecedentes históricos de este documento.
 
 > Ampliación implementada el 2026-10-26. Exclusión de Actores externos antes de Lua: [contrato 14, sección 3.3](./14-parentesco-actores-contexto.md#33-npc-y-lua).
 

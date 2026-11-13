@@ -13,10 +13,13 @@ pub use modelo::{
     Actor, ActorInicial, CambioConfirmado, CambiosConfirmados, Caracteristica, ClaveVariableGlobal,
     DatosInicialesMundo, ErrorCaracteristica, ErrorClaveVariableGlobal, ErrorConstruirMundo,
     ErrorConsultaRelacion, ErrorConsultaVariableGlobal, ErrorIdentificador, ErrorOperacionMundo,
-    ErrorTraslado, ExtremoRelacion, Grupo, IdActor, IdLugar, IdMapa, IdRelacion, LoteOperaciones,
-    Lugar, LugarInicial, MAX_BYTES_CARACTERISTICA, MAX_BYTES_CLAVE_VARIABLE_GLOBAL, Mundo,
-    OperacionMundo, Relacion, RelacionInicial, TipoRelacion, TipoVariableGlobal,
-    TrasladoConfirmado, ValorVariableGlobal, VariableGlobalInicial,
+    ErrorTraslado, ExtremoRelacion, Grupo, IdActor, IdConcepto, IdLugar, IdMapa, IdRelacion,
+    LoteOperaciones, Lugar, LugarInicial, MAX_BYTES_CARACTERISTICA,
+    MAX_BYTES_CLAVE_VARIABLE_GLOBAL, Mundo, MundoPreparado, OperacionMundo, Relacion,
+    RelacionInicial, TipoRelacion, TipoVariableGlobal, TrasladoConfirmado, ValorVariableGlobal,
+    VariableGlobalInicial,
 };
 
 pub use modelo::{HermanoDerivado, Progenitores, UbicacionActor};
+
+pub use modelo::{ActorColectivo, ColectivoInicial, IdColectivo};

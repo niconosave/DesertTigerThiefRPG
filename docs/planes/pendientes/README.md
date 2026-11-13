@@ -4,6 +4,12 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Eventos narrativos terminados
+
+[PLAN-2026-046](../completados/2026-11-04-46-implementar-eventos-narrativos.md)
+implementa la versión 1 del [contrato 23](../../tecnica/componentes/23-eventos-narrativos.md).
+La implementación y sus verificaciones están terminadas; el plan está archivado.
+
 ## Música de los integrantes del campamento terminada
 
 [PLAN-2026-043](../completados/2026-10-26-43-integrar-musicos-campamento.md)

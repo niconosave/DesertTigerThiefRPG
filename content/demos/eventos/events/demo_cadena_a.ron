@@ -1,0 +1,4 @@
+(clave:"demo_cadena_a", puntos:["viajar.entre_lugares"], condicion:r#"return mundo:booleana("demoContinuar",false)"#, inicio:"registrar", encadena:["demo_cadena_b"], pasos:[
+Efectos(clave:"registrar", salidas:["fin"], resolver:r#"return {operaciones={op.establecer_booleana("demoCadenaA",true)}, siguiente="fin", solicitar={"demo_cadena_b"}}"#),
+Fin(clave:"fin",control:Continuar)
+])

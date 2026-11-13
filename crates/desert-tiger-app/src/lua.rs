@@ -152,7 +152,7 @@ pub(crate) fn evaluar_politica<R: ResolucionClavesLua>(
             "el actor asociado no existe en el Mundo".to_owned(),
         )
     })?;
-    let Some(lugar) = actor.lugar() else {
+    let Some(lugar) = mundo.ubicacion_actor(actor.id()) else {
         return Ok(ResultadoPoliticaLua::Ninguna);
     };
     let clave_actor = claves.clave_actor(actor.id()).ok_or_else(|| {
@@ -232,7 +232,7 @@ pub(crate) fn evaluar_politica<R: ResolucionClavesLua>(
     convertir_respuesta(politica, respuesta, claves)
 }
 
-fn crear_maquina() -> mlua::Result<Lua> {
+pub(crate) fn crear_maquina() -> mlua::Result<Lua> {
     let lua = Lua::new_with(StdLib::NONE, LuaOptions::new())?;
     lua.set_memory_limit(LIMITE_MEMORIA_LUA_BYTES)?;
     Ok(lua)
@@ -311,9 +311,14 @@ fn crear_entorno(
     proxy_solo_lectura(lua, entorno_datos)
 }
 
-fn proxy_solo_lectura(lua: &Lua, datos: Table) -> mlua::Result<Table> {
+pub(crate) fn proxy_solo_lectura(lua: &Lua, datos: Table) -> mlua::Result<Table> {
     let proxy = lua.create_table()?;
     let metatabla = lua.create_table()?;
+    let longitud = datos.raw_len();
+    metatabla.set(
+        "__len",
+        lua.create_function(move |_, _: MultiValue| Ok(longitud))?,
+    )?;
     metatabla.set("__index", datos)?;
     metatabla.set(
         "__newindex",
@@ -529,6 +534,7 @@ mod pruebas {
 
     fn mundo_y_claves() -> (Mundo, ClavesPrueba) {
         let mundo = Mundo::nuevo(DatosInicialesMundo {
+            colectivos: vec![],
             mapa: IdMapa::desde_posicion(0).expect("ID válido"),
             fecha: Fecha::nueva(2025, Mes::Febrero, 2).expect("fecha válida"),
             lugares: vec![

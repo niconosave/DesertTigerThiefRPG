@@ -13,31 +13,90 @@ use crate::{interfaz::dibujar_retratos, recursos::RecursosVisuales};
 pub(crate) struct EstadoCampamento {
     vista: VistaCampamento,
     horizontal: usize,
+    accion: usize,
     ficha: Option<VistaFicha>,
     entrada: Option<usize>,
     pagina: Cell<usize>,
     dimensiones_detalle: Cell<(u16, u16)>,
     error: Option<String>,
+    pub(crate) estado_musica: String,
+    pub(crate) modo_musica: crate::musica_campamento::ModoMusica,
     pub(crate) musica: Option<crate::musica_campamento::NotasMusicales>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum AccionCampamento {
+    Abandonar,
+    EsperarOrdenes,
+    Musica,
+}
+impl AccionCampamento {
+    fn intencion(self, campamento: desert_tiger_app::IdCampamento) -> Option<IntencionFrontend> {
+        match self {
+            Self::Abandonar => Some(IntencionFrontend::AbandonarCampamento { campamento }),
+            Self::EsperarOrdenes => Some(IntencionFrontend::EsperarOrdenes { campamento }),
+            Self::Musica => None,
+        }
+    }
+    fn nombre(self) -> &'static str {
+        match self {
+            Self::Musica => "Música",
+            Self::Abandonar => "Abandonar campamento",
+            Self::EsperarOrdenes => "Esperar órdenes",
+        }
+    }
+}
+fn acciones_campamento(puede_esperar: bool) -> Vec<AccionCampamento> {
+    let mut acciones = vec![AccionCampamento::Abandonar];
+    if puede_esperar {
+        acciones.push(AccionCampamento::EsperarOrdenes);
+    }
+    acciones.push(AccionCampamento::Musica);
+    acciones
+}
 impl EstadoCampamento {
     pub(crate) fn nuevo(vista: VistaCampamento, partida: &Partida) -> Self {
         let horizontal = vista.integrantes.len().saturating_sub(1);
         let mut estado = Self {
             vista,
             horizontal,
+            accion: 0,
             ficha: None,
             entrada: None,
             pagina: Cell::new(0),
             dimensiones_detalle: Cell::new((53, 6)),
             error: None,
+            estado_musica: String::new(),
+            modo_musica: Default::default(),
             musica: None,
         };
         estado.seleccionar(horizontal, partida);
         estado
     }
 
+    pub(crate) fn reanudar(mut self, vista: VistaCampamento, partida: &Partida) -> Self {
+        let elemento = self.ficha.as_ref().map(|f| f.elemento);
+        let entrada = self.entrada;
+        self.vista = vista;
+        self.horizontal = self.horizontal.min(self.vista.integrantes.len());
+        self.accion = self.accion.min(self.acciones().len().saturating_sub(1));
+        if let Some(elemento) = elemento
+            && !self.abrir(elemento, partida)
+        {
+            self.seleccionar(0, partida);
+        }
+        self.entrada =
+            entrada.filter(|&i| self.ficha.as_ref().is_some_and(|f| i < f.entradas.len()));
+        self.musica = None;
+        self
+    }
+    fn acciones(&self) -> Vec<AccionCampamento> {
+        acciones_campamento(self.vista.puede_esperar_ordenes)
+    }
+    fn esperando(&self) -> bool {
+        self.saliendo()
+            && self.acciones().get(self.accion) == Some(&AccionCampamento::EsperarOrdenes)
+    }
     fn saliendo(&self) -> bool {
         self.horizontal == self.vista.integrantes.len()
     }
@@ -59,7 +118,7 @@ impl EstadoCampamento {
     }
 
     fn seleccionar(&mut self, indice: usize, partida: &Partida) {
-        if indice == self.vista.integrantes.len() {
+        if indice >= self.vista.integrantes.len() {
             self.horizontal = indice;
             self.entrada = None;
             self.error = None;
@@ -84,11 +143,21 @@ impl EstadoCampamento {
                 (self.horizontal + 1) % (self.vista.integrantes.len() + 1),
                 partida,
             ),
-            KeyCode::Esc => self.seleccionar(self.vista.integrantes.len(), partida),
+            KeyCode::Esc => {
+                self.accion = 0;
+                self.seleccionar(self.vista.integrantes.len(), partida);
+            }
+            KeyCode::Enter
+                if self.saliendo()
+                    && self.acciones().get(self.accion) == Some(&AccionCampamento::Musica) =>
+            {
+                self.modo_musica = self.modo_musica.siguiente();
+            }
             KeyCode::Enter if self.saliendo() => {
-                return Some(IntencionFrontend::AbandonarCampamento {
-                    campamento: self.vista.id,
-                });
+                return self
+                    .acciones()
+                    .get(self.accion)
+                    .and_then(|a| a.intencion(self.vista.id));
             }
             KeyCode::Enter => {
                 let destino = self
@@ -102,6 +171,13 @@ impl EstadoCampamento {
                 if let Some(destino) = destino {
                     self.abrir(destino, partida);
                 }
+            }
+            KeyCode::Up | KeyCode::Down if self.saliendo() => {
+                self.accion = if tecla == KeyCode::Up {
+                    self.accion.saturating_sub(1)
+                } else {
+                    (self.accion + 1).min(self.acciones().len() - 1)
+                };
             }
             KeyCode::Up | KeyCode::Down if !self.saliendo() => {
                 if let (Some(i), Some(f)) = (self.entrada, &self.ficha) {
@@ -166,7 +242,9 @@ impl EstadoCampamento {
         if let Some(bio) = &ficha.biografia {
             let titulo = match ficha.elemento {
                 ExtremoRelacion::Actor(_) => "Biografía",
-                ExtremoRelacion::Lugar(_) => "Descripción",
+                ExtremoRelacion::Lugar(_)
+                | ExtremoRelacion::Concepto(_)
+                | ExtremoRelacion::Colectivo(_) => "Descripción",
             };
             texto.push_str(&format!(
                 "\n\n{titulo} de {}\n{}",
@@ -193,10 +271,21 @@ impl EstadoCampamento {
         if let Some(error) = &self.error {
             return format!("Error: {error}");
         }
-        if self.saliendo() {
-            return "Abandonar el campamento hará pasar un día. Enter confirma.".into();
+        if self.saliendo() && self.acciones().get(self.accion) == Some(&AccionCampamento::Musica) {
+            return "Enter: cambiar entre A gusto, Todo el tiempo y No tocar. Requiere un músico en el grupo.".into();
         }
-        format!(
+        if self.esperando() {
+            return "Esperar órdenes: ver el mapa y dejar pasar el tiempo. Enter confirma; Esc cancela durante la espera.".into();
+        }
+        if self.saliendo() {
+            return if self.vista.descanso_cubierto {
+                "Abandonar el campamento sin añadir tiempo. Enter confirma."
+            } else {
+                "Abandonar el campamento hará pasar un día. Enter confirma."
+            }
+            .into();
+        }
+        let contexto = format!(
             "Ficha: {} | Selector: {}",
             self.ficha
                 .as_ref()
@@ -207,7 +296,12 @@ impl EstadoCampamento {
                 .get(self.horizontal)
                 .map(|a| a.nombre.as_str())
                 .unwrap_or("Salir")
-        )
+        );
+        self.vista
+            .colectivo
+            .as_ref()
+            .map(|c| format!("Dentro de: {} | {contexto}", c.nombre))
+            .unwrap_or(contexto)
     }
 
     pub(crate) fn dibujar(
@@ -283,10 +377,26 @@ impl EstadoCampamento {
             }
         }
         if self.saliendo() {
+            let mut lineas = vec!["Acciones del campamento".to_owned(), String::new()];
+            for (i, accion) in self.acciones().iter().enumerate() {
+                lineas.push(format!(
+                    "{} {}",
+                    if i == self.accion { ">" } else { " " },
+                    if *accion == AccionCampamento::Musica {
+                        format!("Música: {} (Enter para cambiar)", self.modo_musica.nombre())
+                    } else {
+                        accion.nombre().to_owned()
+                    }
+                ));
+            }
+            lineas.push(String::new());
+            lineas.push(self.estado_musica.clone());
+            lineas.push(self.contexto());
+            lineas.push("↑/↓: elegir acción · Enter: confirmar · ←/→: cambiar sección".into());
             frame.render_widget(
-                Paragraph::new("Abandonar campamento — Enter confirma (1 día)")
-                    .style(recursos.ui.foco),
-                Rect::new(area.x, area.y, area.width, 1),
+                Paragraph::new(lineas.join("\n"))
+                    .style(recursos.ui.texto_normal.fg(ratatui::style::Color::Cyan)),
+                Rect::new(area.x, area.y, area.width, ficha_alto),
             );
             return;
         }
@@ -299,6 +409,8 @@ impl EstadoCampamento {
                     match f.elemento {
                         ExtremoRelacion::Actor(_) => "Actor",
                         ExtremoRelacion::Lugar(_) => "Lugar",
+                        ExtremoRelacion::Concepto(_) => "Concepto",
+                        ExtremoRelacion::Colectivo(_) => "Colectivo",
                     },
                     f.nombre
                 )
@@ -419,9 +531,46 @@ mod pruebas {
     }
 
     #[test]
+    fn la_referencia_de_deseo_abre_y_dibuja_un_concepto() {
+        let (p, mut e, recursos) = escenario();
+        e.entrada = e.ficha.as_ref().unwrap().entradas.iter().position(|entrada| {
+            matches!(entrada, EntradaFicha::Relacion(r) if r.etiqueta.starts_with("Desea:"))
+        });
+        assert!(e.entrada.is_some());
+        e.manejar(KeyCode::Enter, &p);
+        let ficha = e.ficha.as_ref().unwrap();
+        assert!(matches!(ficha.elemento, ExtremoRelacion::Concepto(_)));
+        assert_eq!(ficha.nombre, "Recuperar el trono del Drâa");
+        let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+        terminal
+            .draw(|f| {
+                e.dibujar(
+                    f,
+                    Rect::new(0, 0, 100, 28),
+                    &p.mundo_visible(),
+                    &recursos,
+                    &crate::animacion::RelojVisual::default(),
+                )
+            })
+            .unwrap();
+        let texto: String = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect();
+        assert!(texto.contains("Recuperar el trono del Drâa"));
+        assert!(texto.contains("Concepto"));
+    }
+
+    #[test]
     fn ficha_real_del_rey_navega_por_asesinato_y_hermandad_con_explicacion() {
         let (p, mut e, recursos) = escenario();
         let antes = p.mundo_visible();
+        e.entrada = e.ficha.as_ref().unwrap().entradas.iter().position(
+            |entrada| matches!(entrada, EntradaFicha::Relacion(r) if r.etiqueta == "Padre: Rey"),
+        );
         e.manejar(KeyCode::Enter, &p);
         assert_eq!(e.ficha.as_ref().unwrap().nombre, "Rey");
         assert!(e.detalle().contains("Fuera de la región"));
@@ -694,5 +843,25 @@ mod pruebas {
             .unwrap();
         assert_eq!(terminal.backend().buffer()[(0, 0)].symbol(), "A");
         assert_eq!(terminal.backend().buffer()[(0, 10)].symbol(), " ");
+    }
+}
+
+#[cfg(test)]
+mod pruebas_acciones_campamento {
+    use super::*;
+    #[test]
+    fn acciones_contextuales_comparten_una_lista() {
+        assert_eq!(
+            acciones_campamento(false),
+            vec![AccionCampamento::Abandonar, AccionCampamento::Musica]
+        );
+        assert_eq!(
+            acciones_campamento(true),
+            vec![
+                AccionCampamento::Abandonar,
+                AccionCampamento::EsperarOrdenes,
+                AccionCampamento::Musica
+            ]
+        );
     }
 }

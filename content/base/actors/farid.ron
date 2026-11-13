@@ -1,0 +1,17 @@
+(
+    clave: "farid",
+    nombre: "Farid",
+    biografia: "Marinero de Nuris e hijo del carpintero Bahir. Aprendió entre las barcas de su padre y trabajaba en los barcos de Miraz cuando Dahran lo capturó. Ahora está retenido en Zarabad y necesita recuperar la libertad para decidir su propio rumbo.",
+    ubicacion_inicial: EnLugar("zarabad"),
+    caracteristicas: ["hombreTigre", "navegante", "prisionero"],
+    relaciones: [
+        (tipo: Padre, destino: Actor("bahir")),
+        (tipo: Sirviente, destino: Actor("miraz")),
+        (tipo: PrisioneroDe, destino: Actor("dahran")),
+        (tipo: Necesita, destino: Concepto("recuperar_la_libertad")),
+        (tipo: Conoce, destino: Lugar("nuris")),
+        (tipo: Conoce, destino: Lugar("zarabad")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

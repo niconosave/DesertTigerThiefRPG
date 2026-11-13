@@ -16,7 +16,6 @@ use desert_tiger_app::{
 };
 use ratatui::Frame;
 use ratatui::layout::Rect;
-#[cfg(test)]
 use ratatui::style::Color;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -43,6 +42,9 @@ enum ModoLocal {
 
 pub(crate) struct Interfaz {
     partida: Partida,
+    transcurrido_espera: Duration,
+    campamento_suspendido: Option<crate::campamento::EstadoCampamento>,
+    area_retratos_mapa: Cell<Option<Rect>>,
     vista: VistaSesion,
     ultima_vista_mundo: VistaMundo,
     retratos: HashMap<IdActor, RetratoActor>,
@@ -60,6 +62,8 @@ pub(crate) struct Interfaz {
     error_recuperable: Option<String>,
     mostrar_detalle: bool,
     pagina: usize,
+    area_dialogo: Cell<Rect>,
+    foco_evento: usize,
     pagina_antes_detalle: usize,
     reloj: RelojVisual,
     trafico_maritimo: crate::trafico_decorativo::TraficoDecorativo,
@@ -73,14 +77,15 @@ pub(crate) struct Interfaz {
 impl Interfaz {
     pub(crate) fn nueva(partida: Partida) -> Result<Self, String> {
         let vista = partida.vista();
-        let VistaSesion::Disponible(mundo) = &vista else {
-            return Err("la partida no comenzó en una vista disponible".to_owned());
-        };
+        let mundo = &partida.mundo_visible();
         let ultima_vista_mundo = mundo.clone();
         let trafico_maritimo = crate::barcos::crear(mundo);
         let trafico_terrestre = crate::caravanas::crear(mundo);
         Ok(Self {
             partida,
+            transcurrido_espera: Duration::ZERO,
+            campamento_suspendido: None,
+            area_retratos_mapa: Cell::new(None),
             vista,
             ultima_vista_mundo,
             retratos: HashMap::new(),
@@ -98,6 +103,8 @@ impl Interfaz {
             error_recuperable: None,
             mostrar_detalle: false,
             pagina: 0,
+            area_dialogo: Cell::new(Rect::new(0, 0, 40, 8)),
+            foco_evento: 0,
             pagina_antes_detalle: 0,
             reloj: RelojVisual::default(),
             trafico_maritimo,
@@ -141,7 +148,10 @@ impl Interfaz {
         self.inspector.activo
             && !self.confirmar_salida
             && !self.salir
-            && matches!(self.vista, VistaSesion::Disponible(_))
+            && matches!(
+                self.vista,
+                VistaSesion::Disponible(_) | VistaSesion::EsperandoOrdenes(_)
+            )
     }
 
     pub(crate) fn invalidar_geometria_mouse(&mut self) {
@@ -152,15 +162,17 @@ impl Interfaz {
     fn coordenada_bajo_mouse(&self) -> Option<desert_tiger_app::CoordenadaMapa> {
         let (x, y) = self.inspector.puntero?;
         let geometria = self.geometria_mapa.get()?;
-        let sobre_retrato = disposicion_retratos(&self.ultima_vista_mundo, geometria.area).any(
-            |(actor, rx, ry)| {
-                let base = actor.retrato.base();
-                let ancho = i64::try_from(base.ancho()).unwrap_or(i64::MAX);
-                let alto = i64::try_from(base.alto()).unwrap_or(i64::MAX);
-                (rx..rx.saturating_add(ancho)).contains(&i64::from(x))
-                    && (ry..ry.saturating_add(alto)).contains(&i64::from(y))
-            },
-        );
+        let sobre_retrato = disposicion_retratos(
+            &self.ultima_vista_mundo,
+            self.area_retratos_mapa.get().unwrap_or(geometria.area),
+        )
+        .any(|(actor, rx, ry)| {
+            let base = actor.retrato.base();
+            let ancho = i64::try_from(base.ancho()).unwrap_or(i64::MAX);
+            let alto = i64::try_from(base.alto()).unwrap_or(i64::MAX);
+            (rx..rx.saturating_add(ancho)).contains(&i64::from(x))
+                && (ry..ry.saturating_add(alto)).contains(&i64::from(y))
+        });
         if sobre_retrato {
             None
         } else {
@@ -221,10 +233,19 @@ impl Interfaz {
         ajustes: Option<crate::musica_campamento::AgendaMusica>,
     ) {
         use crate::musica_campamento::candidatos;
+        if (ajustes.is_none() || !disponible)
+            && let Some(campamento) = &self.campamento
+        {
+            self.musica.modo = campamento.modo_musica;
+        }
         if let (VistaSesion::Acampando(vista), Some(ajustes)) = (&self.vista, ajustes)
             && disponible
             && !self.salir
         {
+            if let Some(campamento) = &self.campamento {
+                self.musica
+                    .cambiar_modo(campamento.modo_musica, ahora, ajustes);
+            }
             if self.musica.campamento() != Some(vista.id) {
                 self.musica
                     .abrir(vista.id, candidatos(&self.partida, vista), ahora, ajustes);
@@ -236,6 +257,35 @@ impl Interfaz {
         }
         if let Some(campamento) = &mut self.campamento {
             campamento.musica = self.musica.notas();
+            campamento.estado_musica =
+                if campamento.modo_musica == crate::musica_campamento::ModoMusica::Silencio {
+                    "Música desactivada".into()
+                } else if !disponible {
+                    "Audio no disponible".into()
+                } else if ajustes.is_none() {
+                    "Música aún no disponible: preparando las canciones o revisando el audio".into()
+                } else if let Some(notas) = self.musica.notas() {
+                    format!(
+                        "{} está tocando",
+                        self.ultima_vista_mundo
+                            .companeros
+                            .iter()
+                            .chain(std::iter::once(&self.ultima_vista_mundo.jugador))
+                            .find(|a| a.id == notas.actor)
+                            .map(|a| a.nombre.as_str())
+                            .unwrap_or("Un compañero")
+                    )
+                } else if self.musica.solicitud() != 0 {
+                    "Iniciando la música…".into()
+                } else if let VistaSesion::Acampando(vista) = &self.vista {
+                    if candidatos(&self.partida, vista).is_empty() {
+                        "No hay músicos disponibles en el grupo".into()
+                    } else {
+                        "Un músico tocará cuando llegue el momento".into()
+                    }
+                } else {
+                    String::new()
+                };
         }
     }
     pub(crate) fn solicitud_musica(&self) -> u32 {
@@ -268,7 +318,36 @@ impl Interfaz {
         }
     }
 
+    pub(crate) fn avanzar_espera(&mut self) {
+        if self.menu_desarrollo || self.confirmar_salida || self.salir {
+            self.transcurrido_espera = Duration::ZERO;
+            return;
+        }
+        match self.vista.clone() {
+            VistaSesion::ProcesandoCierre { token } => {
+                self.enviar(IntencionFrontend::ContinuarCierre { token })
+            }
+            VistaSesion::EsperandoOrdenes(v)
+                if self.transcurrido_espera >= Duration::from_millis(500) =>
+            {
+                self.transcurrido_espera = Duration::ZERO;
+                self.enviar(IntencionFrontend::AvanzarEspera {
+                    espera: v.id,
+                    intervalo: v.intervalo,
+                });
+            }
+            _ => {}
+        }
+    }
     pub(crate) fn avanzar_animacion(&mut self, transcurrido: Duration) {
+        if matches!(self.vista, VistaSesion::EsperandoOrdenes(_))
+            && !self.confirmar_salida
+            && !self.menu_desarrollo
+        {
+            self.transcurrido_espera = self.transcurrido_espera.saturating_add(transcurrido);
+        } else {
+            self.transcurrido_espera = Duration::ZERO;
+        }
         if !self.confirmar_salida {
             self.reloj.avanzar(transcurrido);
         }
@@ -293,6 +372,7 @@ impl Interfaz {
             return;
         }
         self.geometria_mapa.set(None);
+        self.transcurrido_espera = Duration::ZERO;
         if self.aviso_audio_mostrado.replace(false) {
             self.aviso_audio = None;
         }
@@ -308,6 +388,45 @@ impl Interfaz {
         if normalizar_letra(evento.code) == Some('q') {
             self.confirmar_salida = true;
             self.inspector.puntero = None;
+            return;
+        }
+        if evento.code == KeyCode::Esc
+            && !self.menu_desarrollo
+            && let Some(espera) = self.partida.espera_activa()
+        {
+            self.enviar(IntencionFrontend::CancelarEspera { espera });
+            return;
+        }
+        if let Some(v) = self.evento().cloned() {
+            let paginas = self.paginas_evento(&v);
+            match evento.code {
+                KeyCode::Char('d' | 'D') if v.detalle.is_some() => {
+                    self.mostrar_detalle = !self.mostrar_detalle;
+                    self.pagina = 0;
+                }
+                KeyCode::Left => self.pagina = self.pagina.saturating_sub(1),
+                KeyCode::Right => {
+                    self.pagina = (self.pagina + 1).min(paginas.len().saturating_sub(1))
+                }
+                KeyCode::Up => self.foco_evento = self.foco_evento.saturating_sub(1),
+                KeyCode::Down => {
+                    self.foco_evento =
+                        (self.foco_evento + 1).min(v.opciones.len().saturating_sub(1))
+                }
+                KeyCode::Enter if self.pagina + 1 < paginas.len() => self.pagina += 1,
+                KeyCode::Enter if !self.mostrar_detalle => {
+                    let intencion = if let Some(o) = v.opciones.get(self.foco_evento) {
+                        IntencionFrontend::ResponderEvento {
+                            presentacion: v.id,
+                            opcion: o.id,
+                        }
+                    } else {
+                        IntencionFrontend::ContinuarEvento { presentacion: v.id }
+                    };
+                    self.enviar(intencion);
+                }
+                _ => {}
+            }
             return;
         }
         if self.menu_desarrollo {
@@ -344,7 +463,10 @@ impl Interfaz {
             return;
         }
         if normalizar_letra(evento.code) == Some('d')
-            && matches!(self.vista, VistaSesion::Disponible(_))
+            && matches!(
+                self.vista,
+                VistaSesion::Disponible(_) | VistaSesion::EsperandoOrdenes(_)
+            )
         {
             self.menu_desarrollo = true;
             self.foco_desarrollo = 0;
@@ -585,7 +707,10 @@ impl Interfaz {
                     });
                 }
             }
-            VistaSesion::Acampando(_)
+            VistaSesion::EsperandoOrdenes(_) | VistaSesion::ProcesandoCierre { .. } => {}
+            VistaSesion::PresentandoEvento(_)
+            | VistaSesion::EsperandoDecisionEvento(_)
+            | VistaSesion::Acampando(_)
             | VistaSesion::Fatal(_)
             | VistaSesion::Disponible(_)
             | VistaSesion::PresentandoAccion(_) => {}
@@ -597,24 +722,43 @@ impl Interfaz {
             Ok(vista) => {
                 self.vista = vista;
                 self.planificacion = crate::planificacion_rutas::EstadoPlanificacion::default();
-                if !matches!(self.vista, VistaSesion::Disponible(_)) {
+                if !matches!(
+                    self.vista,
+                    VistaSesion::Disponible(_) | VistaSesion::EsperandoOrdenes(_)
+                ) {
                     self.inspector.puntero = None;
                 }
                 self.error_recuperable = None;
                 self.mostrar_detalle = false;
                 self.pagina = 0;
+                self.foco_evento = 0;
                 self.pagina_antes_detalle = 0;
                 self.actualizar_mundo();
-                self.campamento = match &self.vista {
-                    VistaSesion::Acampando(v) => Some(crate::campamento::EstadoCampamento::nuevo(
-                        v.clone(),
-                        &self.partida,
-                    )),
-                    VistaSesion::Disponible(_)
-                    | VistaSesion::PresentandoAccion(_)
-                    | VistaSesion::EsperandoDecision(_)
-                    | VistaSesion::Fatal(_) => None,
+                self.transcurrido_espera = Duration::ZERO;
+                if self.partida.espera_activa().is_some()
+                    && let Some(camp) = self.campamento.take()
+                {
+                    self.campamento_suspendido = Some(camp);
+                }
+                self.campamento = if let VistaSesion::Acampando(v) = &self.vista {
+                    Some(if let Some(camp) = self.campamento_suspendido.take() {
+                        camp.reanudar(v.clone(), &self.partida)
+                    } else {
+                        {
+                            let mut camp = crate::campamento::EstadoCampamento::nuevo(
+                                v.clone(),
+                                &self.partida,
+                            );
+                            camp.modo_musica = self.musica.modo;
+                            camp
+                        }
+                    })
+                } else {
+                    None
                 };
+                if self.partida.espera_activa().is_none() {
+                    self.campamento_suspendido = None;
+                }
             }
             Err(error) => self.error_recuperable = Some(texto_error_intencion(error)),
         }
@@ -703,6 +847,47 @@ impl Interfaz {
             acciones,
         );
         match &self.vista {
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
+                let paginas = self.paginas_evento(v);
+                let pagina = self.pagina.min(paginas.len().saturating_sub(1));
+                if let Some(id) = v.hablante.filter(|_| !self.mostrar_detalle) {
+                    let area = self.area_dialogo.get();
+                    frame.render_widget(ratatui::widgets::Clear, area);
+                    frame.render_widget(Paragraph::new("").style(recursos.ui.pantalla), area);
+                    let nombre = self
+                        .ultima_vista_mundo
+                        .companeros
+                        .iter()
+                        .chain(std::iter::once(&self.ultima_vista_mundo.jugador))
+                        .find(|a| a.id == id)
+                        .map(|a| a.nombre.clone())
+                        .or_else(|| self.partida.presentacion_actor(id).ok().map(|a| a.nombre))
+                        .unwrap_or_else(|| self.partida.nombre_actor_dialogo(id));
+                    frame.render_widget(
+                        Paragraph::new(titulo_paginado(&nombre, pagina, paginas.len()))
+                            .style(recursos.ui.texto_normal.fg(Color::Cyan)),
+                        Rect::new(area.x, area.y, area.width, area.height.min(1)),
+                    );
+                    frame.render_widget(
+                        Paragraph::new(paginas[pagina].as_str()).style(recursos.ui.texto_normal),
+                        Rect::new(
+                            area.x,
+                            area.y.saturating_add(u16::from(area.height > 1)),
+                            area.width,
+                            area.height.saturating_sub(u16::from(area.height > 1)),
+                        ),
+                    );
+                } else {
+                    self.dibujar_ventana(
+                        frame,
+                        region_mundo,
+                        &titulo_paginado(&v.titulo, pagina, paginas.len()),
+                        &paginas[pagina],
+                        None,
+                        recursos,
+                    );
+                }
+            }
             VistaSesion::PresentandoAccion(fragmento) => {
                 let paginas = paginas_fragmento(fragmento, self.mostrar_detalle);
                 let pagina = self.pagina.min(paginas.len().saturating_sub(1));
@@ -764,7 +949,10 @@ impl Interfaz {
             VistaSesion::Fatal(fatal) => {
                 self.dibujar_ventana(frame, region_mundo, "Error", &fatal.mensaje, None, recursos)
             }
-            VistaSesion::Disponible(_) | VistaSesion::Acampando(_) => {}
+            VistaSesion::Disponible(_)
+            | VistaSesion::Acampando(_)
+            | VistaSesion::EsperandoOrdenes(_)
+            | VistaSesion::ProcesandoCierre { .. } => {}
         }
         if self.menu_desarrollo {
             crate::desarrollo::dibujar_menu(
@@ -834,6 +1022,53 @@ impl Interfaz {
         mundo: &VistaMundo,
         recursos: &RecursosVisuales,
     ) {
+        let exterior =
+            if self.evento().is_some_and(|v| v.hablante.is_some()) && !self.mostrar_detalle {
+                let alto = 8.min((area.height / 3).max(1));
+                self.area_dialogo.set(Rect::new(
+                    area.x,
+                    area.bottom().saturating_sub(alto),
+                    area.width,
+                    alto,
+                ));
+                Rect::new(area.x, area.y, area.width, area.height.saturating_sub(alto))
+            } else {
+                area
+            };
+        self.area_retratos_mapa.set(Some(exterior));
+        let area = if let Some(colectivo) = &mundo.colectivo {
+            let grosor = 3
+                .min(area.width.saturating_sub(1) / 2)
+                .min(area.height.saturating_sub(1) / 2);
+            let interior = Rect::new(
+                area.x + grosor,
+                area.y + grosor,
+                area.width.saturating_sub(grosor * 2),
+                area.height.saturating_sub(grosor * 2),
+            );
+            let estilo = Style::reset()
+                .bg(recursos.paleta.fondo_pantalla(Some(Color::Black)))
+                .fg(Color::White);
+            for y in area.y..area.bottom() {
+                for x in area.x..area.right() {
+                    if !interior.contains((x, y).into())
+                        && let Some(c) = frame.buffer_mut().cell_mut((x, y))
+                    {
+                        c.reset();
+                        c.set_char(' ').set_style(estilo);
+                    }
+                }
+            }
+            frame.render_widget(
+                Paragraph::new(format!("Dentro de: {}", colectivo.nombre))
+                    .alignment(ratatui::layout::Alignment::Center)
+                    .style(estilo),
+                Rect::new(area.x, area.y, area.width, 1),
+            );
+            interior
+        } else {
+            area
+        };
         let objetivo = if let Some(d) = self.decision_planificacion() {
             self.planificacion.objetivo(d, mundo, area)
         } else {
@@ -1004,15 +1239,46 @@ impl Interfaz {
         {
             celda.set_style(Style::default().add_modifier(Modifier::REVERSED));
         }
-        dibujar_retratos(
+        let hablante = self.evento().and_then(|v| v.hablante);
+        dibujar_retratos_dialogo(
             frame,
-            area,
-            area,
+            exterior,
+            exterior,
             mundo,
             recursos,
             self.reloj.paso_250_ms(),
             false,
+            hablante,
         );
+        if let Some(id) = hablante
+            && !mundo
+                .companeros
+                .iter()
+                .chain(std::iter::once(&mundo.jugador))
+                .any(|a| a.id == id)
+            && let Some(actor) = self.actor_interlocutor(id)
+        {
+            let x = i64::from(exterior.right()).saturating_sub(actor.retrato.base().ancho() as i64);
+            let y = i64::from(exterior.bottom()).saturating_sub(actor.retrato.base().alto() as i64);
+            for (origen, grafico) in actor
+                .retrato
+                .capas(
+                    actor.expresion.as_deref(),
+                    parpadeando(&actor, self.reloj.paso_250_ms()),
+                )
+                .into_iter()
+                .flatten()
+            {
+                dibujar_grafico_retrato(
+                    frame,
+                    exterior,
+                    x + origen.x as i64,
+                    y + origen.y as i64,
+                    grafico,
+                    recursos,
+                );
+            }
+        }
     }
 
     fn arte_lugar_visible(&self) -> Option<&ArteLugar> {
@@ -1024,7 +1290,10 @@ impl Interfaz {
             return None;
         }
         let id = match &self.vista {
-            VistaSesion::Disponible(_) => self.ultima_vista_mundo.lugar_jugador,
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => v.lugar,
+            VistaSesion::Disponible(_)
+            | VistaSesion::EsperandoOrdenes(_)
+            | VistaSesion::ProcesandoCierre { .. } => self.ultima_vista_mundo.lugar_jugador,
             VistaSesion::PresentandoAccion(v) => v.progreso.lugar_paisaje,
             VistaSesion::EsperandoDecision(v) => v.progreso.lugar_paisaje,
             VistaSesion::Acampando(_) | VistaSesion::Fatal(_) => return None,
@@ -1115,6 +1384,20 @@ impl Interfaz {
             }
         }
         match &self.vista {
+            VistaSesion::EsperandoOrdenes(_) | VistaSesion::ProcesandoCierre { .. } => {
+                let f = self.partida.fecha_actual();
+                format!(
+                    "{} — {:02}/{:02}/{}",
+                    if matches!(self.vista, VistaSesion::EsperandoOrdenes(_)) {
+                        "Esperando órdenes"
+                    } else {
+                        "Resolviendo sucesos"
+                    },
+                    f.dia(),
+                    f.mes().numero(),
+                    f.anio()
+                )
+            }
             VistaSesion::PresentandoAccion(fragmento) => texto_progreso(&fragmento.progreso),
             VistaSesion::EsperandoDecision(decision) => texto_progreso(&decision.progreso),
             VistaSesion::Acampando(_) => self
@@ -1124,6 +1407,20 @@ impl Interfaz {
                 .unwrap_or_default(),
             VistaSesion::Fatal(_) => "La sesión encontró un error fatal.".to_owned(),
             VistaSesion::Disponible(mundo) => contexto_mundo(mundo),
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
+                let opcion = v
+                    .opciones
+                    .get(self.foco_evento)
+                    .map(|o| format!(" — {}", o.texto))
+                    .unwrap_or_default();
+                format!(
+                    "{} — {:02}/{:02}/{}{opcion}",
+                    v.titulo,
+                    v.fecha.dia(),
+                    v.fecha.mes().numero(),
+                    v.fecha.anio()
+                )
+            }
         }
     }
 
@@ -1170,11 +1467,23 @@ impl Interfaz {
                     .to_owned()
             }
             ModoLocal::Normal => match &self.vista {
+                VistaSesion::EsperandoOrdenes(_) => {
+                    " [Esc] Volver al campamento  [D] Desarrollo  [Q] Salir".into()
+                }
+                VistaSesion::ProcesandoCierre { .. } => if self.partida.espera_activa().is_some() {
+                    " [Esc] Cancelar espera  [Q] Salir"
+                } else {
+                    " [Q] Salir"
+                }
+                .into(),
                 VistaSesion::Disponible(mundo) => match destinos_viaje(mundo) {
                     Some([]) => {
                         " Viajar (no disponible)  [A] Acampar  [D] Desarrollo  [Q] Salir".to_owned()
                     }
                     Some(_) => " [V] Viajar  [A] Acampar  [D] Desarrollo  [Q] Salir".to_owned(),
+                    None if mundo.acciones.contains(&AccionDisponible::Acampar) => {
+                        " [A] Acampar  [D] Desarrollo  [Q] Salir".into()
+                    }
                     None => " [D] Desarrollo  [Q] Salir".to_owned(),
                 },
                 VistaSesion::PresentandoAccion(fragmento) => {
@@ -1232,13 +1541,37 @@ impl Interfaz {
                     };
                     format!(" {opciones}{navegar}{detalle}  [Q] Salir")
                 }
+                VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
+                    format!(
+                        " [Enter] {}  [←/→] Página  {}[D] Detalles  [Q] Salir",
+                        if v.opciones.is_empty() {
+                            "Continuar"
+                        } else {
+                            "Elegir"
+                        },
+                        if v.opciones.is_empty() {
+                            ""
+                        } else {
+                            "[↑/↓] Opción  "
+                        }
+                    )
+                }
                 VistaSesion::Acampando(_) | VistaSesion::Fatal(_) => String::new(),
             },
         }
     }
 
+    fn evento(&self) -> Option<&desert_tiger_app::VistaEvento> {
+        match &self.vista {
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => Some(v),
+            _ => None,
+        }
+    }
     fn vista_tiene_detalle(&self) -> bool {
         match &self.vista {
+            VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
+                v.detalle.is_some()
+            }
             VistaSesion::PresentandoAccion(fragmento) => !fragmento.detalle.is_empty(),
             VistaSesion::EsperandoDecision(decision) => {
                 !decision.detalle.is_empty()
@@ -1251,7 +1584,42 @@ impl Interfaz {
         }
     }
 
+    fn actor_interlocutor(&self, id: IdActor) -> Option<VistaActor> {
+        let alternativo = self.retratos.get(&id);
+        let mut actor = self.partida.presentacion_actor(id).ok().or_else(|| {
+            alternativo.map(|retrato| VistaActor {
+                nombre: self.partida.nombre_actor_dialogo(id),
+                id,
+                retrato: retrato.clone(),
+                expresion: None,
+            })
+        })?;
+        if let Some(retrato) = alternativo {
+            actor.retrato = retrato.clone();
+        }
+        actor.expresion = self.evento().and_then(|v| v.expresion.clone());
+        Some(actor)
+    }
+
+    fn paginas_evento(&self, v: &desert_tiger_app::VistaEvento) -> Vec<String> {
+        if self.mostrar_detalle {
+            return paginar_texto(v.detalle.as_deref().unwrap_or(""));
+        }
+        if v.hablante.is_some() {
+            let area = self.area_dialogo.get();
+            paginar_con_medidas(
+                &v.texto,
+                usize::from(area.width).max(1),
+                usize::from(area.height.saturating_sub(2)).max(1),
+            )
+        } else {
+            paginar_texto(&v.texto)
+        }
+    }
     fn paginas_vigentes(&self) -> usize {
+        if let Some(v) = self.evento() {
+            return self.paginas_evento(v).len();
+        }
         if let Some(d) = self.decision_planificacion() {
             return if self.mostrar_detalle {
                 paginar_texto(&crate::planificacion_rutas::detalle(
@@ -1292,7 +1660,13 @@ impl Interfaz {
         let ancho = 72.min(area.width.saturating_sub(4)).max(40);
         // Reservamos espacio real para las ocho líneas paginadas y el arte:
         // una ventana fija de doce filas ocultaba las últimas líneas del relato.
-        let arte = escena.and_then(|clave| recursos.escena(clave));
+        let arte = escena.and_then(|clave| recursos.escena(clave)).or_else(|| {
+            self.evento()
+                .filter(|_| !self.mostrar_detalle && !self.confirmar_salida)
+                .and_then(|v| v.ilustracion.as_deref())
+                .and_then(|k| recursos.ilustracion_evento(k))
+        });
+        let arte = arte.map(|a| &a[..a.len().min(usize::from(area.height.saturating_sub(14)))]);
         let filas_arte = arte.map_or(0, |filas| filas.len() + 1);
         let alto = (filas_arte + texto.lines().count() + 2)
             .max(12)
@@ -1467,6 +1841,10 @@ fn titulo_paginado(titulo: &str, pagina: usize, total: usize) -> String {
 }
 
 fn paginar_texto(texto: &str) -> Vec<String> {
+    paginar_con_medidas(texto, ANCHO_TEXTO_VINETA, LINEAS_POR_PAGINA)
+}
+
+fn paginar_con_medidas(texto: &str, ancho: usize, alto: usize) -> Vec<String> {
     let mut lineas = Vec::new();
     for parrafo in texto.split('\n') {
         if parrafo.is_empty() {
@@ -1484,20 +1862,20 @@ fn paginar_texto(texto: &str) -> Vec<String> {
                 .chars()
                 .map(|caracter| caracter.width().unwrap_or(0))
                 .sum::<usize>();
-            if ancho_linea + separador + ancho_palabra > ANCHO_TEXTO_VINETA && !linea.is_empty() {
+            if ancho_linea + separador + ancho_palabra > ancho && !linea.is_empty() {
                 lineas.push(std::mem::take(&mut linea));
             }
-            if ancho_palabra > ANCHO_TEXTO_VINETA {
+            if ancho_palabra > ancho {
                 let mut fragmento = String::new();
                 let mut ancho_fragmento = 0;
                 for caracter in palabra.chars() {
-                    let ancho = caracter.width().unwrap_or(0);
-                    if ancho_fragmento + ancho > ANCHO_TEXTO_VINETA && !fragmento.is_empty() {
+                    let ancho_caracter = caracter.width().unwrap_or(0);
+                    if ancho_fragmento + ancho_caracter > ancho && !fragmento.is_empty() {
                         lineas.push(std::mem::take(&mut fragmento));
                         ancho_fragmento = 0;
                     }
                     fragmento.push(caracter);
-                    ancho_fragmento += ancho;
+                    ancho_fragmento += ancho_caracter;
                 }
                 linea = fragmento;
                 continue;
@@ -1510,7 +1888,7 @@ fn paginar_texto(texto: &str) -> Vec<String> {
         lineas.push(linea);
     }
     let mut paginas = lineas
-        .chunks(LINEAS_POR_PAGINA)
+        .chunks(alto)
         .map(|lineas| lineas.join("\n"))
         .collect::<Vec<_>>();
     if paginas.is_empty() {
@@ -1723,6 +2101,19 @@ pub(crate) fn dibujar_retratos(
     paso: usize,
     musica: bool,
 ) -> i64 {
+    dibujar_retratos_dialogo(frame, area, recorte, mundo, recursos, paso, musica, None)
+}
+
+fn dibujar_retratos_dialogo(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    recorte: Rect,
+    mundo: &VistaMundo,
+    recursos: &RecursosVisuales,
+    paso: usize,
+    musica: bool,
+    hablante: Option<IdActor>,
+) -> i64 {
     let mut fin = i64::from(area.x);
     for (actor, x, inicio_y) in disposicion_retratos(mundo, area) {
         let retrato = &actor.retrato;
@@ -1734,10 +2125,58 @@ pub(crate) fn dibujar_retratos(
             let px = x.saturating_add(i64::try_from(origen.x).unwrap_or(i64::MAX));
             let py = inicio_y.saturating_add(i64::try_from(origen.y).unwrap_or(i64::MAX));
             dibujar_grafico_retrato(frame, recorte, px, py, grafico, recursos);
+            if hablante.is_some_and(|id| id != actor.id) {
+                for (i, celda) in grafico.celdas().iter().enumerate() {
+                    if celda.glifo == ' ' || grafico.ancho() == 0 {
+                        continue;
+                    }
+                    let x = px + (i % grafico.ancho()) as i64;
+                    let y = py + (i / grafico.ancho()) as i64;
+                    if x >= recorte.x as i64
+                        && x < recorte.right() as i64
+                        && y >= recorte.y as i64
+                        && y < recorte.bottom() as i64
+                        && let Some(c) = frame.buffer_mut().cell_mut((x as u16, y as u16))
+                    {
+                        c.fg = gris_dialogo(c.fg);
+                        c.bg = gris_dialogo(c.bg);
+                    }
+                }
+            }
         }
         fin = x.saturating_add(i64::try_from(retrato.base().ancho()).unwrap_or(i64::MAX));
     }
     fin
+}
+
+fn gris_dialogo(color: Color) -> Color {
+    match color {
+        Color::Reset | Color::Black | Color::White | Color::Gray | Color::DarkGray => color,
+        Color::Rgb(r, g, b) => {
+            let l =
+                ((2126 * u32::from(r) + 7152 * u32::from(g) + 722 * u32::from(b)) / 10000) as u8;
+            Color::Rgb(l, l, l)
+        }
+        Color::Indexed(i) => match i {
+            0 => Color::Black,
+            1..=6 => Color::DarkGray,
+            7..=15 => Color::Gray,
+            16..=231 => {
+                let n = i - 16;
+                let r = u32::from(n / 36);
+                let g = u32::from(n / 6 % 6);
+                let b = u32::from(n % 6);
+                let nivel = |v| if v == 0 { 0 } else { 55 + 40 * v };
+                let l = ((2126 * nivel(r) + 7152 * nivel(g) + 722 * nivel(b)) / 10000) as u8;
+                Color::Rgb(l, l, l)
+            }
+            _ => color,
+        },
+        Color::Red | Color::Green | Color::Yellow | Color::Blue | Color::Magenta | Color::Cyan => {
+            Color::DarkGray
+        }
+        _ => Color::Gray,
+    }
 }
 
 fn expresion_retrato(actor: &VistaActor, musica: bool) -> Option<&str> {
@@ -1799,6 +2238,252 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    #[test]
+    fn dialogos_banda_inferior_paginas_y_actor_externo() {
+        fn copiar(a: &std::path::Path, b: &std::path::Path) {
+            std::fs::create_dir_all(b).unwrap();
+            for e in std::fs::read_dir(a).unwrap() {
+                let e = e.unwrap();
+                if e.path().is_dir() {
+                    copiar(&e.path(), &b.join(e.file_name()));
+                } else {
+                    std::fs::copy(e.path(), b.join(e.file_name())).unwrap();
+                }
+            }
+        }
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let carpeta = std::env::temp_dir().join(format!("dt-dialogos-ui-{}", std::process::id()));
+        copiar(&raiz.join("content/base"), &carpeta);
+        let texto = "Una advertencia larga para comprobar la lectura y sus páginas. ".repeat(12);
+        let fuente = format!(
+            r##"(clave:"dialogo_prueba",prioridad:10000,puntos:["partida.disponible"],condicion:"return true",inicio:"escena",pasos:[Vigneta(clave:"escena",presentacion:r#"return {{titulo="Escena",detalle="Detalle de la escena",momentos={{ui.decir("sirviente","{texto}"),ui.decir("zahrim","Te estaba esperando."),ui.narrar("El rey guarda silencio.")}}}}"#,siguiente:Some("fin")),Fin(clave:"fin",control:Continuar)])"##
+        );
+        std::fs::write(carpeta.join("events/dialogo_prueba.ron"), fuente).unwrap();
+        let c = cargar_contenido(&carpeta).unwrap();
+        std::fs::remove_dir_all(carpeta).unwrap();
+        let mut i =
+            Interfaz::nueva(Partida::nueva(&c, ConfiguracionPartida { semilla: Some(1) }).unwrap())
+                .unwrap();
+        for _ in 0..20 {
+            let Some(v) = i.evento().cloned() else { break };
+            if v.evento == "dialogo_prueba" {
+                break;
+            }
+            if let Some(o) = v.opciones.first() {
+                i.enviar(IntencionFrontend::ResponderEvento {
+                    presentacion: v.id,
+                    opcion: o.id,
+                });
+            } else {
+                i.enviar(IntencionFrontend::ContinuarEvento { presentacion: v.id });
+            }
+        }
+        let r = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let antes = i.partida.fecha_actual();
+        terminal.draw(|f| i.dibujar(f, &r)).unwrap();
+        let area = i.area_dialogo.get();
+        let fila = (0..80)
+            .map(|x| terminal.backend().buffer()[(x, area.y)].symbol())
+            .collect::<String>();
+        assert!(
+            fila.contains("Nadin"),
+            "fila={fila:?}, area={area:?}, evento={:?}",
+            i.evento().map(|v| (&v.evento, v.hablante))
+        );
+        assert!(i.paginas_vigentes() > 1);
+        let id = i.evento().unwrap().id;
+        i.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert_eq!(i.evento().unwrap().id, id);
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        i.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        assert_eq!(i.evento().unwrap().id, id);
+        i.manejar_tecla(KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE));
+        while i.pagina + 1 < i.paginas_vigentes() {
+            i.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        }
+        i.manejar_tecla(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+        terminal.draw(|f| i.dibujar(f, &r)).unwrap();
+        let fila = (0..80)
+            .map(|x| terminal.backend().buffer()[(x, area.y)].symbol())
+            .collect::<String>();
+        assert!(fila.contains("Zahrim"));
+        assert_eq!(i.partida.fecha_actual(), antes);
+        // Un terminal estrecho no pierde la intervención ni accede fuera del buffer.
+        let mut pequeno = Terminal::new(TestBackend::new(12, 6)).unwrap();
+        pequeno.draw(|f| i.dibujar(f, &r)).unwrap();
+        assert!(i.evento().unwrap().hablante.is_some());
+    }
+
+    #[test]
+    fn dialogos_grises_conservan_glifos_transparencia_y_hablante() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let c = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let p = Partida::nueva(&c, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        let mundo = p.mundo_visible();
+        let r = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        for (w, h) in [(120, 40), (5, 3)] {
+            let mut terminal = Terminal::new(TestBackend::new(w, h)).unwrap();
+            let area = Rect::new(0, 0, w, h);
+            terminal
+                .draw(|f| {
+                    for y in 0..h {
+                        for x in 0..w {
+                            let celda = f.buffer_mut().cell_mut((x, y)).unwrap();
+                            celda
+                                .set_char('?')
+                                .set_fg(Color::Magenta)
+                                .set_bg(Color::Blue);
+                        }
+                    }
+                    dibujar_retratos(f, area, area, &mundo, &r, 0, false);
+                })
+                .unwrap();
+            let normal = terminal.backend().buffer().clone();
+            terminal
+                .draw(|f| {
+                    for y in 0..h {
+                        for x in 0..w {
+                            let celda = f.buffer_mut().cell_mut((x, y)).unwrap();
+                            celda
+                                .set_char('?')
+                                .set_fg(Color::Magenta)
+                                .set_bg(Color::Blue);
+                        }
+                    }
+                    dibujar_retratos_dialogo(
+                        f,
+                        area,
+                        area,
+                        &mundo,
+                        &r,
+                        0,
+                        false,
+                        Some(mundo.jugador.id),
+                    );
+                })
+                .unwrap();
+            let gris = terminal.backend().buffer();
+            assert_eq!(normal.content().len(), gris.content().len());
+            for (a, b) in normal.content().iter().zip(gris.content()) {
+                assert_eq!(a.symbol(), b.symbol());
+                if a.symbol() == "?" {
+                    assert_eq!(a, b);
+                }
+            }
+            if w > 5 {
+                assert!(
+                    normal
+                        .content()
+                        .iter()
+                        .zip(gris.content())
+                        .any(|(a, b)| a.fg != b.fg)
+                );
+            }
+        }
+        assert_eq!(gris_dialogo(Color::Reset), Color::Reset);
+        assert_eq!(gris_dialogo(Color::Black), Color::Black);
+        assert!(matches!(gris_dialogo(Color::Rgb(200,100,20)),Color::Rgb(r,g,b) if r==g && g==b));
+        let paginas = paginar_con_medidas("palabralarguísima y más texto", 4, 1);
+        assert!(paginas.len() > 1);
+        assert!(
+            paginas
+                .iter()
+                .all(|s| s.chars().map(|c| c.width().unwrap_or(0)).sum::<usize>() <= 4)
+        );
+    }
+
+    #[test]
+    fn colectivos_marco_respeta_retratos_barras_y_coordenadas() {
+        let mut i = Interfaz::nueva(partida_preparada(None, false, true)).unwrap();
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let fecha = i.partida.fecha_actual();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let con_marco = terminal.backend().buffer().clone();
+        let geometria = i.geometria_mapa.get().unwrap();
+        assert_eq!(geometria.area, Rect::new(3, 3, 74, 16));
+        assert!(geometria.a_mapa(0, 5).is_none());
+        assert!(i.texto_acciones().contains("[A] Acampar"));
+        assert!(!i.texto_acciones().contains("[V] Viajar"));
+        let fila = (0..80)
+            .map(|x| con_marco[(x, 0)].symbol())
+            .collect::<String>();
+        assert!(fila.contains("Dentro de: Compañía de prueba"));
+        assert_eq!(con_marco[(0, 4)].bg, Color::Black);
+        let colectivo = i.ultima_vista_mundo.colectivo.take();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let sin_marco = terminal.backend().buffer();
+        for (actor, x, y) in disposicion_retratos(&i.ultima_vista_mundo, Rect::new(0, 0, 80, 22)) {
+            for (dy, fila) in actor
+                .retrato
+                .base()
+                .celdas()
+                .chunks(actor.retrato.base().ancho())
+                .enumerate()
+            {
+                for (dx, celda) in fila.iter().enumerate() {
+                    if celda.glifo != ' ' {
+                        let px = x + dx as i64;
+                        let py = y + dy as i64;
+                        if (0..80).contains(&px) && (0..22).contains(&py) {
+                            let a = &con_marco[(px as u16, py as u16)];
+                            let b = &sin_marco[(px as u16, py as u16)];
+                            assert_eq!(
+                                (a.symbol(), a.fg, a.modifier),
+                                (b.symbol(), b.fg, b.modifier)
+                            );
+                            // Los fondos transparentes dejan ver el marco cuando
+                            // coincide con ellos, conservando el arte y su frente.
+                        }
+                    }
+                }
+            }
+        }
+        i.ultima_vista_mundo.colectivo = colectivo;
+        terminal.backend_mut().resize(120, 40);
+        terminal.resize(Rect::new(0, 0, 120, 40)).unwrap();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(i.partida.fecha_actual(), fecha);
+    }
+    #[test]
+    fn colectivos_reloj_cancelacion_menu_y_retorno_conservan_tiempo_y_foco() {
+        let mut i = Interfaz::nueva(partida_preparada(None, false, true)).unwrap();
+        let tecla = |code| KeyEvent::new(code, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('a')));
+        i.manejar_tecla(tecla(KeyCode::Right));
+        i.manejar_tecla(tecla(KeyCode::Right));
+        assert!(i.texto_contextual().contains("Esperar órdenes"));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert!(matches!(i.vista, VistaSesion::EsperandoOrdenes(_)));
+        assert!(!i.ambiente_sonoro().fogata);
+        let fecha = i.partida.fecha_actual();
+        i.avanzar_animacion(Duration::from_millis(499));
+        i.avanzar_espera();
+        assert_eq!(i.partida.fecha_actual(), fecha);
+        i.avanzar_animacion(Duration::from_millis(1));
+        i.avanzar_espera();
+        let despues = i.partida.fecha_actual();
+        assert_ne!(despues, fecha);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        assert!(i.menu_desarrollo);
+        i.avanzar_animacion(Duration::from_secs(30));
+        i.avanzar_espera();
+        assert_eq!(i.partida.fecha_actual(), despues);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        i.avanzar_espera();
+        assert_eq!(i.partida.fecha_actual(), despues);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(matches!(i.vista, VistaSesion::Acampando(_)));
+        assert!(i.texto_contextual().contains("Esperar órdenes"));
+        assert!(i.ambiente_sonoro().fogata);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert_eq!(i.partida.fecha_actual(), despues);
+        assert!(matches!(i.vista, VistaSesion::Disponible(_)));
+    }
 
     fn preparar_inspector() -> (Interfaz, RecursosVisuales, Terminal<TestBackend>) {
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -2352,6 +3037,66 @@ mod pruebas {
     }
 
     #[test]
+    fn musica_continua_desde_menu_con_sirviente_del_grupo() {
+        use crate::musica_campamento::{AgendaMusica, ProgresoMusica};
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let c = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let mut p = Partida::nueva(&c, ConfiguracionPartida { semilla: Some(7) }).unwrap();
+        for _ in 0..20 {
+            if let VistaSesion::PresentandoEvento(v) = p.vista() {
+                p.procesar(IntencionFrontend::ContinuarEvento { presentacion: v.id })
+                    .unwrap();
+            } else {
+                break;
+            }
+        }
+        let mut i = Interfaz::nueva(p).unwrap();
+        i.enviar(IntencionFrontend::ComenzarCampamento);
+        assert!(i.campamento.is_some());
+        let ajustes = Some(AgendaMusica {
+            inicial: (60, 60),
+            pausa: (20, 180),
+        });
+        i.actualizar_musica(Duration::ZERO, None, true, None);
+        for code in [KeyCode::Esc, KeyCode::Down, KeyCode::Enter] {
+            i.manejar_tecla(KeyEvent::new(code, KeyModifiers::NONE));
+        }
+        i.actualizar_musica(Duration::ZERO, None, true, None);
+        assert_eq!(i.solicitud_musica(), 0);
+        assert!(
+            i.campamento
+                .as_ref()
+                .unwrap()
+                .estado_musica
+                .contains("preparando")
+        );
+        i.actualizar_musica(Duration::from_secs(1), None, true, ajustes);
+        let evento = i.solicitud_musica();
+        assert!(
+            evento > 0,
+            "sin solicitud; candidatos: {:?}",
+            crate::musica_campamento::candidatos(
+                &i.partida,
+                match &i.vista {
+                    VistaSesion::Acampando(v) => v,
+                    _ => panic!("no está acampando"),
+                }
+            )
+        );
+        i.actualizar_musica(
+            Duration::from_secs(2),
+            Some(ProgresoMusica {
+                evento,
+                transcurrido: Duration::from_secs(1),
+                finalizada: false,
+            }),
+            true,
+            ajustes,
+        );
+        assert!(i.musica.notas().is_some());
+    }
+
+    #[test]
     fn notas_musicales_siguen_al_sirviente_solo_con_audio_confirmado_y_respetan_recorte() {
         use crate::musica_campamento::{AgendaMusica, ProgresoMusica};
         let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -2720,6 +3465,9 @@ mod pruebas {
         partida_con_retrato_y_arte_y_viajero(arte, false)
     }
     fn partida_con_retrato_y_arte_y_viajero(arte: Option<&str>, viajero: bool) -> Partida {
+        partida_preparada(arte, viajero, false)
+    }
+    fn partida_preparada(arte: Option<&str>, viajero: bool, colectivo: bool) -> Partida {
         use std::fs;
         use std::sync::atomic::{AtomicU64, Ordering};
         static NUMERO: AtomicU64 = AtomicU64::new(0);
@@ -2789,6 +3537,28 @@ mod pruebas {
                 ),
             )
             .unwrap();
+        }
+        if colectivo {
+            let world = destino.join("world.ron");
+            fs::write(
+                &world,
+                fs::read_to_string(&world).unwrap().replacen(
+                    '(',
+                    "(colectivos:[\"compania_prueba\"],",
+                    1,
+                ),
+            )
+            .unwrap();
+            fs::create_dir(destino.join("collectives")).unwrap();
+            fs::write(destino.join("collectives/compania_prueba.ron"),r#"(clave:"compania_prueba",nombre:"Compañía de prueba",descripcion:"Una compañía.",ubicacion_inicial:EnLugar("zona_arida"))"#).unwrap();
+            for nombre in ["principe_perdido", "bandido", "sirviente"] {
+                let ruta = destino.join("actors").join(format!("{nombre}.ron"));
+                let t = fs::read_to_string(&ruta).unwrap().replace(
+                    "ubicacion_inicial: EnLugar(\"zona_arida\")",
+                    "ubicacion_inicial: EnColectivo(\"compania_prueba\")",
+                );
+                fs::write(ruta, t).unwrap();
+            }
         }
         let contenido = cargar_contenido(&destino).unwrap();
         Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap()
@@ -3337,6 +4107,13 @@ mod pruebas {
                     })
                 }
                 VistaSesion::Disponible(_) => break,
+                VistaSesion::PresentandoEvento(_) | VistaSesion::EsperandoDecisionEvento(_) => {
+                    panic!("evento inesperado sin catálogo")
+                }
+                VistaSesion::ProcesandoCierre { token } => {
+                    interfaz.enviar(IntencionFrontend::ContinuarCierre { token })
+                }
+                VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
                 VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
                 VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
             }
@@ -4119,5 +4896,57 @@ mod pruebas {
         assert!(i.ambiente_sonoro().fogata);
         i.enviar(IntencionFrontend::ContinuarPresentacion { fragmento: id });
         assert!(!i.ambiente_sonoro().fogata);
+    }
+    #[test]
+    fn evento_inicial_dibuja_paginas_detalle_y_decision_sin_avanzar_el_mundo() {
+        fn tecla(codigo: KeyCode) -> KeyEvent {
+            KeyEvent::new(codigo, KeyModifiers::NONE)
+        }
+        fn copiar(a: &std::path::Path, b: &std::path::Path) {
+            std::fs::create_dir_all(b).unwrap();
+            for e in std::fs::read_dir(a).unwrap() {
+                let e = e.unwrap();
+                if e.path().is_dir() {
+                    copiar(&e.path(), &b.join(e.file_name()));
+                } else {
+                    std::fs::copy(e.path(), b.join(e.file_name())).unwrap();
+                }
+            }
+        }
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let carpeta = std::env::temp_dir().join(format!("dt-ui-evento-{}", std::process::id()));
+        copiar(&raiz.join("content/base"), &carpeta);
+        std::fs::create_dir_all(carpeta.join("events")).unwrap();
+        let texto = "Un relato extenso que ocupa varias páginas y permite comprobar que leer no avanza el mundo. ".repeat(35);
+        let evento = format!(
+            r##"(clave:"prueba",puntos:["partida.disponible"],condicion:"return true",inicio:"ver",pasos:[Vigneta(clave:"ver",ilustracion:Some("demo_camino"),presentacion:r#"return {{titulo="Encuentro inicial",texto="{texto}",detalle="Información adicional"}}"#,opciones:[(clave:"seguir",texto:"Seguir",siguiente:"fin"),(clave:"otro",texto:"Otra opción",siguiente:"fin")]),Fin(clave:"fin",control:Continuar)])"##
+        );
+        std::fs::write(carpeta.join("events/prueba.ron"), evento).unwrap();
+        let contenido = cargar_contenido(&carpeta).unwrap();
+        std::fs::remove_dir_all(&carpeta).unwrap();
+        let partida =
+            Partida::nueva(&contenido, ConfiguracionPartida { semilla: Some(0) }).unwrap();
+        let mut i = Interfaz::nueva(partida).unwrap();
+        let vista = i.partida.vista();
+        let mundo = i.partida.mundo_visible();
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        assert!(i.paginas_vigentes() > 1);
+        for (ancho, alto) in [(80, 24), (120, 45), (90, 28)] {
+            let mut terminal = Terminal::new(TestBackend::new(ancho, alto)).unwrap();
+            terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        }
+        i.manejar_tecla(tecla(KeyCode::Right));
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        assert!(i.mostrar_detalle);
+        i.manejar_tecla(tecla(KeyCode::Char('d')));
+        assert_eq!(i.partida.vista(), vista);
+        assert_eq!(i.partida.mundo_visible(), mundo);
+        while i.pagina + 1 < i.paginas_vigentes() {
+            i.manejar_tecla(tecla(KeyCode::Enter));
+        }
+        i.manejar_tecla(tecla(KeyCode::Down));
+        assert_eq!(i.foco_evento, 1);
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert!(matches!(i.partida.vista(), VistaSesion::Disponible(_)));
     }
 }

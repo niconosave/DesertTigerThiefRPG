@@ -1,0 +1,13 @@
+(
+    clave:"servicio_dahran_desembarco",
+    activacion:PorPuntos(puntos:["fase_npc.terminada"]),
+    observacion:EnColectivo(colectivo:"compania_dahran"),
+    prioridad:10,
+    condicion:r#"return mundo:actor_jugador()=="principe_perdido" and mundo:booleana("vendidoEnZarabad",false) and mundo:colectivo_de("principe_perdido")=="compania_dahran" and ctx:ahora().dia_absoluto >= mundo:entera("inicioServicioDahran",0)+14"#,
+    inicio:"desembarcar",
+    pasos:[
+        Efectos(clave:"desembarcar",salidas:["relato"],resolver:r#"return {operaciones={op.trasladar_colectivo("compania_dahran","zarabad"), op.salir_grupo_de_colectivo("compania_dahran"), op.establecer_booleana("permisoTierraZarabad",true)},siguiente="relato"}"#),
+        Vigneta(clave:"relato",presentacion:r#"return {titulo="Un permiso para bajar a tierra",texto="Después de dos semanas de servicio, la compañía regresa a Zarabad. Les permiten desembarcar mientras se prepara la siguiente salida. Tu sirviente vuelve a caminar a tu lado entre los almacenes; pueden moverse por su cuenta, aunque Zahrim todavía los considere suyos. Este permiso no es la libertad, pero abre otra vez un camino ante ustedes."}"#,siguiente:Some("fin")),
+        Fin(clave:"fin",control:Continuar),
+    ],
+)

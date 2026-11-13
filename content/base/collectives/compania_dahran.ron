@@ -1,0 +1,7 @@
+(
+    clave: "compania_dahran",
+    nombre: "Compañía de Dahran",
+    descripcion: "La tripulación que sirve a Zahrim bajo las órdenes del capitán Dahran. Escolta el comercio de Zarabad y hostiga los barcos de Nuris.",
+    ubicacion_inicial: EnLugar("zarabad"),
+    lider: Some("dahran"),
+)

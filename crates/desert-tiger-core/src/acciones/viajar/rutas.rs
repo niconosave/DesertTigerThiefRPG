@@ -26,7 +26,9 @@ pub(crate) fn medio(
     caballos: u64,
     camellos: u64,
 ) -> Medio {
-    if [a, b].iter().any(|&l| lugar_tiene(mundo, l, "acuatico")) {
+    if (mundo.ofrece_pasaje(a, b) || mundo.es_tramo_pasaje(a, b))
+        || [a, b].iter().any(|&l| lugar_tiene(mundo, l, "acuatico"))
+    {
         return Medio::Barco;
     }
     if caballos >= actores as u64
@@ -127,6 +129,21 @@ pub(crate) fn mitad(
     };
     Ok(horas + if medio == Medio::Pie { estado } else { 0 })
 }
+pub(crate) fn mitad_pasaje(mundo: &Mundo, lugar: IdLugar) -> Resultado<u64> {
+    if mundo.lugar(lugar).is_none() {
+        return Err(fallo("Lugar de mitad desconocido"));
+    }
+    match (
+        lugar_tiene(mundo, lugar, "pequeno"),
+        lugar_tiene(mundo, lugar, "vasto"),
+    ) {
+        (true, true) => Err(fallo("tamaño contradictorio")),
+        (true, false) => Ok(12),
+        (false, true) => Ok(48),
+        (false, false) => Ok(24),
+    }
+}
+
 pub(crate) fn tiempos(
     mundo: &Mundo,
     ruta: &[IdLugar],
@@ -137,6 +154,16 @@ pub(crate) fn tiempos(
 ) -> Resultado<Vec<[u64; 2]>> {
     ruta.windows(2)
         .map(|p| {
+            if mundo.ofrece_pasaje(p[0], p[1]) {
+                let r = mundo.recorrido_pasaje(p[0], p[1]).unwrap();
+                let total = r.windows(2).try_fold(0u64, |n, q| -> Resultado<u64> {
+                    Ok(n + mitad_pasaje(mundo, q[0])? + mitad_pasaje(mundo, q[1])?)
+                })?;
+                return Ok([total / 2, total - total / 2]);
+            }
+            if mundo.es_tramo_pasaje(p[0], p[1]) {
+                return Ok([mitad_pasaje(mundo, p[0])?, mitad_pasaje(mundo, p[1])?]);
+            }
             let m = medio(mundo, p[0], p[1], actores.len(), caballos, camellos);
             Ok([
                 mitad(
@@ -180,7 +207,7 @@ pub(crate) fn rapida(
             continue;
         }
         for &b in mundo
-            .lugares_conectados(a)
+            .lugares_transitables(a)
             .ok_or_else(|| fallo("índice de conexiones ausente"))?
         {
             let m = medio(
@@ -191,8 +218,12 @@ pub(crate) fn rapida(
                 viajeros.len() as u64,
                 viajeros.len() as u64,
             );
-            let costo = mitad(mundo, a, m, 0, true, estado_pie(mundo, viajeros))?
-                + mitad(mundo, b, m, 0, true, estado_pie(mundo, viajeros))?;
+            let costo = if mundo.ofrece_pasaje(a, b) {
+                sumar_horas(&tiempos(mundo, &[a, b], viajeros, 0, 0, 0)?)?
+            } else {
+                mitad(mundo, a, m, 0, true, estado_pie(mundo, viajeros))?
+                    + mitad(mundo, b, m, 0, true, estado_pie(mundo, viajeros))?
+            };
             let nd = d
                 .checked_add(costo)
                 .ok_or_else(|| fallo("ruta desbordada"))?;
@@ -244,7 +275,7 @@ pub(crate) fn larga(
             let mut vistos = BTreeSet::from([a]);
             let mut cola = VecDeque::from([a]);
             while let Some(x) = cola.pop_front() {
-                let mut vecinos = mundo.lugares_conectados(x).unwrap_or(&[]).to_vec();
+                let mut vecinos = mundo.lugares_transitables(x).unwrap_or(&[]).to_vec();
                 for j in (1..vecinos.len()).rev() {
                     let k = sortear(azar, j + 1)?;
                     vecinos.swap(j, k);

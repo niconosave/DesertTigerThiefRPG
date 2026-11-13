@@ -1,11 +1,13 @@
 //! Composición de partidas y fachada independiente del frontend.
 
 mod contenido;
+mod eventos;
+pub use eventos::{IdOpcionEvento, IdPresentacionEvento, OpcionEvento, VistaEvento};
 mod contexto_viaje;
 mod fase_npc;
 mod fichas;
 pub use desert_tiger_core::acciones::ErrorAcampada;
-pub use desert_tiger_core::{ExtremoRelacion, IdRelacion, TipoRelacion};
+pub use desert_tiger_core::{ExtremoRelacion, IdConcepto, IdRelacion, TipoRelacion};
 pub use fichas::{
     EntradaFicha, ErrorConsultaFicha, ResumenElemento, SentidoRelacionFicha, VistaFicha,
     VistaRelacionFicha,
@@ -46,3 +48,6 @@ pub use desert_tiger_core::{HermanoDerivado, Progenitores, UbicacionActor};
 pub use fichas::{VinculoFicha, VistaUbicacionActor};
 
 pub use sesion::{PresentacionDecision, VistaRutaPropuesta};
+
+pub use desert_tiger_core::IdColectivo;
+pub use sesion::{IdCierre, IdContinuacionCierre, IdEspera, VistaColectivo, VistaEsperaOrdenes};

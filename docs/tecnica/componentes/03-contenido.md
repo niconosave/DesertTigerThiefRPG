@@ -6,6 +6,15 @@
 | Versión | 0.33 |
 | Fecha | 2026-11-04 |
 
+> Ampliación implementada el 2026-11-11: el [contrato 25](./25-conceptos-relaciones-personales.md)
+> incorpora Conceptos, relaciones personales, índices, autoría RON, fichas y
+> consultas Lua. Gobierna esas extensiones respecto de los esquemas previos.
+
+> Ampliación diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
+> normaliza los eventos externos v1, las definiciones incrustadas en Actores y
+> `politica` heredada en un catálogo común, con identidades por ámbito. No reserva
+> carpetas por tipo de activación. Los formatos implementados siguen vigentes.
+
 > Ampliación implementada el 2026-10-26. Esquema de ubicación y relaciones Actor→Actor: [contrato 14, sección 4](./14-parentesco-actores-contexto.md#4-autoría-ron-y-compatibilidad).
 
 > Ampliación implementada el 2026-10-26: nombres y biografías de
@@ -16,6 +25,9 @@
 > con mercancía. La [sección de lugares exteriores](#lugares-fuera-del-mapa)
 > define sus datos; el [contrato de comercio](./10-relaciones.md#14-comercio-dirigido-con-mercancía)
 > define `Vende`, `Compra` y su normalización.
+
+> La ampliación implementada de [eventos narrativos, sección 5](./23-eventos-narrativos.md#5-esquema-de-contenido)
+> carga `events/**/*.ron` opcionalmente, sin alterar los archivos existentes.
 
 ## Revisión implementada el 2026-10-24: Validación de contenido para Viajar
 

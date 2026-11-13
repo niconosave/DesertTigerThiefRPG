@@ -7,6 +7,7 @@ use std::{
     num::NonZeroUsize,
 };
 mod acampar;
+pub mod intervenciones;
 mod particulares;
 pub use acampar::{
     Acampada, ErrorAcampada, ResultadoAcampada, finalizar_acampada, iniciar_acampada,
@@ -27,6 +28,7 @@ pub enum SolicitudAccion {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RechazoAccion {
+    ActorIncorporado,
     ActorFueraDelEscenario,
     ActorDesconocido,
     JugadorMuerto,
@@ -89,13 +91,16 @@ pub fn destinos_disponibles(mundo: &Mundo, actor: IdActor) -> Result<Vec<IdLugar
     if actor != mundo.actor_jugador() && mundo.grupo().contiene(actor) {
         return Err(RechazoAccion::IntegranteDelGrupo);
     }
-    let lugar = actual
-        .lugar()
+    if matches!(actual.ubicacion(), crate::UbicacionActor::EnColectivo(_)) {
+        return Err(RechazoAccion::ActorIncorporado);
+    }
+    let lugar = mundo
+        .ubicacion_actor(actor)
         .ok_or(RechazoAccion::ActorFueraDelEscenario)?;
     let mut vistos = BTreeSet::from([lugar]);
     let mut cola = VecDeque::from([lugar]);
     while let Some(l) = cola.pop_front() {
-        for &vecino in mundo.lugares_conectados(l).unwrap_or(&[]) {
+        for &vecino in mundo.lugares_transitables(l).unwrap_or(&[]) {
             if vistos.insert(vecino) {
                 cola.push_back(vecino);
             }
@@ -116,7 +121,7 @@ pub fn destinos_seleccionables_jugador(mundo: &Mundo) -> Result<Vec<IdLugar>, Re
     let mut vistos = BTreeSet::from([origen]);
     let mut pendientes = VecDeque::from([origen]);
     while let Some(actual) = pendientes.pop_front() {
-        for &vecino in mundo.lugares_conectados(actual).unwrap_or(&[]) {
+        for &vecino in mundo.lugares_transitables(actual).unwrap_or(&[]) {
             if !vistos.insert(vecino) {
                 continue;
             }

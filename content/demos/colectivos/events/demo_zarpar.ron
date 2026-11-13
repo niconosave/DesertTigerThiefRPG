@@ -1,0 +1,12 @@
+(
+    clave: "demo_zarpar",
+    activacion: EnFecha(fecha: (anio: 2025, mes: 2, dia: 1)),
+    observacion: EnColectivo(colectivo: "compania_dahran"),
+    condicion: "return true",
+    inicio: "traslado",
+    pasos: [
+        Efectos(clave: "traslado", salidas: ["relato"], resolver: r#"return {operaciones={op.trasladar_colectivo("compania_dahran", "mar_del_viento")}, siguiente="relato"}"#),
+        Vigneta(clave: "relato", presentacion: r#"return {titulo="Una orden del capitán",texto="Dahran da la señal de partida. Viajás con la compañía hasta el Mar del Viento; tus compañeros te acompañan. La espera se detiene para que puedas contemplar la nueva posición."}"#, siguiente: Some("fin")),
+        Fin(clave: "fin", control: Continuar),
+    ],
+)

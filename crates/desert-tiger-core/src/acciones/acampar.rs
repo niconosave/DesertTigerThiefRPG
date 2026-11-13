@@ -4,6 +4,7 @@ use std::{error::Error, fmt};
 #[derive(Debug)]
 pub struct Acampada {
     actor: IdActor,
+    descanso_cubierto: bool,
 }
 
 #[derive(Debug)]
@@ -39,19 +40,34 @@ pub fn iniciar_acampada(mundo: &Mundo, actor: IdActor) -> Result<Acampada, Error
     if actor != mundo.actor_jugador() && mundo.grupo().contiene(actor) {
         return Err(ErrorAcampada::IntegranteDelGrupo);
     }
-    if actual.lugar().is_none() {
+    if mundo.ubicacion_actor(actor).is_none() {
         return Err(ErrorAcampada::ActorFueraDelEscenario);
     }
-    Ok(Acampada { actor })
+    Ok(Acampada {
+        actor,
+        descanso_cubierto: false,
+    })
 }
 
 pub fn finalizar_acampada(acampada: Acampada) -> ResultadoAcampada {
-    let Acampada { actor: _actor } = acampada;
+    let Acampada {
+        actor: _actor,
+        descanso_cubierto,
+    } = acampada;
     ResultadoAcampada {
         tiempo: TiempoAccion {
-            duracion: Duracion::desde_dias(1),
+            duracion: Duracion::desde_dias(if descanso_cubierto { 0 } else { 1 }),
             fraccion: FraccionDia::CERO,
         },
+    }
+}
+
+impl Acampada {
+    pub fn descanso_cubierto(&self) -> bool {
+        self.descanso_cubierto
+    }
+    pub fn cubrir_descanso_por_espera(&mut self) {
+        self.descanso_cubierto = true;
     }
 }
 
@@ -68,6 +84,7 @@ mod pruebas {
         let id = |i| IdActor::desde_posicion(i).unwrap();
         let lugar = IdLugar::desde_posicion(0).unwrap();
         let mundo = Mundo::nuevo(DatosInicialesMundo {
+            colectivos: vec![],
             mapa: IdMapa::desde_posicion(0).unwrap(),
             fecha: Fecha::nueva(2026, Mes::Enero, 1).unwrap(),
             lugares: vec![LugarInicial {

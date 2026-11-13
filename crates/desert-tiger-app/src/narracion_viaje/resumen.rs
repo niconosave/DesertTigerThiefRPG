@@ -67,6 +67,15 @@ impl Narrador<'_> {
     }
 
     fn resumen_desplazamiento(&self, r: &RegistroEscena, d: &Desplazamiento) -> String {
+        if d.pasaje {
+            return format!(
+                "Con los pasajes acordados, viajás a bordo de un carguero desde {} hacia {}. El capitán y su tripulación conducen el barco; este tramo lleva {}{}.",
+                self.lugar(d.origen),
+                self.lugar(d.destino),
+                formatear(r.duracion),
+                aviso_reservas(r)
+            );
+        }
         let lider = self.actor(d.chequeos[0].responsable);
         let medio = match d.medio {
             Medio::Pie => "a pie",
@@ -432,10 +441,11 @@ mod pruebas {
             registro.tarjeta = tarjeta;
             registro.lugar = registro.destino_final;
             registro.contenido = ContenidoEscena::Desplazamiento(Desplazamiento {
+                pasaje: false,
                 medio,
                 origen: mundo.ubicacion_actor(actor).unwrap(),
                 destino: registro.destino_final,
-                chequeos: [chequeo.clone(), chequeo.clone()],
+                chequeos: vec![chequeo.clone(), chequeo.clone()],
                 mitades: mitades(
                     mundo.ubicacion_actor(actor).unwrap(),
                     registro.destino_final,
@@ -500,10 +510,11 @@ mod pruebas {
             Incidente::PorLaBorda,
         ] {
             r.contenido = ContenidoEscena::Desplazamiento(Desplazamiento {
+                pasaje: false,
                 medio: Medio::Pie,
                 origen: lugar,
                 destino: r.destino_final,
-                chequeos: [chequeo.clone(), chequeo.clone()],
+                chequeos: vec![chequeo.clone(), chequeo.clone()],
                 mitades: mitades(lugar, r.destino_final, Medio::Pie),
                 viento: None,
                 incidente: Some(IncidenteResuelto {

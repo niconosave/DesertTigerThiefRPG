@@ -4,7 +4,7 @@
     nombre: "Ur Eshan",
     nombre_abreviado: "Ur Eshan",
     simbolo: "☗",
-    descripcion: "Ves terrazas de ladrillo y canales bordeados de huertos que se pierden entre barrios extensos. Por encima de los tejados se eleva un santuario escalonado, claro contra el cielo.",
+    descripcion: "Ante vos está la capital del reino del Drâa. Ves terrazas de ladrillo y canales bordeados de huertos que se pierden entre barrios extensos. Por encima de los tejados se eleva un santuario escalonado, claro contra el cielo.",
     caracteristicas: ["civilizado", "poblado", "mercado", "posada", "fertil", "aguaDulce"],
     relaciones: [
         (tipo: Vende, destino: Lugar("naram"), mercancia: "grano"),

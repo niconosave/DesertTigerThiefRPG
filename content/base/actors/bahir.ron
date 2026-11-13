@@ -1,0 +1,14 @@
+(
+    clave: "bahir",
+    nombre: "Bahir",
+    biografia: "Carpintero de ribera de Nuris y padre de Farid y Samir. Repara barcas y barcos en un pequeño astillero. La guerra le trae trabajo, pero interrumpe las entregas de madera. Quiere conservar su oficio mientras su familia lidia con el cautiverio de Farid.",
+    ubicacion_inicial: EnLugar("nuris"),
+    caracteristicas: ["hombreTigre", "carpintero"],
+    relaciones: [
+        (tipo: Desea, destino: Concepto("conservar_astillero")),
+        (tipo: Necesita, destino: Concepto("restablecer_madera_nuris")),
+        (tipo: Conoce, destino: Lugar("nuris")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Base inicial aprobada |
-| Versión | 0.20 |
-| Fecha | 2026-10-28 |
+| Versión | 0.27 |
+| Fecha | 2026-11-12 |
 
 ## 1. Propósito
 
@@ -153,13 +153,50 @@ Un actor:
 
 El actor jugador se diferencia por recibir sus decisiones desde el frontend. Los
 NPC ajenos al grupo reciben sus decisiones desde reglas y scripts. Mientras un
-actor forme parte del grupo, su política Lua no se evalúa: su participación se
-decide dentro de las acciones del jugador.
+actor forme parte del grupo, su política Lua legada no se evalúa: su participación
+se decide dentro de las acciones del jugador. La evolución del contrato 24
+permite además eventos escritos en su RON; estos pueden tratar del compañero y
+activar según sus condiciones, sin heredar automáticamente esa exclusión.
 
 Los Actores de contexto fuera del escenario no actúan localmente ni forman
 parte del Grupo; se pueden consultar siguiendo relaciones desde Acampar. Esta
 ampliación está implementada según el
 [contrato de parentesco y contexto](./tecnica/componentes/14-parentesco-actores-contexto.md).
+
+### Concepto
+
+Un Concepto es una idea que puede ser objeto de una Relación, como recuperar
+el trono o proteger a una persona. Puede expresar algo simple o complejo,
+incluida una acción como idea. Solo tiene clave, nombre y descripción; no tiene
+ubicación, características, conducta ni un progreso que se resuelva por sí mismo.
+
+Las Relaciones Desea, Debe, Necesita y EsLlamadoA conectan un Actor con un Concepto.
+Permiten comprender qué importa al personaje y orientan los finales particulares
+que escriba el diseñador. Los eventos y las reglas determinan qué ocurre; estas
+relaciones no ejecutan acciones ni imponen una condición universal de victoria.
+Los Conceptos se pueden explorar siguiendo referencias desde Acampar.
+
+El [contrato de Conceptos y relaciones personales](./tecnica/componentes/25-conceptos-relaciones-personales.md)
+define el formato, la carga y los índices implementados.
+
+### Actor colectivo
+
+Representa una pluralidad física con identidad propia, como una compañía,
+caravana, multitud o bandada. Puede contener Actores concretos y tener un líder
+opcional, sin exigir crear a cada integrante anónimo como Actor. Se distingue
+de un Lugar, un Actor individual y un Concepto.
+
+El Grupo del jugador puede incorporarse entero y desplazarse con el colectivo,
+sin convertir al capitán ni al resto de sus miembros en compañeros del jugador.
+En el alcance inicial, esa incorporación limita las acciones individuales y
+permite esperar órdenes desde Acampar. Los cambios de ubicación y composición
+proceden de eventos narrativos; todavía no se diseñan acciones colectivas.
+
+El [contrato técnico](./tecnica/componentes/26-actores-colectivos-y-espera.md)
+define ubicación efectiva, entrada y salida e interfaz. Esperar órdenes muestra
+el mapa y hace avanzar el tiempo automáticamente hasta que actúe el colectivo
+o el jugador cancele para volver al campamento. Esta incorporación física no
+equivale por sí sola a la condición de esclavo, prisionero o servidor de otra persona.
 
 ### Grupo
 
@@ -330,6 +367,33 @@ una acción particular o comunicar las consecuencias de varias intervenciones
 relacionadas. Una escena y una acción general pueden producir tantas viñetas
 sucesivas como exija lo realmente simulado; la viñeta no es la unidad de las
 reglas.
+
+### Evento narrativo
+
+Es un momento particular escrito por el diseñador, con condiciones de activación,
+viñetas, decisiones y consecuencias sobre la partida actual. Las reacciones y
+los motivos de sus personajes pertenecen a esa autoría: no se deducen de una
+medida abstracta de lealtad o gratitud.
+
+Los eventos se definen en archivos editables y usan Lua para consultar el contexto
+y solicitar operaciones de Rust. Pueden insertarse en puntos preparados de las
+acciones, sustituir unidades expresamente habilitadas, interrumpir una ejecución
+o habilitar otro evento. No modifican los archivos originales del contenido.
+El [contrato técnico de eventos](./tecnica/componentes/23-eventos-narrativos.md)
+fija el alcance inicial y separa las ampliaciones futuras.
+
+El modelo objetivo conserva un único EventoNarrativo con distintas formas de
+autoría y activación. Puede escribirse dentro del RON de un Actor o en un archivo
+propio. En el primer caso Lua recibe `this`, la clave de ese Actor; en el segundo
+los participantes se referencian por clave. El propietario del archivo no se
+confunde con el jugador ni limita quién participa en el acontecimiento.
+
+El evento puede ser único o habitual, activarse en un punto preparado o al pasar
+el tiempo y solicitar una acción general o consecuencias directas validadas.
+Un acontecimiento fechado puede cambiar el mundo a distancia; su presentación
+usa el lugar final del jugador, según la decisión confirmada para esta etapa.
+El [contrato 24](./tecnica/componentes/24-agenda-eventos-mundo.md) diseña esa
+integración de eventos y políticas heredadas; todavía no está implementada.
 
 ## 4. Relaciones entre mundo, mapa, lugares y actores
 
@@ -574,6 +638,13 @@ escritas directamente en su código y podrán modificarse a medida que se ejecut
 la acción.
 
 Al terminar una acción del jugador:
+
+El siguiente orden describe el funcionamiento implementado. La agenda diseñada
+en el [contrato 24](./tecnica/componentes/24-agenda-eventos-mundo.md) incorporará
+la resolución de fechas y de la actividad NPC mediante el mismo sistema de
+eventos, después de confirmar la fecha. Las políticas actuales se adaptarán a
+ese modelo sin evaluarse una segunda vez. Los sucesos no volverán a consumir
+tiempo ni requerirán presencia para confirmar cambios remotos.
 
 1. La fecha del mundo avanza por el tiempo total calculado.
 2. El programa recorre los scripts Lua de los NPC que no pertenecen al grupo.

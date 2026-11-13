@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; audio en verificación auditiva; detalles históricos señalados en sus componentes |
-| Versión | 0.20 |
-| Fecha | 2026-10-26 |
+| Versión | 0.23 |
+| Fecha | 2026-11-06 |
 
 > El [contrato implementado de Viajar](./acciones/06-implementacion-viajar.md)
 > sustituye sus contratos anteriores. Las cabeceras de los componentes delimitan
@@ -57,6 +57,21 @@ La ampliación de [audio procedural](./componentes/17-audio-procedural.md)
 pertenece exclusivamente al frontend. Conserva las tres crates y el mismo
 proceso: el callback de salida procesa sonido independientemente del bucle de
 entrada y dibujo, sin acceder a la Partida ni ejecutar reglas del juego.
+
+La ampliación implementada de [eventos narrativos](./componentes/23-eventos-narrativos.md)
+añade un coordinador en `desert-tiger-app`: conserva las ejecuciones suspendidas y
+aplica la autoría de eventos mediante operaciones del núcleo. El núcleo ofrece
+puntos semánticos de cesión y conserva la validación de las continuaciones; no
+interpreta Lua ni el contenido de un evento concreto. El frontend recibe las
+vistas resultantes con el mismo límite de dependencias.
+
+La [evolución común de eventos](./componentes/24-agenda-eventos-mundo.md) está
+diseñada y pendiente de implementación. Normaliza la autoría externa, la autoría
+incrustada en Actores y las políticas heredadas en un catálogo, un coordinador
+y un registro de ocurrencias por partida. Puntos, fechas y fase NPC seleccionan
+candidatos del mismo modelo. La referencia Lua `this` identifica al propietario
+del contenido, separada del personaje controlado. Las acciones solicitadas siguen
+usando el motor del núcleo; no se agrega un motor narrativo paralelo.
 
 ## 3. Vocabulario técnico
 
@@ -131,8 +146,10 @@ entrega rutas, bytes de arte ni una clave perteneciente a un frontend concreto.
 - Frontend y aplicación se comunican mediante intenciones, vistas y resultados
   con significado del juego, nunca mediante widgets o teclas.
 - Jugador y NPC atraviesan el mismo motor y las mismas validaciones de acciones.
-- Lua solo consulta un contexto autorizado y devuelve una solicitud declarativa;
-  no modifica el Mundo ni evita la validación del núcleo.
+- Lua consulta contextos autorizados y devuelve solicitudes declarativas; no
+  modifica directamente el Mundo ni evita la validación del núcleo. Las políticas
+  NPC solo solicitan acciones; los eventos narrativos podrán solicitar lotes de
+  efectos mediante su API separada, según el contrato 23.
 - Los archivos editables se validan antes de crear una Partida. Las definiciones
   validadas permanecen inmutables y dos Partidas evolucionan de forma
   independiente.

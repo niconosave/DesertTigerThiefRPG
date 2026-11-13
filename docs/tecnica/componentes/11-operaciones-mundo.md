@@ -6,7 +6,17 @@
 | Versión | 1.2 |
 | Fecha | 2026-10-26 |
 
+> Ampliación diseñada, no implementada: el [contrato 24](./24-agenda-eventos-mundo.md)
+> habilita consecuencias directas y solicitudes de acciones bajo un solo
+> modelo de eventos. La atomicidad sigue siendo por paso; una acción general
+> conserva sus propias reglas y sus límites de rollback.
+
 > Ampliación implementada el 2026-10-26. Ubicación local y rechazo de traslados externos: [contrato 14, secciones 3 y 7](./14-parentesco-actores-contexto.md#3-ubicación-del-actor).
+
+> La ampliación implementada de [eventos narrativos, sección 9](./23-eventos-narrativos.md#9-confirmación-atómica-por-paso)
+> incorpora preparación de lotes, escrituras globales tipadas y confirmación
+> coordinada de mundo, evento y continuación. No añade modificación de Relaciones
+> o Grupo en su versión inicial.
 
 ## Revisión implementada el 2026-10-24: Separación y conocimiento atómicos
 

@@ -1,10 +1,12 @@
 (
     clave: "sirviente",
-    nombre: "Sirviente",
+    nombre: "Nadin",
     biografia: "Un sirviente que acompaña al príncipe en su viaje.",
-    ubicacion_inicial: EnLugar("zona_arida"),
+    ubicacion_inicial: EnLugar("costa_ambar"),
     caracteristicas: ["musico"],
     relaciones: [
+        (tipo: Conoce, destino: Lugar("ur_eshan")),
+        (tipo: Debe, destino: Concepto("proteger_al_principe")),
         (tipo: Sirviente, destino: Actor("principe_perdido")),
     ],
     retrato: Some((

@@ -1,6 +1,8 @@
 (
+    colectivos: ["compania_dahran"],
     mapa: "mapa_inicial",
     lugares: [
+        "aguas_de_nuris",
         "zona_arida",
         "paso_escarpado",
         "valle_fertil",
@@ -83,6 +85,25 @@
         "kembara",
         "ishkarun",
     ],
+    conceptos: [
+        "controlar_salida_mar_del_viento",
+        "reforzar_tripulaciones_zarabad",
+        "proteger_tripulacion",
+        "conocer_llegadas_por_mar",
+        "recuperar_la_libertad",
+        "abrir_casa_comidas_shahraz",
+        "comerciar_sin_someterse_zarabad",
+        "mantener_trafico_nuris",
+        "cumplir_acuerdos_escolta",
+        "reunir_guerreros_convoyes_nuris",
+        "conservar_astillero",
+        "restablecer_madera_nuris",
+        "hacer_fortuna",
+        "liberar_a_farid",
+        "conservar_intercambios_dos_puertos",
+        "recuperar_trono_del_draa",
+        "proteger_al_principe",
+    ],
     actores: [
         "principe_perdido",
         "bandido",
@@ -95,11 +116,21 @@
         "hermano_del_rey",
         "abuelo_paterno",
         "abuela_paterna",
+        "zahrim",
+        "dahran",
+        "sahmun",
+        "rima",
+        "miraz",
+        "zulema",
+        "bahir",
+        "farid",
+        "samir",
+        "neshra",
+
 
     ],
     actor_jugador: "principe_perdido",
     companeros_iniciales: [
-        "bandido",
         "sirviente",
     ],
     fecha_inicial: (

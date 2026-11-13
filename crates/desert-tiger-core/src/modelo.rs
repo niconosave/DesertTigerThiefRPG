@@ -25,6 +25,16 @@ macro_rules! identificador {
 identificador!(IdActor);
 identificador!(IdLugar);
 identificador!(IdMapa);
+identificador!(IdConcepto);
+identificador!(IdColectivo);
+impl IdColectivo {
+    pub fn indice(self) -> Option<usize> {
+        usize::try_from(self.0).ok()
+    }
+}
+#[path = "colectivos.rs"]
+mod colectivos;
+pub use colectivos::{ActorColectivo, ColectivoInicial};
 identificador!(IdRelacion);
 
 impl IdActor {
@@ -34,6 +44,12 @@ impl IdActor {
 }
 
 impl IdLugar {
+    pub fn indice(self) -> Option<usize> {
+        usize::try_from(self.0).ok()
+    }
+}
+
+impl IdConcepto {
     pub fn indice(self) -> Option<usize> {
         usize::try_from(self.0).ok()
     }
@@ -241,6 +257,7 @@ pub struct ActorInicial {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UbicacionActor {
     EnLugar(IdLugar),
+    EnColectivo(IdColectivo),
     FueraDelEscenario,
 }
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
@@ -256,13 +273,27 @@ pub struct HermanoDerivado {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ExtremoRelacion {
+    Concepto(IdConcepto),
+    Colectivo(IdColectivo),
     Actor(IdActor),
     Lugar(IdLugar),
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum TipoRelacion {
+    Desea,
+    Debe,
+    Necesita,
+    EsLlamadoA,
+    Gobierna,
+    EnemigoDe,
+    PactoCon,
+    PrisioneroDe,
+    SalvadoPor,
+    TratosCon,
+    ComerciaCon,
     Sirviente,
+    EsclavoDe,
     Padre,
     Madre,
     MatadoPor,
@@ -273,6 +304,43 @@ pub enum TipoRelacion {
     Bloquea,
     Vende,
     Conoce,
+}
+
+impl TipoRelacion {
+    pub fn es_simetrica(self) -> bool {
+        matches!(
+            self,
+            Self::Conectado | Self::EnemigoDe | Self::PactoCon | Self::TratosCon
+        )
+    }
+
+    pub fn admite_extremos(self, origen: ExtremoRelacion, destino: ExtremoRelacion) -> bool {
+        use ExtremoRelacion::{Actor, Concepto, Lugar};
+        match self {
+            Self::Desea | Self::Debe | Self::Necesita | Self::EsLlamadoA => {
+                matches!((origen, destino), (Actor(_), Concepto(_)))
+            }
+            Self::Conoce | Self::Gobierna | Self::ComerciaCon => {
+                matches!((origen, destino), (Actor(_), Lugar(_)))
+            }
+            Self::Padre
+            | Self::Madre
+            | Self::MatadoPor
+            | Self::EsclavoDe
+            | Self::Sirviente
+            | Self::EnemigoDe
+            | Self::PactoCon
+            | Self::PrisioneroDe
+            | Self::SalvadoPor
+            | Self::TratosCon => matches!((origen, destino), (Actor(_), Actor(_))),
+            Self::Conectado
+            | Self::Abarca
+            | Self::OrigenDe
+            | Self::AfluenteDe
+            | Self::Bloquea
+            | Self::Vende => matches!((origen, destino), (Lugar(_), Lugar(_))),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -337,13 +405,14 @@ pub struct DatosInicialesMundo {
     pub fecha: Fecha,
     pub lugares: Vec<LugarInicial>,
     pub actores: Vec<ActorInicial>,
+    pub colectivos: Vec<ColectivoInicial>,
     pub actor_jugador: IdActor,
     pub companeros: Vec<IdActor>,
     pub variables_globales: Vec<VariableGlobalInicial>,
     pub relaciones: Vec<RelacionInicial>,
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lugar {
     id: IdLugar,
     caracteristicas: BTreeSet<Caracteristica>,
@@ -382,10 +451,10 @@ impl Actor {
     pub fn ubicacion(&self) -> UbicacionActor {
         self.ubicacion
     }
-    pub fn lugar(&self) -> Option<IdLugar> {
+    pub fn lugar_directo(&self) -> Option<IdLugar> {
         match self.ubicacion {
             UbicacionActor::EnLugar(id) => Some(id),
-            UbicacionActor::FueraDelEscenario => None,
+            UbicacionActor::FueraDelEscenario | UbicacionActor::EnColectivo(_) => None,
         }
     }
 
@@ -413,19 +482,26 @@ impl Grupo {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Mundo {
     mapa: IdMapa,
     fecha: Fecha,
     lugares: Vec<Lugar>,
     actores: Vec<Actor>,
+    colectivos: Vec<ActorColectivo>,
+    miembros_por_colectivo: Vec<Vec<IdActor>>,
     actor_jugador: IdActor,
     grupo: Grupo,
     variables_globales: BTreeMap<ClaveVariableGlobal, ValorVariableGlobal>,
     relaciones: Vec<Relacion>,
     relaciones_por_lugar: Vec<Vec<IdRelacion>>,
     relaciones_por_actor: Vec<Vec<IdRelacion>>,
+    relaciones_por_concepto: Vec<Vec<IdRelacion>>,
     conectados_por_lugar: Vec<Vec<IdLugar>>,
+    pasajes_por_lugar: Vec<Vec<IdLugar>>,
+    recorridos_pasaje: BTreeMap<(IdLugar, IdLugar), Vec<IdLugar>>,
+    tramos_pasaje: BTreeSet<(IdLugar, IdLugar)>,
+    transitables_por_lugar: Vec<Vec<IdLugar>>,
     lugares_conocidos_por_actor: Vec<Vec<IdLugar>>,
     progenitores_por_actor: Vec<Progenitores>,
     hijos_por_actor: Vec<Vec<IdActor>>,
@@ -464,6 +540,22 @@ impl Mundo {
     }
 
     pub fn nuevo(datos: DatosInicialesMundo) -> Result<Self, ErrorConstruirMundo> {
+        Self::nuevo_con_conceptos(datos, 0)
+    }
+
+    /// Los Conceptos son identidades pasivas; sus textos pertenecen al contenido.
+    pub fn nuevo_con_conceptos(
+        datos: DatosInicialesMundo,
+        cantidad: usize,
+    ) -> Result<Self, ErrorConstruirMundo> {
+        if cantidad > 0 {
+            IdConcepto::desde_posicion(cantidad - 1).map_err(|_| {
+                ErrorConstruirMundo::PosicionConceptoFueraDeRango {
+                    posicion: cantidad - 1,
+                }
+            })?;
+        }
+        let mut relaciones_por_concepto = vec![Vec::new(); cantidad];
         if datos.lugares.is_empty() {
             return Err(ErrorConstruirMundo::SinLugares);
         }
@@ -495,6 +587,7 @@ impl Mundo {
             });
         }
 
+        let colectivos = colectivos::construir(datos.colectivos, &lugares)?;
         let mut actores = Vec::with_capacity(datos.actores.len());
         for (posicion, inicial) in datos.actores.into_iter().enumerate() {
             let esperado = IdActor::desde_posicion(posicion)
@@ -514,6 +607,13 @@ impl Mundo {
                     lugar,
                 });
             }
+            if let UbicacionActor::EnColectivo(id) = inicial.ubicacion
+                && !colectivos.iter().any(|c| c.id == id)
+            {
+                return Err(ErrorConstruirMundo::ColectivoInvalido {
+                    detalle: format!("colectivo desconocido: {id:?}"),
+                });
+            }
             let caracteristicas =
                 conjunto_caracteristicas(inicial.caracteristicas).map_err(|caracteristica| {
                     ErrorConstruirMundo::CaracteristicaActorDuplicada {
@@ -528,17 +628,21 @@ impl Mundo {
             });
         }
 
+        colectivos::validar_lideres(&colectivos, &actores).map_err(|e| {
+            ErrorConstruirMundo::ColectivoInvalido {
+                detalle: e.to_string(),
+            }
+        })?;
         let jugador = resolver_actor(&actores, datos.actor_jugador).ok_or(
             ErrorConstruirMundo::ActorJugadorDesconocido {
                 actor: datos.actor_jugador,
             },
         )?;
-        let lugar_jugador =
-            jugador
-                .lugar()
-                .ok_or(ErrorConstruirMundo::JugadorFueraDelEscenario {
-                    actor: datos.actor_jugador,
-                })?;
+        let lugar_jugador = colectivos::ubicacion(jugador.ubicacion, &colectivos).ok_or(
+            ErrorConstruirMundo::JugadorFueraDelEscenario {
+                actor: datos.actor_jugador,
+            },
+        )?;
 
         if datos.companeros.is_empty() {
             return Err(ErrorConstruirMundo::GrupoVacio);
@@ -553,13 +657,10 @@ impl Mundo {
             }
             let actor = resolver_actor(&actores, integrante)
                 .ok_or(ErrorConstruirMundo::IntegranteGrupoDesconocido { actor: integrante })?;
-            let lugar_actor =
-                actor
-                    .lugar()
-                    .ok_or(ErrorConstruirMundo::IntegranteGrupoFueraDelEscenario {
-                        actor: integrante,
-                    })?;
-            if lugar_actor != lugar_jugador {
+            let lugar_actor = colectivos::ubicacion(actor.ubicacion, &colectivos).ok_or(
+                ErrorConstruirMundo::IntegranteGrupoFueraDelEscenario { actor: integrante },
+            )?;
+            if lugar_actor != lugar_jugador || actor.ubicacion != jugador.ubicacion {
                 return Err(ErrorConstruirMundo::IntegranteGrupoSeparado {
                     actor: integrante,
                     lugar_actor,
@@ -582,6 +683,7 @@ impl Mundo {
         let mut relaciones_por_lugar = vec![Vec::new(); lugares.len()];
         let mut relaciones_por_actor = vec![Vec::new(); actores.len()];
         let mut conectados_por_lugar = vec![Vec::new(); lugares.len()];
+        let mut pasajes_por_lugar = vec![Vec::new(); lugares.len()];
         let mut lugares_conocidos_por_actor = vec![Vec::new(); actores.len()];
         let mut relaciones_vistas = BTreeMap::new();
         for (posicion, inicial) in datos.relaciones.into_iter().enumerate() {
@@ -591,6 +693,8 @@ impl Mundo {
                 let existe = match extremo {
                     ExtremoRelacion::Actor(actor) => resolver_actor(&actores, actor).is_some(),
                     ExtremoRelacion::Lugar(lugar) => resolver_lugar(&lugares, lugar).is_some(),
+                    ExtremoRelacion::Concepto(id) => id.indice().is_some_and(|i| i < cantidad),
+                    ExtremoRelacion::Colectivo(id) => colectivos.iter().any(|c| c.id == id),
                 };
                 if !existe {
                     return Err(ErrorConstruirMundo::ExtremoRelacionDesconocido {
@@ -633,123 +737,58 @@ impl Mundo {
             if !mercancia_valida {
                 return Err(ErrorConstruirMundo::MercanciaRelacionInvalida { posicion });
             }
-            let clave_duplicado = match (inicial.tipo, inicial.origen, inicial.destino) {
-                (
-                    TipoRelacion::Abarca
-                    | TipoRelacion::OrigenDe
-                    | TipoRelacion::AfluenteDe
-                    | TipoRelacion::Bloquea
-                    | TipoRelacion::Vende,
-                    ExtremoRelacion::Lugar(_),
-                    ExtremoRelacion::Lugar(_),
-                ) => (inicial.tipo, inicial.origen, inicial.destino),
-                (
-                    TipoRelacion::Conectado,
-                    ExtremoRelacion::Lugar(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => {
-                    if origen == destino {
-                        return Err(ErrorConstruirMundo::RelacionReflexiva {
-                            posicion,
-                            tipo: inicial.tipo,
-                            extremo: inicial.origen,
-                        });
-                    }
-                    if origen < destino {
-                        (
-                            inicial.tipo,
-                            ExtremoRelacion::Lugar(origen),
-                            ExtremoRelacion::Lugar(destino),
-                        )
-                    } else {
-                        (
-                            inicial.tipo,
-                            ExtremoRelacion::Lugar(destino),
-                            ExtremoRelacion::Lugar(origen),
-                        )
-                    }
-                }
-                (
-                    TipoRelacion::Conoce,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => (
-                    inicial.tipo,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ),
-                (
-                    TipoRelacion::Padre
-                    | TipoRelacion::Madre
-                    | TipoRelacion::MatadoPor
-                    | TipoRelacion::Sirviente,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Actor(destino),
-                ) => (
-                    inicial.tipo,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Actor(destino),
-                ),
-                _ => {
-                    return Err(ErrorConstruirMundo::ExtremosRelacionIncompatibles {
-                        posicion,
-                        tipo: inicial.tipo,
-                        origen: inicial.origen,
-                        destino: inicial.destino,
-                    });
-                }
-            };
+            if !inicial
+                .tipo
+                .admite_extremos(inicial.origen, inicial.destino)
+            {
+                return Err(ErrorConstruirMundo::ExtremosRelacionIncompatibles {
+                    posicion,
+                    tipo: inicial.tipo,
+                    origen: inicial.origen,
+                    destino: inicial.destino,
+                });
+            }
+            let (origen, destino) =
+                if inicial.tipo.es_simetrica() && inicial.origen > inicial.destino {
+                    (inicial.destino, inicial.origen)
+                } else {
+                    (inicial.origen, inicial.destino)
+                };
+            let clave_duplicado = (inicial.tipo, origen, destino);
             let clave_duplicado = (clave_duplicado, inicial.mercancia.clone());
             if let Some(&primera) = relaciones_vistas.get(&clave_duplicado) {
                 return Err(ErrorConstruirMundo::RelacionDuplicada { posicion, primera });
             }
             relaciones_vistas.insert(clave_duplicado, id);
 
-            match (inicial.tipo, inicial.origen, inicial.destino) {
-                (
-                    TipoRelacion::Abarca
-                    | TipoRelacion::OrigenDe
-                    | TipoRelacion::AfluenteDe
-                    | TipoRelacion::Bloquea
-                    | TipoRelacion::Vende,
-                    ExtremoRelacion::Lugar(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => {
-                    relaciones_por_lugar[origen.indice().expect("Lugar validado")].push(id);
-                    relaciones_por_lugar[destino.indice().expect("Lugar validado")].push(id);
+            for extremo in [inicial.origen, inicial.destino] {
+                match extremo {
+                    ExtremoRelacion::Actor(a) => {
+                        relaciones_por_actor[a.indice().expect("Actor validado")].push(id)
+                    }
+                    ExtremoRelacion::Lugar(l) => {
+                        relaciones_por_lugar[l.indice().expect("Lugar validado")].push(id)
+                    }
+                    ExtremoRelacion::Colectivo(_) => {
+                        unreachable!("ningún tipo registrado admite extremos colectivos")
+                    }
+                    ExtremoRelacion::Concepto(c) => {
+                        relaciones_por_concepto[c.indice().expect("Concepto validado")].push(id)
+                    }
                 }
-                (
-                    TipoRelacion::Conectado,
-                    ExtremoRelacion::Lugar(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => {
-                    relaciones_por_lugar[origen.indice().expect("Lugar validado")].push(id);
-                    relaciones_por_lugar[destino.indice().expect("Lugar validado")].push(id);
-                    conectados_por_lugar[origen.indice().expect("Lugar validado")].push(destino);
-                    conectados_por_lugar[destino.indice().expect("Lugar validado")].push(origen);
-                }
-                (
-                    TipoRelacion::Conoce,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Lugar(destino),
-                ) => {
-                    relaciones_por_actor[origen.indice().expect("Actor validado")].push(id);
-                    relaciones_por_lugar[destino.indice().expect("Lugar validado")].push(id);
-                    lugares_conocidos_por_actor[origen.indice().expect("Actor validado")]
-                        .push(destino);
-                }
-                (
-                    TipoRelacion::Padre
-                    | TipoRelacion::Madre
-                    | TipoRelacion::MatadoPor
-                    | TipoRelacion::Sirviente,
-                    ExtremoRelacion::Actor(origen),
-                    ExtremoRelacion::Actor(destino),
-                ) => {
-                    relaciones_por_actor[origen.indice().expect("Actor validado")].push(id);
-                    relaciones_por_actor[destino.indice().expect("Actor validado")].push(id);
-                }
-                _ => unreachable!("los extremos ya fueron validados"),
+            }
+            if let (ExtremoRelacion::Lugar(a), ExtremoRelacion::Lugar(b)) =
+                (inicial.origen, inicial.destino)
+                && inicial.tipo == TipoRelacion::Conectado
+            {
+                conectados_por_lugar[a.indice().expect("Lugar validado")].push(b);
+                conectados_por_lugar[b.indice().expect("Lugar validado")].push(a);
+            }
+            if let (ExtremoRelacion::Actor(a), ExtremoRelacion::Lugar(l)) =
+                (inicial.origen, inicial.destino)
+                && inicial.tipo == TipoRelacion::Conoce
+            {
+                lugares_conocidos_por_actor[a.indice().expect("Actor validado")].push(l);
             }
             relaciones.push(Relacion {
                 mercancia: inicial.mercancia,
@@ -766,6 +805,84 @@ impl Mundo {
             conocidos.sort_unstable();
         }
 
+        let acuatico = |l: IdLugar| {
+            resolver_lugar(&lugares, l)
+                .is_some_and(|l| l.caracteristicas().any(|c| c.como_str() == "acuatico"))
+        };
+        let puerto = |l: IdLugar| {
+            resolver_lugar(&lugares, l).is_some_and(|l| {
+                !l.es_region()
+                    && l.caracteristicas().any(|c| c.como_str() == "puerto")
+                    && !l
+                        .caracteristicas()
+                        .any(|c| c.como_str() == "fuera_del_mapa")
+            })
+        };
+        let mut recorridos_pasaje = BTreeMap::new();
+        for relacion in &relaciones {
+            if relacion.tipo() != TipoRelacion::Vende {
+                continue;
+            }
+            let (ExtremoRelacion::Lugar(a), ExtremoRelacion::Lugar(b)) =
+                (relacion.origen(), relacion.destino())
+            else {
+                continue;
+            };
+            if !puerto(a) || !puerto(b) || recorridos_pasaje.contains_key(&(a, b)) {
+                continue;
+            }
+            let mut cola = std::collections::VecDeque::from([a]);
+            let mut padres = BTreeMap::from([(a, a)]);
+            while let Some(actual) = cola.pop_front() {
+                for &vecino in &conectados_por_lugar[actual.indice().expect("Lugar validado")] {
+                    if padres.contains_key(&vecino) || (vecino != b && !acuatico(vecino)) {
+                        continue;
+                    }
+                    // Un servicio debe pasar por al menos un Lugar marítimo.
+                    if actual == a && vecino == b {
+                        continue;
+                    }
+                    padres.insert(vecino, actual);
+                    cola.push_back(vecino);
+                }
+            }
+            if !padres.contains_key(&b) {
+                continue;
+            }
+            let mut ruta = vec![b];
+            while *ruta.last().unwrap() != a {
+                ruta.push(padres[ruta.last().unwrap()]);
+            }
+            ruta.reverse();
+            recorridos_pasaje.insert((a, b), ruta.clone());
+            ruta.reverse();
+            recorridos_pasaje.insert((b, a), ruta);
+            pasajes_por_lugar[a.indice().unwrap()].push(b);
+            pasajes_por_lugar[b.indice().unwrap()].push(a);
+        }
+        for v in &mut pasajes_por_lugar {
+            v.sort_unstable();
+            v.dedup();
+        }
+        let tramos_pasaje = recorridos_pasaje
+            .values()
+            .flat_map(|r| r.windows(2).map(|p| (p[0], p[1])))
+            .collect();
+        let transitables_por_lugar = conectados_por_lugar
+            .iter()
+            .enumerate()
+            .map(|(i, vecinos)| {
+                let a = IdLugar::desde_posicion(i).expect("Lugar validado");
+                vecinos
+                    .iter()
+                    .copied()
+                    .filter(|&b| !acuatico(a) && !acuatico(b))
+                    .chain(pasajes_por_lugar[i].iter().copied())
+                    .collect::<BTreeSet<_>>()
+                    .into_iter()
+                    .collect()
+            })
+            .collect();
         let (progenitores_por_actor, hijos_por_actor) =
             construir_parentesco(&actores, &relaciones)?;
         Ok(Self {
@@ -774,6 +891,8 @@ impl Mundo {
             mapa: datos.mapa,
             fecha: datos.fecha,
             lugares,
+            miembros_por_colectivo: colectivos::indexar(&actores, colectivos.len()),
+            colectivos,
             actores,
             actor_jugador: datos.actor_jugador,
             grupo: Grupo {
@@ -783,7 +902,12 @@ impl Mundo {
             relaciones,
             relaciones_por_lugar,
             relaciones_por_actor,
+            relaciones_por_concepto,
             conectados_por_lugar,
+            pasajes_por_lugar,
+            recorridos_pasaje,
+            tramos_pasaje,
+            transitables_por_lugar,
             lugares_conocidos_por_actor,
         })
     }
@@ -801,15 +925,8 @@ impl Mundo {
     }
 
     pub fn ubicacion_grupo(&self) -> IdLugar {
-        match self.actor(self.actor_jugador) {
-            Some(jugador) => match jugador.ubicacion {
-                UbicacionActor::EnLugar(lugar) => lugar,
-                UbicacionActor::FueraDelEscenario => {
-                    unreachable!("el jugador siempre tiene ubicación local validada")
-                }
-            },
-            None => unreachable!("un Mundo válido siempre contiene a su jugador"),
-        }
+        self.ubicacion_actor(self.actor_jugador)
+            .expect("jugador local validado")
     }
 
     pub fn actor(&self, id: IdActor) -> Option<&Actor> {
@@ -821,7 +938,8 @@ impl Mundo {
     }
 
     pub fn ubicacion_actor(&self, id: IdActor) -> Option<IdLugar> {
-        self.actor(id).and_then(Actor::lugar)
+        self.actor(id)
+            .and_then(|a| colectivos::ubicacion(a.ubicacion, &self.colectivos))
     }
 
     pub fn actores(&self) -> &[Actor] {
@@ -844,6 +962,11 @@ impl Mundo {
 
     pub fn relaciones_de(&self, extremo: ExtremoRelacion) -> Option<&[IdRelacion]> {
         match extremo {
+            ExtremoRelacion::Colectivo(id) => self.colectivo(id).map(|_| &[][..]),
+            ExtremoRelacion::Concepto(id) => self
+                .relaciones_por_concepto
+                .get(id.indice()?)
+                .map(Vec::as_slice),
             ExtremoRelacion::Actor(actor) => {
                 self.actor(actor)?;
                 self.relaciones_por_actor
@@ -866,6 +989,40 @@ impl Mundo {
             .map(Vec::as_slice)
     }
 
+    /// Grafo de viaje: tierra y servicios comerciales, sin navegación libre implícita.
+    pub fn lugares_transitables(&self, lugar: IdLugar) -> Option<&[IdLugar]> {
+        self.lugar(lugar)?;
+        self.transitables_por_lugar
+            .get(lugar.indice()?)
+            .map(Vec::as_slice)
+    }
+    pub fn destinos_pasaje(&self, lugar: IdLugar) -> Option<&[IdLugar]> {
+        self.lugar(lugar)?;
+        self.pasajes_por_lugar
+            .get(lugar.indice()?)
+            .map(Vec::as_slice)
+    }
+    pub fn ofrece_pasaje(&self, a: IdLugar, b: IdLugar) -> bool {
+        self.destinos_pasaje(a)
+            .is_some_and(|v| v.binary_search(&b).is_ok())
+    }
+    pub fn recorrido_pasaje(&self, a: IdLugar, b: IdLugar) -> Option<&[IdLugar]> {
+        self.recorridos_pasaje.get(&(a, b)).map(Vec::as_slice)
+    }
+    pub fn es_tramo_pasaje(&self, a: IdLugar, b: IdLugar) -> bool {
+        self.tramos_pasaje.contains(&(a, b))
+    }
+    pub fn expandir_pasajes(&self, ruta: &[IdLugar]) -> Vec<IdLugar> {
+        let mut salida = ruta.first().copied().into_iter().collect::<Vec<_>>();
+        for p in ruta.windows(2) {
+            if let Some(r) = self.recorrido_pasaje(p[0], p[1]) {
+                salida.extend_from_slice(&r[1..]);
+            } else {
+                salida.push(p[1]);
+            }
+        }
+        salida
+    }
     pub fn lugares_conocidos(&self, actor: IdActor) -> Option<&[IdLugar]> {
         self.actor(actor)?;
         self.lugares_conocidos_por_actor
@@ -908,7 +1065,7 @@ impl Mundo {
         Some(
             self.actores
                 .iter()
-                .filter(move |actor| actor.lugar() == Some(lugar)),
+                .filter(move |actor| self.ubicacion_actor(actor.id) == Some(lugar)),
         )
     }
 
@@ -995,20 +1152,58 @@ impl Mundo {
         })
     }
 
+    pub fn preparar_operaciones(
+        &self,
+        operaciones: Vec<OperacionMundo>,
+    ) -> Result<MundoPreparado, ErrorOperacionMundo> {
+        let mut mundo = self.clone();
+        if !operaciones.is_empty() {
+            mundo.aplicar_lote(LoteOperaciones { operaciones })?;
+        }
+        Ok(MundoPreparado { mundo })
+    }
     pub fn aplicar_lote(
         &mut self,
         lote: LoteOperaciones,
     ) -> Result<CambiosConfirmados, ErrorOperacionMundo> {
         let mut actores_virtuales = self.actores.clone();
+        let mut colectivos_virtuales = self.colectivos.clone();
         let mut grupo_virtual = self.grupo.clone();
         let mut relaciones_virtuales = self.relaciones.clone();
         let mut por_actor = self.relaciones_por_actor.clone();
         let mut por_lugar = self.relaciones_por_lugar.clone();
         let mut conocidos = self.lugares_conocidos_por_actor.clone();
+        let mut globales = self.variables_globales.clone();
         let mut cambios = Vec::with_capacity(lote.operaciones.len());
 
         for operacion in lote.operaciones {
             match operacion {
+                OperacionMundo::IncorporarCompanero { actor } => {
+                    let nuevo = resolver_actor(&actores_virtuales, actor)
+                        .ok_or(ErrorOperacionMundo::ActorDesconocido { actor })?;
+                    let jugador = resolver_actor(&actores_virtuales, self.actor_jugador)
+                        .ok_or(ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                    if actor == self.actor_jugador
+                        || nuevo.ubicacion != jugador.ubicacion
+                        || !matches!(nuevo.ubicacion, UbicacionActor::EnLugar(_))
+                        || nuevo.caracteristicas().any(|c| c.como_str() == "muerto")
+                    {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    if !grupo_virtual.contiene(actor) {
+                        grupo_virtual.integrantes.push(actor);
+                        cambios.push(CambioConfirmado::CompaneroIncorporado { actor });
+                    }
+                }
+                OperacionMundo::EstablecerGlobal { clave, valor } => {
+                    if let Some(anterior) = globales.get(&clave)
+                        && std::mem::discriminant(anterior) != std::mem::discriminant(&valor)
+                    {
+                        return Err(ErrorOperacionMundo::TipoGlobalIncompatible);
+                    }
+                    globales.insert(clave.clone(), valor.clone());
+                    cambios.push(CambioConfirmado::GlobalEstablecida { clave, valor });
+                }
                 OperacionMundo::Trasladar { actor, destino } => {
                     let traslado = trasladar_en_estado(
                         &mut actores_virtuales,
@@ -1059,9 +1254,42 @@ impl Mundo {
                     }
                     let actual = resolver_actor_mut(&mut actores_virtuales, actor)
                         .ok_or(ErrorOperacionMundo::ActorDesconocido { actor })?;
+                    if matches!(actual.ubicacion, UbicacionActor::EnColectivo(_)) {
+                        return Err(ErrorOperacionMundo::ActorIncorporado { actor });
+                    }
                     actual.ubicacion = UbicacionActor::EnLugar(lugar);
                     grupo_virtual.integrantes.retain(|&id| id != actor);
                     cambios.push(CambioConfirmado::CompaneroSeparado { actor, lugar });
+                }
+                OperacionMundo::RegistrarEsclavitud { actor, amo } => {
+                    for id in [actor, amo] {
+                        if resolver_actor(&actores_virtuales, id).is_none() {
+                            return Err(ErrorOperacionMundo::ActorDesconocido { actor: id });
+                        }
+                    }
+                    if actor == amo {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    let origen = ExtremoRelacion::Actor(actor);
+                    let destino = ExtremoRelacion::Actor(amo);
+                    if !relaciones_virtuales.iter().any(|r| {
+                        r.tipo == TipoRelacion::EsclavoDe
+                            && r.origen == origen
+                            && r.destino == destino
+                    }) {
+                        let id = IdRelacion::desde_posicion(relaciones_virtuales.len())
+                            .map_err(|_| ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                        relaciones_virtuales.push(Relacion {
+                            id,
+                            tipo: TipoRelacion::EsclavoDe,
+                            origen,
+                            destino,
+                            mercancia: None,
+                        });
+                        por_actor[actor.indice().unwrap()].push(id);
+                        por_actor[amo.indice().unwrap()].push(id);
+                        cambios.push(CambioConfirmado::EsclavitudRegistrada { actor, amo });
+                    }
                 }
                 OperacionMundo::RegistrarConocimiento { actor, lugar } => {
                     let ai = actor
@@ -1089,9 +1317,23 @@ impl Mundo {
                         cambios.push(CambioConfirmado::ConocimientoRegistrado { actor, lugar });
                     }
                 }
+                colectiva => colectivos::aplicar(
+                    colectiva,
+                    &mut actores_virtuales,
+                    &mut colectivos_virtuales,
+                    &self.lugares,
+                    self.actor_jugador,
+                    &grupo_virtual,
+                    &mut cambios,
+                )?,
             }
+            colectivos::limpiar_lideres(&mut colectivos_virtuales, &actores_virtuales);
         }
+        self.miembros_por_colectivo =
+            colectivos::indexar(&actores_virtuales, colectivos_virtuales.len());
+        self.colectivos = colectivos_virtuales;
 
+        self.variables_globales = globales;
         self.actores = actores_virtuales;
         self.grupo = grupo_virtual;
         self.relaciones = relaciones_virtuales;
@@ -1099,6 +1341,19 @@ impl Mundo {
         self.relaciones_por_lugar = por_lugar;
         self.lugares_conocidos_por_actor = conocidos;
         Ok(CambiosConfirmados { cambios })
+    }
+}
+
+/// Provisional privado: se instala bajo la exclusión de la Partida, sin callbacks.
+pub struct MundoPreparado {
+    mundo: Mundo,
+}
+impl MundoPreparado {
+    pub fn mundo(&self) -> &Mundo {
+        &self.mundo
+    }
+    pub fn confirmar(self, mundo: &mut Mundo) {
+        *mundo = self.mundo;
     }
 }
 
@@ -1111,6 +1366,39 @@ pub struct TrasladoConfirmado {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OperacionMundo {
+    RegistrarEsclavitud {
+        actor: IdActor,
+        amo: IdActor,
+    },
+    IncorporarCompanero {
+        actor: IdActor,
+    },
+    IngresarActorEnColectivo {
+        actor: IdActor,
+        colectivo: IdColectivo,
+    },
+    IngresarGrupoEnColectivo {
+        colectivo: IdColectivo,
+    },
+    SalirActorDeColectivo {
+        actor: IdActor,
+        colectivo: IdColectivo,
+    },
+    SalirGrupoDeColectivo {
+        colectivo: IdColectivo,
+    },
+    TrasladarColectivo {
+        colectivo: IdColectivo,
+        destino: IdLugar,
+    },
+    EstablecerLiderColectivo {
+        colectivo: IdColectivo,
+        lider: Option<IdActor>,
+    },
+    EstablecerGlobal {
+        clave: ClaveVariableGlobal,
+        valor: ValorVariableGlobal,
+    },
     SepararCompanero {
         actor: IdActor,
         lugar: IdLugar,
@@ -1174,9 +1462,34 @@ impl CambiosConfirmados {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CambioConfirmado {
+    CompaneroIncorporado {
+        actor: IdActor,
+    },
+    PertenenciaColectivaCambiada {
+        actores: Vec<IdActor>,
+        colectivo: IdColectivo,
+        ingreso: bool,
+    },
+    ColectivoTrasladado {
+        colectivo: IdColectivo,
+        origen: IdLugar,
+        destino: IdLugar,
+    },
+    LiderColectivoCambiado {
+        colectivo: IdColectivo,
+        lider: Option<IdActor>,
+    },
+    GlobalEstablecida {
+        clave: ClaveVariableGlobal,
+        valor: ValorVariableGlobal,
+    },
     CompaneroSeparado {
         actor: IdActor,
         lugar: IdLugar,
+    },
+    EsclavitudRegistrada {
+        actor: IdActor,
+        amo: IdActor,
     },
     ConocimientoRegistrado {
         actor: IdActor,
@@ -1199,6 +1512,12 @@ pub enum CambioConfirmado {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorOperacionMundo {
+    ActorIncorporado { actor: IdActor },
+    ColectivoDesconocido { colectivo: IdColectivo },
+    PertenenciaIncompatible,
+    LugarColectivoInvalido,
+    LiderColectivoInvalido,
+    TipoGlobalIncompatible,
     ActorFueraDelEscenario { actor: IdActor },
     LoteVacio,
     ActorDesconocido { actor: IdActor },
@@ -1218,6 +1537,9 @@ impl Error for ErrorOperacionMundo {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorConstruirMundo {
+    ColectivoInvalido {
+        detalle: String,
+    },
     JugadorFueraDelEscenario {
         actor: IdActor,
     },
@@ -1238,6 +1560,9 @@ pub enum ErrorConstruirMundo {
     SinLugares,
     SinActores,
     PosicionLugarFueraDeRango {
+        posicion: usize,
+    },
+    PosicionConceptoFueraDeRango {
         posicion: usize,
     },
     PosicionActorFueraDeRango {
@@ -1331,6 +1656,7 @@ impl Error for ErrorConstruirMundo {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorTraslado {
+    ActorIncorporado { actor: IdActor },
     ActorFueraDelEscenario { actor: IdActor },
     ActorDesconocido { actor: IdActor },
     DestinoDesconocido { destino: IdLugar },
@@ -1488,8 +1814,14 @@ fn trasladar_en_estado(
     if resolver_lugar(lugares, destino).is_none() {
         return Err(ErrorOperacionMundo::DestinoDesconocido { destino });
     }
+    if matches!(
+        actores_estado[indice_actor].ubicacion,
+        UbicacionActor::EnColectivo(_)
+    ) {
+        return Err(ErrorOperacionMundo::ActorIncorporado { actor });
+    }
     let origen = actores_estado[indice_actor]
-        .lugar()
+        .lugar_directo()
         .ok_or(ErrorOperacionMundo::ActorFueraDelEscenario { actor })?;
     if resolver_lugar(lugares, origen).is_none() {
         return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
@@ -1522,7 +1854,7 @@ fn trasladar_en_estado(
         let Some(actual) = actores_estado.get(indice) else {
             return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
         };
-        if actual.id != id || actual.lugar() != Some(origen) {
+        if actual.id != id || actual.lugar_directo() != Some(origen) {
             return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
         }
         indices.push(indice);
@@ -1541,6 +1873,9 @@ fn trasladar_en_estado(
 
 fn error_operacion_como_traslado(error: ErrorOperacionMundo) -> ErrorTraslado {
     match error {
+        ErrorOperacionMundo::ActorIncorporado { actor } => {
+            ErrorTraslado::ActorIncorporado { actor }
+        }
         ErrorOperacionMundo::ActorFueraDelEscenario { actor } => {
             ErrorTraslado::ActorFueraDelEscenario { actor }
         }
@@ -1556,9 +1891,10 @@ fn error_operacion_como_traslado(error: ErrorOperacionMundo) -> ErrorTraslado {
         ErrorOperacionMundo::IntegranteGrupoNoPuedeTrasladarseSolo { actor } => {
             ErrorTraslado::IntegranteGrupoNoPuedeTrasladarseSolo { actor }
         }
-        ErrorOperacionMundo::LoteVacio | ErrorOperacionMundo::EstadoGrupoInconsistente => {
-            ErrorTraslado::EstadoInconsistente
-        }
+        ErrorOperacionMundo::TipoGlobalIncompatible
+        | ErrorOperacionMundo::LoteVacio
+        | ErrorOperacionMundo::EstadoGrupoInconsistente => ErrorTraslado::EstadoInconsistente,
+        _ => ErrorTraslado::EstadoInconsistente,
     }
 }
 
@@ -1897,6 +2233,7 @@ mod pruebas {
 
     fn datos_validos() -> DatosInicialesMundo {
         DatosInicialesMundo {
+            colectivos: vec![],
             mapa: IdMapa::desde_posicion(0).expect("ID de mapa válido"),
             fecha: Fecha::nueva(2025, Mes::Enero, 31).expect("fecha válida"),
             lugares: vec![
@@ -1949,6 +2286,60 @@ mod pruebas {
                 destino: ExtremoRelacion::Lugar(id_lugar(1)),
             }],
         }
+    }
+
+    #[test]
+    fn conceptos_tienen_indices_propios_y_no_son_lugares_transitables() {
+        let mut datos = datos_validos();
+        let c = ExtremoRelacion::Concepto(IdConcepto::desde_posicion(0).unwrap());
+        for (tipo, actor) in [(TipoRelacion::Desea, 0), (TipoRelacion::Necesita, 1)] {
+            datos.relaciones.push(RelacionInicial {
+                mercancia: None,
+                tipo,
+                origen: ExtremoRelacion::Actor(id_actor(actor)),
+                destino: c,
+            });
+        }
+        assert!(matches!(
+            Mundo::nuevo(datos.clone()),
+            Err(ErrorConstruirMundo::ExtremoRelacionDesconocido { .. })
+        ));
+        let mundo = Mundo::nuevo_con_conceptos(datos.clone(), 1).unwrap();
+        assert_eq!(mundo.relaciones_de(c).unwrap().len(), 2);
+        assert_eq!(
+            mundo.lugares_conectados(id_lugar(0)),
+            Some([id_lugar(1)].as_slice())
+        );
+        assert_eq!(mundo.actores().len(), 3);
+        assert!(
+            mundo
+                .relaciones_de(ExtremoRelacion::Concepto(
+                    IdConcepto::desde_posicion(1).unwrap()
+                ))
+                .is_none()
+        );
+        datos.relaciones[1].destino = ExtremoRelacion::Lugar(id_lugar(0));
+        assert!(matches!(
+            Mundo::nuevo_con_conceptos(datos, 1),
+            Err(ErrorConstruirMundo::ExtremosRelacionIncompatibles { .. })
+        ));
+    }
+
+    #[test]
+    fn enemistad_mutua_rechaza_declarar_dos_veces_el_mismo_hecho() {
+        let mut datos = datos_validos();
+        for (a, b) in [(0, 1), (1, 0)] {
+            datos.relaciones.push(RelacionInicial {
+                mercancia: None,
+                tipo: TipoRelacion::EnemigoDe,
+                origen: ExtremoRelacion::Actor(id_actor(a)),
+                destino: ExtremoRelacion::Actor(id_actor(b)),
+            });
+        }
+        assert!(matches!(
+            Mundo::nuevo(datos),
+            Err(ErrorConstruirMundo::RelacionDuplicada { .. })
+        ));
     }
 
     #[test]
@@ -2475,10 +2866,18 @@ mod pruebas {
 
         for (actor, destino, esperado) in casos {
             let mut mundo = Mundo::nuevo(datos_validos()).expect("Mundo válido");
-            let antes = mundo.actores().iter().map(Actor::lugar).collect::<Vec<_>>();
+            let antes = mundo
+                .actores()
+                .iter()
+                .map(Actor::lugar_directo)
+                .collect::<Vec<_>>();
             assert_eq!(mundo.trasladar(actor, destino), Err(esperado));
             assert_eq!(
-                mundo.actores().iter().map(Actor::lugar).collect::<Vec<_>>(),
+                mundo
+                    .actores()
+                    .iter()
+                    .map(Actor::lugar_directo)
+                    .collect::<Vec<_>>(),
                 antes
             );
         }
@@ -2624,5 +3023,46 @@ mod pruebas {
             Err(ErrorCalendario::Desbordamiento)
         );
         assert_eq!(mundo.fecha(), limite);
+    }
+    #[test]
+    fn preparacion_globales_es_atomica_admite_vacio_y_no_escribe_antes_de_confirmar() {
+        let mut mundo = Mundo::nuevo(datos_validos()).unwrap();
+        let antes = mundo.clone();
+        mundo
+            .preparar_operaciones(vec![])
+            .unwrap()
+            .confirmar(&mut mundo);
+        assert_eq!(mundo, antes);
+        let operaciones = vec![
+            OperacionMundo::EstablecerGlobal {
+                clave: clave("nueva"),
+                valor: ValorVariableGlobal::Booleana(true),
+            },
+            OperacionMundo::AnadirCaracteristicaActor {
+                actor: id_actor(0),
+                caracteristica: caracteristica("herido"),
+            },
+        ];
+        let preparado = mundo.preparar_operaciones(operaciones.clone()).unwrap();
+        assert_eq!(mundo, antes);
+        assert_eq!(
+            preparado.mundo().variable_booleana(&clave("nueva")),
+            Ok(true)
+        );
+        let mut fallido = operaciones;
+        fallido.push(OperacionMundo::EstablecerGlobal {
+            clave: clave("contador"),
+            valor: ValorVariableGlobal::Texto("invalido".into()),
+        });
+        assert!(mundo.preparar_operaciones(fallido).is_err());
+        assert_eq!(mundo, antes);
+        preparado.confirmar(&mut mundo);
+        assert_eq!(mundo.variable_booleana(&clave("nueva")), Ok(true));
+        assert!(
+            mundo
+                .actor(id_actor(0))
+                .unwrap()
+                .tiene_caracteristica(&caracteristica("herido"))
+        );
     }
 }

@@ -1,0 +1,22 @@
+(
+    clave: "demo_incorporacion",
+    activacion: PorPuntos(puntos: ["partida.disponible"]),
+    condicion: r#"return mundo:colectivo_de("principe_perdido") == nil and mundo:ubicacion_actor("principe_perdido") == mundo:ubicacion_colectivo("compania_dahran") and mundo:hay_citas_futuras_del_colectivo("compania_dahran")"#,
+    inicio: "oferta",
+    pasos: [
+        Vigneta(
+            clave: "oferta",
+            presentacion: r#"return {titulo="La compañía de Dahran", texto="Dahran te ofrece viajar con su tripulación durante unos días. Tus compañeros seguirán junto a vos, pero será el capitán quien decida los desplazamientos. Podés incorporarte para probar la espera de órdenes o continuar por tu cuenta."}"#,
+            opciones: [
+                (clave: "aceptar", texto: "Incorporarte con tus compañeros", siguiente: "ingresar"),
+                (clave: "rechazar", texto: "Continuar por tu cuenta", siguiente: "fin"),
+            ],
+        ),
+        Efectos(
+            clave: "ingresar",
+            salidas: ["fin"],
+            resolver: r#"return {operaciones={op.ingresar_grupo_en_colectivo("compania_dahran")}, siguiente="fin"}"#,
+        ),
+        Fin(clave: "fin", control: Continuar),
+    ],
+)

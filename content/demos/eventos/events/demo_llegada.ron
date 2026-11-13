@@ -1,0 +1,4 @@
+(clave:"demo_llegada", puntos:["viajar.relato_llegada"], condicion:r#"return mundo:booleana("demoContinuar",false)"#, inicio:"llegar", modo:SustituirRelato, pasos:[
+Vigneta(clave: "llegar", presentacion: r#"return {titulo="Por fin, el destino", texto="Después del camino recorrido, te detenés a mirar el lugar al que querías llegar. Tus compañeros se reúnen alrededor y por un momento dejan de hablar de la marcha."}"#, siguiente: Some("fin")),
+Fin(clave:"fin",control:Continuar)
+])

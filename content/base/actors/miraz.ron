@@ -1,0 +1,15 @@
+(
+    clave: "miraz",
+    nombre: "Miraz",
+    biografia: "Gobernante de Nuris. Considera las exigencias de Zarabad una amenaza para su puerto y una ofensa a su autoridad. Ofrece una salida competidora al comercio del interior y contrata guerreros para protegerla. Su posición depende de que los muelles sigan dando sustento y oportunidades a la ciudad.",
+    ubicacion_inicial: EnLugar("nuris"),
+    caracteristicas: ["hombreTigre", "orgulloso", "calculador"],
+    relaciones: [
+        (tipo: Gobierna, destino: Lugar("nuris")),
+        (tipo: Desea, destino: Concepto("comerciar_sin_someterse_zarabad")),
+        (tipo: Necesita, destino: Concepto("mantener_trafico_nuris")),
+        (tipo: Conoce, destino: Lugar("nuris")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

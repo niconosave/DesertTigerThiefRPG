@@ -200,12 +200,14 @@ mod pruebas {
         let original = m.clone();
         let t = crear(&m);
         let raiz = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal");
-        for (modo, glifo) in [
+        for (modo, _glifo) in [
             (ModoGraficos::Predeterminado, "🬌"),
             (ModoGraficos::Ascii, "h"),
             (ModoGraficos::Fuente, "🬌"),
         ] {
             let recursos = RecursosVisuales::cargar_modo(&raiz, modo).unwrap();
+            let clave = ClaveTipoTile::nueva("caravanaDecorativa".into()).unwrap();
+            let glifo = recursos.tile(&clave, 0, 0, 24).glifo.to_string();
             for estado in [
                 VisibilidadTile::Visible,
                 VisibilidadTile::Recordado,

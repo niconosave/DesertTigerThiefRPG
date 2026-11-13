@@ -39,6 +39,7 @@ pub(super) fn escenario(terrenos: &[&[&str]], actores: &[&[&str]]) -> Mundo {
     }
     let companeros = (1..iniciales.len()).map(actor).collect();
     let mut mundo = Mundo::nuevo(DatosInicialesMundo {
+        colectivos: vec![],
         mapa: IdMapa::desde_posicion(0).unwrap(),
         fecha: Fecha::nueva(2026, Mes::Enero, 1).unwrap(),
         lugares: terrenos
@@ -96,6 +97,7 @@ fn rasgos(lista: &[&str]) -> Vec<Caracteristica> {
 }
 fn mundo() -> Mundo {
     Mundo::nuevo(DatosInicialesMundo {
+        colectivos: vec![],
         mapa: IdMapa::desde_posicion(0).unwrap(),
         fecha: Fecha::nueva(1, Mes::Enero, 1).unwrap(),
         lugares: vec![
@@ -808,6 +810,7 @@ fn rutas_ponderan_tamano_y_destinos_son_consultas_puras() {
         &["pequeno"],
     ];
     let m = Mundo::nuevo(DatosInicialesMundo {
+        colectivos: vec![],
         mapa: IdMapa::desde_posicion(0).unwrap(),
         fecha: Fecha::nueva(2026, Mes::Enero, 1).unwrap(),
         lugares: terrenos
@@ -1301,6 +1304,7 @@ fn escenario_caminos(montana_vasta: bool) -> Mundo {
         destino: ExtremoRelacion::Lugar(id(l)),
     }));
     Mundo::nuevo(DatosInicialesMundo {
+        colectivos: vec![],
         mapa: IdMapa::desde_posicion(0).unwrap(),
         fecha: base.fecha(),
         lugares: base
@@ -1565,6 +1569,7 @@ fn planificador_prefiere_el_paso_a_un_pico_equivalente() {
         &[&["viajero"], &[]],
     );
     let m = Mundo::nuevo(DatosInicialesMundo {
+        colectivos: vec![],
         mapa: IdMapa::desde_posicion(0).unwrap(),
         fecha: base.fecha(),
         lugares: base
@@ -1622,5 +1627,198 @@ fn planificador_prefiere_el_paso_a_un_pico_equivalente() {
                 84
             );
         }
+    }
+}
+
+fn mundo_pasajes() -> DatosInicialesMundo {
+    let relacion = |tipo, a, b| RelacionInicial {
+        tipo,
+        origen: ExtremoRelacion::Lugar(id(a)),
+        destino: ExtremoRelacion::Lugar(id(b)),
+        mercancia: if tipo == TipoRelacion::Vende {
+            Some("grano".into())
+        } else {
+            None
+        },
+    };
+    DatosInicialesMundo {
+        colectivos: vec![],
+        mapa: IdMapa::desde_posicion(0).unwrap(),
+        fecha: Fecha::nueva(2026, Mes::Enero, 1).unwrap(),
+        lugares: [
+            &["puerto"][..],
+            &["puerto"],
+            &["puerto"],
+            &["acuatico"],
+            &[],
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, c)| LugarInicial {
+            id: id(i),
+            caracteristicas: rasgos(c),
+        })
+        .collect(),
+        actores: (0..2)
+            .map(|i| ActorInicial {
+                id: actor(i),
+                ubicacion: crate::UbicacionActor::EnLugar(id(0)),
+                caracteristicas: vec![],
+            })
+            .collect(),
+        actor_jugador: actor(0),
+        companeros: vec![actor(1)],
+        variables_globales: vec![],
+        relaciones: vec![
+            relacion(TipoRelacion::Conectado, 0, 4),
+            relacion(TipoRelacion::Conectado, 4, 1),
+            relacion(TipoRelacion::Conectado, 0, 3),
+            relacion(TipoRelacion::Conectado, 3, 1),
+            relacion(TipoRelacion::Vende, 0, 1),
+            relacion(TipoRelacion::Vende, 1, 2),
+            relacion(TipoRelacion::Conectado, 3, 2),
+        ],
+    }
+}
+#[test]
+fn pasajes_comerciales_son_de_ida_y_vuelta_sin_navegacion_libre() {
+    let m = Mundo::nuevo(mundo_pasajes()).unwrap();
+    assert!(m.ofrece_pasaje(id(0), id(1)));
+    assert!(m.ofrece_pasaje(id(1), id(0)));
+    assert!(m.lugares_conectados(id(0)).unwrap().contains(&id(3)));
+    assert!(!m.lugares_transitables(id(0)).unwrap().contains(&id(3)));
+    assert!(m.lugares_transitables(id(3)).unwrap().is_empty());
+    assert!(
+        !crate::acciones::destinos_disponibles(&m, actor(0))
+            .unwrap()
+            .contains(&id(3))
+    );
+    let ruta = rutas::rapida(
+        &m,
+        id(0),
+        id(2),
+        &[actor(0), actor(1)],
+        &mut Dados::nuevos(&[]),
+    )
+    .unwrap();
+    assert_eq!(ruta, vec![id(0), id(1), id(2)]);
+    let tiempos = rutas::tiempos(&m, &ruta, &[actor(0), actor(1)], 0, 0, 0).unwrap();
+    assert_eq!(rutas::sumar_horas(&tiempos).unwrap(), 192);
+    assert_eq!(
+        m.expandir_pasajes(&ruta),
+        vec![id(0), id(3), id(1), id(3), id(2)]
+    );
+}
+#[test]
+fn pasajes_no_exigen_chequeos_al_pasajero_y_coinciden_con_la_prevision() {
+    struct SinDados;
+    impl FuenteAzar for SinDados {
+        fn elegir_indice(
+            &mut self,
+            _: NonZeroUsize,
+        ) -> Result<usize, crate::azar::ErrorFuenteAzar> {
+            panic!("el pasajero no navega")
+        }
+    }
+    let mut datos = mundo_pasajes();
+    datos.lugares[0]
+        .caracteristicas
+        .extend(rasgos(&["montanoso", "camino"]));
+    let m = Mundo::nuevo(datos).unwrap();
+    let viajeros = [actor(0), actor(1)];
+    let c = tarjetas::ContextoMovimiento {
+        mundo: &m,
+        viajeros: &viajeros,
+        origen: id(0),
+        destino: id(3),
+        animales: 0,
+        caballos: 0,
+        camellos: 0,
+        carga: [tiempo::HorasViaje::CERO; 2],
+        mes: 1,
+        rumbo: None,
+    };
+    let movimiento = tarjetas::navegar::resolver(&c, &mut SinDados).unwrap();
+    assert!(movimiento.dato.pasaje);
+    assert!(movimiento.dato.chequeos.is_empty());
+    assert!(movimiento.dato.incidente.is_none());
+    assert_eq!(movimiento.lugar, id(3));
+    assert_eq!(movimiento.duracion, tiempo::HorasViaje::horas(48));
+    let previsto = rutas::tiempos(&m, &[id(0), id(3)], &viajeros, 0, 0, 0).unwrap();
+    assert_eq!(
+        movimiento.duracion,
+        tiempo::HorasViaje::horas(rutas::sumar_horas(&previsto).unwrap())
+    );
+}
+#[test]
+fn pasajes_exigen_puertos_no_regionales_y_camino_maritimo() {
+    let mut datos = mundo_pasajes();
+    datos.lugares[1].caracteristicas.clear();
+    assert!(!Mundo::nuevo(datos).unwrap().ofrece_pasaje(id(0), id(1)));
+    let mut datos = mundo_pasajes();
+    datos.lugares[1]
+        .caracteristicas
+        .push(Caracteristica::nueva("region".into()).unwrap());
+    assert!(Mundo::nuevo(datos).is_err());
+    let mut datos = mundo_pasajes();
+    datos
+        .relaciones
+        .retain(|r| r.tipo != TipoRelacion::Conectado);
+    assert!(!Mundo::nuevo(datos).unwrap().ofrece_pasaje(id(0), id(1)));
+    let mut datos = mundo_pasajes();
+    datos.relaciones.retain(|r| r.tipo != TipoRelacion::Vende);
+    assert!(!Mundo::nuevo(datos).unwrap().ofrece_pasaje(id(0), id(1)));
+}
+
+#[test]
+fn pasajes_sin_reservas_completan_el_mar_sin_consumo_ni_forrajeo() {
+    for comidas in [0, 20] {
+        let mut m = Mundo::nuevo(mundo_pasajes()).unwrap();
+        let rumbos = CatalogoRumbos::default();
+        let contexto = ContextoAccion {
+            inicio: InstanteAccion {
+                fecha: m.fecha(),
+                fraccion: FraccionDia::CERO,
+            },
+            rumbos: &rumbos,
+        };
+        let mut azar = Dados::nuevos(&[]);
+        let mut e = iniciar(
+            &mut m,
+            SolicitudAccion::Viajar {
+                actor: actor(0),
+                destino: id(1),
+            },
+            &contexto,
+            &mut azar,
+        )
+        .unwrap()
+        .ejecucion;
+        e.ruta = m.expandir_pasajes(&[id(0), id(1)]);
+        let reservas = ReservasViaje {
+            comidas: [comidas, 0, 0, 0],
+            botas: if comidas == 0 { vec![] } else { vec![3000] },
+        };
+        e.reservas = Some(reservas.clone());
+        e.demoras = vec![[HorasViaje::CERO; 2]; 2];
+        e.fase = Fase::Mover;
+        e.espera = None;
+        let anterior = e.total;
+        assert_eq!(e.necesarias(&m, 0).unwrap(), 0);
+        for destino in [id(3), id(1)] {
+            let PasoAccion::Escena(escena) = e.producir(&mut m, &mut azar).unwrap() else {
+                panic!("se esperaba desplazamiento")
+            };
+            assert!(matches!(escena.contenido, ContenidoEscena::Desplazamiento(ref d) if d.pasaje));
+            assert_eq!(escena.consumo, RegistroConsumo::default());
+            assert_eq!(e.lugar, destino);
+            assert_eq!(e.reservas.as_ref().unwrap(), &reservas);
+            assert_eq!(e.h, HorasViaje::CERO);
+        }
+        assert!(e.total > anterior);
+        let PasoAccion::Escena(llegada) = e.producir(&mut m, &mut azar).unwrap() else {
+            panic!("se esperaba llegada")
+        };
+        assert_eq!(llegada.tarjeta, ClaveTarjeta::Llegada);
     }
 }
