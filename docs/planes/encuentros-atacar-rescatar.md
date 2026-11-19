@@ -1,6 +1,6 @@
 # Entregas de Encuentros, Atacar y Rescatar
 
-Estado: propuesta de secuencia de entregas. Fecha: 2026-11-19.
+Estado: ciclo 1 implementado y pendiente de revisión de jugabilidad; ciclos siguientes diseñados. Fecha: 2026-11-19.
 
 Esta hoja de ruta organiza el trabajo. No define mecánicas ni sustituye el plan
 de cada incremento. Su referencia es el [diseño de mecánicas](../diseno/encuentros-y-atacar.md)
@@ -61,8 +61,8 @@ puede adelantar cuando la base compartida esté probada.
 ### Ciclo 1: episodio mínimo de Atacar
 
 [PLAN-2026-047](./pendientes/2026-11-19-47-atacar-episodio-minimo.md) detalla el
-trabajo inicial. El primer episodio usa unas pocas áreas y un objetivo conocido
-y válido según la regla que se cierre. El grupo se aproxima, afronta oposición,
+trabajo inicial implementado. El primer episodio usa dos cuartos dentro de un
+área y objetivos públicamente localizables declarados por el contenido. El grupo se aproxima, afronta oposición,
 intenta matar al objetivo y termina con éxito, retirada o derrota. El movimiento
 y los ataques se observan en el tablero con un texto general por viñeta.
 

@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod apertura_pruebas;
+mod ataque;
 mod espera;
 mod eventos_partida;
 #[cfg(test)]
@@ -56,6 +57,25 @@ pub struct IdDecisionVista(u64);
 pub struct IdOpcionVista(u32);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntencionFrontend {
+    ComenzarAtaque {
+        objetivo: IdActor,
+    },
+    AvanzarEncuentro {
+        id: u64,
+        paso: u64,
+    },
+    RetirarEncuentro {
+        id: u64,
+        paso: u64,
+    },
+    ReanudarEncuentro {
+        id: u64,
+        paso: u64,
+    },
+    CerrarEncuentro {
+        id: u64,
+        paso: u64,
+    },
     EsperarOrdenes {
         campamento: IdCampamento,
     },
@@ -103,6 +123,7 @@ pub enum ErrorIntencion {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum VistaSesion {
+    Encuentro(crate::VistaEncuentro),
     EsperandoOrdenes(VistaEsperaOrdenes),
     ProcesandoCierre { token: IdContinuacionCierre },
     PresentandoEvento(VistaEvento),
@@ -180,8 +201,13 @@ pub struct VistaActor {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AccionDisponible {
+    Atacar {
+        objetivos: Vec<crate::ObjetivoAtaque>,
+    },
     Acampar,
-    Viajar { destinos: Vec<IdLugar> },
+    Viajar {
+        destinos: Vec<IdLugar>,
+    },
 }
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CausaIndisponibilidad {
@@ -304,6 +330,7 @@ impl FalloCierreAccion {
     }
 }
 pub struct Partida {
+    ataque: Option<ataque::AtaqueActivo>,
     espera: Option<espera::EsperaOrdenes>,
     cierre: Option<IdCierre>,
     eventos: crate::eventos::coordinador::Coordinador,
@@ -372,6 +399,7 @@ impl Partida {
         let mut partida = Self {
             espera: None,
             cierre: None,
+            ataque: None,
             eventos: Default::default(),
             continuacion_evento: None,
             acampada: None,
@@ -420,6 +448,16 @@ impl Partida {
     ) -> Result<VistaSesion, ErrorIntencion> {
         if matches!(
             intencion,
+            IntencionFrontend::ComenzarAtaque { .. }
+                | IntencionFrontend::AvanzarEncuentro { .. }
+                | IntencionFrontend::RetirarEncuentro { .. }
+                | IntencionFrontend::ReanudarEncuentro { .. }
+                | IntencionFrontend::CerrarEncuentro { .. }
+        ) {
+            return self.procesar_ataque(intencion);
+        }
+        if matches!(
+            intencion,
             IntencionFrontend::EsperarOrdenes { .. }
                 | IntencionFrontend::AvanzarEspera { .. }
                 | IntencionFrontend::CancelarEspera { .. }
@@ -457,6 +495,13 @@ impl Partida {
             return Ok(self.vista());
         }
         match intencion {
+            IntencionFrontend::ComenzarAtaque { .. }
+            | IntencionFrontend::AvanzarEncuentro { .. }
+            | IntencionFrontend::RetirarEncuentro { .. }
+            | IntencionFrontend::ReanudarEncuentro { .. }
+            | IntencionFrontend::CerrarEncuentro { .. } => {
+                return Err(ErrorIntencion::FaseIncompatible);
+            }
             IntencionFrontend::EsperarOrdenes { .. }
             | IntencionFrontend::AvanzarEspera { .. }
             | IntencionFrontend::CancelarEspera { .. }
@@ -542,6 +587,46 @@ impl Partida {
                     return Ok(self.vista());
                 };
                 let resultado = acciones::finalizar_acampada(acampada);
+                if resultado.tiempo.duracion.dias() > 0 {
+                    let mut curas = Vec::new();
+                    for id in std::iter::once(self.mundo.actor_jugador())
+                        .chain(self.mundo.grupo().integrantes().iter().copied())
+                    {
+                        let Some(actor) = self.mundo.actor(id) else {
+                            continue;
+                        };
+                        let tiene = |s: &str| actor.caracteristicas().any(|c| c.como_str() == s);
+                        if tiene("muerto") {
+                            continue;
+                        }
+                        let tag = if tiene("incapacitado") {
+                            Some("incapacitado")
+                        } else if tiene("herido") {
+                            Some("herido")
+                        } else {
+                            None
+                        };
+                        if let Some(tag) = tag {
+                            curas.push(
+                                desert_tiger_core::OperacionMundo::QuitarCaracteristicaActor {
+                                    actor: id,
+                                    caracteristica: desert_tiger_core::Caracteristica::nueva(
+                                        tag.into(),
+                                    )
+                                    .map_err(|_| ErrorIntencion::FaseIncompatible)?,
+                                },
+                            );
+                        }
+                    }
+                    if !curas.is_empty() {
+                        let preparado = self
+                            .mundo
+                            .preparar_operaciones(curas)
+                            .map_err(|_| ErrorIntencion::FaseIncompatible)?;
+                        preparado.confirmar(&mut self.mundo);
+                    }
+                }
+
                 if resultado.tiempo.duracion == Duracion::desde_dias(0)
                     && resultado.tiempo.fraccion == FraccionDia::CERO
                 {
@@ -564,6 +649,13 @@ impl Partida {
             | IntencionFrontend::ResponderDecision { .. } => {}
         }
         let resultado = match intencion {
+            IntencionFrontend::ComenzarAtaque { .. }
+            | IntencionFrontend::AvanzarEncuentro { .. }
+            | IntencionFrontend::RetirarEncuentro { .. }
+            | IntencionFrontend::ReanudarEncuentro { .. }
+            | IntencionFrontend::CerrarEncuentro { .. } => {
+                return Err(ErrorIntencion::FaseIncompatible);
+            }
             IntencionFrontend::EsperarOrdenes { .. }
             | IntencionFrontend::AvanzarEspera { .. }
             | IntencionFrontend::CancelarEspera { .. }
@@ -575,6 +667,17 @@ impl Partida {
                 return Err(ErrorIntencion::FaseIncompatible);
             }
             IntencionFrontend::ComenzarViaje { destino } => {
+                if ataque::cautivo(&self.mundo, self.mundo.actor_jugador())
+                    || self
+                        .mundo
+                        .actor(self.mundo.actor_jugador())
+                        .is_none_or(|a| {
+                            a.caracteristicas()
+                                .any(|c| matches!(c.como_str(), "incapacitado" | "muerto"))
+                        })
+                {
+                    return Err(ErrorIntencion::FaseIncompatible);
+                }
                 if !matches!(self.vista, VistaSesion::Disponible(_)) {
                     return Err(ErrorIntencion::FaseIncompatible);
                 }
@@ -700,6 +803,13 @@ impl Partida {
             c.accion = Some("esperarOrdenes");
             c.objetivo = Some(crate::ExtremoRelacion::Colectivo(espera.colectivo));
             c
+        } else if let Some(a) = &self.ataque {
+            let mut c = self.contexto_sesion(ClasePunto::AccionTerminada);
+            c.accion = Some("atacar");
+            c.objetivo = Some(crate::ExtremoRelacion::Actor(
+                a.motor.fichas[a.motor.objetivo].actor,
+            ));
+            c
         } else if let Some(e) = &self.ejecucion {
             e.contexto(ClasePunto::AccionTerminada)
         } else {
@@ -717,6 +827,7 @@ impl Partida {
         &mut self,
         tiempo: desert_tiger_core::TiempoAccion,
     ) -> Result<(), FalloCierreAccion> {
+        self.ataque = None;
         self.ejecucion = None;
         self.paso = None;
         self.opciones.clear();
@@ -973,7 +1084,11 @@ fn proyectar_mundo(
     let colectivo = proyectar_colectivo(m, c)?;
     let acciones = if muerto {
         Vec::new()
-    } else if colectivo.is_some() {
+    } else if colectivo.is_some()
+        || ataque::cautivo(m, m.actor_jugador())
+        || m.actor(m.actor_jugador())
+            .is_some_and(|a| a.caracteristicas().any(|c| c.como_str() == "incapacitado"))
+    {
         vec![AccionDisponible::Acampar]
     } else {
         vec![
@@ -982,6 +1097,9 @@ fn proyectar_mundo(
                     .map_err(|e| e.to_string())?,
             },
             AccionDisponible::Acampar,
+            AccionDisponible::Atacar {
+                objetivos: ataque::objetivos(m, c),
+            },
         ]
     };
     let (celdas, visibilidad) = vision.proyectar(mapa);
@@ -1708,7 +1826,9 @@ mod pruebas {
                     .procesar(IntencionFrontend::ContinuarCierre { token })
                     .unwrap(),
                 VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
-                VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
+                VistaSesion::Acampando(_) | VistaSesion::Encuentro(_) => {
+                    panic!("vista inesperada durante Viajar")
+                }
                 VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
             };
         }
@@ -1782,7 +1902,9 @@ mod pruebas {
                             .procesar(IntencionFrontend::ContinuarCierre { token })
                             .unwrap(),
                         VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
-                        VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
+                        VistaSesion::Acampando(_) | VistaSesion::Encuentro(_) => {
+                            panic!("vista inesperada durante Viajar")
+                        }
                         VistaSesion::Fatal(f) => {
                             panic!("destino {destino:?}, semilla {semilla}: {}", f.mensaje)
                         }
@@ -1822,7 +1944,9 @@ mod pruebas {
                         .procesar(IntencionFrontend::ContinuarCierre { token })
                         .unwrap(),
                     VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
-                    VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
+                    VistaSesion::Acampando(_) | VistaSesion::Encuentro(_) => {
+                        panic!("vista inesperada durante Viajar")
+                    }
                     VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
                 };
             }

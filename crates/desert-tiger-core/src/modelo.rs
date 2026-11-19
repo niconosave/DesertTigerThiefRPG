@@ -1261,6 +1261,42 @@ impl Mundo {
                     grupo_virtual.integrantes.retain(|&id| id != actor);
                     cambios.push(CambioConfirmado::CompaneroSeparado { actor, lugar });
                 }
+                OperacionMundo::RegistrarCautiverio { actor, captor: amo } => {
+                    for id in [actor, amo] {
+                        let actual = resolver_actor(&actores_virtuales, id)
+                            .ok_or(ErrorOperacionMundo::ActorDesconocido { actor: id })?;
+                        if actual
+                            .caracteristicas
+                            .iter()
+                            .any(|c| c.como_str() == "muerto")
+                        {
+                            return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                        }
+                    }
+                    if actor == amo {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    let origen = ExtremoRelacion::Actor(actor);
+                    let destino = ExtremoRelacion::Actor(amo);
+                    if !relaciones_virtuales.iter().any(|r| {
+                        r.tipo == TipoRelacion::PrisioneroDe
+                            && r.origen == origen
+                            && r.destino == destino
+                    }) {
+                        let id = IdRelacion::desde_posicion(relaciones_virtuales.len())
+                            .map_err(|_| ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                        relaciones_virtuales.push(Relacion {
+                            id,
+                            tipo: TipoRelacion::PrisioneroDe,
+                            origen,
+                            destino,
+                            mercancia: None,
+                        });
+                        por_actor[actor.indice().unwrap()].push(id);
+                        por_actor[amo.indice().unwrap()].push(id);
+                        cambios.push(CambioConfirmado::CautiverioRegistrado { actor, captor: amo });
+                    }
+                }
                 OperacionMundo::RegistrarEsclavitud { actor, amo } => {
                     for id in [actor, amo] {
                         if resolver_actor(&actores_virtuales, id).is_none() {
@@ -1366,6 +1402,10 @@ pub struct TrasladoConfirmado {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OperacionMundo {
+    RegistrarCautiverio {
+        actor: IdActor,
+        captor: IdActor,
+    },
     RegistrarEsclavitud {
         actor: IdActor,
         amo: IdActor,
@@ -1462,6 +1502,10 @@ impl CambiosConfirmados {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CambioConfirmado {
+    CautiverioRegistrado {
+        actor: IdActor,
+        captor: IdActor,
+    },
     CompaneroIncorporado {
         actor: IdActor,
     },

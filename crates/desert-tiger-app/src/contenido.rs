@@ -362,6 +362,7 @@ pub struct ContenidoValidado {
 }
 
 struct ContenidoValidadoInterno {
+    encuentros: Option<crate::encuentro::ConfigEncuentros>,
     plantilla_mundo: DatosInicialesMundo,
     presentacion: CatalogoPresentacion,
     claves: CatalogoClaves,
@@ -370,6 +371,10 @@ struct ContenidoValidadoInterno {
 }
 
 impl ContenidoValidado {
+    pub(crate) fn encuentros(&self) -> Option<&crate::encuentro::ConfigEncuentros> {
+        self.interno.encuentros.as_ref()
+    }
+
     pub(crate) fn eventos(&self) -> &crate::eventos::contenido::Catalogo {
         &self.interno.eventos
     }
@@ -1581,8 +1586,11 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
             "cita anterior a la fecha inicial".into(),
         ));
     }
+    let encuentros = crate::encuentro::ConfigEncuentros::cargar(&raiz_canonica, &claves)
+        .map_err(|e| error_mundo(ClaseDiagnosticoContenido::ValorInvalido, e))?;
     let contenido = ContenidoValidado {
         interno: Arc::new(ContenidoValidadoInterno {
+            encuentros,
             plantilla_mundo: datos,
             presentacion: CatalogoPresentacion {
                 colectivos: presentacion_colectivos,

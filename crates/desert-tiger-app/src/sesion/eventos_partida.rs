@@ -5,6 +5,7 @@ use desert_tiger_core::acciones::intervenciones::{
 };
 
 pub(super) enum Continuacion {
+    IniciarAtaque(IdActor),
     Inicial,
     AntesNpc,
     Motor(IdIntervencion),
@@ -148,6 +149,15 @@ impl Partida {
                     .take()
                     .ok_or("continuación narrativa ausente")?;
                 match continuar {
+                    Continuacion::IniciarAtaque(objetivo) => {
+                        if interrumpir {
+                            self.vista = VistaSesion::Disponible(self.mundo_visible.clone());
+                            Ok(())
+                        } else {
+                            self.iniciar_ataque_local(objetivo)
+                        }
+                    }
+
                     Continuacion::Inicial => self.abrir_eventos(
                         self.contexto_sesion(ClasePunto::Disponible),
                         Continuacion::Disponible,

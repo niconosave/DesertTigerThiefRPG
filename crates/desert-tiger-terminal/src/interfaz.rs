@@ -70,6 +70,12 @@ pub(crate) struct Interfaz {
     trafico_terrestre: crate::trafico_decorativo::TraficoDecorativo,
     campamento: Option<crate::campamento::EstadoCampamento>,
     musica: crate::musica_campamento::MusicaCampamento,
+    objetivos_ataque: Option<(Vec<desert_tiger_app::ObjetivoAtaque>, usize)>,
+    pausa_encuentro: bool,
+    omitir_encuentro: bool,
+    retirada_encuentro: bool,
+    reloj_encuentro: Duration,
+    intervalo_encuentro: Duration,
     aviso_audio: Option<AvisoAudio>,
     aviso_audio_mostrado: Cell<bool>,
 }
@@ -111,6 +117,12 @@ impl Interfaz {
             trafico_terrestre,
             campamento: None,
             musica: crate::musica_campamento::MusicaCampamento::default(),
+            objetivos_ataque: None,
+            pausa_encuentro: true,
+            omitir_encuentro: false,
+            retirada_encuentro: false,
+            reloj_encuentro: Duration::ZERO,
+            intervalo_encuentro: Duration::from_millis(350),
             aviso_audio: None,
             aviso_audio_mostrado: Cell::new(false),
         })
@@ -340,6 +352,32 @@ impl Interfaz {
         }
     }
     pub(crate) fn avanzar_animacion(&mut self, transcurrido: Duration) {
+        if let VistaSesion::Encuentro(v) = self.vista.clone()
+            && self.tamano_terminal.get().0 >= 20
+            && self.tamano_terminal.get().1 >= 8
+            && !self.confirmar_salida
+            && !self.pausa_encuentro
+            && !self.mostrar_detalle
+            && !v.finalizado
+            && !v.pausa_decision
+        {
+            self.reloj_encuentro += transcurrido;
+            if self.omitir_encuentro || self.reloj_encuentro >= self.intervalo_encuentro {
+                self.reloj_encuentro = Duration::ZERO;
+                if self.retirada_encuentro && v.puede_retirar {
+                    self.retirada_encuentro = false;
+                    self.enviar(IntencionFrontend::RetirarEncuentro {
+                        id: v.id,
+                        paso: v.paso,
+                    });
+                } else {
+                    self.enviar(IntencionFrontend::AvanzarEncuentro {
+                        id: v.id,
+                        paso: v.paso,
+                    });
+                }
+            }
+        }
         if matches!(self.vista, VistaSesion::EsperandoOrdenes(_))
             && !self.confirmar_salida
             && !self.menu_desarrollo
@@ -356,6 +394,15 @@ impl Interfaz {
     pub(crate) fn espera_animacion(&self, recursos: &RecursosVisuales) -> Duration {
         if self.confirmar_salida {
             return PASO_ANIMACION;
+        }
+        if matches!(self.vista, VistaSesion::Encuentro(_)) && !self.pausa_encuentro {
+            return if self.omitir_encuentro {
+                Duration::from_millis(1)
+            } else {
+                self.intervalo_encuentro
+                    .saturating_sub(self.reloj_encuentro)
+                    .min(PASO_ANIMACION)
+            };
         }
         let intervalo = if self.campamento.is_some()
             && (recursos.efecto_fogata.is_some() || self.musica.notas().is_some())
@@ -471,6 +518,92 @@ impl Interfaz {
             self.menu_desarrollo = true;
             self.foco_desarrollo = 0;
             self.inspector.puntero = None;
+            return;
+        }
+        if let VistaSesion::Encuentro(v) = self.vista.clone() {
+            match evento.code {
+                KeyCode::Enter if v.finalizado => self.enviar(IntencionFrontend::CerrarEncuentro {
+                    id: v.id,
+                    paso: v.paso,
+                }),
+                KeyCode::Enter if v.pausa_decision => {
+                    self.enviar(IntencionFrontend::ReanudarEncuentro {
+                        id: v.id,
+                        paso: v.paso,
+                    });
+                    self.pausa_encuentro = false;
+                }
+                KeyCode::Enter | KeyCode::Char(' ') => self.pausa_encuentro = !self.pausa_encuentro,
+                KeyCode::Char('r' | 'R') if !v.finalizado => {
+                    if v.pausa_decision && v.puede_retirar {
+                        self.enviar(IntencionFrontend::RetirarEncuentro {
+                            id: v.id,
+                            paso: v.paso,
+                        });
+                    } else {
+                        self.retirada_encuentro = true;
+                    }
+                    self.pausa_encuentro = false;
+                }
+                KeyCode::Char('d' | 'D') => {
+                    self.mostrar_detalle = !self.mostrar_detalle;
+                    self.pausa_encuentro = true;
+                }
+                KeyCode::Char('s' | 'S') => {
+                    self.omitir_encuentro = true;
+                    self.pausa_encuentro = false;
+                    self.mostrar_detalle = false;
+                }
+                KeyCode::Char('+') => {
+                    self.intervalo_encuentro = self
+                        .intervalo_encuentro
+                        .div_f32(2.0)
+                        .max(Duration::from_millis(40))
+                }
+                KeyCode::Char('-') => {
+                    self.intervalo_encuentro =
+                        (self.intervalo_encuentro * 2).min(Duration::from_secs(2))
+                }
+                _ => {}
+            }
+            return;
+        }
+        if let Some((opciones, foco)) = &mut self.objetivos_ataque {
+            match evento.code {
+                KeyCode::Esc => self.objetivos_ataque = None,
+                KeyCode::Up => *foco = foco.saturating_sub(1),
+                KeyCode::Down => *foco = (*foco + 1).min(opciones.len().saturating_sub(1)),
+                KeyCode::Enter => {
+                    if let Some(o) = opciones.get(*foco) {
+                        let actor = o.actor;
+                        self.objetivos_ataque = None;
+                        self.pausa_encuentro = true;
+                        self.omitir_encuentro = false;
+                        self.retirada_encuentro = false;
+                        self.reloj_encuentro = Duration::ZERO;
+                        self.enviar(IntencionFrontend::ComenzarAtaque { objetivo: actor });
+                    }
+                }
+                _ => {}
+            }
+            return;
+        }
+        if normalizar_letra(evento.code) == Some('t')
+            && matches!(self.vista, VistaSesion::Disponible(_))
+        {
+            if let Some(opciones) = self
+                .ultima_vista_mundo
+                .acciones
+                .iter()
+                .find_map(|a| match a {
+                    AccionDisponible::Atacar { objetivos } if !objetivos.is_empty() => {
+                        Some(objetivos.clone())
+                    }
+                    _ => None,
+                })
+            {
+                self.objetivos_ataque = Some((opciones, 0));
+            }
             return;
         }
         if let Some(campamento) = &mut self.campamento {
@@ -638,6 +771,7 @@ impl Interfaz {
             return;
         }
         match &self.vista {
+            VistaSesion::Encuentro(_) => {}
             VistaSesion::Disponible(mundo)
                 if normalizar_letra(tecla) == Some('a')
                     && mundo
@@ -775,10 +909,35 @@ impl Interfaz {
 
     pub(crate) fn dibujar(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
         self.dibujar_contenido(frame, recursos);
+        if let Some((opciones, foco)) = &self.objetivos_ataque {
+            crate::encuentro::objetivos(frame, opciones, *foco, recursos);
+        }
         recursos.paleta.aplicar(frame.buffer_mut());
     }
 
     fn dibujar_contenido(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
+        self.tamano_terminal
+            .set((frame.area().width, frame.area().height));
+        if let VistaSesion::Encuentro(v) = &self.vista {
+            crate::encuentro::dibujar(
+                frame,
+                v,
+                recursos,
+                self.pausa_encuentro,
+                self.mostrar_detalle,
+            );
+            if self.confirmar_salida {
+                self.dibujar_ventana(
+                    frame,
+                    frame.area(),
+                    "Salir",
+                    "¿Salir de la partida? S / N",
+                    None,
+                    recursos,
+                );
+            }
+            return;
+        }
         self.geometria_mapa.set(None);
         let area = frame.area();
         self.tamano_terminal.set((area.width, area.height));
@@ -847,6 +1006,7 @@ impl Interfaz {
             acciones,
         );
         match &self.vista {
+            VistaSesion::Encuentro(_) => {}
             VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => {
                 let paginas = self.paginas_evento(v);
                 let pagina = self.pagina.min(paginas.len().saturating_sub(1));
@@ -1290,6 +1450,7 @@ impl Interfaz {
             return None;
         }
         let id = match &self.vista {
+            VistaSesion::Encuentro(_) => return None,
             VistaSesion::PresentandoEvento(v) | VistaSesion::EsperandoDecisionEvento(v) => v.lugar,
             VistaSesion::Disponible(_)
             | VistaSesion::EsperandoOrdenes(_)
@@ -1384,6 +1545,7 @@ impl Interfaz {
             }
         }
         match &self.vista {
+            VistaSesion::Encuentro(v) => v.texto.clone(),
             VistaSesion::EsperandoOrdenes(_) | VistaSesion::ProcesandoCierre { .. } => {
                 let f = self.partida.fecha_actual();
                 format!(
@@ -1467,6 +1629,7 @@ impl Interfaz {
                     .to_owned()
             }
             ModoLocal::Normal => match &self.vista {
+                VistaSesion::Encuentro(_) => String::new(),
                 VistaSesion::EsperandoOrdenes(_) => {
                     " [Esc] Volver al campamento  [D] Desarrollo  [Q] Salir".into()
                 }
@@ -1480,7 +1643,10 @@ impl Interfaz {
                     Some([]) => {
                         " Viajar (no disponible)  [A] Acampar  [D] Desarrollo  [Q] Salir".to_owned()
                     }
-                    Some(_) => " [V] Viajar  [A] Acampar  [D] Desarrollo  [Q] Salir".to_owned(),
+                    Some(_) => {
+                        let ataque = if mundo.acciones.iter().any(|a| matches!(a, AccionDisponible::Atacar {objetivos} if !objetivos.is_empty())) { "  [T] Atacar" } else { "" };
+                        format!(" [V] Viajar  [A] Acampar{ataque}  [D] Desarrollo  [Q] Salir")
+                    }
                     None if mundo.acciones.contains(&AccionDisponible::Acampar) => {
                         " [A] Acampar  [D] Desarrollo  [Q] Salir".into()
                     }
@@ -1750,7 +1916,7 @@ fn foco_mas_cercano(
 fn destinos_viaje(mundo: &VistaMundo) -> Option<&[IdLugar]> {
     mundo.acciones.iter().find_map(|a| match a {
         AccionDisponible::Viajar { destinos } => Some(destinos.as_slice()),
-        AccionDisponible::Acampar => None,
+        AccionDisponible::Acampar | AccionDisponible::Atacar { .. } => None,
     })
 }
 
@@ -2238,6 +2404,83 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    #[test]
+    fn encuentro_terminal_selector_pausa_omision_y_tamano() {
+        fn copiar(a: &std::path::Path, b: &std::path::Path) {
+            std::fs::create_dir_all(b).unwrap();
+            for e in std::fs::read_dir(a).unwrap() {
+                let e = e.unwrap();
+                let destino = b.join(e.file_name());
+                if e.path().is_dir() {
+                    copiar(&e.path(), &destino);
+                } else {
+                    std::fs::copy(e.path(), destino).unwrap();
+                }
+            }
+        }
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let carpeta = std::env::temp_dir().join(format!("dt-encuentro-ui-{}", std::process::id()));
+        copiar(&raiz.join("content/base"), &carpeta);
+        let archivo = carpeta.join("actors/miraz.ron");
+        let fuente = std::fs::read_to_string(&archivo)
+            .unwrap()
+            .replace("EnLugar(\"nuris\")", "EnLugar(\"costa_ambar\")");
+        std::fs::write(archivo, fuente).unwrap();
+        let c = cargar_contenido(&carpeta).unwrap();
+        std::fs::remove_dir_all(carpeta).unwrap();
+        let mut i = Interfaz::nueva(
+            Partida::nueva(&c, ConfiguracionPartida { semilla: Some(42) }).unwrap(),
+        )
+        .unwrap();
+        for _ in 0..100 {
+            match i.vista.clone() {
+                VistaSesion::Disponible(_) => break,
+                VistaSesion::PresentandoEvento(v) => {
+                    i.enviar(IntencionFrontend::ContinuarEvento { presentacion: v.id })
+                }
+                VistaSesion::EsperandoDecisionEvento(v) => {
+                    i.enviar(IntencionFrontend::ResponderEvento {
+                        presentacion: v.id,
+                        opcion: v.opciones[0].id,
+                    })
+                }
+                VistaSesion::ProcesandoCierre { token } => {
+                    i.enviar(IntencionFrontend::ContinuarCierre { token })
+                }
+                otra => panic!("prólogo inesperado: {otra:?}"),
+            }
+        }
+        let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('t')));
+        assert!(i.objetivos_ataque.is_some());
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        let VistaSesion::Encuentro(inicial) = i.vista.clone() else {
+            panic!("{:?}", i.vista)
+        };
+        i.avanzar_animacion(Duration::from_secs(1));
+        assert_eq!(i.vista, VistaSesion::Encuentro(inicial.clone()));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        i.avanzar_animacion(Duration::from_secs(1));
+        assert!(matches!(&i.vista,VistaSesion::Encuentro(v) if v.paso>inicial.paso));
+        let r = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut t = Terminal::new(TestBackend::new(12, 5)).unwrap();
+        t.draw(|f| i.dibujar(f, &r)).unwrap();
+        let antes = i.vista.clone();
+        i.avanzar_animacion(Duration::from_secs(1));
+        assert_eq!(i.vista, antes);
+        t.backend_mut().resize(80, 24);
+        t.resize(ratatui::layout::Rect::new(0, 0, 80, 24)).unwrap();
+        t.draw(|f| i.dibujar(f, &r)).unwrap();
+        i.manejar_tecla(tecla(KeyCode::Char('s')));
+        for _ in 0..800 {
+            if matches!(&i.vista,VistaSesion::Encuentro(v) if v.finalizado) {
+                break;
+            }
+            i.avanzar_animacion(Duration::from_millis(1));
+        }
+        assert!(matches!(&i.vista,VistaSesion::Encuentro(v) if v.finalizado));
+    }
 
     #[test]
     fn dialogos_banda_inferior_paginas_y_actor_externo() {
@@ -4114,7 +4357,9 @@ mod pruebas {
                     interfaz.enviar(IntencionFrontend::ContinuarCierre { token })
                 }
                 VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
-                VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
+                VistaSesion::Acampando(_) | VistaSesion::Encuentro(_) => {
+                    panic!("vista inesperada durante Viajar")
+                }
                 VistaSesion::Fatal(f) => panic!("{}", f.mensaje),
             }
         }
@@ -4662,7 +4907,7 @@ mod pruebas {
                 .iter()
                 .find_map(|a| match a {
                     AccionDisponible::Viajar { destinos } => destinos.first().copied(),
-                    AccionDisponible::Acampar => None,
+                    AccionDisponible::Acampar | AccionDisponible::Atacar { .. } => None,
                 })
                 .unwrap();
             i.enviar(IntencionFrontend::ComenzarViaje { destino });

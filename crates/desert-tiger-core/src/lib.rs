@@ -3,6 +3,7 @@
 pub mod acciones;
 pub mod azar;
 mod calendario;
+pub mod encuentros;
 mod modelo;
 
 pub use calendario::{

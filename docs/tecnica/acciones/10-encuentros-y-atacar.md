@@ -2,11 +2,99 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Borrador técnico para revisión; no implementado; reglamento inicial pendiente |
-| Versión | 0.1 |
+| Estado | Adaptador del primer episodio implementado; arquitectura ampliada pendiente |
+| Versión | 0.2 |
 | Fecha | 2026-11-19 |
 | Fuente de mecánicas | [Encuentros y Atacar](../../diseno/encuentros-y-atacar.md) |
 | Alcance | Tablero temporal, ejecución de Atacar, viñetas, intervenciones y vista terminal |
+
+## 0. Implementación del primer ciclo
+
+El reglamento vigente es la [sección 17 de mecánicas](../../diseno/encuentros-y-atacar.md#17-reglamento-mínimo-implementado).
+Las API de las secciones siguientes son la arquitectura objetivo para ampliar el
+subsistema; no deben confundirse con el conjunto ya implementado.
+
+### Organización y adaptación incremental
+
+- `core::encuentros`: tablero temporal, fichas vinculadas por IdActor, generador
+  de dos cuartos y resolución simultánea. Posicion conserva `area`, `nivel`, `x`,
+  `y`; el primer generador utiliza área 0 y nivel 0. No agrega coordenadas al Actor.
+- `app::sesion::ataque`: guarda ejecución y azar propios, valida intenciones,
+  confirma operaciones del Mundo y proyecta información visible.
+- `terminal::encuentro`: dibuja instantáneas resueltas y controla reproducción.
+  Sus caracteres básicos ASCII funcionan en todos los modos gráficos actuales.
+
+La primera integración conserva `Partida.ataque` separado de `Partida.ejecucion`
+(Viajar). Ambos se excluyen por fase. Todavía no se reemplazó la envoltura pública
+`EjecucionAccion` por el enum amplio propuesto debajo: este adaptador limita los
+cambios sobre Viajar y permite probar el encuentro completo primero. Unificar la
+envoltura y tipar por separado IDs de área/ficha es trabajo de ampliación.
+
+### Contenido y reglas
+
+`content/base/encounters.ron` es opcional. Su ausencia no publica objetivos.
+Formato inicial:
+
+```ron
+(objetivos: [
+    (actor: "zahrim", defensores: ["dahran"]),
+    (actor: "miraz", defensores: []),
+])
+```
+
+Se validan claves y duplicados al cargar, máximo ocho defensores por objetivo.
+Se revalida presencia, vida y pertenencia al iniciar; los defensores presentes
+se seleccionan explícitamente. No se deduce hostilidad de compartir Lugar.
+El generador tiene dimensiones acotadas 31 × 17; no carga mapas por Lugar.
+La matriz solo contiene el nivel inicial; futuras capas necesitan ampliar su
+almacenamiento y accesos, conservando las posiciones ya diferenciadas por nivel.
+
+Cada pulso calcula intenciones desde una instantánea común. Los golpes se sortean
+antes de confirmar daños. Una reacción que acierta cancela el paso; la prioridad
+sorteada resuelve destinos coincidentes. Se confirman recorridos de una casilla
+por actor, incluidos los pasos diagonales válidos. El azar de resolución vive en
+un generador clonable separado de la semilla usada para generar el escenario.
+
+### Protocolo y persistencia reales
+
+La app expone `VistaSesion::Encuentro(VistaEncuentro)` con ID de ejecución, número
+de paso, matriz visible, fichas con ID local estable, texto general, detalle de
+intercambios y estado final. El ID de ficha no depende del nombre del Actor.
+La habitación oculta se proyecta como terreno desconocido y sin fichas enemigas.
+No se envía texto para que la terminal interprete reglas.
+
+Las intenciones son ComenzarAtaque, AvanzarEncuentro, RetirarEncuentro,
+ReanudarEncuentro y CerrarEncuentro. Continuaciones con ID/paso antiguos se rechazan
+antes de consumir azar. La app prepara un candidato de encuentro y RNG, valida el
+lote del Mundo y luego confirma ambos. Daños, muerte y `RegistrarCautiverio`
+persisten al resolverse. Cerrar no los vuelve a aplicar.
+
+El primer protocolo usa instantáneas pequeñas en el mismo proceso, no el registro
+completo de deltas general propuesto más abajo. Si hay golpes se publica primero
+la instantánea de impacto en las posiciones de origen y luego el movimiento
+simultáneo. La segunda entrega no tira dados ni modifica el Mundo. Cada ficha
+lleva una señal opcional de acierto/fallo. La terminal no inventa recorridos.
+El tamaño del tablero y el máximo de participantes mantienen acotado el coste.
+
+Existe el punto `atacar.inicio`, previo a generar el tablero; permite relato e
+interrupción y revalida el objetivo al continuar. `accion.terminada` recibe acción
+`atacar` y objetivo Actor, seguido del circuito habitual de calendario, agenda,
+NPCs y disponibilidad. Los comandos Lua para modificar el tablero durante el
+episodio pertenecen al ciclo 2; no se habilitan simulaciones vacías de esa API.
+
+Heridas se guardan como características. Captura agrega `PrisioneroDe` con índices
+actualizados; impide Viajar y Atacar incluso con una intención directa. El descanso
+diario del campamento recupera un grado de lesión sin quitar cautiverio. No hay
+sucesión automática ni acción de liberación en esta entrega.
+
+### Reproducción terminal
+
+`T` abre objetivos; Enter confirma. El encuentro empieza pausado. Enter/Espacio
+alterna pausa, `R` solicita retirada, `+`/`-` cambia intervalo, `S` omite esperas,
+`D` muestra detalles y pausa; Enter cierra el resultado. La cámara recorta el
+tablero y sigue al primer integrante visible. Una terminal menor a 20 × 8 detiene
+el avance. El cierre del programa pide confirmación. Pausa, detalles, velocidad,
+resize y omisión no llaman a las reglas salvo para solicitar el siguiente paso.
 
 ## 1. Autoridad y alcance
 
@@ -826,37 +914,24 @@ workspace. Los módulos pequeños se crean cuando tengan responsabilidad real;
 esta tabla no exige archivos vacíos ni abstracciones sin consumidor. Rescatar
 podrá incorporar su director usando `encuentros`, sin copiar el tablero.
 
-## 23. Reglas pendientes y condiciones para el plan jugable
+## 23. Reglamento vigente y contratos futuros
 
-El diseño de mecánicas todavía deja pendientes:
+Las incógnitas iniciales de geometría, ritmo, reacción, golpes, heridas, captura y
+duración quedaron resueltas en la sección 17 del diseño de mecánicas, mediante la
+delegación explícita del usuario. El primer episodio usa ese reglamento; no aplica
+la propuesta ortogonal por turnos de los borradores previos.
 
-| Decisión de gameplay | Contrato técnico que depende de ella |
-|---|---|
-| Vecindad, diagonales y ocupación aliada/cuerpos | Predicado de paso y construcción de recorridos. |
-| Orden, oportunidades y recuperación de reacciones | Agenda local y elegibilidad del ataque de reacción. |
-| Golpe, defensa, heridas e incapacitación | Resolución particular y consecuencias persistentes. |
-| Enfoques, detección y conocimiento de objetivos | Director, percepción y selector de blancos. |
-| Duraciones, captura y destino del objetivo fugado | Acumulador temporal y cierre válido. |
+La sección 0 documenta los contratos efectivamente publicados. La envoltura común,
+el protocolo general de deltas, la percepción individual y las transformaciones
+Lua locales del resto de este documento siguen siendo arquitectura objetivo.
+Tampoco están implementadas fuga del blanco, verticalidad, arquería ni Rescatar.
+No se habilita una capacidad mecánica por incluir su representación en el diseño.
 
-Estas decisiones no impiden fijar IDs, propiedad, comandos, lotes, generación
-acotada o integración de eventos. Sí deben cerrarse en las mecánicas antes de
-habilitar el primer combate jugable. Este contrato no convierte las propuestas
-de ronda interna o movimiento ortogonal en reglas aprobadas por omisión.
-
-La confirmación de la reacción al abandonar cualquier casilla queda cerrada;
-ninguna elección posterior de geometría la cambia por «solo abandonar alcance».
-
-El contenido requiere una versión de reglamento reconocida y completa. Mientras
-no exista, la app no habilita Atacar en la partida normal ni carga un perfil de
-combate con valores inventados. Un desarrollo parcial podrá demostrar tablero y
-reproducción con datos de prueba explícitos, sin presentarlo como el reglamento.
-
-La [hoja de ruta de entregas](../../planes/encuentros-atacar-rescatar.md) ordena
-incrementos verticales. El [primer plan](../../planes/pendientes/2026-11-19-47-atacar-episodio-minimo.md)
-selecciona los contratos necesarios para un ataque mínimo completo y conserva
-como precondiciones las mecánicas que todavía están abiertas. Terminar ese ciclo
-no declara implementado todo el repertorio de comandos o escenarios de este
-contrato. Cada capacidad conserva su estado real.
+La [hoja de ruta](../../planes/encuentros-atacar-rescatar.md) organiza ampliaciones.
+El [primer plan](../../planes/pendientes/2026-11-19-47-atacar-episodio-minimo.md)
+registra la implementación, verificaciones acotadas, adaptaciones y revisión de
+jugabilidad todavía pendiente. Los cambios pequeños se incorporan al mismo ciclo;
+el caso narrativo de transformación del tablero se desarrollará en el siguiente.
 
 ## 24. Verificación y revisión de cierre
 

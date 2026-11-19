@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | PLAN-2026-047 |
-| Estado | Pendiente |
+| Estado | Implementado; pendiente revisión de jugabilidad |
 | Creado | 2026-11-19 |
 | Actualizado | 2026-11-19 |
 
@@ -62,57 +62,60 @@ solo reproduce una secuencia preparada no cumple este resultado.
 
 ## Precondiciones
 
-El plan está preparado, pero estas precondiciones permanecen abiertas al crearlo.
-No se convierten en decisiones implícitas al implementar:
+Las precondiciones se cerraron con la delegación explícita del usuario para
+elegir reglas RPG sencillas, salvo sus indicaciones de simultaneidad, diagonales
+y reacción. La sección 17 de mecánicas registra el reglamento definitivo:
 
-- [ ] Completar en las mecánicas el reglamento mínimo utilizado: golpe, defensa,
+- [x] Completar en las mecánicas el reglamento mínimo utilizado: golpe, defensa,
       estados y consecuencias; ritmo de actuación; vecindad, ocupación y límite
       de reacciones. El gatillo de salida amenazada ya está confirmado.
-- [ ] Fijar la información disponible, los objetivos ofrecidos y la aproximación
+- [x] Fijar la información disponible, los objetivos ofrecidos y la aproximación
       del primer episodio. No introducir sigilo sin reglas de detección.
-- [ ] Fijar decisiones de conjunto, duración y condiciones de salida, incluyendo
+- [x] Fijar decisiones de conjunto, duración y condiciones de salida, incluyendo
       ubicación de supervivientes y objetivo fugado si ese resultado es posible.
-- [ ] Confirmar qué derrotas puede producir el reglamento inicial y darles cierre
+- [x] Confirmar qué derrotas puede producir el reglamento inicial y darles cierre
       válido. Un desenlace no implementado no puede aparecer con resultados perdidos.
-- [ ] Precisar en el contenido de prueba el perfil, participantes y recorridos
+- [x] Precisar en el contenido de prueba el perfil, participantes y recorridos
       para probar éxito, retirada y derrota sin imponerlos en la historia canónica.
-- [ ] Actualizar el contrato técnico si el cierre de las mecánicas altera sus
+- [x] Actualizar el contrato técnico si el cierre de las mecánicas altera sus
       contratos, y marcar como aprobadas para implementar las secciones aplicables.
 
-Las propuestas pendientes siguen en los documentos enlazados. Este plan no
-contiene una fórmula provisional que permita saltar estas precondiciones.
+Las capacidades futuras siguen pendientes; no bloquean el reglamento mínimo
+actual, que sustituye la propuesta ortogonal previa.
 
 ## Pasos
 
-1. [ ] Verificar que las precondiciones estén resueltas y que el caso de aceptación
+1. [x] Verificar que las precondiciones estén resueltas y que el caso de aceptación
        esté identificado. Registrar los enlaces al reglamento y contenido definitivos.
-2. [ ] Ampliar la envoltura de acciones para Atacar conservando los tipos propios de
-       Viajar; integrar disponibilidad, solicitud, continuación, decisiones y cierre.
-       Cubrir una ejecución existente de Viajar en esa frontera.
-3. [ ] Incorporar estado local, IDs, posiciones con área/nivel, fichas e índices de
-       ocupación. Validar referencias y vínculo único con cada Actor del mundo.
-4. [ ] Incorporar el perfil mínimo y su generador acotado: áreas conectadas,
+2. [x] Integrar un adaptador de Atacar en Partida, conservando la envoltura propia
+       de Viajar; disponibilidad, solicitud, continuación, decisiones y cierre.
+       La envoltura enum general del diseño se aplaza hasta ampliar el subsistema.
+3. [x] Incorporar estado local, posiciones con área/nivel y fichas con vínculo
+       único IdActor. La primera versión usa índices de ficha bajo el ID del
+       encuentro y consulta ocupación directamente; los tipos e índices generales
+       del diseño objetivo quedan para una ampliación.
+4. [x] Incorporar el perfil mínimo y su generador acotado: áreas conectadas,
        recorridos utilizables, obstáculos, vacíos y posiciones de participantes.
        La misma ejecución conserva su escenario entre avances y repintados.
-5. [ ] Incorporar las reglas aprobadas necesarias para desplazarse y combatir,
+5. [x] Incorporar las reglas aprobadas necesarias para desplazarse y combatir,
        incluida la reacción previa a abandonar una casilla amenazada. Reutilizar
        una resolución de golpe para combate ordinario y reacción.
-6. [ ] Conducir el episodio mediante sus viñetas y tramos acotados: aproximación,
+6. [x] Conducir el episodio mediante sus viñetas y tramos acotados: aproximación,
        oposición, objetivo y conclusión; ofrecer las decisiones acordadas y evitar
        recorridos o reintentos infinitos. No resolver todo el episodio por adelantado.
-7. [ ] Confirmar conjuntamente cambios del encuentro y del Mundo, registro,
+7. [x] Confirmar conjuntamente cambios del encuentro y del Mundo, registro,
        continuación y azar. Conservar los cambios persistentes ya confirmados y
        aplicar al cerrar solo los pendientes.
-8. [ ] Exponer vistas filtradas y lotes con secuencias, conservando el orden de
+8. [x] Exponer vistas filtradas y lotes con secuencias, conservando el orden de
        reacciones y desplazamientos. Preparar texto general y resumen por viñeta,
        sin un párrafo por casilla o golpe.
-9. [ ] Incorporar la vista terminal y los recursos mínimos compatibles con los
+9. [x] Incorporar la vista terminal y los recursos mínimos compatibles con los
        modos gráficos existentes: tablero, fichas, lectura, decisiones, pausa,
        velocidad, omisión y cambio de tamaño.
-10. [ ] Integrar las fronteras de inicio/final con el coordinador existente y la
+10. [x] Integrar las fronteras de inicio/final con el coordinador existente y la
         confirmación temporal de Partida. Mantener utilizable el juego fuera del
         encuentro; no habilitar comandos locales que aún no estén implementados.
-11. [ ] Ejecutar las verificaciones acotadas y dejar un recorrido manual concreto
+11. [x] Ejecutar las verificaciones acotadas y dejar un recorrido manual concreto
         para elegir objetivo, completar el episodio, retirarse y observar una derrota.
         Registrar limitaciones y revisar la experiencia con el usuario al cerrar.
 12. [ ] Actualizar el estado de las capacidades realmente implementadas en los
@@ -197,3 +200,51 @@ registra el enlace y su efecto sobre el trabajo.
 - Desviaciones respecto del plan: pendientes de registrar al implementar.
 - Trabajo posterior: ciclo 2 de la [hoja de ruta](../encuentros-atacar-rescatar.md),
   cuyo plan detallado se redactará tras jugar esta entrega.
+
+
+## Resultado de implementación — 2026-11-19
+
+La entrega está implementada. La revisión de ritmo y legibilidad con el usuario
+sigue abierta; por eso este plan permanece en `pendientes/`. No se presentan los
+contratos futuros como implementados ni se declara una revisión manual inexistente.
+
+Se verificaron el motor simultáneo, reacciones, diagonales, transporte de caídos,
+un episodio completo sin imponer su resultado, retirada, captura, descanso,
+persistencia, tokens antiguos y cierre temporal único. La terminal se comprueba
+con TestBackend, selector real y controles de pausa, omisión y cambio de tamaño.
+
+Adaptaciones respecto al contrato amplio: `Partida.ataque` separado de Viajar;
+instantáneas pequeñas en vez del protocolo general de deltas; una matriz en área
+0/nivel 0; índices locales estables en vez de tipos públicos por cada entidad.
+El detalle vigente figura en la sección 0 del documento técnico. El segundo ciclo
+implementará un caso real de intervención Lua sobre el tablero.
+
+### Verificaciones acotadas ejecutadas
+
+- `cargo test -q -p desert-tiger-core encuentros`: 4 casos.
+- `cargo test -q -p desert-tiger-app ataque_sesion`: 5 casos.
+- `cargo test -q -p desert-tiger-terminal --no-default-features encuentro_terminal`:
+  2 casos, incluido el flujo del selector y reproducción.
+- `cargo clippy -q -p desert-tiger-terminal --lib`: compila también app/core y audio;
+  queda la advertencia preexistente de argumentos de `dibujar_retratos_dialogo`.
+- Formato Rust y `git diff --check` sobre los archivos del desarrollo.
+
+No se ejecutó la batería completa del workspace. Los logs detallados se guardaron
+en `/tmp/ataque-*-tests.log` y `/tmp/ataque-clippy.log`.
+
+### Recorrido para probar jugando
+
+1. Ir a Nuris y pulsar `T`: Miraz es el objetivo sin defensores configurados.
+   En Sarabad/Zarabad también aparece Zahrim, defendido por Dahran si está presente.
+   Son objetivos disponibles, no una guerra impuesta al iniciar la partida.
+2. Elegir el objetivo y confirmar. Enter comienza la reproducción; cada integrante
+   da un paso por pulso y los ataques simultáneos se muestran antes del movimiento.
+3. Espacio pausa; `D` consulta golpes; `+`/`-` cambia velocidad; `S` omite esperas.
+   `*` señala acierto y `-` fallo junto a la ficha. No hay texto por cada casilla.
+4. `R` solicita retirada; los aliados intentan sacar también a los incapacitados.
+5. Enter cierra el resultado. Revisar heridas, muerte y relaciones de cautiverio;
+   una captura impide iniciar otro ataque o viaje. El descanso recupera lesiones,
+   pero no libera. La liberación y sucesión quedan para sistemas posteriores.
+
+Para repetir éxito/derrota se inicia otra partida: esta versión no garantiza un
+resultado favorable ni revierte las consecuencias al cerrar el tablero.

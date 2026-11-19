@@ -1,0 +1,7 @@
+// Primer episodio: personajes públicamente localizables, con su oposición explícita.
+(
+    objetivos: [
+        (actor: "zahrim", defensores: ["dahran"]),
+        (actor: "miraz", defensores: []),
+    ],
+)

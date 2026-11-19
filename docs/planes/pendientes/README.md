@@ -6,9 +6,9 @@ referencias precisas a la documentación técnica que define el trabajo.
 
 ## Encuentros y primer Atacar
 
-[PLAN-2026-047](./2026-11-19-47-atacar-episodio-minimo.md) prepara el primer episodio
-completo. Sus precondiciones de reglamento siguen abiertas; no autoriza elegir
-valores de combate durante la implementación. La [hoja de ruta](../encuentros-atacar-rescatar.md)
+[PLAN-2026-047](./2026-11-19-47-atacar-episodio-minimo.md) tiene implementado el primer
+episodio completo; queda la revisión de jugabilidad con el usuario. El reglamento
+simultáneo quedó definido mediante su delegación explícita. La [hoja de ruta](../encuentros-atacar-rescatar.md)
 distingue este ciclo de las ampliaciones posteriores.
 
 ## Eventos narrativos terminados

@@ -1,3 +1,4 @@
+mod encuentro;
 #[cfg(test)]
 use desert_tiger_app::VistaSesion;
 mod animacion;
@@ -488,7 +489,9 @@ mod pruebas {
                         .procesar(desert_tiger_app::IntencionFrontend::ContinuarCierre { token })
                         .unwrap(),
                     VistaSesion::EsperandoOrdenes(_) => panic!("espera inesperada"),
-                    VistaSesion::Acampando(_) => panic!("campamento inesperado durante Viajar"),
+                    VistaSesion::Acampando(_) | VistaSesion::Encuentro(_) => {
+                        panic!("vista inesperada durante Viajar")
+                    }
                     VistaSesion::PresentandoEvento(_) | VistaSesion::EsperandoDecisionEvento(_) => {
                         panic!("catálogo vacío inesperado")
                     }

@@ -2,8 +2,8 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Borrador para revisión; no implementado |
-| Versión | 0.1 |
+| Estado | Primer episodio implementado; ampliaciones diseñadas |
+| Versión | 0.2 |
 | Fecha | 2026-11-19 |
 | Alcance | Base compartida de encuentros, acción Atacar y primer episodio jugable |
 
@@ -21,12 +21,14 @@ que la partida continúe, conservando pérdidas y consecuencias reales.
 
 Este documento define reglas y experiencia de juego. No define estructuras de
 Rust, formatos RON, funciones Lua, protocolos de presentación ni tareas de
-implementación. El documento técnico y el plan se escribirán después de revisar
-estas mecánicas. Los ejemplos ilustran situaciones, no agregan contenido al mundo.
+implementación. El documento técnico y el plan enlazados registran su aplicación
+por ciclos. Los ejemplos ilustran situaciones, no agregan contenido al mundo.
 
 Amplía el [diseño general](../diseno-general.md) para estos encuentros; no cambia
-las reglas vigentes de Viajar o Acampar. Las reglas confirmadas en la conversación
-se distinguen de las propuestas y preguntas pendientes de la sección 16.
+las reglas de Viajar. La recuperación mediante descanso del primer episodio
+se especifica en la sección 17. Las reglas confirmadas en la conversación
+se completan con el reglamento mínimo de la sección 17 y las ampliaciones
+pendientes de la sección 16.
 
 ## 2. Qué juega y qué observa el jugador
 
@@ -446,30 +448,92 @@ Estas condiciones fijan el alcance futuro que debe respetar el diseño técnico.
 No exigen implementar ahora cámara por niveles, pisos superiores, tiro vertical,
 simulación estructural de edificios ni una matriz tridimensional completa.
 
-## 16. Propuestas y decisiones todavía abiertas
+## 16. Decisiones del primer incremento y ampliaciones
 
-La base anterior recoge la intención acordada. Para completar el reglamento del
-primer episodio quedan estas decisiones; no se trasladarán como incógnitas al
-código:
+El usuario delegó los detalles del reglamento mínimo al implementador y confirmó
+movimiento diagonal, intenciones simultáneas y una reacción por ronda. La sección
+17 fija las reglas utilizadas. La propuesta anterior ortogonal y por turnos queda
+sustituida; las secciones anteriores describen también capacidades futuras.
 
-1. **Ritmo, geometría y límite de reacciones.** Se propone para revisión movimiento
-   ortogonal inicial, alcance cercano de una casilla, orden de actuación interno
-   y una reacción por enemigo en cada ronda interna. La ronda no requiere órdenes
-   del jugador. Un primer acierto cancela el paso y las reacciones que dependían
-   de ese mismo intento. Las diagonales y sus esquinas se incorporan cuando se
-   acuerde cómo afectan al movimiento y a la amenaza.
-2. **Golpes y estados.** Definir la resolución de ataque y defensa, qué
-   características intervienen y cómo se producen heridas, incapacitación y
-   muerte. No se establece en este borrador una fórmula arbitraria de daño.
-3. **Comportamiento básico e información.** Fijar cómo el grupo adopta un enfoque,
-   cómo detectan los guardias y cómo se elige entre avanzar, auxiliar y retirarse.
-   Se propone una aproximación inicial y decisiones de conjunto al cambiar la
-   situación; no un planificador capaz de inventar cualquier estrategia.
-4. **Cierre y tiempo.** Fijar las duraciones mínimas, la ubicación del blanco que
-   escapa y las condiciones genéricas para la captura. La transición al tiempo
-   mundial se define a partir de esas reglas, sin depender de la animación.
+Permanecen para otros ciclos las familias de escenarios, aproximación sigilosa,
+armas e inventarios, fuga del objetivo, transformaciones narrativas locales,
+arquería, verticalidad efectiva y reglas de Rescatar. La captura simple conserva
+una relación de cautiverio; todavía no incluye un sistema de vida en prisión.
 
-La revisión de estas cuestiones completa las mecánicas del primer incremento.
-Después corresponde redactar su diseño técnico y, finalmente, su plan. El primer
-desarrollo tendrá un episodio jugable; las siguientes iteraciones ampliarán
-escenarios y reglas sobre lo que ya se haya podido probar.
+## 17. Reglamento mínimo implementado
+
+### Tiempo interno y simultaneidad
+
+Cada pulso equivale a seis segundos. Todas las fichas capaces eligen una intención
+usando el mismo estado inicial: esperar, dar un paso, atacar, recoger un compañero
+o salir. Se calculan los ataques y se aplican sus daños conjuntamente; después se
+confirman los movimientos posibles. Dos rivales pueden herirse mutuamente aunque
+uno quede incapacitado en ese intercambio. Una ficha incapacitada ya no completa
+su paso. No hay un turno entero de desplazamiento por personaje.
+
+Al inicio se sortea una prioridad fija, usada solamente para conflictos por una
+casilla o por la reacción disponible. La misma semilla reproduce el encuentro.
+Una casilla tiene un único ocupante capaz de actuar; no se permiten intercambios
+circulares de posiciones. Una fila puede avanzar si sus integrantes realmente
+liberan las casillas siguientes.
+
+### Movimiento y amenaza
+
+Se permiten ocho direcciones, un tile por pulso; la diagonal cuesta un paso.
+No se atraviesan muros ni vacíos. No se corta una esquina cuyo lateral sea muro o
+vacío. El contacto cercano alcanza los ocho vecinos con la misma restricción.
+
+Abandonar cualquier casilla amenazada habilita una reacción, incluso al rodear al
+mismo enemigo. Cada enemigo dispone de una reacción por pulso, acertada o fallida.
+Un acierto cancela ese paso; un fallo permite intentarlo. Entrar en amenaza no
+provoca esta reacción. Si coincide con un ataque ordinario del mismo atacante al
+mismo blanco se resuelve un solo golpe, que conserva el efecto de reacción.
+
+### Golpes y consecuencias
+
+Ataque: d20 + modificadores contra 10 + defensa; 1 natural falla y 20 acierta.
+`fuerte` da +2 al ataque, `agil` +2 a defensa y estar `herido` −2 al ataque.
+Primer acierto: herido. Segundo: incapacitado. Un golpe posterior contra una ficha
+incapacitada la mata y no requiere otra tirada. No actúa ni amenaza quien está
+incapacitado o muerto; su casilla no bloquea. Los enemigos no rematan compañeros
+caídos: combaten a quienes siguen activos. Los atacantes sí rematan al objetivo.
+El equipamiento todavía no modifica este reglamento.
+
+Las características se conservan en los actores del Mundo. Acampar durante un día
+permite recuperar un grado a los integrantes vivos: incapacitado pasa a herido;
+otro descanso diario quita herido. La muerte no se revierte y descansar no libera
+a un prisionero. El tiempo de descanso cubierto por otra actividad no cura otra vez.
+
+### Episodio, información y retirada
+
+El perfil inicial tiene dos cuartos, una abertura, obstáculos y un vacío. El grupo
+se aproxima abiertamente. Al entrar al segundo cuarto se revela su interior y se
+activa la oposición: no hay aún una simulación de sigilo ni visión individual.
+El texto general permanece estable mientras las fichas avanzan paso a paso.
+Los intercambios tienen señales visuales; su detalle se consulta voluntariamente.
+
+El contenido declara qué objetivos son públicamente localizables y quiénes los
+defienden. Se ofrecen solamente los vivos presentes en el mismo Lugar, excluyendo
+al grupo. No todo habitante de una ciudad es enemigo. El grupo reclutado, cautivo,
+incapacitado o muerto no puede iniciar Atacar.
+
+La retirada se solicita para todo el grupo. Se intenta volver a la entrada bajo
+las mismas amenazas; los integrantes capaces recogen a los incapacitados y pueden
+hacer varios viajes para sacarlos. No se trasladan cadáveres en este incremento.
+Al morir el objetivo también se busca la salida. Ocho pulsos sin progreso detienen
+la reproducción y permiten reintentar o retirarse; no fuerzan una derrota.
+
+### Cierres y duración mundial
+
+- Objetivo muerto y supervivientes fuera: éxito.
+- Supervivientes fuera con objetivo vivo: retirada.
+- Ningún aliado capaz y al menos un enemigo activo: los supervivientes quedan
+  `prisioneroDe` ese enemigo. No se los convierte en esclavos automáticamente.
+- Ningún aliado capaz y ningún enemigo capaz: derrota con sus estados actuales.
+
+La captura se registra en el Lugar mundial donde ocurrió el episodio; el tablero
+se descarta al cerrar. Prepararse tarda diez minutos, más seis segundos por pulso.
+Lectura, pausa, velocidad y omisión no añaden tiempo ni cambian tiradas. El cierre
+confirma el tiempo una sola vez y ejecuta la agenda y los eventos existentes.
+La muerte del jugador queda registrada; todavía no hay sucesión automática ni un
+nuevo final de campaña específico de combate.

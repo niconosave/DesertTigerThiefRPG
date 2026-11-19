@@ -6,6 +6,7 @@ use crate::{ExtremoRelacion, TiempoAccion};
 pub enum ClasePunto {
     Disponible,
     ViajarInicio,
+    AtacarInicio,
     EntreLugares,
     RelatoLlegada,
     AcamparInicio,
@@ -17,6 +18,7 @@ impl ClasePunto {
         match self {
             Self::Disponible => "partida.disponible",
             Self::ViajarInicio => "viajar.inicio",
+            Self::AtacarInicio => "atacar.inicio",
             Self::EntreLugares => "viajar.entre_lugares",
             Self::RelatoLlegada => "viajar.relato_llegada",
             Self::AcamparInicio => "acampar.inicio",
@@ -28,6 +30,7 @@ impl ClasePunto {
         [
             Self::Disponible,
             Self::ViajarInicio,
+            Self::AtacarInicio,
             Self::EntreLugares,
             Self::RelatoLlegada,
             Self::AcamparInicio,
@@ -38,7 +41,10 @@ impl ClasePunto {
         .find(|p| p.clave() == s)
     }
     pub fn permite_interrumpir(self) -> bool {
-        matches!(self, Self::ViajarInicio | Self::EntreLugares)
+        matches!(
+            self,
+            Self::ViajarInicio | Self::EntreLugares | Self::AtacarInicio
+        )
     }
 }
 #[derive(Clone, Debug)]
