@@ -1,6 +1,8 @@
 // Primer episodio: personajes públicamente localizables, con su oposición explícita.
 (
     objetivos: [
+        (actor: "ogro_gorun", defensores: []),
+        (actor: "jefe_bandido_kazir", defensores: ["bandido_nazur", "bandido_hazek", "bandido_sufan"]),
         (actor: "zahrim", defensores: ["dahran"]),
         (actor: "miraz", defensores: []),
     ],

@@ -1,5 +1,6 @@
 (
     entradas: [
+        (clave: "ogro", nombre: "Ogro", descripcion: "Criatura corpulenta de aspecto humanoide, distinta de los hombres y de la gente tigre."),
         (clave: "incapacitado", nombre: "Fuera de combate", descripcion: "No puede combatir ni amenazar casillas. Puede ser transportado por un compañero. Un día completo de descanso lo deja herido."),
         (clave: "hombreTigre", nombre: "Gente tigre", descripcion: "Pertenece a un pueblo de personas con cabeza de tigre y cuerpo humano."),
         (clave: "orgulloso", nombre: "Orgulloso", descripcion: "Da importancia a su posición y al reconocimiento que recibe."),

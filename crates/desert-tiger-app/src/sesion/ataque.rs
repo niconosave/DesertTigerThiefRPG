@@ -500,6 +500,44 @@ mod pruebas {
         panic!("cierre sin terminar");
     }
     #[test]
+    fn objetivos_de_prueba_ogro_banda_y_cautivo() {
+        let (mut p, _) = partida();
+        for (lugar, clave, defensores) in [
+            ("costa_ambar", "ogro_gorun", 0),
+            ("lomas_de_anir", "jefe_bandido_kazir", 3),
+        ] {
+            let destino = p.contenido.claves().lugar_por_clave(lugar).unwrap();
+            p.mundo
+                .aplicar_lote(LoteOperaciones::uno(OperacionMundo::Trasladar {
+                    actor: p.mundo.actor_jugador(),
+                    destino,
+                }))
+                .unwrap();
+            let objetivo = p.contenido.claves().actor_por_clave(clave).unwrap();
+            assert!(
+                objetivos(&p.mundo, &p.contenido)
+                    .iter()
+                    .any(|o| o.actor == objetivo)
+            );
+            let perfil = p
+                .contenido
+                .encuentros()
+                .unwrap()
+                .objetivos
+                .iter()
+                .find(|o| o.actor == clave)
+                .unwrap();
+            assert_eq!(perfil.defensores.len(), defensores);
+        }
+        let preso = p.contenido.claves().actor_por_clave("tamin").unwrap();
+        assert!(cautivo(&p.mundo, preso));
+        assert!(
+            !objetivos(&p.mundo, &p.contenido)
+                .iter()
+                .any(|o| o.actor == preso)
+        );
+    }
+    #[test]
     fn ataque_sesion_retirada_tokens_y_tiempo_una_vez() {
         let (mut p, objetivo) = partida();
         let antes = p.resto;
