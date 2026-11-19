@@ -1,2 +1,5 @@
 /target/
-
+/ignorethisverylonglynamedfolderpleasebecauseithasthingsthatshouldnotbepushtogit/
+/.idea/
+/.obsidian/
+/.vscode/
