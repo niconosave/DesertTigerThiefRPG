@@ -96,6 +96,20 @@ tablero y sigue al primer integrante visible. Una terminal menor a 20 × 8 detie
 el avance. El cierre del programa pide confirmación. Pausa, detalles, velocidad,
 resize y omisión no llaman a las reglas salvo para solicitar el siguiente paso.
 
+### Reservas futuras de representación y ocupación
+
+Las [ideas de cuerpos articulados y figuras superpuestas](../../diseno/encuentros-y-atacar.md#ideas-reservadas-cuerpos-articulados-y-figuras-superpuestas)
+quedan aplazadas. Para su desarrollo se distinguirá la huella física de una ficha
+de la extensión de su dibujo. Una futura huella por segmentos ordenados deberá
+validarse en el motor; la terminal no inventará las posiciones del cuerpo.
+
+Por separado, la figura de torso y piernas en dos filas será un recurso visual
+anclado a una única posición lógica. Su orden de dibujo seguirá la profundidad
+en Y, de modo que el torso de la figura inferior pueda ocultar las piernas de la
+superior. Ese solapamiento no modifica ocupación, amenaza, percepción ni nivel.
+Se definirán después el anclaje gráfico, recorte y orden de señales de combate,
+sin introducir ahora datos o código de ejecución para estas capacidades.
+
 ## 1. Autoridad y alcance
 
 Este contrato traduce las mecánicas a responsabilidades, datos y transiciones de

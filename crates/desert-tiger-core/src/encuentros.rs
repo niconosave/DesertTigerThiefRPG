@@ -281,6 +281,10 @@ impl Encuentro {
         let mut cola = VecDeque::from([p]);
         while let Some(a) = cola.pop_front() {
             if a != p
+                && !self
+                    .fichas
+                    .iter()
+                    .any(|f| f.puede_actuar() && f.posicion == a)
                 && (if adyacente {
                     self.contacto(a, meta)
                 } else {
@@ -296,7 +300,14 @@ impl Encuentro {
             for b in self.vecinos(a) {
                 if padres.contains_key(&b)
                     || self.fichas.iter().any(|f| {
-                        f.puede_actuar() && f.aliado != self.fichas[desde].aliado && f.posicion == b
+                        f.puede_actuar()
+                            && f.posicion == b
+                            && (f.aliado != self.fichas[desde].aliado
+                                || self.fichas.iter().any(|enemigo| {
+                                    enemigo.puede_actuar()
+                                        && enemigo.aliado != f.aliado
+                                        && self.contacto(f.posicion, enemigo.posicion)
+                                }))
                     })
                 {
                     continue;
@@ -597,6 +608,38 @@ mod pruebas {
             relaciones: vec![],
         })
         .unwrap()
+    }
+    #[test]
+    fn companeros_rodean_al_aliado_que_ya_combate() {
+        let m = mundo(4, 3);
+        let mut e = Encuentro::nuevo(
+            &m,
+            &[actor(0), actor(1), actor(2)],
+            actor(3),
+            &[],
+            &mut Dado(19),
+        )
+        .unwrap();
+        for (i, x) in [20, 19, 18, 21].into_iter().enumerate() {
+            e.fichas[i].posicion = Posicion {
+                area: 0,
+                nivel: 0,
+                x,
+                y: 8,
+            };
+        }
+        e.descubierta = true;
+        // Todos los golpes fallan: comprobamos posicionamiento, sin que una baja abra espacio.
+        for _ in 0..12 {
+            e.avanzar(&mut Dado(0)).unwrap();
+        }
+        assert!(
+            e.fichas[..3]
+                .iter()
+                .all(|f| e.contacto(f.posicion, e.fichas[3].posicion))
+        );
+        let posiciones = e.fichas.iter().map(|f| f.posicion).collect::<BTreeSet<_>>();
+        assert_eq!(posiciones.len(), 4);
     }
     #[test]
     fn ataques_simultaneos_no_anulan_la_intencion_del_rival() {

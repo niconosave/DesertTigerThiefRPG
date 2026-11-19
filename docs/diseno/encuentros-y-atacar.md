@@ -448,7 +448,69 @@ Estas condiciones fijan el alcance futuro que debe respetar el diseño técnico.
 No exigen implementar ahora cámara por niveles, pisos superiores, tiro vertical,
 simulación estructural de edificios ni una matriz tridimensional completa.
 
+### Ideas reservadas: cuerpos articulados y figuras superpuestas
+
+Estas dos ideas quedan registradas para el futuro; no se implementan en el primer
+episodio ni cambian su reglamento actual.
+
+- **Ocupación por segmentos.** Una criatura alargada, como un tigre o dragón,
+  podría ocupar dos o más casillas reales mediante segmentos ordenados. Al girar,
+  el frente avanza hacia otra dirección y la parte posterior sigue el recorrido;
+  no se traslada todo el cuerpo como un bloque rígido. Es una referencia de
+  movimiento semejante al de una serpiente, sin decidir todavía que todos los
+  animales deban seguir exactamente esa regla. Antes de implementarlo se definirán
+  continuidad del cuerpo, giros, colisiones, alcance y reacciones de sus segmentos.
+- **Figura de dos caracteres de alto.** Una ficha de una sola casilla real podría
+  dibujarse con torso arriba y piernas abajo. Las figuras se superponen según su
+  posición en el eje Y: si dos personajes están alineados verticalmente en casillas
+  contiguas, el torso del personaje de abajo tapa las piernas del personaje de
+  arriba. Se verían, de abajo hacia arriba, piernas del de abajo, su torso y torso
+  del de arriba. Es una profundidad visual sugerida, no un nuevo piso ni ocupación
+  física de la casilla donde se dibuja el torso. Puede estudiarse independientemente
+  de los cuerpos de varias casillas.
+
 ## 16. Decisiones del primer incremento y ampliaciones
+
+### Decisiones tácticas futuras
+
+Reservar una ampliación para decisiones de conjunto más complejas. El caso de
+referencia es un defensor que contiene al grupo en una puerta estrecha: conservar
+su ventaja espacial, pero permitir que los atacantes consideren retroceder para
+atraerlo a un espacio amplio, abrirse paso o dejar sitio a sus compañeros.
+La inteligencia táctica deberá ejecutar sus decisiones mediante las mismas reglas
+de movimiento, ocupación y reacción. No se implementa ahora un planificador táctico
+general; se incorporarán comportamientos acotados y observables por entrega.
+
+### Objetos particulares y nuevos casos de encuentro
+
+El usuario propone incorporar objetos con identidad propia, como una espada con
+nombre o un tesoro comparable al Grial. No se pretende administrar individualmente
+armas corrientes, flechas y cada herramienta del grupo. Un objeto puede ser mágico,
+histórico o simplemente tener nombre propio; no necesita poderes excepcionales.
+Su futura capacidad de equiparse queda reservada, sin exigirla para la primera
+entrega de objetos. Esta categoría es distinta de los conceptos: sus ejemplares
+pueden encontrarse, conseguirse y cambiar de poseedor.
+
+Primer alcance propuesto para desarrollar: identidad y descripción del objeto,
+ubicación o poseedor actual, consulta de ese estado y cambios de posesión mediante
+operaciones validadas. El tesoro debe persistir en la partida al terminar un
+encuentro y no duplicarse al repetir una continuación. El modelo y su integración
+con relaciones, contenido y Lua requieren un diseño técnico específico antes de
+implementar; todavía no constituyen una capacidad publicada.
+
+Casos jugables a preparar gradualmente:
+
+- Un tesoro que el grupo pueda ir a robar y extraer del encuentro.
+- Una persona esclavizada o prisionera que pueda ser rescatada y sacada del lugar.
+- Un ogro que devora gente, como objetivo de Atacar sin recurrir a un dragón.
+- Un salteador conocido por atacar y matar mercaderes, como otro adversario.
+
+Los dos últimos permiten probar Atacar sin usar siempre a los gobernantes de las
+ciudades. Se incorporarán con ubicación, características y unos pocos vínculos
+concretos. Atacar al ogro, extraer un tesoro y liberar una persona pueden compartir
+el tablero, pero tienen objetivos y consecuencias diferentes; matar al guardián no
+equivale por sí solo a adquirir el tesoro o liberar al prisionero. Por ahora son
+casos propuestos, no nuevos personajes u objetos ya añadidos al contenido.
 
 El usuario delegó los detalles del reglamento mínimo al implementador y confirmó
 movimiento diagonal, intenciones simultáneas y una reacción por ronda. La sección
