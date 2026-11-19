@@ -1,0 +1,12 @@
+(
+    clave: "bandido_nazur",
+    nombre: "Nazur",
+    biografia: "Vigila los accesos al escondite de Kazir y participa en sus asaltos.",
+    ubicacion_inicial: EnLugar("lomas_de_anir"),
+    caracteristicas: ["hombreTigre"],
+    relaciones: [
+        (tipo: Sirviente, destino: Actor("jefe_bandido_kazir")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

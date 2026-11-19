@@ -1,0 +1,12 @@
+(
+    clave: "jefe_bandido_kazir",
+    nombre: "Kazir",
+    biografia: "Jefe de una pequeña banda que asalta mercaderes en las Lomas de Anir. Retiene a Tamin, hijo del carpintero Bahir, esperando cobrar un rescate. Sus tres compañeros lo siguen por la parte del botín que les promete.",
+    ubicacion_inicial: EnLugar("lomas_de_anir"),
+    caracteristicas: ["hombreTigre", "astuto"],
+    relaciones: [
+        (tipo: EnemigoDe, destino: Actor("bahir")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

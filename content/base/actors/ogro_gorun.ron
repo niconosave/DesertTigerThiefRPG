@@ -1,0 +1,12 @@
+(
+    clave: "ogro_gorun",
+    nombre: "Gorun el Tragahuesos",
+    biografia: "Un ogro solitario acecha los senderos de la costa de Ámbar. Se lleva a los viajeros aislados para devorarlos entre las rocas; Samir ha encontrado restos de sus víctimas cerca de las barcas. No pertenece a ninguna de las ciudades.",
+    ubicacion_inicial: EnLugar("costa_ambar"),
+    caracteristicas: ["ogro", "fuerte"],
+    relaciones: [
+        (tipo: EnemigoDe, destino: Actor("samir")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

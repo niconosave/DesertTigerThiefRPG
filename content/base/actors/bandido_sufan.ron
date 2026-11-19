@@ -1,0 +1,12 @@
+(
+    clave: "bandido_sufan",
+    nombre: "Sufan",
+    biografia: "Vigía de Kazir, atento a los mercaderes que atraviesan las lomas.",
+    ubicacion_inicial: EnLugar("lomas_de_anir"),
+    caracteristicas: ["hombreTigre"],
+    relaciones: [
+        (tipo: Sirviente, destino: Actor("jefe_bandido_kazir")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)

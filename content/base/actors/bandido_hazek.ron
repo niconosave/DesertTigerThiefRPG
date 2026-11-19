@@ -1,0 +1,12 @@
+(
+    clave: "bandido_hazek",
+    nombre: "Hazek",
+    biografia: "Matón de la banda de Kazir. Prefiere intimidar a los viajeros antes de arriesgarse en una pelea.",
+    ubicacion_inicial: EnLugar("lomas_de_anir"),
+    caracteristicas: ["hombreTigre", "fuerte"],
+    relaciones: [
+        (tipo: Sirviente, destino: Actor("jefe_bandido_kazir")),
+    ],
+    retrato: None,
+    politica: Ninguna,
+)
