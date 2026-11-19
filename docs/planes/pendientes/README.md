@@ -4,6 +4,13 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Encuentros y primer Atacar
+
+[PLAN-2026-047](./2026-11-19-47-atacar-episodio-minimo.md) prepara el primer episodio
+completo. Sus precondiciones de reglamento siguen abiertas; no autoriza elegir
+valores de combate durante la implementación. La [hoja de ruta](../encuentros-atacar-rescatar.md)
+distingue este ciclo de las ampliaciones posteriores.
+
 ## Eventos narrativos terminados
 
 [PLAN-2026-046](../completados/2026-11-04-46-implementar-eventos-narrativos.md)

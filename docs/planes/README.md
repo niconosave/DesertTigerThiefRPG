@@ -3,6 +3,12 @@
 Los planes convierten documentación técnica ya discutida en pasos de desarrollo
 pequeños, ordenados y verificables.
 
+La [secuencia de Encuentros, Atacar y Rescatar](./encuentros-atacar-rescatar.md)
+organiza las nuevas entregas jugables. El [PLAN-2026-047](./pendientes/2026-11-19-47-atacar-episodio-minimo.md)
+detalla el primer ataque mínimo completo, condicionado al cierre de las reglas
+pendientes. Los ciclos posteriores se planifican después de jugar el anterior;
+no duplican los documentos de diseño.
+
 El sistema de eventos narrativos está implementado:
 [PLAN-2026-046](./completados/2026-11-04-46-implementar-eventos-narrativos.md),
 basado en el [contrato 23](../tecnica/componentes/23-eventos-narrativos.md).

@@ -15,6 +15,7 @@ cada acción.
 | [`07-acampar.md`](./07-acampar.md) | Contrato implementado: acampada, fichas, navegación, contenido y vista terminal. |
 | [`08-planificacion-rutas.md`](./08-planificacion-rutas.md) | Implementado: viaje directo sin planificación, propuestas según los Actores y previsualización del recorrido en el mapa. |
 | [`09-cruce-pasos-montanosos.md`](./09-cruce-pasos-montanosos.md) | Implementado: un episodio para pasos consecutivos, cuatro obstáculos, tiempo de travesía y campamento central en secuencias impares. |
+| [`10-encuentros-y-atacar.md`](./10-encuentros-y-atacar.md) | Diseñado, no implementado: tablero efímero, viñetas, reacción al salir de casillas amenazadas, eventos y reproducción; reglamento inicial pendiente. |
 | [`borradores/05-viajar-redisenio.md`](./borradores/05-viajar-redisenio.md) | Reglamento aprobado de `Viajar`, conservado en su ruta para mantener referencias. |
 | [`borradores/CONTEXTO-viajar-redisenio.md`](./borradores/CONTEXTO-viajar-redisenio.md) | Traspaso histórico de la etapa anterior al motor actual. |
 | [`borradores/CONTEXTO-viajar-territorio-segunda-iteracion.md`](./borradores/CONTEXTO-viajar-territorio-segunda-iteracion.md) | Traspaso activo para diseñar una segunda iteración de Viajar y Lugares, centrada en territorio y planificación. |

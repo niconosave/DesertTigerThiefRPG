@@ -473,6 +473,11 @@ Los primeros incrementos previstos se concentrarán en:
 5. reclutar.
 
 Esta lista expresa el orden de interés, no el alcance de un único incremento.
+
+El [borrador de encuentros y Atacar](./diseno/encuentros-y-atacar.md) desarrolla
+la propuesta de un escenario local temporal, fichas y viñetas de acciones, con
+una base compartida para Rescatar. Distingue el primer episodio, las reglas por
+revisar y las ampliaciones futuras; todavía no es una funcionalidad implementada.
 El primer incremento jugable implementará solamente `Viajar`, como se define en
 la sección 9.
 

@@ -9,6 +9,8 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 |---|---|
 | [`diseno-general.md`](./diseno-general.md) | Define qué juego se quiere construir, sus conceptos y sus restricciones. |
 | [`diseno/acampar.md`](./diseno/acampar.md) | Diseño revisado de Acampar: fichas, características, relaciones y navegación. |
+| [`diseno/encuentros-y-atacar.md`](./diseno/encuentros-y-atacar.md) | Borrador de mecánicas: encuentros temporales, viñetas, movimiento, hostilidad y Atacar; Rescatar y verticalidad como ampliaciones. |
+| [`tecnica/acciones/10-encuentros-y-atacar.md`](./tecnica/acciones/10-encuentros-y-atacar.md) | Diseño técnico del subsistema de encuentros y Atacar, con contratos de integración y reglas mecánicas pendientes. |
 | [`metodologia-desarrollo.md`](./metodologia-desarrollo.md) | Define cómo se diseñan, implementan y verifican los incrementos. |
 | [`contenido/`](./contenido/) | Contiene briefs creativos del mundo sin duplicar los datos RON concretos. |
 | [`tecnica/`](./tecnica/) | Contiene la arquitectura general y los diseños técnicos específicos. |

@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Vigente |
-| Versión | 0.6 |
-| Fecha | 2026-11-06 |
+| Versión | 0.7 |
+| Fecha | 2026-11-19 |
 
 ## 1. Propósito
 
@@ -205,7 +205,16 @@ importantes, sus límites y los defectos ya encontrados.
 
 ## 7. Controles automáticos
 
-Cuando exista el proyecto Cargo, todo plan que modifique código debe ejecutar:
+La instrucción vigente del usuario es mantener las pruebas acotadas al
+desarrollo. Cada plan selecciona formato, compilación, lint y pruebas pertinentes
+a los contratos que cambia, incluyendo regresiones de las fronteras compartidas.
+No se repite automáticamente toda la suite al terminar cada desarrollo. Si hace
+falta ampliarla, se avisa antes al usuario y se acuerda cómo ejecutarla con salida
+resumida y coste adecuado. Se registran comandos, alcance y resultados reales.
+
+Los comandos de integración completa del workspace son una referencia; su
+selección no es automática para cada ciclo o retoque:
+
 
 ```sh
 cargo fmt --all -- --check
@@ -214,10 +223,11 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace --all-targets
 ```
 
-Cuando exista un validador de contenido, también deberá ejecutarse sobre todos los
-datos y scripts oficiales. Antes de una entrega se comprobará además una
-compilación de producción. La automatización futura deberá ejecutar estas mismas
-reglas, no crear una definición de calidad diferente.
+Cuando exista un validador de contenido, se valida el contenido afectado y sus
+referencias. Una comprobación global o compilación de producción se selecciona
+cuando el alcance de la entrega lo justifique, respetando la comunicación previa
+para ampliar pruebas. La automatización registra el alcance de sus controles;
+no confunde una comprobación acotada con la integración completa.
 
 Una comprobación solo puede marcarse como no aplicable si el plan explica el
 motivo.
@@ -238,5 +248,7 @@ Un plan está terminado únicamente cuando:
 - el plan registra verificaciones, desviaciones y trabajo posterior.
 
 Solo entonces el archivo del plan se mueve de `planes/pendientes/` a
-`planes/completados/`. Los planes completados conservan el historial; una
-corrección posterior se realiza mediante un nuevo plan.
+`planes/completados/`. Los planes completados conservan el historial. Una ampliación sustantiva posterior
+requiere otro plan. Los retoques menores y reversibles solicitados por el usuario
+no requieren un documento o plan nuevo por cada detalle; se actualiza el diseño
+que corresponda si cambia una regla o un contrato.

@@ -41,6 +41,11 @@ entre procesos.
 | `desert-tiger-app` | Define y posee la `Partida`, coordina los componentes, redacta vistas narrativas desde registros semánticos neutrales y ofrece una fachada independiente del frontend. Contiene la única instancia concreta de `Mundo` y el estado actual del mapa. |
 | `desert-tiger-terminal` | Es el ejecutable inicial. Traduce entrada física a intenciones semánticas, posee el arte concreto de viñetas y representa vistas y resultados. No ejecuta reglas. |
 
+El [diseño de encuentros y Atacar](./acciones/10-encuentros-y-atacar.md), todavía
+no implementado, amplía este reparto con casillas y posiciones locales regladas
+en el núcleo. Son geometría de juego, distinta de los tiles visuales del mapa
+mundial; los glifos, colores y animaciones permanecen en el frontend.
+
 `desert-tiger-terminal` dependerá de la fachada pública de
 `desert-tiger-app`, no directamente de `desert-tiger-core`. Esa fachada no
 expondrá tipos de terminal ni obligará a conocer la organización interna del
