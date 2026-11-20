@@ -156,6 +156,42 @@ Mantiene la regla de una vez por partida del coordinador. El plan del ciclo es
 No se implementan todavía creación de fichas/áreas, objetos locales, comandos de
 fuego, reubicación de grupos enteros ni libertad ilimitada de edición del tablero.
 
+### Ciclo 3 implementado: campamento abierto
+
+El perfil del objetivo admite `escenario: Recinto` o `escenario: Campamento` en
+`content/base/encounters.ron`. Omitirlo conserva Recinto; claves de variante no
+reconocidas son errores de contenido. La selección es explícita por objetivo,
+sin deducir todavía la familia a partir del terreno del Lugar mundial.
+
+```ron
+(actor: "jefe_bandido_kazir", escenario: Campamento,
+ defensores: ["bandido_nazur", "bandido_hazek", "bandido_sufan"])
+```
+
+Core incorpora `Escenario` y `Encuentro::nuevo_con_escenario`; `nuevo` conserva su
+API y genera Recinto. Ambos perfiles tienen 31 × 17 tiles, fichas temporales,
+reglas y tiempos comunes. Campamento omite la pared divisoria y genera grupos de
+rocas y un barranco seco no transitable, cruzable en dos pasos de dos casillas de
+ancho. La semilla varía acotadamente su posición vertical. Los caminos hacia ambos
+pasos y los participantes permanecen conectados; no se implementan salto ni agua.
+Los límites del tablero siguen siendo físicos, no una zona adicional explorable.
+
+En Campamento todo el tablero y los adversarios son visibles al comienzo; ambos
+bandos se aproximan desde el primer pulso. No se simulan línea de visión ni sigilo.
+Los anclajes son entrada, puesto_jefe, paso_norte y paso_sur. El punto semántico
+contacto se emite cuando existen oponentes activos adyacentes bajo las reglas de
+contacto. En Recinto sigue siendo la revelación del segundo cuarto. No se evalúan
+eventos por cada tile. Los textos se adaptan al ambiente abierto sin anunciar un
+combate que todavía no ha empezado. El frontend conserva su protocolo y glifos.
+
+Kazir usa Campamento y sus tres defensores actuales. Tamin no es ficha combatiente
+y conserva su cautiverio tras Atacar; la muerte de Kazir no equivale a rescatarlo.
+Gorun y los gobernantes conservan Recinto por defecto, con sus anclajes y eventos.
+El nuevo perfil no añade objetos, tiendas simuladas ni decisiones tácticas avanzadas.
+
+El [PLAN-2026-049](../../planes/pendientes/2026-11-19-49-campamento-bandidos.md)
+registra la entrega y su revisión de jugabilidad.
+
 ### Reservas futuras de representación y ocupación
 
 Las [ideas de cuerpos articulados y figuras superpuestas](../../diseno/encuentros-y-atacar.md#ideas-reservadas-cuerpos-articulados-y-figuras-superpuestas)

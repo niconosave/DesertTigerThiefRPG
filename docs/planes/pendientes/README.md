@@ -4,11 +4,16 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Campamento abierto para la banda de Kazir
+
+[PLAN-2026-049](./2026-11-19-49-campamento-bandidos.md) implementa el primer escenario
+del ciclo 3, con rocas y dos pasos de barranco. Pendiente de probar su jugabilidad.
+El usuario ya probó satisfactoriamente las escenas y la brecha de Gorun del ciclo 2.
+
 ## Eventos dentro del encuentro de Gorun
 
 [PLAN-2026-048](./2026-11-19-48-eventos-encuentro-ogro.md) implementa el ciclo 2:
-intervenciones Lua locales, brecha real y escenas originales. Queda revisión de
-jugabilidad; no incluye todavía el repertorio completo de comandos del diseño.
+intervenciones Lua locales, brecha real y escenas originales. El usuario comprobó su funcionamiento en el juego; no incluye todavía el repertorio completo de comandos del diseño.
 
 ## Encuentros y primer Atacar
 

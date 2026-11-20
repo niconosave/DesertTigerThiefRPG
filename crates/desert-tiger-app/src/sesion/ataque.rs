@@ -1,6 +1,6 @@
 use super::*;
 use crate::encuentro::{FichaEncuentro, ObjetivoAtaque, TerrenoEncuentro, VistaEncuentro};
-use desert_tiger_core::encuentros::{Celda, Desenlace, Encuentro, Suceso};
+use desert_tiger_core::encuentros::{Celda, Desenlace, Encuentro, Escenario, Suceso};
 use desert_tiger_core::{Caracteristica, ExtremoRelacion, OperacionMundo, TipoRelacion};
 #[derive(Clone)]
 pub(super) struct AtaqueActivo {
@@ -69,15 +69,21 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
     let finalizado = m.desenlace.is_some();
     let texto = if let Some(fin) = m.desenlace {
         match fin {
-        Desenlace::Exito=>"El objetivo ha muerto. El grupo logra salir del recinto.".into(),
+        Desenlace::Exito=>"El objetivo ha muerto. El grupo logra salir del lugar.".into(),
         Desenlace::Retirada=>"El grupo alcanza la salida y abandona el ataque. El objetivo sigue vivo.".into(),
         Desenlace::Captura{captor}=>format!("El grupo queda fuera de combate. {} toma prisioneros a los supervivientes.",nombre(captor)),
         Desenlace::Derrota=>"El enfrentamiento termina con el grupo fuera de combate. Sus pérdidas y heridas permanecen.".into(),
     }
     } else if m.retirando {
-        "El grupo intenta retirarse y sacar a sus compañeros del recinto.".into()
+        "El grupo intenta retirarse y sacar a sus compañeros del lugar.".into()
     } else if m.fichas[m.objetivo].muerto() {
         "El objetivo ha caído. El grupo busca la salida.".into()
+    } else if m.escenario == Escenario::Campamento {
+        if m.pulso == 0 {
+            "Te preparás para atacar un campamento entre las lomas. Más allá de las rocas, los defensores vigilan los dos pasos de un barranco seco.".into()
+        } else {
+            "El grupo busca abrirse paso entre las rocas y los defensores para alcanzar a su objetivo.".into()
+        }
     } else if m.descubierta {
         "El grupo entra en combate e intenta abrirse paso hasta su objetivo.".into()
     } else if m.pulso == 0 {
@@ -212,7 +218,11 @@ impl Partida {
         let objetivo = &a.motor.fichas[a.motor.objetivo];
         let frontera = if !a.fronteras.contains("preparacion") {
             Some(("preparacion", ClasePunto::EncuentroAntesVineta))
-        } else if a.motor.descubierta && !a.fronteras.contains("contacto") {
+        } else if (match a.motor.escenario {
+            Escenario::Recinto => a.motor.descubierta,
+            Escenario::Campamento => a.motor.contacto_hostil(),
+        }) && !a.fronteras.contains("contacto")
+        {
             Some(("contacto", ClasePunto::EncuentroMomento))
         } else if objetivo.golpes == 1 && !a.fronteras.contains("herida") {
             Some(("herida", ClasePunto::EncuentroMomento))
@@ -286,12 +296,13 @@ impl Partida {
             .elegir_indice(NonZeroUsize::new(u32::MAX as usize).unwrap())
             .map_err(|_| ErrorIntencion::FaseIncompatible)? as u64;
         let mut azar = ChaCha12Rng::seed_from_u64(seed);
-        let motor = Encuentro::nuevo(
+        let motor = Encuentro::nuevo_con_escenario(
             &self.mundo,
             &grupo,
             objetivo,
             &defensores,
             &mut AzarChaCha(azar.clone()),
+            perfil.escenario.motor(),
         )
         .map_err(|_| ErrorIntencion::AccionRechazada(RechazoAccion::DestinoInvalido))?;
         // Flujo separado de resolución, independiente del número de sorteos del generador.
@@ -598,6 +609,81 @@ mod pruebas {
             proyectar_mundo(&p.mundo, &p.mapa, &p.contenido, &p.vision, None).unwrap();
         p.vista = VistaSesion::Disponible(p.mundo_visible.clone());
         p.contenido.claves().actor_por_clave("ogro_gorun").unwrap()
+    }
+    #[test]
+    fn ciclo3_bandidos_campamento_abierto_termina_y_no_libera_cautivo() {
+        let (mut p, _) = partida();
+        let destino = p
+            .contenido
+            .claves()
+            .lugar_por_clave("lomas_de_anir")
+            .unwrap();
+        p.mundo
+            .aplicar_lote(LoteOperaciones::uno(OperacionMundo::Trasladar {
+                actor: p.mundo.actor_jugador(),
+                destino,
+            }))
+            .unwrap();
+        p.mundo_visible =
+            proyectar_mundo(&p.mundo, &p.mapa, &p.contenido, &p.vision, None).unwrap();
+        p.vista = VistaSesion::Disponible(p.mundo_visible.clone());
+        let jefe = p
+            .contenido
+            .claves()
+            .actor_por_clave("jefe_bandido_kazir")
+            .unwrap();
+        let preso = p.contenido.claves().actor_por_clave("tamin").unwrap();
+        p.procesar(IntencionFrontend::ComenzarAtaque { objetivo: jefe })
+            .unwrap();
+        let VistaSesion::Encuentro(inicial) = p.vista() else {
+            panic!()
+        };
+        assert!(!inicial.celdas.contains(&TerrenoEncuentro::Desconocido));
+        assert!(inicial.texto.contains("campamento"));
+        let motor = &p.ataque.as_ref().unwrap().motor;
+        assert_eq!(motor.escenario, Escenario::Campamento);
+        assert_eq!(motor.fichas.iter().filter(|f| !f.aliado).count(), 4);
+        assert!(motor.fichas.iter().all(|f| f.actor != preso));
+        let antes = motor.fichas.clone();
+        avanzar(&mut p);
+        let despues = &p.ataque.as_ref().unwrap().motor.fichas;
+        for aliado in [true, false] {
+            assert!(
+                antes
+                    .iter()
+                    .zip(despues)
+                    .any(|(a, b)| a.aliado == aliado && a.posicion != b.posicion)
+            );
+        }
+        for _ in 0..800 {
+            if matches!(p.vista(),VistaSesion::Encuentro(v) if v.finalizado) {
+                break;
+            }
+            assert!(
+                !matches!(p.vista(),VistaSesion::Encuentro(v) if v.pausa_decision),
+                "campamento bloqueado"
+            );
+            avanzar(&mut p);
+        }
+        assert!(matches!(p.vista(),VistaSesion::Encuentro(v) if v.finalizado));
+        cierre(&mut p);
+        assert!(cautivo(&p.mundo, preso));
+        assert!(
+            !p.mundo
+                .actor(preso)
+                .unwrap()
+                .caracteristicas()
+                .any(|c| c.como_str() == "muerto")
+        );
+        let ogro = p
+            .contenido
+            .encuentros()
+            .unwrap()
+            .objetivos
+            .iter()
+            .find(|o| o.actor == "ogro_gorun")
+            .unwrap();
+        assert_eq!(ogro.escenario.motor(), Escenario::Recinto);
     }
     #[test]
     fn ciclo2_efectos_mixtos_atomicos_y_reubicacion() {

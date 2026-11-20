@@ -7,9 +7,25 @@ use std::path::Path;
 pub(crate) struct ConfigEncuentros {
     pub objetivos: Vec<ObjetivoConfigurado>,
 }
+#[derive(Clone, Copy, Debug, Default, Deserialize)]
+pub(crate) enum EscenarioConfigurado {
+    #[default]
+    Recinto,
+    Campamento,
+}
+impl EscenarioConfigurado {
+    pub fn motor(self) -> desert_tiger_core::encuentros::Escenario {
+        match self {
+            Self::Recinto => desert_tiger_core::encuentros::Escenario::Recinto,
+            Self::Campamento => desert_tiger_core::encuentros::Escenario::Campamento,
+        }
+    }
+}
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ObjetivoConfigurado {
+    #[serde(default)]
+    pub escenario: EscenarioConfigurado,
     pub actor: String,
     #[serde(default)]
     pub defensores: Vec<String>,

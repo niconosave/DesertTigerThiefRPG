@@ -67,8 +67,15 @@ pub enum ComandoEncuentro {
     CambiarTerreno { posicion: Posicion, terreno: Celda },
     Reubicar { actor: IdActor, posicion: Posicion },
 }
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum Escenario {
+    #[default]
+    Recinto,
+    Campamento,
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Encuentro {
+    pub escenario: Escenario,
     pub referencias: BTreeMap<String, Posicion>,
     pub ancho: u16,
     pub alto: u16,
@@ -108,31 +115,66 @@ impl Encuentro {
         defensores: &[IdActor],
         azar: &mut dyn FuenteAzar,
     ) -> Result<Self, String> {
+        Self::nuevo_con_escenario(mundo, grupo, objetivo, defensores, azar, Escenario::Recinto)
+    }
+    pub fn nuevo_con_escenario(
+        mundo: &Mundo,
+        grupo: &[IdActor],
+        objetivo: IdActor,
+        defensores: &[IdActor],
+        azar: &mut dyn FuenteAzar,
+        escenario: Escenario,
+    ) -> Result<Self, String> {
         if grupo.is_empty() || grupo.len() + defensores.len() > 32 || grupo.contains(&objetivo) {
             return Err("participantes inválidos".into());
         }
         let ancho = 31;
         let alto = 17;
+        let (norte, sur) = if escenario == Escenario::Campamento {
+            (3 + sortear(azar, 2)? as u16, 11 + sortear(azar, 2)? as u16)
+        } else {
+            (3, 11)
+        };
         let mut celdas = vec![Celda::Suelo; usize::from(ancho * alto)];
         for y in 0..alto {
             for x in 0..ancho {
-                if x == 0 || y == 0 || x == ancho - 1 || y == alto - 1 || (x == 15 && y != 8) {
+                if x == 0
+                    || y == 0
+                    || x == ancho - 1
+                    || y == alto - 1
+                    || (escenario == Escenario::Recinto && x == 15 && y != 8)
+                {
                     celdas[usize::from(y * ancho + x)] = Celda::Muro;
                 }
             }
         }
-        for y in 3..6 {
-            for x in 7..10 {
-                celdas[usize::from(y * ancho + x)] = Celda::Vacio;
+        if escenario == Escenario::Recinto {
+            for y in 3..6 {
+                for x in 7..10 {
+                    celdas[usize::from(y * ancho + x)] = Celda::Vacio;
+                }
             }
-        }
-        for _ in 0..12 {
-            let x = 3 + sortear(azar, 25)? as u16;
-            let y = 2 + sortear(azar, 13)? as u16;
-            if (7..=10).contains(&y) || x == 15 {
-                continue;
+            for _ in 0..12 {
+                let x = 3 + sortear(azar, 25)? as u16;
+                let y = 2 + sortear(azar, 13)? as u16;
+                if (7..=10).contains(&y) || x == 15 {
+                    continue;
+                }
+                celdas[usize::from(y * ancho + x)] = Celda::Muro;
             }
-            celdas[usize::from(y * ancho + x)] = Celda::Muro;
+        } else {
+            for y in 1..alto - 1 {
+                if !(norte..=norte + 1).contains(&y) && !(sur..=sur + 1).contains(&y) {
+                    celdas[usize::from(y * ancho + 20)] = Celda::Vacio;
+                }
+            }
+            for (x0, y0) in [(11, 4), (13, 11), (25, 2), (26, 13)] {
+                for y in y0..y0 + 2 {
+                    for x in x0..x0 + 2 {
+                        celdas[usize::from(y * ancho + x)] = Celda::Muro;
+                    }
+                }
+            }
         }
         let mut fichas = Vec::new();
         let mut vistos = BTreeSet::new();
@@ -169,6 +211,14 @@ impl Encuentro {
                     x: 27,
                     y: 8,
                 }
+            } else if escenario == Escenario::Campamento {
+                let j = i - grupo.len() - 1;
+                Posicion {
+                    area: 0,
+                    nivel: 0,
+                    x: 23 + (j % 3) as u16,
+                    y: 4 + 4 * (j / 3) as u16,
+                }
             } else {
                 Posicion {
                     area: 0,
@@ -204,12 +254,22 @@ impl Encuentro {
             prioridad.swap(i, j);
         }
         Ok(Self {
-            referencias: [
-                ("entrada", 2, 8),
-                ("acceso", 15, 8),
-                ("brecha_norte", 15, 7),
-                ("brecha_sur", 15, 9),
-            ]
+            escenario,
+            referencias: if escenario == Escenario::Recinto {
+                vec![
+                    ("entrada", 2, 8),
+                    ("acceso", 15, 8),
+                    ("brecha_norte", 15, 7),
+                    ("brecha_sur", 15, 9),
+                ]
+            } else {
+                vec![
+                    ("entrada", 2, 8),
+                    ("paso_norte", 20, norte),
+                    ("paso_sur", 20, sur),
+                    ("puesto_jefe", 27, 8),
+                ]
+            }
             .into_iter()
             .map(|(nombre, x, y)| {
                 (
@@ -236,7 +296,7 @@ impl Encuentro {
             },
             pulso: 0,
             retirando: false,
-            descubierta: false,
+            descubierta: escenario == Escenario::Campamento,
             sucesos: vec![],
             desenlace: None,
             prioridad,
@@ -356,6 +416,16 @@ impl Encuentro {
         } else {
             true
         }
+    }
+    pub fn contacto_hostil(&self) -> bool {
+        self.fichas.iter().any(|a| {
+            a.puede_actuar()
+                && self.fichas.iter().any(|b| {
+                    b.puede_actuar()
+                        && a.aliado != b.aliado
+                        && self.contacto(a.posicion, b.posicion)
+                })
+        })
     }
     fn vecinos(&self, p: Posicion) -> Vec<Posicion> {
         let mut r = vec![];
@@ -715,6 +785,69 @@ mod pruebas {
             relaciones: vec![],
         })
         .unwrap()
+    }
+    #[test]
+    fn ciclo3_campamento_conectado_reproducible_con_dos_pasos() {
+        let m = mundo(7, 3);
+        for dado in [0, 19] {
+            let e = Encuentro::nuevo_con_escenario(
+                &m,
+                &[actor(0), actor(1), actor(2)],
+                actor(3),
+                &[actor(4), actor(5), actor(6)],
+                &mut Dado(dado),
+                Escenario::Campamento,
+            )
+            .unwrap();
+            let otra = Encuentro::nuevo_con_escenario(
+                &m,
+                &[actor(0), actor(1), actor(2)],
+                actor(3),
+                &[actor(4), actor(5), actor(6)],
+                &mut Dado(dado),
+                Escenario::Campamento,
+            )
+            .unwrap();
+            assert_eq!(e, otra);
+            assert!(e.descubierta);
+            assert!(!e.contacto_hostil());
+            assert!(!e.referencias.contains_key("brecha_norte"));
+            let mut vistos = BTreeSet::from([e.entrada]);
+            let mut cola = VecDeque::from([e.entrada]);
+            while let Some(p) = cola.pop_front() {
+                for vecino in e.vecinos(p) {
+                    if vistos.insert(vecino) {
+                        cola.push_back(vecino);
+                    }
+                }
+            }
+            assert!(e.fichas.iter().all(|f| vistos.contains(&f.posicion)));
+            for nombre in ["paso_norte", "paso_sur"] {
+                let paso = e.referencias[nombre];
+                assert!(vistos.contains(&paso));
+                assert_eq!(e.terreno(paso), Some(Celda::Suelo));
+            }
+            assert_eq!(
+                (1..16)
+                    .filter(|&y| e.suelo(Posicion {
+                        area: 0,
+                        nivel: 0,
+                        x: 20,
+                        y
+                    }))
+                    .count(),
+                4
+            );
+            let mut retirada = e.clone();
+            retirada.reconsiderar(true);
+            for _ in 0..50 {
+                if retirada.desenlace.is_some() {
+                    break;
+                }
+                retirada.avanzar(&mut Dado(19)).unwrap();
+            }
+            assert_eq!(retirada.desenlace, Some(Desenlace::Retirada));
+        }
     }
     #[test]
     fn ciclo2_comandos_locales_validan_y_no_confirman_prefijos_invalidos() {

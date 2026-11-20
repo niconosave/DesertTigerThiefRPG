@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | ID | PLAN-2026-048 |
-| Estado | Implementado; pendiente revisión de jugabilidad |
+| Estado | Implementado y probado por el usuario; pendiente archivo |
 | Creado | 2026-11-19 |
 | Actualizado | 2026-11-19 |
 
@@ -34,7 +34,8 @@ objetos, rescate y nuevos generadores. No cambia el reglamento de golpes.
 - [x] Mantener el tablero visible detrás del texto y continuar al terminar la escena.
 - [x] Escribir preparación, contacto con brecha, herida condicional y conclusión.
 - [x] Comprobar episodio real, fallo mixto y reubicación, más dibujo/reanudación.
-- [ ] Revisar jugando con el usuario legibilidad, personalidad y ritmo.
+- [x] Revisar jugando con el usuario legibilidad, personalidad y ritmo. Confirmó
+  textos, herida y apertura efectiva de la brecha, con continuación correcta.
 
 ## Verificación acotada
 

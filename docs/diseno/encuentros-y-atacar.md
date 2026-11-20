@@ -628,3 +628,46 @@ preparación, primer contacto, primera herida observable y conclusión. No se pi
 el estado del encuentro ni se tiran dados mientras se lee. Al terminar el relato,
 las reglas continúan desde el tablero cambiado. Abrir una brecha cambia el terreno;
 no implica una simulación de escombros, daño de derrumbe o fuego.
+
+
+## 19. Ciclo 3: campamento en las lomas
+
+Primer incremento de variedad: Kazir y sus tres compañeros combaten en un
+campamento exterior, asignado por contenido. Gorun y los gobernantes conservan el
+recinto anterior. No se incorpora aún una selección automática según el Lugar.
+
+El campamento permite ver desde el comienzo el terreno y sus defensores; ambos
+bandos pueden desplazarse desde el primer pulso. Hay rocas que bloquean casillas
+y un barranco seco con dos pasos transitables separados, de dos casillas de ancho.
+La posición de esos pasos varía dentro de límites que conservan los recorridos.
+No hay muro que separe dos habitaciones ni una única puerta que controle el mapa.
+El terreno bloqueado sigue siendo intransitable: todavía no se salta ni se trepa.
+
+Se conservan golpes, ocupación, reacciones, avance simultáneo, retirada, carga de
+incapacitados, tiempo y desenlaces. El texto general se adapta al exterior; el
+contacto narrativo se alcanza al aproximarse realmente dos fichas hostiles.
+Tamin no participa en el combate. Este ciclo no lo libera al vencer a Kazir:
+la extracción de prisioneros corresponde a Rescatar.
+
+
+## 19. Ciclo 3: campamento en las lomas
+
+Implementada una segunda familia de escenarios, asignada al jefe Kazir. El grupo
+se aproxima a un campamento en terreno abierto: no atraviesa dos habitaciones.
+Grupos de rocas limitan algunos movimientos y un barranco seco divide el terreno;
+hay dos pasos, separados y de dos casillas de ancho, que permiten distintos
+recorridos. No se puede atravesar el barranco fuera de esos pasos con las reglas
+actuales. El tablero completo y los adversarios están visibles desde el comienzo,
+y ambos grupos pueden moverse desde el primer pulso.
+
+Se conservan simultaneidad, reacción, ocupación, heridas, retirada y tiempos. Los
+pasos ofrecen alternativas espaciales; no se incorpora aún inteligencia táctica
+para coordinar ataques por varios frentes. El perfil se selecciona explícitamente
+en el contenido del objetivo y su generación depende de la semilla. El refugio de
+Gorun conserva la disposición y las escenas anteriores.
+
+Tamin sigue siendo un cautivo del mundo, no un combatiente del campamento. Atacar
+a la banda no lo libera automáticamente; esa condición pertenece a Rescatar.
+Esta entrega no agrega tesoros, nuevo equipo, salto, sigilo, niveles ni mapas
+persistentes. Las familias adicionales se incorporarán cuando otro caso jugable
+las necesite; no hace falta terminarlas todas antes de desarrollar Rescatar.

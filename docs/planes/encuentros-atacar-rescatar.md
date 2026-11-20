@@ -1,6 +1,6 @@
 # Entregas de Encuentros, Atacar y Rescatar
 
-Estado: ciclos 1 y 2 implementados; el ciclo 2 espera revisión de jugabilidad. Fecha: 2026-11-19.
+Estado: ciclos 1 y 2 probados por el usuario; ciclo 3 implementado con campamento abierto, pendiente de revisión de jugabilidad. Fecha: 2026-11-19.
 
 Esta hoja de ruta organiza el trabajo. No define mecánicas ni sustituye el plan
 de cada incremento. Su referencia es el [diseño de mecánicas](../diseno/encuentros-y-atacar.md)
@@ -92,6 +92,14 @@ usando el estado nuevo; mostrar una ventana sin efectos no completa esta entrega
 El [PLAN-2026-048](./pendientes/2026-11-19-48-eventos-encuentro-ogro.md)
 implementa el caso de Gorun: una brecha real, escenas propias y continuación del
 ataque. Selecciona cambio de terreno y reubicación como primeros comandos. Los demás comandos del contrato permanecen diseñados y pendientes.
+
+### Ciclo 3: primer campamento abierto
+
+El [PLAN-2026-049](./pendientes/2026-11-19-49-campamento-bandidos.md) incorpora la
+banda de Kazir en un terreno abierto, con dos pasos de un barranco y rocas. La
+geometría, información inicial y aproximación difieren del refugio de Gorun.
+No se agrega aún una familia por cada ambiente. Rescatar puede ser el siguiente
+ciclo sin esperar a completar ese catálogo.
 
 ### Ampliaciones siguientes
 

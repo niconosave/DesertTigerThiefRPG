@@ -2,7 +2,7 @@
 (
     objetivos: [
         (actor: "ogro_gorun", defensores: []),
-        (actor: "jefe_bandido_kazir", defensores: ["bandido_nazur", "bandido_hazek", "bandido_sufan"]),
+        (actor: "jefe_bandido_kazir", escenario: Campamento, defensores: ["bandido_nazur", "bandido_hazek", "bandido_sufan"]),
         (actor: "zahrim", defensores: ["dahran"]),
         (actor: "miraz", defensores: []),
     ],
