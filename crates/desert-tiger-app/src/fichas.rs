@@ -83,6 +83,17 @@ fn datos<'a>(
     let falta =
         || ErrorConsultaFicha::EstadoInconsistente("falta la presentación del elemento".into());
     let mut resultado = match elemento {
+        ExtremoRelacion::Objeto(id) => {
+            let o = mundo
+                .objeto(id)
+                .ok_or(ErrorConsultaFicha::ElementoInexistente)?;
+            let p = contenido.presentacion().objeto(id).ok_or_else(falta)?;
+            (
+                p.nombre(),
+                Some(p.descripcion()),
+                o.caracteristicas().map(|c| c.como_str()).collect(),
+            )
+        }
         ExtremoRelacion::Colectivo(id) => {
             let c = mundo
                 .colectivo(id)
@@ -215,6 +226,19 @@ pub(crate) fn proyectar(
         let otro = relacion.otro_extremo(elemento).ok_or_else(error)?;
         let referencia = resumen(mundo, contenido, otro)?;
         let (sentido, prefijo) = match relacion.tipo() {
+            TipoRelacion::GuardadoEn if relacion.origen() == elemento => (
+                SentidoRelacionFicha::Saliente,
+                if matches!(elemento, ExtremoRelacion::Actor(_)) {
+                    "Se encuentra en:"
+                } else {
+                    "Guardado en:"
+                },
+            ),
+            TipoRelacion::GuardadoEn => (SentidoRelacionFicha::Entrante, "Contiene:"),
+            TipoRelacion::LlevadoPor if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Llevado por:")
+            }
+            TipoRelacion::LlevadoPor => (SentidoRelacionFicha::Entrante, "Lleva consigo:"),
             TipoRelacion::Desea if relacion.origen() == elemento => {
                 (SentidoRelacionFicha::Saliente, "Desea:")
             }
@@ -420,9 +444,22 @@ pub(crate) fn proyectar(
                     .into(),
             },
         })
+    } else if let ExtremoRelacion::Objeto(id) = elemento {
+        mundo
+            .ubicacion_objeto(id)
+            .map(|lugar| VistaUbicacionActor::EnLugar {
+                lugar,
+                nombre: contenido
+                    .presentacion()
+                    .lugar(lugar)
+                    .map(|p| p.nombre())
+                    .unwrap_or("Lugar")
+                    .into(),
+            })
     } else {
         None
     };
+
     Ok(VistaFicha {
         ubicacion,
         elemento,

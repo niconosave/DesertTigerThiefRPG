@@ -242,7 +242,8 @@ impl EstadoCampamento {
         if let Some(bio) = &ficha.biografia {
             let titulo = match ficha.elemento {
                 ExtremoRelacion::Actor(_) => "Biografía",
-                ExtremoRelacion::Lugar(_)
+                ExtremoRelacion::Objeto(_)
+                | ExtremoRelacion::Lugar(_)
                 | ExtremoRelacion::Concepto(_)
                 | ExtremoRelacion::Colectivo(_) => "Descripción",
             };
@@ -408,6 +409,7 @@ impl EstadoCampamento {
                     "{}: {}",
                     match f.elemento {
                         ExtremoRelacion::Actor(_) => "Actor",
+                        ExtremoRelacion::Objeto(_) => "Objeto",
                         ExtremoRelacion::Lugar(_) => "Lugar",
                         ExtremoRelacion::Concepto(_) => "Concepto",
                         ExtremoRelacion::Colectivo(_) => "Colectivo",

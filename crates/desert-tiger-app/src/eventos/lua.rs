@@ -280,6 +280,10 @@ impl Programa {
                     };
                     let t = lua.create_table()?;
                     match o {
+                        ExtremoRelacion::Objeto(id) => {
+                            t.set("tipo", "Objeto")?;
+                            t.set("clave", c.clave_objeto(id))?;
+                        }
                         ExtremoRelacion::Colectivo(id) => {
                             t.set("tipo", "Colectivo")?;
                             t.set("clave", c.clave_colectivo(id))?;
@@ -500,6 +504,8 @@ impl Programa {
                     move |_, v| {
                         let tipo = string(&v[0])?;
                         let tipos = [
+                            ("GuardadoEn", TipoRelacion::GuardadoEn),
+                            ("LlevadoPor", TipoRelacion::LlevadoPor),
                             ("Desea", TipoRelacion::Desea),
                             ("Debe", TipoRelacion::Debe),
                             ("Necesita", TipoRelacion::Necesita),
@@ -537,6 +543,10 @@ impl Programa {
                             campos(t, &["tipo", "clave"])?;
                             let k = t.get::<Value>("clave")?;
                             match campo(t, "tipo")?.as_str() {
+                                "Objeto" => c
+                                    .objeto_por_clave(&string(&k)?)
+                                    .map(ExtremoRelacion::Objeto)
+                                    .ok_or_else(|| err("objeto desconocido")),
                                 "Concepto" => c
                                     .concepto_por_clave(&string(&k)?)
                                     .map(ExtremoRelacion::Concepto)
@@ -596,6 +606,23 @@ impl Programa {
                     })?;
                     env.set("ui", proxy_solo_lectura(&lua, ui)?)?;
                 }
+                funcion(
+                    scope,
+                    &consultas,
+                    "ubicacion_objeto",
+                    1,
+                    1,
+                    true,
+                    move |lua, v| {
+                        let id = c
+                            .objeto_por_clave(&string(&v[0])?)
+                            .ok_or_else(|| err("objeto inexistente"))?;
+                        texto(
+                            lua,
+                            mundo.ubicacion_objeto(id).and_then(|l| c.clave_lugar(l)),
+                        )
+                    },
+                )?;
                 env.set("ctx", proxy_solo_lectura(&lua, contexto)?)?;
                 env.set("mundo", proxy_solo_lectura(&lua, consultas)?)?;
                 if let Some((tablero, momento)) = local {
@@ -699,6 +726,38 @@ impl Programa {
                 }
                 if matches!(tipo, TipoPrograma::Efectos) {
                     let ops = lua.create_table()?;
+                    funcion(
+                        scope,
+                        &ops,
+                        "situar_elemento",
+                        4,
+                        4,
+                        false,
+                        move |lua, v| {
+                            let resolver =
+                                |tipo: &Value, clave: &Value| -> mlua::Result<ExtremoRelacion> {
+                                    match string(tipo)?.as_str() {
+                                        "Actor" => Ok(ExtremoRelacion::Actor(actor(c, clave)?)),
+                                        "Lugar" => Ok(ExtremoRelacion::Lugar(lugar(c, clave)?)),
+                                        "Colectivo" => {
+                                            Ok(ExtremoRelacion::Colectivo(colectivo(c, clave)?))
+                                        }
+                                        "Objeto" => c
+                                            .objeto_por_clave(&string(clave)?)
+                                            .map(ExtremoRelacion::Objeto)
+                                            .ok_or_else(|| err("objeto inexistente")),
+                                        _ => Err(err("tipo de elemento inválido")),
+                                    }
+                                };
+                            Ok(Value::UserData(lua.create_userdata(Operacion(
+                                OperacionMundo::SituarElemento {
+                                    elemento: resolver(&v[0], &v[1])?,
+                                    destino: resolver(&v[2], &v[3])?,
+                                },
+                            ))?))
+                        },
+                    )?;
+
                     funcion(scope, &ops, "esclavizar", 2, 2, false, move |lua, v| {
                         Ok(Value::UserData(lua.create_userdata(Operacion(
                             OperacionMundo::RegistrarEsclavitud {

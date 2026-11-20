@@ -3,6 +3,10 @@
 // Ciudad, Bosque, Montana, Playa. Omitir escenario usa Automatico.
 // Gorun conserva Recinto porque sus eventos utilizan los anclajes de ese perfil.
 (
+    recuperaciones: [
+        (objeto: "copa_dos_mareas", custodio: "miraz", escenario: Palacio,
+         defensores: []),
+    ],
     rescates: [
         (actor: "tamin", captor: "jefe_bandido_kazir", escenario: Campamento,
          defensores: ["bandido_nazur", "bandido_hazek", "bandido_sufan"]),

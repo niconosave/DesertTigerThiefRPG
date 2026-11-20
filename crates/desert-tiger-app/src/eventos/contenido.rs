@@ -21,6 +21,7 @@ pub enum Repeticion {
 }
 #[derive(Clone, Debug, Deserialize)]
 pub enum Objetivo {
+    Objeto(String),
     Actor(String),
     Lugar(String),
     Colectivo(String),
@@ -28,6 +29,7 @@ pub enum Objetivo {
 impl Objetivo {
     pub fn resolver(&self, c: &CatalogoClaves) -> Result<ExtremoRelacion, String> {
         match self {
+            Self::Objeto(s) => c.objeto_por_clave(s).map(ExtremoRelacion::Objeto),
             Self::Colectivo(s) => c.colectivo_por_clave(s).map(ExtremoRelacion::Colectivo),
             Self::Actor(s) => c.actor_por_clave(s).map(ExtremoRelacion::Actor),
             Self::Lugar(s) => c.lugar_por_clave(s).map(ExtremoRelacion::Lugar),

@@ -2,9 +2,9 @@
     clave: "tamin",
     nombre: "Tamin",
     biografia: "Hijo de Bahir y hermano de Samir y Farid. Llevaba piezas de madera para reparar una embarcación cuando la banda de Kazir lo secuestró en las Lomas de Anir. Lo mantienen vivo para exigir un rescate a su familia.",
-    ubicacion_inicial: EnLugar("lomas_de_anir"),
     caracteristicas: ["hombreTigre", "carpintero"],
     relaciones: [
+        (tipo: GuardadoEn, destino: Lugar("lomas_de_anir")),
         (tipo: Padre, destino: Actor("bahir")),
         (tipo: PrisioneroDe, destino: Actor("jefe_bandido_kazir")),
         (tipo: Necesita, destino: Concepto("recuperar_la_libertad")),

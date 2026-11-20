@@ -5,6 +5,7 @@
     ubicacion_inicial: EnLugar("shahraz"),
     caracteristicas: ["hombreTigre", "administrador", "calculador"],
     relaciones: [
+        (tipo: Desea, destino: Objeto("copa_dos_mareas")),
         (tipo: ComerciaCon, destino: Lugar("zarabad")),
         (tipo: ComerciaCon, destino: Lugar("nuris")),
         (tipo: Desea, destino: Concepto("conservar_intercambios_dos_puertos")),

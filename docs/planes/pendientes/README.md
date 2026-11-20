@@ -151,3 +151,9 @@ Estos archivos permanecen aquí para conservar su implementación y verificacion
 reales. No se trasladan a `completados/` ni se completan sus casillas por haber
 desarrollado el reglamento nuevo. Las tareas actuales pertenecen exclusivamente
 a PLAN-2026-025 a PLAN-2026-031.
+
+## Objetos y tesoro
+
+[PLAN-2026-051](./2026-11-20-51-objetos-y-tesoro.md) implementa objetos con
+ubicación compartida y recuperación de la Copa de las Dos Mareas. Pendiente
+revisión de jugabilidad.

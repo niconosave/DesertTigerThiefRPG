@@ -1,0 +1,9 @@
+(
+    clave: "copa_dos_mareas",
+    nombre: "Copa de las Dos Mareas",
+    descripcion: "Una copa de bronce adornada con dos franjas de nácar. Los mercaderes la reconocen por los peces grabados en su borde. Miraz la guarda en su palacio de Nuris, donde la muestra a sus invitados; Neshra desea conseguirla para exhibirla en sus banquetes.",
+    caracteristicas: ["tesoro"],
+    relaciones: [
+        (tipo: GuardadoEn, destino: Lugar("nuris")),
+    ],
+)

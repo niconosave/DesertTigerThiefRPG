@@ -7,6 +7,19 @@ use ratatui::{
     style::{Color, Modifier, Style},
     widgets::{Clear, Paragraph},
 };
+#[derive(Clone)]
+pub(crate) enum ObjetivoSeleccion {
+    Actor(ObjetivoAtaque),
+    Objeto(desert_tiger_app::ObjetivoObjeto),
+}
+impl ObjetivoSeleccion {
+    pub fn nombre(&self) -> &str {
+        match self {
+            Self::Actor(a) => &a.nombre,
+            Self::Objeto(o) => &o.nombre,
+        }
+    }
+}
 pub(crate) fn dibujar(
     frame: &mut Frame<'_>,
     v: &VistaEncuentro,
@@ -27,7 +40,13 @@ pub(crate) fn dibujar(
     frame.render_widget(
         Paragraph::new(format!(
             "{} · {} · ronda {} · {}",
-            if v.rescate { "RESCATE" } else { "ATAQUE" },
+            if v.recuperacion {
+                "RECUPERAR"
+            } else if v.rescate {
+                "RESCATE"
+            } else {
+                "ATAQUE"
+            },
             match v.escenario {
                 EscenarioEncuentro::Recinto => "recinto",
                 EscenarioEncuentro::Campamento => "campamento",
@@ -127,6 +146,19 @@ pub(crate) fn dibujar(
             );
         }
     }
+    if let Some(o) = &v.objeto
+        && !o.fuera
+        && !o.recogido
+        && o.x >= ox
+        && o.x < ox + ancho
+        && o.y >= oy
+        && o.y < oy + alto
+        && let Some(celda) = frame
+            .buffer_mut()
+            .cell_mut((izquierda + (o.x - ox) * 2, 2 + o.y - oy))
+    {
+        celda.set_symbol("$").set_fg(Color::Yellow);
+    }
     // Efecto breve junto a la ficha: acierto (*) o fallo (-).
     for f in &v.fichas {
         if let Some(acierto) = f.impacto
@@ -190,6 +222,23 @@ pub(crate) fn dibujar(
         Paragraph::new(roster).style(r.ui.secundario),
         Rect::new(1, a.height - 3, a.width - 2, 1),
     );
+    if let Some(o) = &v.objeto {
+        frame.render_widget(
+            Paragraph::new(format!(
+                "$ {} · {}",
+                o.nombre,
+                if o.fuera {
+                    "fuera del escenario"
+                } else if o.recogido {
+                    "transportado"
+                } else {
+                    "en el lugar"
+                }
+            ))
+            .style(r.ui.secundario),
+            Rect::new(1, a.height - 2, a.width - 2, 1),
+        );
+    }
     let controles = if v.finalizado {
         "Enter: cerrar episodio · D: detalles · Q: salir"
     } else if v.pausa_decision {
@@ -220,26 +269,26 @@ pub(crate) fn dibujar(
 }
 pub(crate) fn objetivos(
     frame: &mut Frame<'_>,
-    opciones: &[ObjetivoAtaque],
+    opciones: &[ObjetivoSeleccion],
     foco: usize,
     r: &RecursosVisuales,
-    rescate: bool,
+    verbo: &str,
 ) {
     let a = frame.area();
     let w = a.width.min(48);
     let h = (opciones.len() as u16 + 3).min(a.height);
     let area = Rect::new(a.width.saturating_sub(w), 0, w, h);
     frame.render_widget(Clear, area);
-    let texto = std::iter::once(if rescate {
-        "Elegí a quién rescatar (Esc cancela)".into()
+    let texto = std::iter::once(if verbo == "recuperar" {
+        "Elegí qué recuperar (Esc cancela)".into()
     } else {
-        "Elegí a quién atacar (Esc cancela)".into()
+        format!("Elegí a quién {verbo} (Esc cancela)")
     })
     .chain(
         opciones
             .iter()
             .enumerate()
-            .map(|(i, o)| format!("{} {}", if i == foco { ">" } else { " " }, o.nombre)),
+            .map(|(i, o)| format!("{} {}", if i == foco { ">" } else { " " }, o.nombre())),
     )
     .collect::<Vec<_>>()
     .join("\n");
@@ -261,6 +310,8 @@ mod pruebas {
         )
         .unwrap();
         let mut v = VistaEncuentro {
+            recuperacion: false,
+            objeto: None,
             rescate: false,
             escenario: EscenarioEncuentro::Recinto,
             id: 1,

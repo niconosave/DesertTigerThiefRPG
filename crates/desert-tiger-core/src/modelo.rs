@@ -23,6 +23,12 @@ macro_rules! identificador {
 }
 
 identificador!(IdActor);
+identificador!(IdObjeto);
+impl IdObjeto {
+    pub fn indice(self) -> Option<usize> {
+        usize::try_from(self.0).ok()
+    }
+}
 identificador!(IdLugar);
 identificador!(IdMapa);
 identificador!(IdConcepto);
@@ -273,6 +279,7 @@ pub struct HermanoDerivado {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum ExtremoRelacion {
+    Objeto(IdObjeto),
     Concepto(IdConcepto),
     Colectivo(IdColectivo),
     Actor(IdActor),
@@ -281,6 +288,8 @@ pub enum ExtremoRelacion {
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum TipoRelacion {
+    GuardadoEn,
+    LlevadoPor,
     Desea,
     Debe,
     Necesita,
@@ -316,10 +325,15 @@ impl TipoRelacion {
     }
 
     pub fn admite_extremos(self, origen: ExtremoRelacion, destino: ExtremoRelacion) -> bool {
-        use ExtremoRelacion::{Actor, Concepto, Lugar};
+        use ExtremoRelacion::{Actor, Colectivo, Concepto, Lugar, Objeto};
         match self {
+            Self::GuardadoEn => matches!(
+                (origen, destino),
+                (Actor(_) | Objeto(_), Lugar(_) | Colectivo(_))
+            ),
+            Self::LlevadoPor => matches!((origen, destino), (Actor(_) | Objeto(_), Actor(_))),
             Self::Desea | Self::Debe | Self::Necesita | Self::EsLlamadoA => {
-                matches!((origen, destino), (Actor(_), Concepto(_)))
+                matches!((origen, destino), (Actor(_), Concepto(_) | Objeto(_)))
             }
             Self::Conoce | Self::Gobierna | Self::ComerciaCon => {
                 matches!((origen, destino), (Actor(_), Lugar(_)))
@@ -401,6 +415,24 @@ impl Relacion {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ObjetoInicial {
+    pub id: IdObjeto,
+    pub caracteristicas: Vec<Caracteristica>,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Objeto {
+    id: IdObjeto,
+    caracteristicas: BTreeSet<Caracteristica>,
+}
+impl Objeto {
+    pub fn id(&self) -> IdObjeto {
+        self.id
+    }
+    pub fn caracteristicas(&self) -> impl ExactSizeIterator<Item = &Caracteristica> {
+        self.caracteristicas.iter()
+    }
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DatosInicialesMundo {
     pub mapa: IdMapa,
@@ -486,6 +518,10 @@ impl Grupo {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Mundo {
+    objetos: Vec<Objeto>,
+    relaciones_por_objeto: Vec<Vec<IdRelacion>>,
+    relaciones_por_colectivo: Vec<Vec<IdRelacion>>,
+    ubicaciones: BTreeMap<ExtremoRelacion, ExtremoRelacion>,
     mapa: IdMapa,
     fecha: Fecha,
     lugares: Vec<Lugar>,
@@ -550,6 +586,26 @@ impl Mundo {
         datos: DatosInicialesMundo,
         cantidad: usize,
     ) -> Result<Self, ErrorConstruirMundo> {
+        Self::nuevo_con_elementos(datos, cantidad, vec![])
+    }
+    pub fn nuevo_con_elementos(
+        datos: DatosInicialesMundo,
+        cantidad: usize,
+        iniciales: Vec<ObjetoInicial>,
+    ) -> Result<Self, ErrorConstruirMundo> {
+        let mut objetos = Vec::new();
+        for (posicion, o) in iniciales.into_iter().enumerate() {
+            if IdObjeto::desde_posicion(posicion).ok() != Some(o.id) {
+                return Err(ErrorConstruirMundo::ObjetoInvalido { posicion });
+            }
+            let caracteristicas = conjunto_caracteristicas(o.caracteristicas)
+                .map_err(|_| ErrorConstruirMundo::ObjetoInvalido { posicion })?;
+            objetos.push(Objeto {
+                id: o.id,
+                caracteristicas,
+            });
+        }
+        let mut relaciones_por_objeto = vec![vec![]; objetos.len()];
         if cantidad > 0 {
             IdConcepto::desde_posicion(cantidad - 1).map_err(|_| {
                 ErrorConstruirMundo::PosicionConceptoFueraDeRango {
@@ -681,6 +737,7 @@ impl Mundo {
             variables_globales.insert(variable.clave, variable.valor);
         }
 
+        let mut relaciones_por_colectivo = vec![vec![]; colectivos.len()];
         let mut relaciones = Vec::with_capacity(datos.relaciones.len());
         let mut relaciones_por_lugar = vec![Vec::new(); lugares.len()];
         let mut relaciones_por_actor = vec![Vec::new(); actores.len()];
@@ -693,6 +750,9 @@ impl Mundo {
                 .map_err(|_| ErrorConstruirMundo::PosicionRelacionFueraDeRango { posicion })?;
             for extremo in [inicial.origen, inicial.destino] {
                 let existe = match extremo {
+                    ExtremoRelacion::Objeto(id) => id
+                        .indice()
+                        .is_some_and(|i| objetos.get(i).is_some_and(|o| o.id == id)),
                     ExtremoRelacion::Actor(actor) => resolver_actor(&actores, actor).is_some(),
                     ExtremoRelacion::Lugar(lugar) => resolver_lugar(&lugares, lugar).is_some(),
                     ExtremoRelacion::Concepto(id) => id.indice().is_some_and(|i| i < cantidad),
@@ -765,14 +825,17 @@ impl Mundo {
 
             for extremo in [inicial.origen, inicial.destino] {
                 match extremo {
+                    ExtremoRelacion::Objeto(o) => {
+                        relaciones_por_objeto[o.indice().unwrap()].push(id)
+                    }
                     ExtremoRelacion::Actor(a) => {
                         relaciones_por_actor[a.indice().expect("Actor validado")].push(id)
                     }
                     ExtremoRelacion::Lugar(l) => {
                         relaciones_por_lugar[l.indice().expect("Lugar validado")].push(id)
                     }
-                    ExtremoRelacion::Colectivo(_) => {
-                        unreachable!("ningún tipo registrado admite extremos colectivos")
+                    ExtremoRelacion::Colectivo(c) => {
+                        relaciones_por_colectivo[c.indice().unwrap()].push(id)
                     }
                     ExtremoRelacion::Concepto(c) => {
                         relaciones_por_concepto[c.indice().expect("Concepto validado")].push(id)
@@ -887,7 +950,11 @@ impl Mundo {
             .collect();
         let (progenitores_por_actor, hijos_por_actor) =
             construir_parentesco(&actores, &relaciones)?;
-        Ok(Self {
+        let mut mundo = Self {
+            objetos,
+            relaciones_por_objeto,
+            relaciones_por_colectivo,
+            ubicaciones: BTreeMap::new(),
             progenitores_por_actor,
             hijos_por_actor,
             mapa: datos.mapa,
@@ -911,7 +978,11 @@ impl Mundo {
             tramos_pasaje,
             transitables_por_lugar,
             lugares_conocidos_por_actor,
-        })
+        };
+        mundo
+            .actualizar_indices_ubicacion()
+            .map_err(|_| ErrorConstruirMundo::UbicacionElementoInvalida)?;
+        Ok(mundo)
     }
 
     pub fn id_mapa(&self) -> IdMapa {
@@ -940,8 +1011,103 @@ impl Mundo {
     }
 
     pub fn ubicacion_actor(&self, id: IdActor) -> Option<IdLugar> {
-        self.actor(id)
-            .and_then(|a| colectivos::ubicacion(a.ubicacion, &self.colectivos))
+        self.actor(id)?;
+        self.ubicacion_elemento(ExtremoRelacion::Actor(id))
+    }
+    pub fn objeto(&self, id: IdObjeto) -> Option<&Objeto> {
+        self.objetos.get(id.indice()?).filter(|o| o.id == id)
+    }
+    pub fn objetos(&self) -> &[Objeto] {
+        &self.objetos
+    }
+    pub fn ubicacion_objeto(&self, id: IdObjeto) -> Option<IdLugar> {
+        self.objeto(id)?;
+        self.ubicacion_elemento(ExtremoRelacion::Objeto(id))
+    }
+    pub fn destino_ubicacion(&self, e: ExtremoRelacion) -> Option<ExtremoRelacion> {
+        self.ubicaciones.get(&e).copied()
+    }
+    pub fn ubicacion_elemento(&self, e: ExtremoRelacion) -> Option<IdLugar> {
+        self.relaciones_de(e)?;
+        resolver_ubicacion(e, &self.ubicaciones, &self.actores, &self.colectivos)
+    }
+    fn actualizar_indices_ubicacion(&mut self) -> Result<(), ErrorOperacionMundo> {
+        let mut ubicaciones = BTreeMap::new();
+        for r in &self.relaciones {
+            if matches!(r.tipo, TipoRelacion::GuardadoEn | TipoRelacion::LlevadoPor)
+                && ubicaciones.insert(r.origen, r.destino).is_some()
+            {
+                return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+            }
+        }
+        self.ubicaciones = ubicaciones;
+        for o in &self.objetos {
+            if self.ubicacion_objeto(o.id).is_none() {
+                return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+            }
+        }
+        let posiciones = self
+            .actores
+            .iter()
+            .map(|a| {
+                if self.ubicaciones.contains_key(&ExtremoRelacion::Actor(a.id)) {
+                    let lugar = self
+                        .ubicacion_actor(a.id)
+                        .ok_or(ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                    Ok(Some(lugar))
+                } else {
+                    Ok(None)
+                }
+            })
+            .collect::<Result<Vec<_>, ErrorOperacionMundo>>()?;
+        for (a, p) in self.actores.iter_mut().zip(posiciones) {
+            if let Some(l) = p {
+                match self.ubicaciones.get(&ExtremoRelacion::Actor(a.id)) {
+                    Some(ExtremoRelacion::Colectivo(c)) => {
+                        a.ubicacion = UbicacionActor::EnColectivo(*c)
+                    }
+                    _ => a.ubicacion = UbicacionActor::EnLugar(l),
+                }
+            }
+        }
+        self.relaciones_por_actor = vec![vec![]; self.actores.len()];
+        self.relaciones_por_lugar = vec![vec![]; self.lugares.len()];
+        self.relaciones_por_objeto = vec![vec![]; self.objetos.len()];
+        self.relaciones_por_colectivo = vec![vec![]; self.colectivos.len()];
+        for r in &self.relaciones {
+            for e in [r.origen, r.destino] {
+                match e {
+                    ExtremoRelacion::Actor(a) => {
+                        self.relaciones_por_actor[a.indice().unwrap()].push(r.id)
+                    }
+                    ExtremoRelacion::Lugar(a) => {
+                        self.relaciones_por_lugar[a.indice().unwrap()].push(r.id)
+                    }
+                    ExtremoRelacion::Objeto(a) => {
+                        self.relaciones_por_objeto[a.indice().unwrap()].push(r.id)
+                    }
+                    ExtremoRelacion::Colectivo(a) => {
+                        self.relaciones_por_colectivo[a.indice().unwrap()].push(r.id)
+                    }
+                    ExtremoRelacion::Concepto(_) => {}
+                }
+            }
+        }
+        if let Some(lugar) = self.ubicacion_actor(self.actor_jugador) {
+            if self
+                .grupo
+                .integrantes
+                .iter()
+                .any(|&a| self.ubicacion_actor(a) != Some(lugar))
+            {
+                return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+            }
+        } else {
+            return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+        }
+        colectivos::limpiar_lideres(&mut self.colectivos, &self.actores);
+        self.miembros_por_colectivo = colectivos::indexar(&self.actores, self.colectivos.len());
+        Ok(())
     }
 
     pub fn actores(&self) -> &[Actor] {
@@ -964,7 +1130,14 @@ impl Mundo {
 
     pub fn relaciones_de(&self, extremo: ExtremoRelacion) -> Option<&[IdRelacion]> {
         match extremo {
-            ExtremoRelacion::Colectivo(id) => self.colectivo(id).map(|_| &[][..]),
+            ExtremoRelacion::Objeto(id) => self
+                .relaciones_por_objeto
+                .get(id.indice()?)
+                .map(Vec::as_slice),
+            ExtremoRelacion::Colectivo(id) => self
+                .relaciones_por_colectivo
+                .get(id.indice()?)
+                .map(Vec::as_slice),
             ExtremoRelacion::Concepto(id) => self
                 .relaciones_por_concepto
                 .get(id.indice()?)
@@ -1168,6 +1341,7 @@ impl Mundo {
         &mut self,
         lote: LoteOperaciones,
     ) -> Result<CambiosConfirmados, ErrorOperacionMundo> {
+        let mut espacial = false;
         let mut actores_virtuales = self.actores.clone();
         let mut colectivos_virtuales = self.colectivos.clone();
         let mut grupo_virtual = self.grupo.clone();
@@ -1206,7 +1380,53 @@ impl Mundo {
                     globales.insert(clave.clone(), valor.clone());
                     cambios.push(CambioConfirmado::GlobalEstablecida { clave, valor });
                 }
+                OperacionMundo::SituarElemento { elemento, destino } => {
+                    let tipo = match destino {
+                        ExtremoRelacion::Actor(_) => TipoRelacion::LlevadoPor,
+                        _ => TipoRelacion::GuardadoEn,
+                    };
+                    if !tipo.admite_extremos(elemento, destino)
+                        || elemento == destino
+                        || self.relaciones_de(elemento).is_none()
+                        || self.relaciones_de(destino).is_none()
+                    {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    if let ExtremoRelacion::Actor(a) = elemento
+                        && (a == self.actor_jugador || grupo_virtual.contiene(a))
+                    {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    situar_relacion(&mut relaciones_virtuales, elemento, destino)?;
+                    if let ExtremoRelacion::Actor(a) = elemento {
+                        let mapa = mapa_ubicaciones(&relaciones_virtuales);
+                        let lugar = resolver_ubicacion(
+                            elemento,
+                            &mapa,
+                            &actores_virtuales,
+                            &colectivos_virtuales,
+                        )
+                        .ok_or(ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                        resolver_actor_mut(&mut actores_virtuales, a)
+                            .unwrap()
+                            .ubicacion = match destino {
+                            ExtremoRelacion::Colectivo(c) => UbicacionActor::EnColectivo(c),
+                            _ => UbicacionActor::EnLugar(lugar),
+                        };
+                    }
+                    espacial = true;
+                    cambios.push(CambioConfirmado::ElementoSituado { elemento, destino });
+                }
                 OperacionMundo::Trasladar { actor, destino } => {
+                    espacial = true;
+                    if actor != self.actor_jugador
+                        && relaciones_virtuales.iter().any(|r| {
+                            r.origen == ExtremoRelacion::Actor(actor)
+                                && r.tipo == TipoRelacion::LlevadoPor
+                        })
+                    {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
                     let traslado = trasladar_en_estado(
                         &mut actores_virtuales,
                         &self.lugares,
@@ -1215,6 +1435,14 @@ impl Mundo {
                         actor,
                         destino,
                     )?;
+                    for a in &traslado.actores {
+                        if let Some(r) = relaciones_virtuales.iter_mut().find(|r| {
+                            r.origen == ExtremoRelacion::Actor(*a)
+                                && r.tipo == TipoRelacion::GuardadoEn
+                        }) {
+                            r.destino = ExtremoRelacion::Lugar(destino);
+                        }
+                    }
                     cambios.push(CambioConfirmado::ActoresTrasladados {
                         actores: traslado.actores,
                         origen: traslado.origen,
@@ -1284,6 +1512,23 @@ impl Mundo {
                         return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
                     }
                     let origen = ExtremoRelacion::Actor(actor);
+                    let ubicaciones = mapa_ubicaciones(&relaciones_virtuales);
+                    let lugar = resolver_ubicacion(
+                        origen,
+                        &ubicaciones,
+                        &actores_virtuales,
+                        &colectivos_virtuales,
+                    )
+                    .ok_or(ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                    situar_relacion(
+                        &mut relaciones_virtuales,
+                        origen,
+                        ExtremoRelacion::Lugar(lugar),
+                    )?;
+                    resolver_actor_mut(&mut actores_virtuales, actor)
+                        .unwrap()
+                        .ubicacion = UbicacionActor::EnLugar(lugar);
+                    espacial = true;
                     let destino = ExtremoRelacion::Actor(captor);
                     let ya = relaciones_virtuales.iter().any(|r| {
                         r.tipo == TipoRelacion::LiberadoDe
@@ -1352,6 +1597,23 @@ impl Mundo {
                     }
                     if actor == amo {
                         return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    let origen_actor = ExtremoRelacion::Actor(actor);
+                    if !relaciones_virtuales.iter().any(|r| {
+                        r.origen == origen_actor
+                            && matches!(r.tipo, TipoRelacion::GuardadoEn | TipoRelacion::LlevadoPor)
+                    }) {
+                        let lugar = colectivos::ubicacion(
+                            resolver_actor(&actores_virtuales, actor).unwrap().ubicacion,
+                            &colectivos_virtuales,
+                        )
+                        .ok_or(ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                        situar_relacion(
+                            &mut relaciones_virtuales,
+                            origen_actor,
+                            ExtremoRelacion::Lugar(lugar),
+                        )?;
+                        espacial = true;
                     }
                     let origen = ExtremoRelacion::Actor(actor);
                     let destino = ExtremoRelacion::Actor(amo);
@@ -1438,29 +1700,54 @@ impl Mundo {
                         cambios.push(CambioConfirmado::ConocimientoRegistrado { actor, lugar });
                     }
                 }
-                colectiva => colectivos::aplicar(
-                    colectiva,
-                    &mut actores_virtuales,
-                    &mut colectivos_virtuales,
-                    &self.lugares,
-                    self.actor_jugador,
-                    &grupo_virtual,
-                    &mut cambios,
-                )?,
+                colectiva => {
+                    espacial = true;
+                    colectivos::aplicar(
+                        colectiva,
+                        &mut actores_virtuales,
+                        &mut colectivos_virtuales,
+                        &self.lugares,
+                        self.actor_jugador,
+                        &grupo_virtual,
+                        &mut cambios,
+                    )?
+                }
             }
             colectivos::limpiar_lideres(&mut colectivos_virtuales, &actores_virtuales);
         }
-        self.miembros_por_colectivo =
+        for (antes, despues) in self.actores.iter().zip(&actores_virtuales) {
+            if antes.ubicacion != despues.ubicacion
+                && let Some(r) = relaciones_virtuales.iter_mut().find(|r| {
+                    r.origen == ExtremoRelacion::Actor(despues.id)
+                        && r.tipo == TipoRelacion::GuardadoEn
+                })
+            {
+                match despues.ubicacion {
+                    UbicacionActor::EnLugar(l) => r.destino = ExtremoRelacion::Lugar(l),
+                    UbicacionActor::EnColectivo(c) => r.destino = ExtremoRelacion::Colectivo(c),
+                    UbicacionActor::FueraDelEscenario => {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                }
+                espacial = true;
+            }
+        }
+        let mut candidato = self.clone();
+        candidato.miembros_por_colectivo =
             colectivos::indexar(&actores_virtuales, colectivos_virtuales.len());
-        self.colectivos = colectivos_virtuales;
+        candidato.colectivos = colectivos_virtuales;
 
-        self.variables_globales = globales;
-        self.actores = actores_virtuales;
-        self.grupo = grupo_virtual;
-        self.relaciones = relaciones_virtuales;
-        self.relaciones_por_actor = por_actor;
-        self.relaciones_por_lugar = por_lugar;
-        self.lugares_conocidos_por_actor = conocidos;
+        candidato.variables_globales = globales;
+        candidato.actores = actores_virtuales;
+        candidato.grupo = grupo_virtual;
+        candidato.relaciones = relaciones_virtuales;
+        candidato.relaciones_por_actor = por_actor;
+        candidato.relaciones_por_lugar = por_lugar;
+        candidato.lugares_conocidos_por_actor = conocidos;
+        if espacial {
+            candidato.actualizar_indices_ubicacion()?;
+        }
+        *self = candidato;
         Ok(CambiosConfirmados { cambios })
     }
 }
@@ -1487,6 +1774,11 @@ pub struct TrasladoConfirmado {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OperacionMundo {
+    SituarElemento {
+        elemento: ExtremoRelacion,
+        destino: ExtremoRelacion,
+    },
+
     ConfirmarRescate {
         actor: IdActor,
         captor: IdActor,
@@ -1592,6 +1884,11 @@ impl CambiosConfirmados {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CambioConfirmado {
+    ElementoSituado {
+        elemento: ExtremoRelacion,
+        destino: ExtremoRelacion,
+    },
+
     RescateConfirmado {
         actor: IdActor,
         captor: IdActor,
@@ -1676,6 +1973,11 @@ impl Error for ErrorOperacionMundo {}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorConstruirMundo {
+    ObjetoInvalido {
+        posicion: usize,
+    },
+    UbicacionElementoInvalida,
+
     ColectivoInvalido {
         detalle: String,
     },
@@ -2105,6 +2407,203 @@ mod pruebas {
         datos
     }
 
+    fn mundo_con_objeto() -> (Mundo, IdObjeto) {
+        let mut d = datos_validos();
+        d.actores.push(ActorInicial {
+            id: id_actor(3),
+            ubicacion: UbicacionActor::EnLugar(id_lugar(1)),
+            caracteristicas: vec![],
+        });
+        let o = IdObjeto::desde_posicion(0).unwrap();
+        d.relaciones.push(RelacionInicial {
+            mercancia: None,
+            tipo: TipoRelacion::GuardadoEn,
+            origen: ExtremoRelacion::Objeto(o),
+            destino: ExtremoRelacion::Lugar(id_lugar(1)),
+        });
+        d.relaciones.push(RelacionInicial {
+            mercancia: None,
+            tipo: TipoRelacion::GuardadoEn,
+            origen: ExtremoRelacion::Actor(id_actor(2)),
+            destino: ExtremoRelacion::Lugar(id_lugar(1)),
+        });
+        d.relaciones.push(RelacionInicial {
+            mercancia: None,
+            tipo: TipoRelacion::PrisioneroDe,
+            origen: ExtremoRelacion::Actor(id_actor(2)),
+            destino: ExtremoRelacion::Actor(id_actor(0)),
+        });
+        (
+            Mundo::nuevo_con_elementos(
+                d,
+                0,
+                vec![ObjetoInicial {
+                    id: o,
+                    caracteristicas: vec![],
+                }],
+            )
+            .unwrap(),
+            o,
+        )
+    }
+    #[test]
+    fn objetos_ubicacion_sigue_al_colectivo_sin_mover_otro_cautivo() {
+        let mut d = datos_validos();
+        let objeto = IdObjeto::desde_posicion(0).unwrap();
+        let c = IdColectivo::desde_posicion(0).unwrap();
+        d.colectivos.push(ColectivoInicial {
+            id: c,
+            lugar: id_lugar(0),
+            lider: None,
+            caracteristicas: vec![],
+        });
+        d.relaciones.push(RelacionInicial {
+            mercancia: None,
+            tipo: TipoRelacion::GuardadoEn,
+            origen: ExtremoRelacion::Objeto(objeto),
+            destino: ExtremoRelacion::Colectivo(c),
+        });
+        d.relaciones.push(RelacionInicial {
+            mercancia: None,
+            tipo: TipoRelacion::GuardadoEn,
+            origen: ExtremoRelacion::Actor(id_actor(2)),
+            destino: ExtremoRelacion::Lugar(id_lugar(1)),
+        });
+        let mut m = Mundo::nuevo_con_elementos(
+            d,
+            0,
+            vec![ObjetoInicial {
+                id: objeto,
+                caracteristicas: vec![],
+            }],
+        )
+        .unwrap();
+        m.aplicar_lote(LoteOperaciones::uno(
+            OperacionMundo::IngresarGrupoEnColectivo { colectivo: c },
+        ))
+        .unwrap();
+        for destino in [id_lugar(1), id_lugar(0)] {
+            m.aplicar_lote(LoteOperaciones::uno(OperacionMundo::TrasladarColectivo {
+                colectivo: c,
+                destino,
+            }))
+            .unwrap();
+            assert_eq!(m.ubicacion_objeto(objeto), Some(destino));
+            assert_eq!(m.ubicacion_grupo(), destino);
+            assert_eq!(m.ubicacion_actor(id_actor(2)), Some(id_lugar(1)));
+        }
+    }
+    #[test]
+    fn objetos_ubicacion_compartida_y_separada_del_cautiverio() {
+        let (mut m, o) = mundo_con_objeto();
+        assert_eq!(m.ubicacion_objeto(o), Some(id_lugar(1)));
+        m.aplicar_lote(LoteOperaciones::uno(OperacionMundo::SituarElemento {
+            elemento: ExtremoRelacion::Objeto(o),
+            destino: ExtremoRelacion::Actor(id_actor(1)),
+        }))
+        .unwrap();
+        let id = m.relaciones_de(ExtremoRelacion::Objeto(o)).unwrap()[0];
+        assert_eq!(m.relacion(id).unwrap().tipo(), TipoRelacion::LlevadoPor);
+        assert_eq!(m.ubicacion_objeto(o), Some(id_lugar(0)));
+        for destino in [id_lugar(1), id_lugar(0)] {
+            m.aplicar_lote(LoteOperaciones::uno(OperacionMundo::Trasladar {
+                actor: id_actor(0),
+                destino,
+            }))
+            .unwrap();
+            assert_eq!(m.ubicacion_objeto(o), Some(destino));
+            assert_eq!(m.ubicacion_actor(id_actor(2)), Some(id_lugar(1)));
+        }
+        m.aplicar_lote(LoteOperaciones::uno(OperacionMundo::SituarElemento {
+            elemento: ExtremoRelacion::Actor(id_actor(2)),
+            destino: ExtremoRelacion::Actor(id_actor(1)),
+        }))
+        .unwrap();
+        m.aplicar_lote(LoteOperaciones::uno(OperacionMundo::Trasladar {
+            actor: id_actor(0),
+            destino: id_lugar(1),
+        }))
+        .unwrap();
+        assert_eq!(m.ubicacion_actor(id_actor(2)), m.ubicacion_objeto(o));
+        m.aplicar_lote(LoteOperaciones::uno(OperacionMundo::SituarElemento {
+            elemento: ExtremoRelacion::Objeto(o),
+            destino: ExtremoRelacion::Lugar(id_lugar(0)),
+        }))
+        .unwrap();
+        assert_eq!(m.relacion(id).unwrap().tipo(), TipoRelacion::GuardadoEn);
+        assert!(
+            !m.relaciones_de(ExtremoRelacion::Actor(id_actor(1)))
+                .unwrap()
+                .contains(&id)
+        );
+        assert!(
+            m.relaciones_de(ExtremoRelacion::Lugar(id_lugar(0)))
+                .unwrap()
+                .contains(&id)
+        );
+    }
+    #[test]
+    fn objetos_ciclos_y_ubicacion_ambigua_se_rechazan_atomicamente() {
+        let (mut m, o) = mundo_con_objeto();
+        let antes = m.clone();
+        let ops = vec![
+            OperacionMundo::SituarElemento {
+                elemento: ExtremoRelacion::Objeto(o),
+                destino: ExtremoRelacion::Actor(id_actor(2)),
+            },
+            OperacionMundo::SituarElemento {
+                elemento: ExtremoRelacion::Actor(id_actor(2)),
+                destino: ExtremoRelacion::Actor(id_actor(3)),
+            },
+            OperacionMundo::SituarElemento {
+                elemento: ExtremoRelacion::Actor(id_actor(3)),
+                destino: ExtremoRelacion::Actor(id_actor(2)),
+            },
+        ];
+        assert!(
+            m.aplicar_lote(LoteOperaciones::nuevo(ops).unwrap())
+                .is_err()
+        );
+        assert_eq!(m, antes);
+        let mut d = datos_validos();
+        assert!(
+            Mundo::nuevo_con_elementos(
+                d.clone(),
+                0,
+                vec![ObjetoInicial {
+                    id: o,
+                    caracteristicas: vec![]
+                }]
+            )
+            .is_err()
+        );
+        for destino in [
+            ExtremoRelacion::Lugar(id_lugar(0)),
+            ExtremoRelacion::Actor(id_actor(2)),
+        ] {
+            d.relaciones.push(RelacionInicial {
+                mercancia: None,
+                tipo: if matches!(destino, ExtremoRelacion::Actor(_)) {
+                    TipoRelacion::LlevadoPor
+                } else {
+                    TipoRelacion::GuardadoEn
+                },
+                origen: ExtremoRelacion::Objeto(o),
+                destino,
+            });
+        }
+        assert!(
+            Mundo::nuevo_con_elementos(
+                d,
+                0,
+                vec![ObjetoInicial {
+                    id: o,
+                    caracteristicas: vec![]
+                }]
+            )
+            .is_err()
+        );
+    }
     #[test]
     fn actores_externos_existen_sin_ocupar_lugares_y_no_pueden_ser_jugador_o_grupo() {
         let datos = datos_familia();
@@ -3203,5 +3702,70 @@ mod pruebas {
                 .unwrap()
                 .tiene_caracteristica(&caracteristica("herido"))
         );
+    }
+}
+
+fn mapa_ubicaciones(relaciones: &[Relacion]) -> BTreeMap<ExtremoRelacion, ExtremoRelacion> {
+    relaciones
+        .iter()
+        .filter(|r| matches!(r.tipo, TipoRelacion::GuardadoEn | TipoRelacion::LlevadoPor))
+        .map(|r| (r.origen, r.destino))
+        .collect()
+}
+fn situar_relacion(
+    relaciones: &mut Vec<Relacion>,
+    elemento: ExtremoRelacion,
+    destino: ExtremoRelacion,
+) -> Result<(), ErrorOperacionMundo> {
+    let tipo = if matches!(destino, ExtremoRelacion::Actor(_)) {
+        TipoRelacion::LlevadoPor
+    } else {
+        TipoRelacion::GuardadoEn
+    };
+    if let Some(r) = relaciones.iter_mut().find(|r| {
+        r.origen == elemento
+            && matches!(r.tipo, TipoRelacion::GuardadoEn | TipoRelacion::LlevadoPor)
+    }) {
+        r.tipo = tipo;
+        r.destino = destino;
+    } else {
+        let id = IdRelacion::desde_posicion(relaciones.len())
+            .map_err(|_| ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+        relaciones.push(Relacion {
+            id,
+            tipo,
+            origen: elemento,
+            destino,
+            mercancia: None,
+        });
+    }
+    Ok(())
+}
+fn resolver_ubicacion(
+    mut elemento: ExtremoRelacion,
+    ubicaciones: &BTreeMap<ExtremoRelacion, ExtremoRelacion>,
+    actores: &[Actor],
+    colectivos: &[ActorColectivo],
+) -> Option<IdLugar> {
+    let mut vistos = BTreeSet::new();
+    loop {
+        if !vistos.insert(elemento) {
+            return None;
+        }
+        if let Some(destino) = ubicaciones.get(&elemento) {
+            elemento = *destino;
+            continue;
+        }
+        return match elemento {
+            ExtremoRelacion::Lugar(l) => Some(l),
+            ExtremoRelacion::Colectivo(c) => colectivos
+                .get(c.indice()?)
+                .filter(|x| x.id() == c)
+                .map(|x| x.lugar()),
+            ExtremoRelacion::Actor(a) => {
+                colectivos::ubicacion(resolver_actor(actores, a)?.ubicacion, colectivos)
+            }
+            _ => None,
+        };
     }
 }

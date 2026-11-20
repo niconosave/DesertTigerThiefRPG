@@ -1,6 +1,6 @@
 //! Encuentro local efímero. Cada pulso elige intenciones desde una sola instantánea.
 use crate::azar::FuenteAzar;
-use crate::{IdActor, Mundo};
+use crate::{ExtremoRelacion, IdActor, IdObjeto, Mundo};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::num::NonZeroUsize;
 
@@ -46,6 +46,9 @@ pub enum Desenlace {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Suceso {
+    ObjetoRecogido {
+        por: usize,
+    },
     Liberado {
         ficha: usize,
         por: usize,
@@ -84,7 +87,16 @@ pub enum Escenario {
     Playa,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Botin {
+    pub ubicacion_inicial: ExtremoRelacion,
+    pub objeto: IdObjeto,
+    pub posicion: Posicion,
+    pub portador: Option<usize>,
+    pub fuera: bool,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Encuentro {
+    pub botin: Option<Botin>,
     pub rescate: bool,
     pub escenario: Escenario,
     pub referencias: BTreeMap<String, Posicion>,
@@ -92,7 +104,7 @@ pub struct Encuentro {
     pub alto: u16,
     pub celdas: Vec<Celda>,
     pub fichas: Vec<Ficha>,
-    pub objetivo: usize,
+    pub objetivo: Option<usize>,
     pub entrada: Posicion,
     pub pulso: u64,
     pub retirando: bool,
@@ -110,6 +122,7 @@ enum Intento {
     Atacar(usize),
     Recoger(usize),
     Liberar,
+    TomarObjeto,
     Salir,
 }
 fn sortear(azar: &mut dyn FuenteAzar, n: usize) -> Result<usize, String> {
@@ -137,7 +150,20 @@ impl Encuentro {
         azar: &mut dyn FuenteAzar,
         escenario: Escenario,
     ) -> Result<Self, String> {
-        if grupo.is_empty() || grupo.len() + defensores.len() > 32 || grupo.contains(&objetivo) {
+        Self::construir(mundo, grupo, Some(objetivo), defensores, azar, escenario)
+    }
+    fn construir(
+        mundo: &Mundo,
+        grupo: &[IdActor],
+        objetivo: Option<IdActor>,
+        defensores: &[IdActor],
+        azar: &mut dyn FuenteAzar,
+        escenario: Escenario,
+    ) -> Result<Self, String> {
+        if grupo.is_empty()
+            || grupo.len() + defensores.len() > 32
+            || objetivo.is_some_and(|o| grupo.contains(&o))
+        {
             return Err("participantes inválidos".into());
         }
         let ancho = 31;
@@ -245,7 +271,7 @@ impl Encuentro {
         let mut vistos = BTreeSet::new();
         for (i, actor) in grupo
             .iter()
-            .chain(std::iter::once(&objetivo))
+            .chain(objetivo.iter())
             .chain(defensores)
             .copied()
             .enumerate()
@@ -269,7 +295,7 @@ impl Encuentro {
                     x: 2 + (i / 13) as u16,
                     y: 2 + (i % 13) as u16,
                 }
-            } else if i == grupo.len() {
+            } else if i == grupo.len() && objetivo.is_some() {
                 Posicion {
                     area: 0,
                     nivel: 0,
@@ -277,7 +303,7 @@ impl Encuentro {
                     y: 8,
                 }
             } else if escenario == Escenario::Campamento {
-                let j = i - grupo.len() - 1;
+                let j = i - grupo.len() - usize::from(objetivo.is_some());
                 Posicion {
                     area: 0,
                     nivel: 0,
@@ -288,7 +314,7 @@ impl Encuentro {
                 Posicion {
                     area: 0,
                     nivel: 0,
-                    x: 17 + (i - grupo.len() - 1) as u16,
+                    x: 17 + (i - grupo.len() - usize::from(objetivo.is_some())) as u16,
                     y: 8,
                 }
             };
@@ -320,6 +346,7 @@ impl Encuentro {
             prioridad.swap(i, j);
         }
         Ok(Self {
+            botin: None,
             rescate: false,
             escenario,
             referencias: if escenario == Escenario::Recinto {
@@ -356,7 +383,7 @@ impl Encuentro {
             alto,
             celdas,
             fichas,
-            objetivo: grupo.len(),
+            objetivo: objetivo.map(|_| grupo.len()),
             entrada: Posicion {
                 area: 0,
                 nivel: 0,
@@ -373,6 +400,54 @@ impl Encuentro {
             bloqueado: false,
         })
     }
+    pub fn nuevo_recuperacion(
+        mundo: &Mundo,
+        grupo: &[IdActor],
+        objeto: IdObjeto,
+        guardias: &[IdActor],
+        azar: &mut dyn FuenteAzar,
+        escenario: Escenario,
+    ) -> Result<Self, String> {
+        if mundo.objeto(objeto).is_none()
+            || mundo.ubicacion_objeto(objeto) != Some(mundo.ubicacion_grupo())
+        {
+            return Err("objeto fuera del lugar".into());
+        }
+        let mut e = Self::construir(mundo, grupo, None, guardias, azar, escenario)?;
+        let posicion = Posicion {
+            area: 0,
+            nivel: 0,
+            x: 27,
+            y: 8,
+        };
+        e.celdas[usize::from(posicion.y * e.ancho + posicion.x)] = Celda::Suelo;
+        e.botin = Some(Botin {
+            ubicacion_inicial: mundo
+                .destino_ubicacion(ExtremoRelacion::Objeto(objeto))
+                .ok_or("objeto sin ubicación")?,
+            objeto,
+            posicion,
+            portador: None,
+            fuera: false,
+        });
+        Ok(e)
+    }
+    pub fn objetivo_mundo(&self) -> ExtremoRelacion {
+        if let Some(b) = &self.botin {
+            ExtremoRelacion::Objeto(b.objeto)
+        } else {
+            ExtremoRelacion::Actor(self.fichas[self.objetivo.expect("objetivo actor")].actor)
+        }
+    }
+    pub fn objetivo_actor(&self) -> Option<IdActor> {
+        self.objetivo.map(|i| self.fichas[i].actor)
+    }
+    pub fn objetivo_muerto(&self) -> bool {
+        self.objetivo.is_some_and(|i| self.fichas[i].muerto())
+    }
+    pub fn extraccion_fuera(&self) -> bool {
+        self.rescatado_fuera() || self.botin.as_ref().is_some_and(|b| b.fuera)
+    }
     pub fn nuevo_rescate(
         mundo: &Mundo,
         grupo: &[IdActor],
@@ -383,12 +458,14 @@ impl Encuentro {
     ) -> Result<Self, String> {
         let mut e = Self::nuevo_con_escenario(mundo, grupo, cautivo, guardias, azar, escenario)?;
         e.rescate = true;
-        e.fichas[e.objetivo].aliado = true;
-        e.fichas[e.objetivo].cautivo = true;
+        e.fichas[e.objetivo.unwrap()].aliado = true;
+        e.fichas[e.objetivo.unwrap()].cautivo = true;
         Ok(e)
     }
     pub fn rescatado_fuera(&self) -> bool {
-        self.rescate && self.fichas[self.objetivo].salio && !self.fichas[self.objetivo].muerto()
+        self.rescate
+            && self.fichas[self.objetivo.unwrap()].salio
+            && !self.fichas[self.objetivo.unwrap()].muerto()
     }
     pub fn aplicar_comandos(
         &mut self,
@@ -408,6 +485,10 @@ impl Encuentro {
                 ComandoEncuentro::CambiarTerreno { terreno, .. } => {
                     if terreno != Celda::Suelo
                         && (posicion == candidato.entrada
+                            || candidato
+                                .botin
+                                .as_ref()
+                                .is_some_and(|b| !b.fuera && b.posicion == posicion)
                             || candidato
                                 .fichas
                                 .iter()
@@ -463,6 +544,21 @@ impl Encuentro {
                 || f.defensa != if tiene("agil") { 2 } else { 0 }
             {
                 return Err("el evento desincroniza el actor y su ficha".into());
+            }
+        }
+        if let Some(b) = &mut candidato.botin
+            && let Some(i) = b.portador
+        {
+            b.posicion = candidato.fichas[i].posicion;
+        }
+        if let Some(b) = &candidato.botin {
+            let esperado = if b.fuera {
+                ExtremoRelacion::Actor(mundo.actor_jugador())
+            } else {
+                b.ubicacion_inicial
+            };
+            if mundo.destino_ubicacion(ExtremoRelacion::Objeto(b.objeto)) != Some(esperado) {
+                return Err("el evento desincroniza el tesoro".into());
             }
         }
         candidato.sucesos.clear();
@@ -586,13 +682,17 @@ impl Encuentro {
         if !f.puede_actuar() {
             return Intento::Esperar;
         }
-        let objetivo = &self.fichas[self.objetivo];
+        let objetivo = self.objetivo.map(|j| &self.fichas[j]);
         let retirando = f.aliado
             && (self.retirando
                 || if self.rescate {
-                    !objetivo.cautivo || objetivo.muerto()
+                    !objetivo.unwrap().cautivo || objetivo.unwrap().muerto()
                 } else {
-                    objetivo.muerto()
+                    self.objetivo_muerto()
+                        || self
+                            .botin
+                            .as_ref()
+                            .is_some_and(|b| b.portador.is_some() || b.fuera)
                 });
         if retirando {
             if !self.fichas.iter().any(|p| p.transportado_por == Some(i))
@@ -630,9 +730,18 @@ impl Encuentro {
             }
             return Intento::Esperar;
         }
-        if self.rescate && f.aliado {
-            if self.contacto(f.posicion, objetivo.posicion) {
-                return Intento::Liberar;
+        if (self.rescate || self.botin.is_some()) && f.aliado {
+            let posicion = self
+                .botin
+                .as_ref()
+                .map(|b| b.posicion)
+                .unwrap_or_else(|| objetivo.unwrap().posicion);
+            if self.contacto(f.posicion, posicion) {
+                return if self.botin.is_some() {
+                    Intento::TomarObjeto
+                } else {
+                    Intento::Liberar
+                };
             }
             if let Some(j) = self.fichas.iter().enumerate().find_map(|(j, e)| {
                 (!e.aliado && e.puede_actuar() && self.contacto(f.posicion, e.posicion))
@@ -641,7 +750,7 @@ impl Encuentro {
                 return Intento::Atacar(j);
             }
             return self
-                .siguiente(i, objetivo.posicion, true)
+                .siguiente(i, posicion, true)
                 .map(Intento::Mover)
                 .unwrap_or(Intento::Esperar);
         }
@@ -651,8 +760,9 @@ impl Encuentro {
                 && e.transportado_por.is_none()
                 && (e.puede_actuar()
                     || (!self.rescate
+                        && self.botin.is_none()
                         && f.aliado
-                        && e.actor == self.fichas[self.objetivo].actor
+                        && e.actor == self.fichas[self.objetivo.unwrap()].actor
                         && !e.muerto()))
         });
         let blanco = enemigos
@@ -738,13 +848,21 @@ impl Encuentro {
             if !self.fichas[i].puede_actuar() {
                 continue;
             }
+            if matches!(intentos[i], Intento::TomarObjeto)
+                && let Some(b) = &mut self.botin
+                && b.portador.is_none()
+                && !b.fuera
+            {
+                b.portador = Some(i);
+                self.sucesos.push(Suceso::ObjetoRecogido { por: i });
+            }
             if matches!(intentos[i], Intento::Liberar)
                 && self.rescate
-                && self.fichas[self.objetivo].cautivo
+                && self.fichas[self.objetivo.unwrap()].cautivo
             {
-                self.fichas[self.objetivo].cautivo = false;
+                self.fichas[self.objetivo.unwrap()].cautivo = false;
                 self.sucesos.push(Suceso::Liberado {
-                    ficha: self.objetivo,
+                    ficha: self.objetivo.unwrap(),
                     por: i,
                 });
             }
@@ -832,6 +950,16 @@ impl Encuentro {
                 }
             }
         }
+        if let Some(b) = &mut self.botin
+            && let Some(i) = b.portador
+        {
+            b.posicion = self.fichas[i].posicion;
+            if self.fichas[i].salio {
+                b.fuera = true;
+            } else if !self.fichas[i].puede_actuar() {
+                b.portador = None;
+            }
+        }
         let libres = self.fichas.iter().any(|f| f.aliado && f.puede_actuar());
         let fuera = self
             .fichas
@@ -845,10 +973,10 @@ impl Encuentro {
                 .any(|f| f.aliado && !f.cautivo && !f.muerto())
         {
             self.desenlace = Some(
-                if if self.rescate {
-                    self.rescatado_fuera()
+                if if self.rescate || self.botin.is_some() {
+                    self.extraccion_fuera()
                 } else {
-                    self.fichas[self.objetivo].muerto()
+                    self.objetivo_muerto()
                 } {
                     Desenlace::Exito
                 } else {
@@ -903,8 +1031,11 @@ mod pruebas {
         IdActor::desde_posicion(i).unwrap()
     }
     fn mundo(n: usize, grupo: usize) -> Mundo {
+        Mundo::nuevo(datos(n, grupo)).unwrap()
+    }
+    fn datos(n: usize, grupo: usize) -> DatosInicialesMundo {
         let lugar = IdLugar::desde_posicion(0).unwrap();
-        Mundo::nuevo(DatosInicialesMundo {
+        DatosInicialesMundo {
             colectivos: vec![],
             mapa: IdMapa::desde_posicion(0).unwrap(),
             fecha: Fecha::nueva(2026, Mes::Enero, 1).unwrap(),
@@ -923,8 +1054,65 @@ mod pruebas {
             companeros: (1..grupo.max(2)).map(actor).collect(),
             variables_globales: vec![],
             relaciones: vec![],
-        })
-        .unwrap()
+        }
+    }
+    #[test]
+    fn objetos_encuentro_extrae_y_recoge_de_nuevo_si_cae_el_portador() {
+        use crate::{ObjetoInicial, RelacionInicial, TipoRelacion};
+        let mut d = datos(3, 2);
+        let objeto = IdObjeto::desde_posicion(0).unwrap();
+        d.relaciones.push(RelacionInicial {
+            mercancia: None,
+            tipo: TipoRelacion::GuardadoEn,
+            origen: ExtremoRelacion::Objeto(objeto),
+            destino: ExtremoRelacion::Lugar(IdLugar::desde_posicion(0).unwrap()),
+        });
+        let m = Mundo::nuevo_con_elementos(
+            d,
+            0,
+            vec![ObjetoInicial {
+                id: objeto,
+                caracteristicas: vec![],
+            }],
+        )
+        .unwrap();
+        for caer in [false, true] {
+            let mut e = Encuentro::nuevo_recuperacion(
+                &m,
+                &[actor(0), actor(1)],
+                objeto,
+                &[],
+                &mut Dado(19),
+                Escenario::Campamento,
+            )
+            .unwrap();
+            assert_eq!(e.fichas.len(), 2);
+            assert!(e.objetivo.is_none());
+            let mut cayo = false;
+            let mut recogidas = 0;
+            for _ in 0..500 {
+                if e.desenlace.is_some() {
+                    break;
+                }
+                if caer
+                    && !cayo
+                    && let Some(i) = e.botin.as_ref().unwrap().portador
+                {
+                    e.fichas[i].golpes = 2;
+                    cayo = true;
+                }
+                e.avanzar(&mut Dado(19)).unwrap();
+                recogidas += e
+                    .sucesos
+                    .iter()
+                    .filter(|s| matches!(s, Suceso::ObjetoRecogido { .. }))
+                    .count();
+                assert!(!e.bloqueado);
+            }
+            assert_eq!(e.desenlace, Some(Desenlace::Exito));
+            assert!(e.botin.as_ref().unwrap().fuera);
+            assert_eq!(recogidas, if caer { 2 } else { 1 });
+        }
     }
     #[test]
     fn rescate_relaciones_conserva_ids_y_no_duplica_al_recapturar() {
@@ -952,7 +1140,7 @@ mod pruebas {
             assert_eq!(m.relacion(id).unwrap().tipo(), TipoRelacion::LiberadoDe);
             m.aplicar_lote(LoteOperaciones::uno(confirmar.clone()))
                 .unwrap();
-            assert_eq!(m.relaciones().len(), 2);
+            assert_eq!(m.relaciones().len(), 3);
             let ids = m.relaciones_de(ExtremoRelacion::Actor(actor(0))).unwrap();
             assert_eq!(ids.len(), 1);
             assert_eq!(m.relacion(ids[0]).unwrap().tipo(), TipoRelacion::SalvadoPor);
@@ -971,7 +1159,7 @@ mod pruebas {
                 Escenario::Campamento,
             )
             .unwrap();
-            e.fichas[e.objetivo].golpes = golpes;
+            e.fichas[e.objetivo.unwrap()].golpes = golpes;
             let mut liberaciones = 0;
             for _ in 0..300 {
                 if e.desenlace.is_some() {
@@ -988,7 +1176,7 @@ mod pruebas {
             assert_eq!(e.desenlace, Some(Desenlace::Exito));
             assert_eq!(liberaciones, 1);
             assert!(e.rescatado_fuera());
-            assert_eq!(e.fichas[e.objetivo].golpes, golpes);
+            assert_eq!(e.fichas[e.objetivo.unwrap()].golpes, golpes);
         }
     }
     #[test]
@@ -1011,7 +1199,7 @@ mod pruebas {
             e.avanzar(&mut Dado(19)).unwrap();
         }
         assert_eq!(e.desenlace, Some(Desenlace::Retirada));
-        assert!(e.fichas[e.objetivo].cautivo);
+        assert!(e.fichas[e.objetivo.unwrap()].cautivo);
         assert!(!e.rescatado_fuera());
     }
     #[test]

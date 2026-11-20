@@ -3,7 +3,8 @@
 mod contenido;
 mod encuentro;
 pub use encuentro::{
-    EscenarioEncuentro, FichaEncuentro, ObjetivoAtaque, TerrenoEncuentro, VistaEncuentro,
+    EscenarioEncuentro, FichaEncuentro, ObjetivoAtaque, ObjetivoObjeto, ObjetoEncuentro,
+    TerrenoEncuentro, VistaEncuentro,
 };
 mod eventos;
 pub use eventos::{IdOpcionEvento, IdPresentacionEvento, OpcionEvento, VistaEvento};
@@ -55,3 +56,5 @@ pub use sesion::{PresentacionDecision, VistaRutaPropuesta};
 
 pub use desert_tiger_core::IdColectivo;
 pub use sesion::{IdCierre, IdContinuacionCierre, IdEspera, VistaColectivo, VistaEsperaOrdenes};
+
+pub use desert_tiger_core::IdObjeto;

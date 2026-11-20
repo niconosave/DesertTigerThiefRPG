@@ -57,6 +57,9 @@ pub struct IdDecisionVista(u64);
 pub struct IdOpcionVista(u32);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntencionFrontend {
+    ComenzarRecuperacion {
+        objetivo: crate::IdObjeto,
+    },
     ComenzarRescate {
         objetivo: IdActor,
     },
@@ -204,6 +207,9 @@ pub struct VistaActor {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AccionDisponible {
+    Recuperar {
+        objetivos: Vec<crate::ObjetivoObjeto>,
+    },
     Rescatar {
         objetivos: Vec<crate::ObjetivoAtaque>,
     },
@@ -456,6 +462,7 @@ impl Partida {
             intencion,
             IntencionFrontend::ComenzarAtaque { .. }
                 | IntencionFrontend::ComenzarRescate { .. }
+                | IntencionFrontend::ComenzarRecuperacion { .. }
                 | IntencionFrontend::AvanzarEncuentro { .. }
                 | IntencionFrontend::RetirarEncuentro { .. }
                 | IntencionFrontend::ReanudarEncuentro { .. }
@@ -504,6 +511,7 @@ impl Partida {
         match intencion {
             IntencionFrontend::ComenzarAtaque { .. }
             | IntencionFrontend::ComenzarRescate { .. }
+            | IntencionFrontend::ComenzarRecuperacion { .. }
             | IntencionFrontend::AvanzarEncuentro { .. }
             | IntencionFrontend::RetirarEncuentro { .. }
             | IntencionFrontend::ReanudarEncuentro { .. }
@@ -659,6 +667,7 @@ impl Partida {
         let resultado = match intencion {
             IntencionFrontend::ComenzarAtaque { .. }
             | IntencionFrontend::ComenzarRescate { .. }
+            | IntencionFrontend::ComenzarRecuperacion { .. }
             | IntencionFrontend::AvanzarEncuentro { .. }
             | IntencionFrontend::RetirarEncuentro { .. }
             | IntencionFrontend::ReanudarEncuentro { .. }
@@ -814,14 +823,14 @@ impl Partida {
             c
         } else if let Some(a) = &self.ataque {
             let mut c = self.contexto_sesion(ClasePunto::AccionTerminada);
-            c.accion = Some(if a.motor.rescate {
+            c.accion = Some(if a.motor.botin.is_some() {
+                "recuperar"
+            } else if a.motor.rescate {
                 "rescatar"
             } else {
                 "atacar"
             });
-            c.objetivo = Some(crate::ExtremoRelacion::Actor(
-                a.motor.fichas[a.motor.objetivo].actor,
-            ));
+            c.objetivo = Some(a.motor.objetivo_mundo());
             c
         } else if let Some(e) = &self.ejecucion {
             e.contexto(ClasePunto::AccionTerminada)
@@ -1115,6 +1124,9 @@ fn proyectar_mundo(
             },
             AccionDisponible::Rescatar {
                 objetivos: ataque::objetivos_rescate(m, c),
+            },
+            AccionDisponible::Recuperar {
+                objetivos: ataque::objetivos_objeto(m, c),
             },
         ]
     };

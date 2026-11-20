@@ -8,6 +8,8 @@ use std::path::Path;
 pub(crate) struct ConfigEncuentros {
     #[serde(default)]
     pub rescates: Vec<RescateConfigurado>,
+    #[serde(default)]
+    pub recuperaciones: Vec<RecuperacionConfigurada>,
     pub objetivos: Vec<ObjetivoConfigurado>,
 }
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -75,6 +77,30 @@ pub(crate) struct RescateConfigurado {
     #[serde(default)]
     pub escenario: EscenarioConfigurado,
 }
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RecuperacionConfigurada {
+    pub objeto: String,
+    pub custodio: String,
+    #[serde(default)]
+    pub defensores: Vec<String>,
+    #[serde(default)]
+    pub escenario: EscenarioConfigurado,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ObjetivoObjeto {
+    pub objeto: crate::IdObjeto,
+    pub nombre: String,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ObjetoEncuentro {
+    pub objeto: crate::IdObjeto,
+    pub nombre: String,
+    pub x: u16,
+    pub y: u16,
+    pub recogido: bool,
+    pub fuera: bool,
+}
 impl ConfigEncuentros {
     pub(crate) fn cargar(raiz: &Path, claves: &CatalogoClaves) -> Result<Option<Self>, String> {
         let ruta = raiz.join("encounters.ron");
@@ -120,6 +146,22 @@ impl ConfigEncuentros {
                 }
             }
         }
+        let mut objetos = std::collections::BTreeSet::new();
+        for r in &c.recuperaciones {
+            if !objetos.insert(&r.objeto)
+                || claves.objeto_por_clave(&r.objeto).is_none()
+                || claves.actor_por_clave(&r.custodio).is_none()
+                || r.defensores.len() > 8
+            {
+                return Err("encounters.ron: recuperación inválida".into());
+            }
+            let mut defensa = std::collections::BTreeSet::new();
+            for d in &r.defensores {
+                if d == &r.custodio || !defensa.insert(d) || claves.actor_por_clave(d).is_none() {
+                    return Err("encounters.ron: defensor de tesoro inválido".into());
+                }
+            }
+        }
         Ok(Some(c))
     }
 }
@@ -151,6 +193,8 @@ pub struct FichaEncuentro {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaEncuentro {
+    pub recuperacion: bool,
+    pub objeto: Option<ObjetoEncuentro>,
     pub rescate: bool,
     pub escenario: EscenarioEncuentro,
     pub id: u64,

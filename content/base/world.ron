@@ -1,4 +1,5 @@
 (
+    objetos: ["copa_dos_mareas"],
     colectivos: ["compania_dahran"],
     mapa: "mapa_inicial",
     lugares: [

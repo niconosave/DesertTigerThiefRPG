@@ -5,6 +5,7 @@ use desert_tiger_core::acciones::intervenciones::{
 };
 
 pub(super) enum Continuacion {
+    IniciarRecuperacion(crate::IdObjeto),
     IniciarRescate(IdActor),
     Encuentro,
     IniciarAtaque(IdActor),
@@ -162,6 +163,14 @@ impl Partida {
                     .ok_or("continuación narrativa ausente")?;
                 match continuar {
                     Continuacion::Encuentro => self.restaurar_encuentro(),
+                    Continuacion::IniciarRecuperacion(objetivo) => {
+                        if interrumpir {
+                            self.vista = VistaSesion::Disponible(self.mundo_visible.clone());
+                            Ok(())
+                        } else {
+                            self.iniciar_recuperacion_local(objetivo)
+                        }
+                    }
                     Continuacion::IniciarRescate(objetivo) => {
                         if interrumpir {
                             self.vista = VistaSesion::Disponible(self.mundo_visible.clone());

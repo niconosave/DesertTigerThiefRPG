@@ -739,3 +739,19 @@ miembros de colectivos ni interpretación de relaciones de esclavitud.
 
 El [contrato de Rescatar personas](../tecnica/acciones/11-rescatar-personas.md)
 describe elegibilidad, consecuencias, integración de eventos y limitaciones.
+
+## 23. Objetos particulares y recuperación de tesoros
+
+Los objetos tienen identidad y relaciones como los demás elementos del mundo.
+Son tesoros y piezas con historia, sin inventario de utensilios comunes. Personas
+y objetos comparten ubicación física: GuardadoEn y LlevadoPor. El cautiverio se
+expresa aparte mediante PrisioneroDe.
+
+Robar reutiliza el episodio de rescate: acercarse, superar a los defensores,
+recoger el objeto y salir con él. El objeto ocupa una pieza propia del tablero;
+si cae el portador antes de salir, queda donde cayó y puede recogerlo otro.
+Retirarse sin extraerlo no concede el tesoro. Conseguirlo no libera automáticamente
+a otros cautivos del mismo lugar.
+
+El [contrato de objetos](../tecnica/componentes/30-objetos-y-ubicaciones-compartidas.md)
+describe contenido, operaciones, ubicación y confirmación persistente.

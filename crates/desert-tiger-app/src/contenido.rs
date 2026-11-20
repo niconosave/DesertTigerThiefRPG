@@ -7,8 +7,9 @@ use std::sync::Arc;
 
 use desert_tiger_core::{
     ActorInicial, Caracteristica, ClaveVariableGlobal, ColectivoInicial, DatosInicialesMundo,
-    ExtremoRelacion, Fecha, IdActor, IdColectivo, IdConcepto, IdLugar, IdMapa, LugarInicial, Mes,
-    Mundo, RelacionInicial, TipoRelacion, ValorVariableGlobal, VariableGlobalInicial,
+    ExtremoRelacion, Fecha, IdActor, IdColectivo, IdConcepto, IdLugar, IdMapa, IdObjeto,
+    LugarInicial, Mes, Mundo, ObjetoInicial, RelacionInicial, TipoRelacion, ValorVariableGlobal,
+    VariableGlobalInicial,
 };
 use serde::de::{DeserializeOwned, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
@@ -274,6 +275,7 @@ pub enum ClaseDiagnosticoContenido {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TipoElementoContenido {
+    Objeto,
     Concepto,
     Colectivo,
     Mundo,
@@ -362,6 +364,7 @@ pub struct ContenidoValidado {
 }
 
 struct ContenidoValidadoInterno {
+    objetos: Vec<ObjetoInicial>,
     encuentros: Option<crate::encuentro::ConfigEncuentros>,
     plantilla_mundo: DatosInicialesMundo,
     presentacion: CatalogoPresentacion,
@@ -390,9 +393,10 @@ impl ContenidoValidado {
     pub(crate) fn instanciar_estado(
         &self,
     ) -> Result<(Mundo, EstadoMapa), ErrorInstanciarContenido> {
-        let mundo = Mundo::nuevo_con_conceptos(
+        let mundo = Mundo::nuevo_con_elementos(
             self.interno.plantilla_mundo.clone(),
             self.interno.presentacion.conceptos.len(),
+            self.interno.objetos.clone(),
         )
         .map_err(ErrorInstanciarContenido::Mundo)?;
         let mapa = self.interno.presentacion.instanciar_mapa();
@@ -452,6 +456,7 @@ struct PlantillaMapa {
 }
 
 pub(crate) struct CatalogoPresentacion {
+    objetos: Vec<PresentacionObjeto>,
     mapa: PlantillaMapa,
     lugares: Vec<PresentacionLugar>,
     actores: Vec<PresentacionActor>,
@@ -505,6 +510,19 @@ impl PresentacionColectivo {
     }
 }
 
+pub(crate) struct PresentacionObjeto {
+    pub id: IdObjeto,
+    pub nombre: String,
+    pub descripcion: String,
+}
+impl PresentacionObjeto {
+    pub fn nombre(&self) -> &str {
+        &self.nombre
+    }
+    pub fn descripcion(&self) -> &str {
+        &self.descripcion
+    }
+}
 pub(crate) struct PresentacionConcepto {
     id: IdConcepto,
     nombre: String,
@@ -527,6 +545,9 @@ pub(crate) struct PresentacionActor {
 }
 
 impl CatalogoPresentacion {
+    pub fn objeto(&self, id: IdObjeto) -> Option<&PresentacionObjeto> {
+        self.objetos.get(id.indice()?).filter(|o| o.id == id)
+    }
     pub(crate) fn colectivo(&self, id: IdColectivo) -> Option<&PresentacionColectivo> {
         self.colectivos.get(id.indice()?).filter(|c| c.id == id)
     }
@@ -696,6 +717,8 @@ pub(crate) enum ErrorCambiarTile {
 }
 
 pub(crate) struct CatalogoClaves {
+    objetos_por_clave: BTreeMap<String, IdObjeto>,
+    claves_por_objeto: BTreeMap<IdObjeto, String>,
     colectivos_por_clave: BTreeMap<String, IdColectivo>,
     claves_por_colectivo: BTreeMap<IdColectivo, String>,
     actores_por_clave: BTreeMap<String, IdActor>,
@@ -707,6 +730,12 @@ pub(crate) struct CatalogoClaves {
 }
 
 impl CatalogoClaves {
+    pub fn objeto_por_clave(&self, k: &str) -> Option<IdObjeto> {
+        self.objetos_por_clave.get(k).copied()
+    }
+    pub fn clave_objeto(&self, id: IdObjeto) -> Option<&str> {
+        self.claves_por_objeto.get(&id).map(String::as_str)
+    }
     pub(crate) fn colectivo_por_clave(&self, k: &str) -> Option<IdColectivo> {
         self.colectivos_por_clave.get(k).copied()
     }
@@ -751,6 +780,8 @@ impl ResolucionClavesLua for CatalogoClaves {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct MundoDto {
+    #[serde(default)]
+    objetos: Vec<String>,
     #[serde(default)]
     colectivos: Vec<String>,
     #[serde(default)]
@@ -913,12 +944,24 @@ struct CoordenadaDto {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ObjetoDto {
+    clave: String,
+    nombre: String,
+    descripcion: String,
+    #[serde(default)]
+    caracteristicas: Vec<String>,
+    #[serde(default)]
+    relaciones: Vec<DeclaracionRelacionDto>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ActorDto {
     clave: String,
     nombre: String,
     #[serde(default)]
     biografia: String,
-    ubicacion_inicial: UbicacionInicialDto,
+    #[serde(default, deserialize_with = "ubicacion_actor_opcional")]
+    ubicacion_inicial: Option<UbicacionInicialDto>,
     caracteristicas: Vec<String>,
     relaciones: Vec<DeclaracionRelacionDto>,
     #[serde(deserialize_with = "deserializar_opcion_requerida")]
@@ -934,6 +977,11 @@ enum UbicacionInicialDto {
     FueraDelEscenario,
 }
 
+fn ubicacion_actor_opcional<'de, D: Deserializer<'de>>(
+    d: D,
+) -> Result<Option<UbicacionInicialDto>, D::Error> {
+    UbicacionInicialDto::deserialize(d).map(Some)
+}
 fn deserializar_opcion_requerida<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
     D: Deserializer<'de>,
@@ -1056,6 +1104,8 @@ enum PoliticaDto {
 
 #[derive(Deserialize)]
 enum TipoRelacionDto {
+    GuardadoEn,
+    LlevadoPor,
     Desea,
     Debe,
     Necesita,
@@ -1085,6 +1135,8 @@ enum TipoRelacionDto {
 
 #[derive(Deserialize)]
 enum DestinoRelacionDto {
+    Objeto(String),
+    Colectivo(String),
     Concepto(String),
     Lugar(String),
     Actor(String),
@@ -1297,6 +1349,9 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         TipoElementoContenido::Mundo,
         None,
     )?;
+    if !mundo.objetos.is_empty() {
+        validar_lista_claves(&mundo.objetos, "objetos", &raiz_canonica)?;
+    }
     validar_lista_claves(&mundo.lugares, "lugares", &raiz_canonica)?;
     validar_lista_claves(&mundo.actores, "actores", &raiz_canonica)?;
     if !mundo.colectivos.is_empty() {
@@ -1396,7 +1451,26 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         colectivos_por_clave.insert(clave.clone(), id);
         claves_por_colectivo.insert(id, clave.clone());
     }
+    let objetos_por_clave = mundo
+        .objetos
+        .iter()
+        .enumerate()
+        .map(|(i, k)| {
+            Ok((
+                k.clone(),
+                IdObjeto::desde_posicion(i).map_err(|e| {
+                    error_mundo(ClaseDiagnosticoContenido::InvarianteDominio, e.to_string())
+                })?,
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>, ErrorContenido>>()?;
+    let claves_por_objeto = objetos_por_clave
+        .iter()
+        .map(|(k, v)| (*v, k.clone()))
+        .collect();
     let claves = CatalogoClaves {
+        objetos_por_clave,
+        claves_por_objeto,
         colectivos_por_clave,
         claves_por_colectivo,
         actores_por_clave,
@@ -1475,13 +1549,65 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         )?);
     }
 
+    let mut objetos = Vec::new();
+    let mut presentacion_objetos = Vec::new();
+    let mut relaciones_objetos = Vec::new();
+    for clave in &mundo.objetos {
+        let ruta = PathBuf::from("objects").join(format!("{clave}.ron"));
+        let dto: ObjetoDto = leer_ron(
+            &raiz_canonica,
+            &ruta,
+            TipoElementoContenido::Objeto,
+            Some(clave),
+        )?;
+        validar_clave_y_archivo(&dto.clave, clave, &ruta, TipoElementoContenido::Objeto)?;
+        let texto = |v: &str, multi| {
+            validar_texto_presentacion(v, multi, true).map_err(|d| {
+                error_archivo(
+                    &ruta,
+                    TipoElementoContenido::Objeto,
+                    Some(clave),
+                    ClaseDiagnosticoContenido::ValorInvalido,
+                    None,
+                    d,
+                )
+            })
+        };
+        let nombre = texto(&dto.nombre, false)?;
+        let descripcion = texto(&dto.descripcion, true)?;
+        let id = claves.objeto_por_clave(clave).unwrap();
+        let caracteristicas = validar_caracteristicas(
+            dto.caracteristicas,
+            &ruta,
+            TipoElementoContenido::Objeto,
+            clave,
+        )?;
+        relaciones_objetos.extend(validar_relaciones(
+            dto.relaciones,
+            ExtremoRelacion::Objeto(id),
+            &claves,
+            &ruta,
+            TipoElementoContenido::Objeto,
+            clave,
+        )?);
+        objetos.push(ObjetoInicial {
+            id,
+            caracteristicas,
+        });
+        presentacion_objetos.push(PresentacionObjeto {
+            id,
+            nombre,
+            descripcion,
+        });
+    }
     let fecha = validar_fecha(mundo.fecha_inicial)?;
     let variables_globales = validar_globales(mundo.variables_globales)?;
     let relaciones = normalizar_relaciones(
         lugares
             .iter()
             .flat_map(|lugar| lugar.relaciones.iter())
-            .chain(actores.iter().flat_map(|actor| actor.relaciones.iter())),
+            .chain(actores.iter().flat_map(|actor| actor.relaciones.iter()))
+            .chain(relaciones_objetos.iter()),
     )?;
     let externos: BTreeSet<_> = lugares
         .iter()
@@ -1572,7 +1698,7 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         variables_globales,
         relaciones,
     };
-    Mundo::nuevo_con_conceptos(datos.clone(), conceptos.len())
+    Mundo::nuevo_con_elementos(datos.clone(), conceptos.len(), objetos.clone())
         .map_err(|error| diagnosticar_modelo(error, &claves))?;
 
     let politicas: Vec<_> = actores
@@ -1593,7 +1719,9 @@ pub fn cargar_contenido(raiz: &Path) -> Result<ContenidoValidado, ErrorContenido
         interno: Arc::new(ContenidoValidadoInterno {
             encuentros,
             plantilla_mundo: datos,
+            objetos,
             presentacion: CatalogoPresentacion {
+                objetos: presentacion_objetos,
                 colectivos: presentacion_colectivos,
                 conceptos,
                 caracteristicas: cargar_catalogo_caracteristicas(&raiz_canonica)?,
@@ -2226,7 +2354,38 @@ fn validar_actor(
             format!("biografia: {detalle}"),
         )
     })?;
-    let ubicacion = match dto.ubicacion_inicial {
+    let ubicacion_declarada = dto
+        .ubicacion_inicial
+        .or_else(|| {
+            dto.relaciones.iter().find_map(|r| {
+                if matches!(r.tipo, TipoRelacionDto::GuardadoEn) {
+                    match &r.destino {
+                        DestinoRelacionDto::Lugar(k) => {
+                            Some(UbicacionInicialDto::EnLugar(k.clone()))
+                        }
+                        DestinoRelacionDto::Colectivo(k) => {
+                            Some(UbicacionInicialDto::EnColectivo(k.clone()))
+                        }
+                        _ => None,
+                    }
+                } else if matches!(r.tipo, TipoRelacionDto::LlevadoPor) {
+                    Some(UbicacionInicialDto::FueraDelEscenario)
+                } else {
+                    None
+                }
+            })
+        })
+        .ok_or_else(|| {
+            error_archivo(
+                ruta,
+                TipoElementoContenido::Actor,
+                Some(esperada),
+                ClaseDiagnosticoContenido::ValorInvalido,
+                None,
+                "el actor requiere ubicación inicial o una relación espacial".into(),
+            )
+        })?;
+    let ubicacion = match ubicacion_declarada {
         UbicacionInicialDto::EnColectivo(k) => desert_tiger_core::UbicacionActor::EnColectivo(
             claves.colectivo_por_clave(&k).ok_or_else(|| {
                 error_archivo(
@@ -2333,6 +2492,8 @@ fn validar_relaciones(
     let mut resultado = Vec::with_capacity(declaraciones.len());
     for (posicion, declaracion) in declaraciones.into_iter().enumerate() {
         let tipo = match declaracion.tipo {
+            TipoRelacionDto::GuardadoEn => TipoRelacion::GuardadoEn,
+            TipoRelacionDto::LlevadoPor => TipoRelacion::LlevadoPor,
             TipoRelacionDto::Desea => TipoRelacion::Desea,
             TipoRelacionDto::Debe => TipoRelacion::Debe,
             TipoRelacionDto::Necesita => TipoRelacion::Necesita,
@@ -2400,6 +2561,30 @@ fn validar_relaciones(
             ));
         }
         let destino = match declaracion.destino {
+            DestinoRelacionDto::Objeto(k) => {
+                ExtremoRelacion::Objeto(claves.objeto_por_clave(&k).ok_or_else(|| {
+                    error_archivo(
+                        ruta,
+                        tipo_elemento,
+                        Some(clave_elemento),
+                        ClaseDiagnosticoContenido::ReferenciaInvalida,
+                        None,
+                        format!("Objeto inexistente: {k}"),
+                    )
+                })?)
+            }
+            DestinoRelacionDto::Colectivo(k) => {
+                ExtremoRelacion::Colectivo(claves.colectivo_por_clave(&k).ok_or_else(|| {
+                    error_archivo(
+                        ruta,
+                        tipo_elemento,
+                        Some(clave_elemento),
+                        ClaseDiagnosticoContenido::ReferenciaInvalida,
+                        None,
+                        format!("Colectivo inexistente: {k}"),
+                    )
+                })?)
+            }
             DestinoRelacionDto::Concepto(clave) => {
                 validar_clave_externa(&clave).map_err(|detalle| {
                     error_archivo(
@@ -2484,6 +2669,8 @@ fn validar_relaciones(
         let extremos_validos = tipo.admite_extremos(origen, destino);
         if !extremos_validos {
             let requisito = match tipo {
+                TipoRelacion::GuardadoEn => "Actor u Objeto hacia Lugar o Colectivo",
+                TipoRelacion::LlevadoPor => "Actor u Objeto hacia Actor",
                 TipoRelacion::Desea
                 | TipoRelacion::Debe
                 | TipoRelacion::Necesita
@@ -4508,6 +4695,8 @@ mod pruebas {
         let lugar_uno = IdLugar::desde_posicion(1).expect("ID válido");
         let actor_cero = IdActor::desde_posicion(0).expect("ID válido");
         let claves = CatalogoClaves {
+            objetos_por_clave: BTreeMap::new(),
+            claves_por_objeto: BTreeMap::new(),
             colectivos_por_clave: BTreeMap::new(),
             claves_por_colectivo: BTreeMap::new(),
             conceptos_por_clave: BTreeMap::new(),
