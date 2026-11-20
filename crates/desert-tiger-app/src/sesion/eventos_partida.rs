@@ -5,6 +5,7 @@ use desert_tiger_core::acciones::intervenciones::{
 };
 
 pub(super) enum Continuacion {
+    Encuentro,
     IniciarAtaque(IdActor),
     Inicial,
     AntesNpc,
@@ -64,6 +65,7 @@ impl Partida {
             .ok_or("jugador ausente")?
             .ubicacion();
         let activa = matches!(self.continuacion_evento, Some(Continuacion::Motor(_)));
+        let local = matches!(self.continuacion_evento, Some(Continuacion::Encuentro));
         let camp = matches!(self.continuacion_evento,Some(Continuacion::Restaurar(ref v)) if matches!(**v,VistaSesion::Acampando(_)));
         let salida = self.eventos.conducir(
             &mut self.mundo,
@@ -86,6 +88,15 @@ impl Partida {
                     && let Some(e) = raiz
                 {
                     e.validar_continuacion(m).map_err(|e| e.to_string())?;
+                }
+                if local
+                    && (m.grupo().integrantes() != integrantes_antes
+                        || m.actor(m.actor_jugador())
+                            .is_none_or(|a| a.ubicacion() != ubicacion_directa))
+                {
+                    return Err(
+                        "el evento local no puede cambiar el grupo ni su ubicación mundial".into(),
+                    );
                 }
                 if camp
                     && m.actor(m.actor_jugador())
@@ -149,6 +160,7 @@ impl Partida {
                     .take()
                     .ok_or("continuación narrativa ausente")?;
                 match continuar {
+                    Continuacion::Encuentro => self.restaurar_encuentro(),
                     Continuacion::IniciarAtaque(objetivo) => {
                         if interrumpir {
                             self.vista = VistaSesion::Disponible(self.mundo_visible.clone());

@@ -961,7 +961,9 @@ impl Interfaz {
         });
         let mundo = mundo_revelado.as_ref().unwrap_or(&self.ultima_vista_mundo);
         let region_mundo = Rect::new(area.x, area.y, area.width, area.height - 2);
-        if self.decision_planificacion().is_some() {
+        if let Some(encuentro) = self.partida.encuentro_suspendido() {
+            crate::encuentro::dibujar(frame, &encuentro, recursos, true, false);
+        } else if self.decision_planificacion().is_some() {
             self.dibujar_mundo(frame, region_mundo, mundo, recursos);
         } else if let Some(campamento) = &self.campamento {
             campamento.dibujar(frame, region_mundo, mundo, recursos, &self.reloj);
@@ -2406,6 +2408,78 @@ mod pruebas {
     use std::path::PathBuf;
 
     #[test]
+    fn ciclo2_terminal_evento_suspende_tablero_y_reanuda() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let c = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let mut i = Interfaz::nueva(
+            Partida::nueva(&c, ConfiguracionPartida { semilla: Some(42) }).unwrap(),
+        )
+        .unwrap();
+        for _ in 0..100 {
+            match i.vista.clone() {
+                VistaSesion::Disponible(_) => break,
+                VistaSesion::PresentandoEvento(v) => {
+                    i.enviar(IntencionFrontend::ContinuarEvento { presentacion: v.id })
+                }
+                VistaSesion::EsperandoDecisionEvento(v) => {
+                    i.enviar(IntencionFrontend::ResponderEvento {
+                        presentacion: v.id,
+                        opcion: v.opciones[0].id,
+                    })
+                }
+                VistaSesion::ProcesandoCierre { token } => {
+                    i.enviar(IntencionFrontend::ContinuarCierre { token })
+                }
+                otra => panic!("prólogo: {otra:?}"),
+            }
+        }
+        let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('t')));
+        let (opciones, foco) = i.objetivos_ataque.as_mut().unwrap();
+        *foco = opciones
+            .iter()
+            .position(|o| o.nombre == "Gorun el Tragahuesos")
+            .unwrap();
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut t = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let mut contacto = false;
+        for _ in 0..800 {
+            match i.vista.clone() {
+                VistaSesion::PresentandoEvento(v) => {
+                    contacto |= v.evento == "gorun_contacto";
+                    let antes = i.partida.encuentro_suspendido().unwrap();
+                    i.avanzar_animacion(Duration::from_secs(20));
+                    assert_eq!(i.partida.encuentro_suspendido().unwrap(), antes);
+                    t.draw(|f| i.dibujar(f, &recursos)).unwrap();
+                    let texto = t
+                        .backend()
+                        .buffer()
+                        .content
+                        .iter()
+                        .map(|c| c.symbol())
+                        .collect::<String>();
+                    assert!(texto.contains("ATAQUE"));
+                    assert!(texto.contains(&v.titulo));
+                    i.manejar_tecla(tecla(KeyCode::Enter));
+                }
+                VistaSesion::Encuentro(v) => {
+                    if v.finalizado {
+                        assert!(contacto);
+                        return;
+                    }
+                    if i.pausa_encuentro {
+                        i.manejar_tecla(tecla(KeyCode::Enter));
+                    }
+                    i.avanzar_animacion(Duration::from_secs(1));
+                }
+                otra => panic!("encuentro: {otra:?}"),
+            }
+        }
+        panic!("episodio sin terminar");
+    }
+
+    #[test]
     fn encuentro_terminal_selector_pausa_omision_y_tamano() {
         fn copiar(a: &std::path::Path, b: &std::path::Path) {
             std::fs::create_dir_all(b).unwrap();
@@ -2454,6 +2528,8 @@ mod pruebas {
         let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
         i.manejar_tecla(tecla(KeyCode::Char('t')));
         assert!(i.objetivos_ataque.is_some());
+        let (opciones, foco) = i.objetivos_ataque.as_mut().unwrap();
+        *foco = opciones.iter().position(|o| o.nombre == "Miraz").unwrap();
         i.manejar_tecla(tecla(KeyCode::Enter));
         let VistaSesion::Encuentro(inicial) = i.vista.clone() else {
             panic!("{:?}", i.vista)

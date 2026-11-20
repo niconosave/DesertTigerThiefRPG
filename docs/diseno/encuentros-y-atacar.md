@@ -599,3 +599,32 @@ Lectura, pausa, velocidad y omisión no añaden tiempo ni cambian tiradas. El ci
 confirma el tiempo una sola vez y ejecuta la agenda y los eventos existentes.
 La muerte del jugador queda registrada; todavía no hay sucesión automática ni un
 nuevo final de campaña específico de combate.
+
+
+## 18. Ciclo 2: acontecimientos escritos dentro del encuentro
+
+Implementado un primer caso para Gorun, en Costa Ámbar. El perfil sigue siendo el
+escenario mínimo generado; se interpreta narrativamente como un refugio entre
+rocas, sin incorporar todavía una familia de mapas de cuevas.
+
+- Preparación: el grupo oye al ogro cantar mientras come y descubre indicios de
+  sus víctimas. El encuentro se mantiene detenido durante la lectura.
+- Contacto: al revelarse el segundo cuarto, Gorun arroja su piedra de molino y
+  derriba los laterales del acceso. Se abren dos casillas reales: el paso pasa de
+  una a tres casillas de ancho y cambian los recorridos posibles.
+- Herida: si llega a quedar herido pero aún capaz, un momento muestra su sorpresa
+  ante su propia sangre. Puede no aparecer si varios golpes simultáneos lo dejan
+  directamente fuera de combate; el relato no obliga a un resultado mecánico.
+- Conclusión: un texto distinto según el ogro siga vivo o haya muerto. El cierre
+  conserva el resultado real, incluida una retirada o captura del grupo.
+
+Son escenas originales inspiradas en el encuentro mítico con un devorador; no
+reproducen un pasaje de Beowulf. Cada evento usa la repetición ya existente de una
+vez por partida: si el grupo se retira y vuelve, los momentos vistos no se repiten.
+No se añaden aún tesoros adquiribles ni poderes nuevos para el ogro.
+
+Los momentos son fronteras semánticas, no una consulta de eventos por cada tile:
+preparación, primer contacto, primera herida observable y conclusión. No se pierde
+el estado del encuentro ni se tiran dados mientras se lee. Al terminar el relato,
+las reglas continúan desde el tablero cambiado. Abrir una brecha cambia el terreno;
+no implica una simulación de escombros, daño de derrumbe o fuego.

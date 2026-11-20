@@ -26,3 +26,17 @@ combates, recompensas o victorias contra Nuris en este episodio.
 
 Los eventos corresponden al príncipe como protagonista. Otras futuras aperturas
 podrán establecer sus propios encuentros y conflictos.
+
+
+## Encuentro de Gorun
+
+`encuentros/gorun_*.ron` muestra las primeras intervenciones locales de Atacar.
+La preparación, el contacto, una herida observable y la conclusión suspenden el
+encuentro mientras se lee. `encuentro:momento()` distingue esas fronteras.
+`gorun_contacto.ron` usa anclajes del generador mediante `encuentro:referencia` y
+abre una brecha con `op_encuentro.terreno`. El bloque de efectos tiene operaciones
+mundiales y una lista `encuentro` de comandos locales: ambos se confirman juntos.
+No se garantiza que el ogro quede herido un pulso entero; el relato de herida puede
+no aparecer. Cada evento sucede una vez por partida, incluso si el grupo se retira
+y vuelve. Equipamiento, tesoros recogibles y creación de nuevas fichas siguen fuera
+del alcance. Consultar el ciclo 2 del diseño técnico para el contrato concreto.

@@ -1,0 +1,25 @@
+(
+    clave: "gorun_contacto",
+    activacion: PorPuntos(puntos: ["encuentro.momento"]),
+    filtros: (objetivo: Some(Actor("ogro_gorun"))),
+    condicion: "return encuentro:momento() == 'contacto'",
+    inicio: "intrusos",
+    pasos: [
+        Vigneta(clave: "intrusos", presentacion: r#"return {
+            titulo = "Una cena interrumpida",
+            texto = "El canto cesa. Gorun se queda mirándote, con un hueso todavía entre los dientes. Luego esconde detrás del cuerpo un manojo de brazaletes, como un niño sorprendido robando. Cuando ve que seguís avanzando, levanta su piedra de molino y la arroja contra la separación: varias piedras se desploman y el paso queda abierto de par en par."
+        }"#, siguiente: Some("abrir")),
+        Efectos(clave: "abrir", salidas: ["brecha"], resolver: r#"local norte = encuentro:referencia('brecha_norte')
+            local sur = encuentro:referencia('brecha_sur')
+            return {
+            operaciones = {},
+            encuentro = {op_encuentro.terreno(norte.x, norte.y, 'suelo'), op_encuentro.terreno(sur.x, sur.y, 'suelo')},
+            siguiente = 'brecha'
+        }"#),
+        Vigneta(clave: "brecha", presentacion: r#"return {
+            titulo = "Entre las piedras caídas",
+            texto = "El polvo se abre sobre un paso mucho más ancho. Gorun golpea el suelo con las manos y se abalanza hacia ustedes. Ya no puede contenerlos en la abertura estrecha, pero tampoco parece importarle: está furioso porque han visto su escondite."
+        }"#, siguiente: Some("fin")),
+        Fin(clave: "fin", control: Continuar),
+    ],
+)

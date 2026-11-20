@@ -1,0 +1,14 @@
+(
+    clave: "gorun_preparacion",
+    activacion: PorPuntos(puntos: ["encuentro.antes_vineta"]),
+    filtros: (objetivo: Some(Actor("ogro_gorun"))),
+    condicion: "return encuentro:momento() == 'preparacion'",
+    inicio: "rastro",
+    pasos: [
+        Vigneta(clave: "rastro", presentacion: r#"return {
+            titulo = "La mesa del Tragahuesos",
+            texto = "Seguís un rastro de espinas de pescado y huesos partidos hasta un refugio entre las rocas. Detrás de una separación de piedra suena un golpe lento, siempre igual: Gorun machaca su cena con una piedra de molino. Entre golpe y golpe tararea una canción que parece haber aprendido escuchando a los pescadores."
+        }"#, siguiente: Some("fin")),
+        Fin(clave: "fin", control: Continuar),
+    ],
+)

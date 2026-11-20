@@ -61,8 +61,15 @@ pub enum Suceso {
         por: usize,
     },
 }
+/// Transformaciones explícitas de autor, sin simular su causa narrativa.
+#[derive(Clone, Debug)]
+pub enum ComandoEncuentro {
+    CambiarTerreno { posicion: Posicion, terreno: Celda },
+    Reubicar { actor: IdActor, posicion: Posicion },
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Encuentro {
+    pub referencias: BTreeMap<String, Posicion>,
     pub ancho: u16,
     pub alto: u16,
     pub celdas: Vec<Celda>,
@@ -197,6 +204,25 @@ impl Encuentro {
             prioridad.swap(i, j);
         }
         Ok(Self {
+            referencias: [
+                ("entrada", 2, 8),
+                ("acceso", 15, 8),
+                ("brecha_norte", 15, 7),
+                ("brecha_sur", 15, 9),
+            ]
+            .into_iter()
+            .map(|(nombre, x, y)| {
+                (
+                    nombre.to_owned(),
+                    Posicion {
+                        area: 0,
+                        nivel: 0,
+                        x,
+                        y,
+                    },
+                )
+            })
+            .collect(),
             ancho,
             alto,
             celdas,
@@ -217,6 +243,87 @@ impl Encuentro {
             sin_progreso: 0,
             bloqueado: false,
         })
+    }
+    pub fn aplicar_comandos(
+        &mut self,
+        comandos: &[ComandoEncuentro],
+        mundo: &Mundo,
+    ) -> Result<(), String> {
+        let mut candidato = self.clone();
+        for comando in comandos {
+            let posicion = match comando {
+                ComandoEncuentro::CambiarTerreno { posicion, .. }
+                | ComandoEncuentro::Reubicar { posicion, .. } => *posicion,
+            };
+            if candidato.terreno(posicion).is_none() {
+                return Err("posición fuera del encuentro".into());
+            }
+            match *comando {
+                ComandoEncuentro::CambiarTerreno { terreno, .. } => {
+                    if terreno != Celda::Suelo
+                        && (posicion == candidato.entrada
+                            || candidato
+                                .fichas
+                                .iter()
+                                .any(|f| !f.salio && f.posicion == posicion))
+                    {
+                        return Err("terreno bloquea una ficha o la salida".into());
+                    }
+                    let indice = usize::from(posicion.y * candidato.ancho + posicion.x);
+                    candidato.celdas[indice] = terreno;
+                }
+                ComandoEncuentro::Reubicar { actor, .. } => {
+                    if !candidato.suelo(posicion) {
+                        return Err("destino no transitable".into());
+                    }
+                    let indice = candidato
+                        .fichas
+                        .iter()
+                        .position(|f| f.actor == actor)
+                        .ok_or("actor fuera del encuentro")?;
+                    if !candidato.fichas[indice].puede_actuar()
+                        || candidato
+                            .fichas
+                            .iter()
+                            .any(|f| f.transportado_por == Some(indice))
+                        || candidato
+                            .fichas
+                            .iter()
+                            .enumerate()
+                            .any(|(i, f)| i != indice && f.puede_actuar() && f.posicion == posicion)
+                    {
+                        return Err("reubicación incompatible con ocupación o estado".into());
+                    }
+                    candidato.fichas[indice].posicion = posicion;
+                }
+            }
+        }
+        // La pertenencia y estados mundiales no pueden desincronizar las fichas.
+        for f in &candidato.fichas {
+            let a = mundo.actor(f.actor).ok_or("actor ausente")?;
+            let tiene = |tag: &str| a.caracteristicas().any(|c| c.como_str() == tag);
+            let golpes = if tiene("muerto") {
+                3
+            } else if tiene("incapacitado") {
+                2
+            } else if tiene("herido") {
+                1
+            } else {
+                0
+            };
+            if mundo.ubicacion_actor(f.actor) != Some(mundo.ubicacion_grupo())
+                || golpes != f.golpes
+                || f.ataque != if tiene("fuerte") { 2 } else { 0 }
+                || f.defensa != if tiene("agil") { 2 } else { 0 }
+            {
+                return Err("el evento desincroniza el actor y su ficha".into());
+            }
+        }
+        candidato.sucesos.clear();
+        candidato.bloqueado = false;
+        candidato.sin_progreso = 0;
+        *self = candidato;
+        Ok(())
     }
     pub fn terreno(&self, p: Posicion) -> Option<Celda> {
         if p.area != 0 || p.nivel != 0 || p.x >= self.ancho || p.y >= self.alto {
@@ -608,6 +715,67 @@ mod pruebas {
             relaciones: vec![],
         })
         .unwrap()
+    }
+    #[test]
+    fn ciclo2_comandos_locales_validan_y_no_confirman_prefijos_invalidos() {
+        let m = mundo(3, 2);
+        let mut e =
+            Encuentro::nuevo(&m, &[actor(0), actor(1)], actor(2), &[], &mut Dado(19)).unwrap();
+        let inicial = e.clone();
+        let abrir = ComandoEncuentro::CambiarTerreno {
+            posicion: Posicion {
+                area: 0,
+                nivel: 0,
+                x: 15,
+                y: 7,
+            },
+            terreno: Celda::Suelo,
+        };
+        let invalido = ComandoEncuentro::Reubicar {
+            actor: actor(0),
+            posicion: e.fichas[1].posicion,
+        };
+        assert!(e.aplicar_comandos(&[abrir.clone(), invalido], &m).is_err());
+        assert_eq!(e, inicial);
+        let destino = Posicion {
+            area: 0,
+            nivel: 0,
+            x: 5,
+            y: 8,
+        };
+        e.aplicar_comandos(
+            &[
+                abrir,
+                ComandoEncuentro::Reubicar {
+                    actor: actor(0),
+                    posicion: destino,
+                },
+            ],
+            &m,
+        )
+        .unwrap();
+        assert_eq!(e.fichas[0].posicion, destino);
+        assert_eq!(
+            e.terreno(Posicion {
+                area: 0,
+                nivel: 0,
+                x: 15,
+                y: 7
+            }),
+            Some(Celda::Suelo)
+        );
+        let inicial = e.clone();
+        assert!(
+            e.aplicar_comandos(
+                &[ComandoEncuentro::CambiarTerreno {
+                    posicion: e.entrada,
+                    terreno: Celda::Muro
+                }],
+                &m
+            )
+            .is_err()
+        );
+        assert_eq!(e, inicial);
     }
     #[test]
     fn companeros_rodean_al_aliado_que_ya_combate() {

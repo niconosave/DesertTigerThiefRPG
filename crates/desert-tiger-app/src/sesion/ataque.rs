@@ -9,6 +9,7 @@ pub(super) struct AtaqueActivo {
     azar: ChaCha12Rng,
     pendiente: Option<VistaEncuentro>,
     secuencia: u64,
+    fronteras: std::collections::BTreeSet<&'static str>,
 }
 pub(super) fn cautivo(m: &Mundo, a: IdActor) -> bool {
     m.relaciones()
@@ -45,6 +46,17 @@ pub(super) fn objetivos(m: &Mundo, c: &ContenidoValidado) -> Vec<ObjetivoAtaque>
             })
         })
         .collect()
+}
+fn tiempo_encuentro(pulso: u64) -> Result<desert_tiger_core::TiempoAccion, String> {
+    let segundos = 600u128 + u128::from(pulso) * 6;
+    let partes = segundos * 2_400_000_000u128 / 86_400;
+    Ok(desert_tiger_core::TiempoAccion {
+        duracion: Duracion::desde_dias(
+            u32::try_from(partes / 2_400_000_000).map_err(|_| "duración fuera de rango")?,
+        ),
+        fraccion: FraccionDia::nueva((partes % 2_400_000_000) as u32)
+            .map_err(|_| "fracción fuera de rango")?,
+    })
 }
 fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
     let m = &a.motor;
@@ -166,6 +178,64 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
     }
 }
 impl Partida {
+    /// Vista local durante un relato suspendido, sin adelantar reglas ni azar.
+    pub fn encuentro_suspendido(&self) -> Option<VistaEncuentro> {
+        if !matches!(
+            self.continuacion_evento,
+            Some(eventos_partida::Continuacion::Encuentro)
+        ) {
+            return None;
+        }
+        let mut activo = self.ataque.as_ref()?.clone();
+        if let Some((motor, _)) = &self.eventos.encuentro {
+            activo.motor = motor.clone();
+        }
+        Some(vista(&activo, &self.contenido))
+    }
+    pub(super) fn restaurar_encuentro(&mut self) -> Result<(), String> {
+        let (motor, _) = self
+            .eventos
+            .encuentro
+            .take()
+            .ok_or("tablero narrativo ausente")?;
+        let activo = self.ataque.as_mut().ok_or("ataque ausente")?;
+        activo.motor = motor;
+        activo.secuencia = activo.secuencia.checked_add(1).ok_or("secuencia agotada")?;
+        self.vista = VistaSesion::Encuentro(vista(activo, &self.contenido));
+        Ok(())
+    }
+    fn publicar_frontera_encuentro(&mut self) -> Result<bool, String> {
+        let a = self.ataque.as_mut().ok_or("ataque ausente")?;
+        if a.pendiente.is_some() {
+            return Ok(false);
+        }
+        let objetivo = &a.motor.fichas[a.motor.objetivo];
+        let frontera = if !a.fronteras.contains("preparacion") {
+            Some(("preparacion", ClasePunto::EncuentroAntesVineta))
+        } else if a.motor.descubierta && !a.fronteras.contains("contacto") {
+            Some(("contacto", ClasePunto::EncuentroMomento))
+        } else if objetivo.golpes == 1 && !a.fronteras.contains("herida") {
+            Some(("herida", ClasePunto::EncuentroMomento))
+        } else if a.motor.desenlace.is_some() && !a.fronteras.contains("conclusion") {
+            Some(("conclusion", ClasePunto::EncuentroAntesCierre))
+        } else {
+            None
+        };
+        let Some((momento, clase)) = frontera else {
+            return Ok(false);
+        };
+        let id_objetivo = objetivo.actor;
+        let pulso = a.motor.pulso;
+        a.fronteras.insert(momento);
+        self.eventos.encuentro = Some((a.motor.clone(), momento.into()));
+        let mut ctx = self.contexto_sesion(clase);
+        ctx.accion = Some("atacar");
+        ctx.instante = desert_tiger_core::proyectar_tiempo(self.inicio, tiempo_encuentro(pulso)?)
+            .map_err(|e| e.to_string())?;
+        ctx.objetivo = Some(crate::ExtremoRelacion::Actor(id_objetivo));
+        self.abrir_eventos(ctx, eventos_partida::Continuacion::Encuentro)?;
+        Ok(true)
+    }
     pub(super) fn iniciar_ataque_local(&mut self, objetivo: IdActor) -> Result<(), String> {
         if !objetivos(&self.mundo, &self.contenido)
             .iter()
@@ -175,7 +245,9 @@ impl Partida {
             return Ok(());
         }
         self.crear_ataque_local(objetivo)
-            .map_err(|e| format!("{e:?}"))
+            .map_err(|e| format!("{e:?}"))?;
+        self.publicar_frontera_encuentro()?;
+        Ok(())
     }
     fn crear_ataque_local(&mut self, objetivo: IdActor) -> Result<(), ErrorIntencion> {
         let grupo = std::iter::once(self.mundo.actor_jugador())
@@ -234,6 +306,7 @@ impl Partida {
             azar,
             pendiente: None,
             secuencia: 0,
+            fronteras: Default::default(),
         };
         self.inicio = InstanteAccion {
             fecha: self.mundo.fecha(),
@@ -279,6 +352,19 @@ impl Partida {
         if !matches!(&self.vista,VistaSesion::Encuentro(v) if v.id==id&&v.paso==paso) {
             return Err(ErrorIntencion::FragmentoNoVigente);
         }
+        if matches!(
+            i,
+            IntencionFrontend::AvanzarEncuentro { .. } | IntencionFrontend::CerrarEncuentro { .. }
+        ) {
+            match self.publicar_frontera_encuentro() {
+                Ok(true) => return Ok(self.vista()),
+                Ok(false) => {}
+                Err(e) => {
+                    self.fatal(CodigoFatalSesion::EventoNarrativo, e);
+                    return Ok(self.vista());
+                }
+            }
+        }
         let a = self
             .ataque
             .as_ref()
@@ -287,13 +373,8 @@ impl Partida {
             if a.motor.desenlace.is_none() || a.pendiente.is_some() {
                 return Err(ErrorIntencion::FaseIncompatible);
             }
-            let segundos = 600u128 + u128::from(a.motor.pulso) * 6;
-            let partes = segundos * 2_400_000_000u128 / 86_400;
-            let tiempo = desert_tiger_core::TiempoAccion {
-                duracion: Duracion::desde_dias((partes / 2_400_000_000) as u32),
-                fraccion: FraccionDia::nueva((partes % 2_400_000_000) as u32)
-                    .map_err(|_| ErrorIntencion::FaseIncompatible)?,
-            };
+            let tiempo =
+                tiempo_encuentro(a.motor.pulso).map_err(|_| ErrorIntencion::FaseIncompatible)?;
             if let Err(e) = self.concluir_accion(tiempo) {
                 self.fatal(e.codigo(), e.detalle());
             }
@@ -324,6 +405,9 @@ impl Partida {
             pendiente.paso = nuevo.secuencia;
             self.vista = VistaSesion::Encuentro(pendiente);
             self.ataque = Some(nuevo);
+            if let Err(e) = self.publicar_frontera_encuentro() {
+                self.fatal(CodigoFatalSesion::EventoNarrativo, e);
+            }
             return Ok(self.vista());
         }
         if nuevo.motor.desenlace.is_some() || nuevo.motor.bloqueado {
@@ -416,6 +500,9 @@ impl Partida {
         preparado.confirmar(&mut self.mundo);
         self.vista = VistaSesion::Encuentro(impacto);
         self.ataque = Some(nuevo);
+        if let Err(e) = self.publicar_frontera_encuentro() {
+            self.fatal(CodigoFatalSesion::EventoNarrativo, e);
+        }
         Ok(self.vista())
     }
 }
@@ -498,6 +585,143 @@ mod pruebas {
             }
         }
         panic!("cierre sin terminar");
+    }
+    fn preparar_ogro(p: &mut Partida) -> IdActor {
+        let destino = p.contenido.claves().lugar_por_clave("costa_ambar").unwrap();
+        p.mundo
+            .aplicar_lote(LoteOperaciones::uno(OperacionMundo::Trasladar {
+                actor: p.mundo.actor_jugador(),
+                destino,
+            }))
+            .unwrap();
+        p.mundo_visible =
+            proyectar_mundo(&p.mundo, &p.mapa, &p.contenido, &p.vision, None).unwrap();
+        p.vista = VistaSesion::Disponible(p.mundo_visible.clone());
+        p.contenido.claves().actor_por_clave("ogro_gorun").unwrap()
+    }
+    #[test]
+    fn ciclo2_efectos_mixtos_atomicos_y_reubicacion() {
+        fn copiar(a: &std::path::Path, b: &std::path::Path) {
+            std::fs::create_dir_all(b).unwrap();
+            for e in std::fs::read_dir(a).unwrap() {
+                let e = e.unwrap();
+                let destino = b.join(e.file_name());
+                if e.path().is_dir() {
+                    copiar(&e.path(), &destino);
+                } else {
+                    std::fs::copy(e.path(), destino).unwrap();
+                }
+            }
+        }
+        for (valido, x, y) in [(false, 0, 0), (true, 20, 8)] {
+            let (mut p, _) = partida();
+            let ogro = preparar_ogro(&mut p);
+            let raiz =
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../content/base");
+            let tmp = std::env::temp_dir()
+                .join(format!("dt-ciclo2-mixto-{}-{valido}", std::process::id()));
+            copiar(&raiz, &tmp);
+            let fuente = format!(
+                r##"(
+                clave:"prueba_mixta",prioridad:10000,puntos:["encuentro.antes_vineta"],
+                filtros:(objetivo:Some(Actor("ogro_gorun"))),condicion:"return true",inicio:"cambiar",
+                pasos:[Efectos(clave:"cambiar",salidas:["fin"],resolver:r#"return {{
+                    operaciones={{op.anadir_caracteristica('samir','herido')}},
+                    encuentro={{op_encuentro.terreno(15,7,'suelo'),op_encuentro.reubicar('ogro_gorun',{x},{y})}},
+                    siguiente='fin'}}"#),Fin(clave:"fin",control:Continuar)]
+            )"##
+            );
+            std::fs::write(tmp.join("events/prueba_mixta.ron"), fuente).unwrap();
+            p.contenido = crate::cargar_contenido(&tmp).unwrap();
+            std::fs::remove_dir_all(tmp).unwrap();
+            p.procesar(IntencionFrontend::ComenzarAtaque { objetivo: ogro })
+                .unwrap();
+            let samir = p.contenido.claves().actor_por_clave("samir").unwrap();
+            let herido = p
+                .mundo
+                .actor(samir)
+                .unwrap()
+                .caracteristicas()
+                .any(|c| c.como_str() == "herido");
+            assert_eq!(herido, valido);
+            let local = &p.eventos.encuentro.as_ref().unwrap().0;
+            assert_eq!(
+                local.terreno(desert_tiger_core::encuentros::Posicion {
+                    area: 0,
+                    nivel: 0,
+                    x: 15,
+                    y: 7
+                }),
+                Some(if valido { Celda::Suelo } else { Celda::Muro })
+            );
+            let ficha = local.fichas.iter().find(|f| f.actor == ogro).unwrap();
+            assert_eq!(ficha.posicion.x, if valido { 20 } else { 27 });
+            if valido {
+                assert!(matches!(p.vista(), VistaSesion::PresentandoEvento(_)));
+            } else {
+                assert!(matches!(p.vista(), VistaSesion::Fatal(_)));
+            }
+        }
+    }
+    #[test]
+    fn ciclo2_ogro_transformacion_continua_hasta_cierre_sin_repetir() {
+        let (mut p, _) = partida();
+        let ogro = preparar_ogro(&mut p);
+        let antes = p.resto;
+        p.procesar(IntencionFrontend::ComenzarAtaque { objetivo: ogro })
+            .unwrap();
+        let mut escenas = std::collections::BTreeSet::new();
+        let mut vio_brecha = false;
+        for _ in 0..1000 {
+            match p.vista() {
+                VistaSesion::PresentandoEvento(v) => {
+                    let local = p
+                        .encuentro_suspendido()
+                        .expect("tablero conservado durante el relato");
+                    escenas.insert(v.evento.clone());
+                    if v.evento == "gorun_contacto" && v.paso == "brecha" {
+                        assert_eq!(local.celdas[7 * 31 + 15], TerrenoEncuentro::Suelo);
+                        assert_eq!(local.celdas[9 * 31 + 15], TerrenoEncuentro::Suelo);
+                        vio_brecha = true;
+                    }
+                    let motor = p.ataque.as_ref().unwrap().motor.clone();
+                    let primero = IntencionFrontend::ContinuarEvento { presentacion: v.id };
+                    p.procesar(primero).unwrap();
+                    let estado = p.vista();
+                    assert!(p.procesar(primero).is_err());
+                    assert_eq!(p.vista(), estado);
+                    assert_eq!(p.ataque.as_ref().unwrap().motor.pulso, motor.pulso);
+                }
+                VistaSesion::Encuentro(v) if v.finalizado => break,
+                VistaSesion::Encuentro(v) => {
+                    assert!(!v.pausa_decision, "encuentro bloqueado");
+                    avanzar(&mut p);
+                }
+                otra => panic!("estado inesperado: {otra:?}"),
+            }
+            assert_eq!(p.resto, antes, "leer o avanzar no confirma tiempo mundial");
+        }
+        assert!(escenas.contains("gorun_preparacion"));
+        assert!(escenas.contains("gorun_contacto"));
+        assert!(escenas.contains("gorun_conclusion"));
+        assert!(vio_brecha);
+        assert!(matches!(p.vista(),VistaSesion::Encuentro(v) if v.finalizado));
+        let VistaSesion::Encuentro(fin) = p.vista() else {
+            panic!()
+        };
+        let motor = p.ataque.as_ref().unwrap().motor.clone();
+        assert!(
+            p.procesar(IntencionFrontend::AvanzarEncuentro {
+                id: fin.id,
+                paso: fin.paso
+            })
+            .is_err()
+        );
+        assert_eq!(p.ataque.as_ref().unwrap().motor, motor);
+        cierre(&mut p);
+        assert!(p.ataque.is_none());
+        assert!(p.eventos.encuentro.is_none());
+        assert_ne!(p.resto, antes);
     }
     #[test]
     fn objetivos_de_prueba_ogro_banda_y_cautivo() {

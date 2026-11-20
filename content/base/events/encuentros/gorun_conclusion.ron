@@ -1,0 +1,19 @@
+(
+    clave: "gorun_conclusion",
+    activacion: PorPuntos(puntos: ["encuentro.antes_cierre"]),
+    filtros: (objetivo: Some(Actor("ogro_gorun"))),
+    condicion: "return encuentro:momento() == 'conclusion'",
+    inicio: "silencio",
+    pasos: [
+        Vigneta(clave: "silencio", presentacion: r#"
+            local texto
+            if mundo:actor_tiene('ogro_gorun', 'muerto') then
+                texto = 'El refugio queda en silencio. Entre los huesos reconocés botones, hebillas y pequeños objetos que alguien debió llevar con cariño. La canción de los pescadores te vuelve a la memoria; ahora solo se oye el viento que pasa entre las piedras.'
+            else
+                texto = 'Desde el refugio vuelve a llegar aquella canción, quebrada por el resuello de Gorun. El ogro sigue vivo. Lo que ocurrió entre esas piedras queda grabado en ustedes; el canto, que antes parecía absurdo, ya no tiene nada de inocente.'
+            end
+            return {titulo='El canto entre las rocas', texto=texto}
+        "#, siguiente: Some("fin")),
+        Fin(clave: "fin", control: Continuar),
+    ],
+)

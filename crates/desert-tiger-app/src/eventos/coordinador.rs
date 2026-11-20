@@ -39,6 +39,7 @@ pub struct VistaEvento {
 }
 #[derive(Clone, Default)]
 pub struct Coordinador {
+    pub encuentro: Option<(desert_tiger_core::encuentros::Encuentro, String)>,
     terminados: BTreeSet<String>,
     activo: Option<(String, String)>,
     cola: VecDeque<String>,
@@ -88,6 +89,7 @@ fn coincide(
     ctx: &ContextoIntervencion,
     fecha: Option<Fecha>,
     futuras: &[IdColectivo],
+    local: Option<&(desert_tiger_core::encuentros::Encuentro, String)>,
 ) -> Result<bool, String> {
     if e.filtros
         .actor
@@ -105,12 +107,13 @@ fn coincide(
     {
         return Ok(false);
     }
-    match e.condicion.ejecutar_con_agenda(
+    match e.condicion.ejecutar_en_encuentro(
         TipoPrograma::Condicion,
         m,
         c,
         ctx,
         (fecha, futuras, sede(e, m, c), observar(e, m, c)),
+        local,
     )? {
         Respuesta::Condicion(b) => Ok(b),
         _ => Err("retorno condición inválido".into()),
@@ -244,7 +247,7 @@ impl Coordinador {
             return Ok(None);
         };
         let ctx = self.contexto.as_ref().ok_or("contexto ausente")?;
-        let Respuesta::Presentacion(p) = presentacion.ejecutar_con_agenda(
+        let Respuesta::Presentacion(p) = presentacion.ejecutar_en_encuentro(
             TipoPrograma::Presentacion,
             m,
             c,
@@ -255,6 +258,7 @@ impl Coordinador {
                 sede(e, m, c),
                 self.observado,
             ),
+            self.encuentro.as_ref(),
         )?
         else {
             return Err("presentación inválida".into());
@@ -364,7 +368,15 @@ impl Coordinador {
                 return Err("control incompatible".into());
             }
             self.fecha_suceso = e.fecha;
-            if !coincide(e, mundo, c, ctx, e.fecha, &self.futuras)? {
+            if !coincide(
+                e,
+                mundo,
+                c,
+                ctx,
+                e.fecha,
+                &self.futuras,
+                self.encuentro.as_ref(),
+            )? {
                 if self.agenda {
                     self.terminados.insert(k);
                 }
@@ -406,7 +418,7 @@ impl Coordinador {
             Paso::Efectos {
                 resolver, salidas, ..
             } => {
-                let Respuesta::Efectos(r) = resolver.ejecutar_con_agenda(
+                let Respuesta::Efectos(r) = resolver.ejecutar_en_encuentro(
                     TipoPrograma::Efectos,
                     mundo,
                     c,
@@ -417,6 +429,7 @@ impl Coordinador {
                         sede(e, mundo, c),
                         self.observado,
                     ),
+                    self.encuentro.as_ref(),
                 )?
                 else {
                     return Err("efectos inválidos".into());
@@ -460,6 +473,11 @@ impl Coordinador {
                     .preparar_operaciones(r.operaciones)
                     .map_err(|err| format!("{}:{p}: {err}", e.archivo.display()))?;
                 validar(preparado.mundo(), cerrar)?;
+                if let Some((local, _)) = &mut self.encuentro {
+                    local.aplicar_comandos(&r.encuentro, preparado.mundo())?;
+                } else if !r.encuentro.is_empty() {
+                    return Err("comandos de encuentro sin tablero".into());
+                }
                 let vista = self.preparar_vista(e, &r.siguiente, preparado.mundo(), c)?;
                 let posicion_anterior = mundo.ubicacion_grupo();
                 preparado.confirmar(mundo);

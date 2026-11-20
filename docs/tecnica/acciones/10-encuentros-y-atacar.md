@@ -79,8 +79,7 @@ El tamaño del tablero y el máximo de participantes mantienen acotado el coste.
 Existe el punto `atacar.inicio`, previo a generar el tablero; permite relato e
 interrupción y revalida el objetivo al continuar. `accion.terminada` recibe acción
 `atacar` y objetivo Actor, seguido del circuito habitual de calendario, agenda,
-NPCs y disponibilidad. Los comandos Lua para modificar el tablero durante el
-episodio pertenecen al ciclo 2; no se habilitan simulaciones vacías de esa API.
+NPCs y disponibilidad. El ciclo 2 amplía estos puntos con intervenciones locales, descritas a continuación.
 
 Heridas se guardan como características. Captura agrega `PrisioneroDe` con índices
 actualizados; impide Viajar y Atacar incluso con una intención directa. El descanso
@@ -95,6 +94,67 @@ alterna pausa, `R` solicita retirada, `+`/`-` cambia intervalo, `S` omite espera
 tablero y sigue al primer integrante visible. Una terminal menor a 20 × 8 detiene
 el avance. El cierre del programa pide confirmación. Pausa, detalles, velocidad,
 resize y omisión no llaman a las reglas salvo para solicitar el siguiente paso.
+
+### Ciclo 2 implementado: intervenciones locales
+
+`AtaqueActivo` conserva las fronteras emitidas durante su ejecución. Abre
+`encuentro.antes_vineta` para preparación, `encuentro.momento` para contacto y
+herida, y `encuentro.antes_cierre` para conclusión. No se ofrece todavía el punto
+`encuentro.despues_vineta` del contrato amplio. Las fronteras se abren después de
+reproducir el frame pendiente; el comienzo del relato no omite ataques o reacciones.
+El instante del contexto proyecta preparación y pulsos, sin confirmar tiempo del
+Mundo. El cierre mantiene la única confirmación temporal.
+
+Durante una intervención el coordinador posee una copia candidata del encuentro.
+`Continuacion::Encuentro` restaura ese estado y aumenta el token de paso. No se
+resuelve otro pulso, ni se consume azar, ni se vuelve a generar el escenario al
+mostrar o terminar una viñeta. La terminal dibuja `encuentro_suspendido()` detrás
+de la ventana de evento y conserva sus controles habituales de lectura.
+
+Lua dispone de consultas de solo lectura dentro del punto local:
+
+- `encuentro:momento()`: `preparacion`, `contacto`, `herida` o `conclusion`.
+- `encuentro:ronda()`: pulsos resueltos.
+- `encuentro:posicion(clave_actor)`: posición o nil si no participa.
+- `encuentro:referencia(nombre)`: posición de un anclaje del generador, o nil.
+
+Las posiciones contienen x, y, area y nivel. El perfil mínimo registra entrada,
+acceso, brecha_norte y brecha_sur. Los eventos se apoyan en estos nombres, en vez
+de repetir coordenadas de construcción del escenario en los archivos de autor.
+
+En efectos se construyen comandos mediante `op_encuentro.terreno(x,y,tipo)`
+(suelo, muro, vacio) y `op_encuentro.reubicar(clave_actor,x,y)`. Usan área/nivel 0
+en este corte. No existen fuera de un encuentro suspendido ni mutan desde Lua.
+El primer formato concreto separa listas, con orden explícito Mundo primero y
+encuentro después; el protocolo mixto intercalado de la sección 14 sigue futuro:
+
+```lua
+local p = encuentro:referencia('brecha_norte')
+return {
+    operaciones = {},
+    encuentro = {op_encuentro.terreno(p.x, p.y, 'suelo')},
+    siguiente = 'relato'
+}
+```
+
+Se prepara el Mundo candidato; sobre el encuentro candidato se validan comandos
+en su orden y coherencia de actores; después se valida la presentación siguiente.
+Solo entonces se confirman ambos junto con la continuación del coordinador. Un
+fallo conserva el prefijo confirmado anterior, sin aplicar parte de ese bloque.
+Los comandos locales no tienen azar propio. Se rechazan destinos fuera de matriz,
+terreno no transitable, ocupación activa duplicada, bloqueo de la entrada o de una
+ficha por terreno, reubicaciones de fichas inactivas o transportando a otra, y
+actores que no participan. No se permite cambiar el grupo, su sede mundial o los
+estados/modificadores de las fichas mediante operaciones mundiales de este punto.
+Las operaciones sobre actores ajenos, relaciones o variables pueden coexistir con
+comandos locales si el lote resulta válido. El replanteo de caminos usa el tablero
+actual: no queda una ruta antigua atravesando terreno modificado.
+
+El contenido de referencia está en `content/base/events/encuentros/gorun_*.ron`.
+Mantiene la regla de una vez por partida del coordinador. El plan del ciclo es
+[PLAN-2026-048](../../planes/pendientes/2026-11-19-48-eventos-encuentro-ogro.md).
+No se implementan todavía creación de fichas/áreas, objetos locales, comandos de
+fuego, reubicación de grupos enteros ni libertad ilimitada de edición del tablero.
 
 ### Reservas futuras de representación y ocupación
 

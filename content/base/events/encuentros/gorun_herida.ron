@@ -1,0 +1,14 @@
+(
+    clave: "gorun_herida",
+    activacion: PorPuntos(puntos: ["encuentro.momento"]),
+    filtros: (objetivo: Some(Actor("ogro_gorun"))),
+    condicion: "return encuentro:momento() == 'herida'",
+    inicio: "sangre",
+    pasos: [
+        Vigneta(clave: "sangre", presentacion: r#"return {
+            titulo = "El sabor de su propia sangre",
+            texto = "Gorun se lleva una mano a la herida y mira los dedos ensangrentados con una sorpresa casi ofendida. Abre la boca para rugir, pero le sale una palabra humana: «Mío». No sabés si habla del refugio, de sus brazaletes o de ustedes. Después vuelve a embestir, sin soltar el hueso que aún aprieta entre los dientes."
+        }"#, siguiente: Some("fin")),
+        Fin(clave: "fin", control: Continuar),
+    ],
+)

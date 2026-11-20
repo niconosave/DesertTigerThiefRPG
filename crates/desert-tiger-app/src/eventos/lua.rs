@@ -3,6 +3,7 @@ use crate::{
     lua::{INTERVALO_HOOK_LUA, LIMITE_INSTRUCCIONES_LUA, crear_maquina, proxy_solo_lectura},
 };
 use desert_tiger_core::acciones::intervenciones::ContextoIntervencion;
+use desert_tiger_core::encuentros::{Celda, ComandoEncuentro, Encuentro, Posicion};
 use desert_tiger_core::{
     Caracteristica, ClaveVariableGlobal, ExtremoRelacion, Fecha, IdActor, IdColectivo, IdLugar,
     Mundo, OperacionMundo, TipoRelacion, ValorVariableGlobal,
@@ -32,6 +33,9 @@ impl<'de> Deserialize<'de> for Programa {
 #[derive(Clone)]
 struct Operacion(OperacionMundo);
 impl UserData for Operacion {}
+#[derive(Clone)]
+struct ComandoLocal(ComandoEncuentro);
+impl UserData for ComandoLocal {}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Momento {
     pub actor: Option<IdActor>,
@@ -44,6 +48,7 @@ pub struct Presentacion {
     pub detalle: Option<String>,
 }
 pub struct Efectos {
+    pub encuentro: Vec<ComandoEncuentro>,
     pub acciones_colectivas: Vec<IdColectivo>,
     pub operaciones: Vec<OperacionMundo>,
     pub siguiente: String,
@@ -132,6 +137,14 @@ fn valor(lua: &Lua, v: &ValorVariableGlobal) -> mlua::Result<Value> {
         ValorVariableGlobal::Texto(s) => Value::String(lua.create_string(s)?),
     })
 }
+fn posicion_visible(lua: &Lua, p: Posicion) -> mlua::Result<Value> {
+    let t = lua.create_table()?;
+    t.set("x", p.x)?;
+    t.set("y", p.y)?;
+    t.set("area", p.area)?;
+    t.set("nivel", p.nivel)?;
+    Ok(Value::Table(proxy_solo_lectura(lua, t)?))
+}
 fn texto(lua: &Lua, s: Option<&str>) -> mlua::Result<Value> {
     s.map(|s| lua.create_string(s).map(Value::String))
         .unwrap_or(Ok(Value::Nil))
@@ -184,6 +197,7 @@ impl Programa {
     ) -> Result<Respuesta, String> {
         self.ejecutar_con_agenda(tipo, mundo, c, ctx, (None, &[], None, true))
     }
+    #[cfg(test)]
     pub fn ejecutar_con_agenda(
         &self,
         tipo: TipoPrograma,
@@ -191,6 +205,17 @@ impl Programa {
         c: &CatalogoClaves,
         ctx: &ContextoIntervencion,
         agenda: (Option<Fecha>, &[IdColectivo], Option<IdLugar>, bool),
+    ) -> Result<Respuesta, String> {
+        self.ejecutar_en_encuentro(tipo, mundo, c, ctx, agenda, None)
+    }
+    pub fn ejecutar_en_encuentro(
+        &self,
+        tipo: TipoPrograma,
+        mundo: &Mundo,
+        c: &CatalogoClaves,
+        ctx: &ContextoIntervencion,
+        agenda: (Option<Fecha>, &[IdColectivo], Option<IdLugar>, bool),
+        local: Option<&(Encuentro, String)>,
     ) -> Result<Respuesta, String> {
         let (fecha_suceso, futuras, sede, presente) = agenda;
         let run = || -> mlua::Result<Respuesta> {
@@ -573,6 +598,105 @@ impl Programa {
                 }
                 env.set("ctx", proxy_solo_lectura(&lua, contexto)?)?;
                 env.set("mundo", proxy_solo_lectura(&lua, consultas)?)?;
+                if let Some((tablero, momento)) = local {
+                    let consultas_locales = lua.create_table()?;
+                    funcion(
+                        scope,
+                        &consultas_locales,
+                        "momento",
+                        0,
+                        0,
+                        true,
+                        move |lua, _| Ok(Value::String(lua.create_string(momento)?)),
+                    )?;
+                    funcion(
+                        scope,
+                        &consultas_locales,
+                        "ronda",
+                        0,
+                        0,
+                        true,
+                        move |_, _| Ok(Value::Integer(tablero.pulso as i64)),
+                    )?;
+                    funcion(
+                        scope,
+                        &consultas_locales,
+                        "posicion",
+                        1,
+                        1,
+                        true,
+                        move |lua, v| {
+                            let id = actor(c, &v[0])?;
+                            let Some(f) = tablero.fichas.iter().find(|f| f.actor == id) else {
+                                return Ok(Value::Nil);
+                            };
+                            posicion_visible(lua, f.posicion)
+                        },
+                    )?;
+                    funcion(
+                        scope,
+                        &consultas_locales,
+                        "referencia",
+                        1,
+                        1,
+                        true,
+                        move |lua, v| match tablero.referencias.get(&string(&v[0])?) {
+                            Some(p) => posicion_visible(lua, *p),
+                            None => Ok(Value::Nil),
+                        },
+                    )?;
+                    env.set("encuentro", proxy_solo_lectura(&lua, consultas_locales)?)?;
+                    if matches!(tipo, TipoPrograma::Efectos) {
+                        let ops_locales = lua.create_table()?;
+                        let posicion = |x: &Value, y: &Value| -> mlua::Result<Posicion> {
+                            Ok(Posicion {
+                                area: 0,
+                                nivel: 0,
+                                x: u16::try_from(entero(x)?).map_err(err)?,
+                                y: u16::try_from(entero(y)?).map_err(err)?,
+                            })
+                        };
+                        funcion(
+                            scope,
+                            &ops_locales,
+                            "terreno",
+                            3,
+                            3,
+                            false,
+                            move |lua, v| {
+                                let terreno = match string(&v[2])?.as_str() {
+                                    "suelo" => Celda::Suelo,
+                                    "muro" => Celda::Muro,
+                                    "vacio" => Celda::Vacio,
+                                    _ => return Err(err("terreno desconocido")),
+                                };
+                                Ok(Value::UserData(lua.create_userdata(ComandoLocal(
+                                    ComandoEncuentro::CambiarTerreno {
+                                        posicion: posicion(&v[0], &v[1])?,
+                                        terreno,
+                                    },
+                                ))?))
+                            },
+                        )?;
+                        funcion(
+                            scope,
+                            &ops_locales,
+                            "reubicar",
+                            3,
+                            3,
+                            false,
+                            move |lua, v| {
+                                Ok(Value::UserData(lua.create_userdata(ComandoLocal(
+                                    ComandoEncuentro::Reubicar {
+                                        actor: actor(c, &v[0])?,
+                                        posicion: posicion(&v[1], &v[2])?,
+                                    },
+                                ))?))
+                            },
+                        )?;
+                        env.set("op_encuentro", proxy_solo_lectura(&lua, ops_locales)?)?;
+                    }
+                }
                 if matches!(tipo, TipoPrograma::Efectos) {
                     let ops = lua.create_table()?;
                     funcion(scope, &ops, "esclavizar", 2, 2, false, move |lua, v| {
@@ -822,6 +946,7 @@ impl Programa {
                             &t,
                             &[
                                 "operaciones",
+                                "encuentro",
                                 "siguiente",
                                 "solicitar",
                                 "acciones_colectivas",
@@ -834,6 +959,19 @@ impl Programa {
                             };
                             operaciones.push(u.borrow::<Operacion>()?.0.clone());
                         }
+                        let encuentro = match t.get::<Value>("encuentro")? {
+                            Value::Nil => vec![],
+                            Value::Table(t) if local.is_some() && t.raw_len() <= 256 => lista(t)?
+                                .into_iter()
+                                .map(|v| {
+                                    let Value::UserData(u) = v else {
+                                        return Err(err("comando local no autorizado"));
+                                    };
+                                    Ok(u.borrow::<ComandoLocal>()?.0.clone())
+                                })
+                                .collect::<mlua::Result<Vec<_>>>()?,
+                            _ => return Err(err("comandos locales requieren encuentro activo")),
+                        };
                         let solicitar = match t.get::<Value>("solicitar")? {
                             Value::Nil => vec![],
                             Value::Table(t) => lista(t)?
@@ -851,6 +989,7 @@ impl Programa {
                             _ => return Err(err("acciones_colectivas requiere lista")),
                         };
                         Ok(Respuesta::Efectos(Efectos {
+                            encuentro,
                             acciones_colectivas,
                             operaciones,
                             siguiente: campo(&t, "siguiente")?,

@@ -1,6 +1,6 @@
 # Entregas de Encuentros, Atacar y Rescatar
 
-Estado: ciclo 1 implementado y pendiente de revisión de jugabilidad; ciclos siguientes diseñados. Fecha: 2026-11-19.
+Estado: ciclos 1 y 2 implementados; el ciclo 2 espera revisión de jugabilidad. Fecha: 2026-11-19.
 
 Esta hoja de ruta organiza el trabajo. No define mecánicas ni sustituye el plan
 de cada incremento. Su referencia es el [diseño de mecánicas](../diseno/encuentros-y-atacar.md)
@@ -89,8 +89,9 @@ narrada. El caso permite comprobar presentación, confirmación conjunta y
 replanteamiento de recorridos. La aceptación exige continuar y terminar el ataque
 usando el estado nuevo; mostrar una ventana sin efectos no completa esta entrega.
 
-Su plan se crea al revisar el ciclo 1 y selecciona solo los comandos necesarios
-para ese caso. Los demás comandos del contrato permanecen diseñados y pendientes.
+El [PLAN-2026-048](./pendientes/2026-11-19-48-eventos-encuentro-ogro.md)
+implementa el caso de Gorun: una brecha real, escenas propias y continuación del
+ataque. Selecciona cambio de terreno y reubicación como primeros comandos. Los demás comandos del contrato permanecen diseñados y pendientes.
 
 ### Ampliaciones siguientes
 

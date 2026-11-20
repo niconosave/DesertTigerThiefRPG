@@ -4,6 +4,12 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Eventos dentro del encuentro de Gorun
+
+[PLAN-2026-048](./2026-11-19-48-eventos-encuentro-ogro.md) implementa el ciclo 2:
+intervenciones Lua locales, brecha real y escenas originales. Queda revisión de
+jugabilidad; no incluye todavía el repertorio completo de comandos del diseño.
+
 ## Encuentros y primer Atacar
 
 [PLAN-2026-047](./2026-11-19-47-atacar-episodio-minimo.md) tiene implementado el primer
