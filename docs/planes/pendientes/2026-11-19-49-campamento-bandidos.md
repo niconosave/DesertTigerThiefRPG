@@ -75,3 +75,17 @@ Gorun en Costa Ámbar conserva los dos cuartos y su brecha narrativa.
 
 Todos los casos seleccionados pasaron. Logs en `/tmp/ciclo3-*.log`; no se ejecutó
 la batería completa del workspace.
+
+
+## Ampliación solicitada: ambientes simples
+
+El usuario pidió añadir palacio, ciudad, bosque, montaña y playa de manera sencilla,
+como parte de este mismo ciclo. Se añaden plantillas pequeñas y selector Automatico
+por terreno. Los reyes usan Palacio explícito; Gorun y Kazir conservan su perfil.
+No se amplían las reglas de combate ni el alcance a objetos o rescate.
+
+Pruebas adicionales acotadas: `escenarios_simples` en core recorre las cinco
+geometrías (conexión, determinismo, diferencias y desenlace); `escenarios_seleccionan`
+en app verifica la selección por terreno y los palacios explícitos. El dibujo con
+TestBackend comprueba símbolos y encabezados de las cinco variantes. Se conserva
+la regresión de sesión y del caso de Gorun. Logs en `/tmp/escenarios-*.log`.

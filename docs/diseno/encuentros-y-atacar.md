@@ -671,3 +671,27 @@ a la banda no lo libera automáticamente; esa condición pertenece a Rescatar.
 Esta entrega no agrega tesoros, nuevo equipo, salto, sigilo, niveles ni mapas
 persistentes. Las familias adicionales se incorporarán cuando otro caso jugable
 las necesite; no hace falta terminarlas todas antes de desarrollar Rescatar.
+
+
+## 20. Ampliación sencilla de escenarios
+
+Se incorporan cinco variantes más sin nuevas reglas de combate:
+
+| Ambiente | Disposición |
+|---|---|
+| Palacio | Tres salones comunicados por accesos amplios, con columnas interiores. |
+| Ciudad | Bloques de edificios separados por calles y callejones. |
+| Bosque | Troncos dispersos que obligan a maniobrar entre árboles. |
+| Montaña | Rocas y vacíos que dejan un corredor transitable por la ladera. |
+| Playa | Arena abierta, rocas dispersas y una orilla que limita el paso. |
+
+Zahrim y Miraz usan Palacio. Gorun conserva su recinto especial y Kazir su
+campamento. Los escenarios también pueden elegirse según el terreno del Lugar:
+ciudad, bosque, montaña, costa y, como alternativa general, campamento. La selección
+explícita permite conservar casos especiales aunque estén en otro tipo de Lugar.
+
+Los obstáculos siguen siendo sólidos y los vacíos no transitables: no hay salto,
+natación, tiro a distancia ni alturas efectivas. Palacio conserva la revelación
+parcial del recinto inicial; los ambientes abiertos muestran todo desde el comienzo,
+sin introducir una simulación de visión individual. El texto y los símbolos de
+terreno distinguen los ambientes; ninguna variante añade equipo o tesoros.

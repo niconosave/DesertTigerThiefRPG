@@ -1,5 +1,6 @@
 use crate::IdActor;
 use crate::contenido::CatalogoClaves;
+pub use desert_tiger_core::encuentros::Escenario as EscenarioEncuentro;
 use serde::Deserialize;
 use std::path::Path;
 #[derive(Clone, Debug, Deserialize)]
@@ -10,12 +11,44 @@ pub(crate) struct ConfigEncuentros {
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
 pub(crate) enum EscenarioConfigurado {
     #[default]
+    Automatico,
     Recinto,
     Campamento,
+    Palacio,
+    Ciudad,
+    Bosque,
+    Montana,
+    Playa,
 }
 impl EscenarioConfigurado {
-    pub fn motor(self) -> desert_tiger_core::encuentros::Escenario {
+    pub fn motor(
+        self,
+        mundo: &desert_tiger_core::Mundo,
+    ) -> desert_tiger_core::encuentros::Escenario {
+        use desert_tiger_core::encuentros::Escenario;
         match self {
+            Self::Automatico => {
+                let lugar = mundo.lugar(mundo.ubicacion_grupo());
+                let tiene = |tag: &str| {
+                    lugar.is_some_and(|l| l.caracteristicas().any(|c| c.como_str() == tag))
+                };
+                if tiene("civilizado") {
+                    Escenario::Ciudad
+                } else if tiene("boscoso") {
+                    Escenario::Bosque
+                } else if tiene("montanoso") {
+                    Escenario::Montana
+                } else if tiene("costero") {
+                    Escenario::Playa
+                } else {
+                    Escenario::Campamento
+                }
+            }
+            Self::Palacio => Escenario::Palacio,
+            Self::Ciudad => Escenario::Ciudad,
+            Self::Bosque => Escenario::Bosque,
+            Self::Montana => Escenario::Montana,
+            Self::Playa => Escenario::Playa,
             Self::Recinto => desert_tiger_core::encuentros::Escenario::Recinto,
             Self::Campamento => desert_tiger_core::encuentros::Escenario::Campamento,
         }
@@ -83,6 +116,7 @@ pub struct FichaEncuentro {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaEncuentro {
+    pub escenario: EscenarioEncuentro,
     pub id: u64,
     pub paso: u64,
     pub ancho: u16,

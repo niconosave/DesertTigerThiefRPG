@@ -78,11 +78,37 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
         "El grupo intenta retirarse y sacar a sus compañeros del lugar.".into()
     } else if m.fichas[m.objetivo].muerto() {
         "El objetivo ha caído. El grupo busca la salida.".into()
-    } else if m.escenario == Escenario::Campamento {
+    } else if m.escenario != Escenario::Recinto {
+        let (inicio, curso) = match m.escenario {
+            Escenario::Palacio => (
+                "Te preparás para entrar en un palacio de amplios salones, columnas y accesos vigilados.",
+                "El grupo avanza entre columnas y salones para alcanzar a su objetivo.",
+            ),
+            Escenario::Ciudad => (
+                "Te preparás para atacar entre las calles y callejones de la ciudad.",
+                "El grupo se abre paso entre las manzanas y sus defensores.",
+            ),
+            Escenario::Bosque => (
+                "Te preparás para atacar en un bosque. Los troncos obligan a buscar pasos entre los árboles.",
+                "El grupo maniobra entre los troncos para alcanzar a su objetivo.",
+            ),
+            Escenario::Montana => (
+                "Te preparás para atacar entre rocas y desniveles. Los vacíos dejan un paso estrecho por la ladera.",
+                "El grupo avanza por los pasos de la ladera, entre las rocas y sus adversarios.",
+            ),
+            Escenario::Playa => (
+                "Te preparás para atacar en la playa, entre rocas dispersas y la orilla. El agua limita el terreno transitable.",
+                "El grupo avanza por la arena y busca paso entre las rocas de la costa.",
+            ),
+            _ => (
+                "Te preparás para atacar un campamento entre las lomas. Más allá de las rocas, los defensores vigilan los dos pasos de un barranco seco.",
+                "El grupo busca abrirse paso entre las rocas y los defensores para alcanzar a su objetivo.",
+            ),
+        };
         if m.pulso == 0 {
-            "Te preparás para atacar un campamento entre las lomas. Más allá de las rocas, los defensores vigilan los dos pasos de un barranco seco.".into()
+            inicio.into()
         } else {
-            "El grupo busca abrirse paso entre las rocas y los defensores para alcanzar a su objetivo.".into()
+            curso.into()
         }
     } else if m.descubierta {
         "El grupo entra en combate e intenta abrirse paso hasta su objetivo.".into()
@@ -168,6 +194,7 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
         })
         .collect();
     VistaEncuentro {
+        escenario: m.escenario,
         id: a.id,
         paso: a.secuencia,
         ancho: m.ancho,
@@ -219,8 +246,8 @@ impl Partida {
         let frontera = if !a.fronteras.contains("preparacion") {
             Some(("preparacion", ClasePunto::EncuentroAntesVineta))
         } else if (match a.motor.escenario {
-            Escenario::Recinto => a.motor.descubierta,
-            Escenario::Campamento => a.motor.contacto_hostil(),
+            Escenario::Recinto | Escenario::Palacio => a.motor.descubierta,
+            _ => a.motor.contacto_hostil(),
         }) && !a.fronteras.contains("contacto")
         {
             Some(("contacto", ClasePunto::EncuentroMomento))
@@ -302,7 +329,7 @@ impl Partida {
             objetivo,
             &defensores,
             &mut AzarChaCha(azar.clone()),
-            perfil.escenario.motor(),
+            perfil.escenario.motor(&self.mundo),
         )
         .map_err(|_| ErrorIntencion::AccionRechazada(RechazoAccion::DestinoInvalido))?;
         // Flujo separado de resolución, independiente del número de sorteos del generador.
@@ -611,6 +638,37 @@ mod pruebas {
         p.contenido.claves().actor_por_clave("ogro_gorun").unwrap()
     }
     #[test]
+    fn escenarios_seleccionan_terreno_y_palacios_explicitos() {
+        let (mut p, _) = partida();
+        use crate::encuentro::EscenarioConfigurado;
+        for (lugar, esperado) in [
+            ("zarabad", Escenario::Ciudad),
+            ("bosque_oscuro", Escenario::Bosque),
+            ("monte_tazir", Escenario::Montana),
+            ("costa_ambar", Escenario::Playa),
+        ] {
+            let destino = p.contenido.claves().lugar_por_clave(lugar).unwrap();
+            p.mundo
+                .aplicar_lote(LoteOperaciones::uno(OperacionMundo::Trasladar {
+                    actor: p.mundo.actor_jugador(),
+                    destino,
+                }))
+                .unwrap();
+            assert_eq!(EscenarioConfigurado::Automatico.motor(&p.mundo), esperado);
+        }
+        for clave in ["zahrim", "miraz"] {
+            let perfil = p
+                .contenido
+                .encuentros()
+                .unwrap()
+                .objetivos
+                .iter()
+                .find(|o| o.actor == clave)
+                .unwrap();
+            assert_eq!(perfil.escenario.motor(&p.mundo), Escenario::Palacio);
+        }
+    }
+    #[test]
     fn ciclo3_bandidos_campamento_abierto_termina_y_no_libera_cautivo() {
         let (mut p, _) = partida();
         let destino = p
@@ -683,7 +741,7 @@ mod pruebas {
             .iter()
             .find(|o| o.actor == "ogro_gorun")
             .unwrap();
-        assert_eq!(ogro.escenario.motor(), Escenario::Recinto);
+        assert_eq!(ogro.escenario.motor(&p.mundo), Escenario::Recinto);
     }
     #[test]
     fn ciclo2_efectos_mixtos_atomicos_y_reubicacion() {

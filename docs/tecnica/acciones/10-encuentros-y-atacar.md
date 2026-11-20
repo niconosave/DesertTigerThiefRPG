@@ -158,10 +158,13 @@ fuego, reubicación de grupos enteros ni libertad ilimitada de edición del tabl
 
 ### Ciclo 3 implementado: campamento abierto
 
-El perfil del objetivo admite `escenario: Recinto` o `escenario: Campamento` en
-`content/base/encounters.ron`. Omitirlo conserva Recinto; claves de variante no
-reconocidas son errores de contenido. La selección es explícita por objetivo,
-sin deducir todavía la familia a partir del terreno del Lugar mundial.
+El perfil del objetivo admite `escenario` en `content/base/encounters.ron`.
+Variantes actuales: Automatico, Recinto, Campamento, Palacio, Ciudad, Bosque,
+Montana y Playa. Omitirlo usa Automatico. Su resolución consulta las características
+del Lugar actual en orden: civilizado→Ciudad, boscoso→Bosque, montanoso→Montana,
+costero→Playa; sin coincidencia usa Campamento. Una variante explícita prevalece.
+Se rechazan variantes desconocidas al cargar. Gorun declara Recinto para conservar
+sus anclajes narrativos; los dos gobernantes declaran Palacio.
 
 ```ron
 (actor: "jefe_bandido_kazir", escenario: Campamento,
@@ -169,7 +172,7 @@ sin deducir todavía la familia a partir del terreno del Lugar mundial.
 ```
 
 Core incorpora `Escenario` y `Encuentro::nuevo_con_escenario`; `nuevo` conserva su
-API y genera Recinto. Ambos perfiles tienen 31 × 17 tiles, fichas temporales,
+API y genera Recinto. Todos los perfiles tienen 31 × 17 tiles, fichas temporales,
 reglas y tiempos comunes. Campamento omite la pared divisoria y genera grupos de
 rocas y un barranco seco no transitable, cruzable en dos pasos de dos casillas de
 ancho. La semilla varía acotadamente su posición vertical. Los caminos hacia ambos
@@ -188,6 +191,20 @@ Kazir usa Campamento y sus tres defensores actuales. Tamin no es ficha combatien
 y conserva su cautiverio tras Atacar; la muerte de Kazir no equivale a rescatarlo.
 Gorun y los gobernantes conservan Recinto por defecto, con sus anclajes y eventos.
 El nuevo perfil no añade objetos, tiendas simuladas ni decisiones tácticas avanzadas.
+
+Las variantes simples se construyen con rectángulos de terreno y troncos puntuales,
+sin archivos de mapas nuevos. Palacio añade dos separaciones con aberturas de tres
+casillas y columnas; Ciudad tiene bloques de edificios y corredores; Bosque varía
+acotadamente la posición de troncos; Montana usa roca/vacío alrededor de un paso;
+Playa combina orilla no transitable y rocas. Los inicios se mantienen conectados.
+Los anclajes nuevos son entrada y objetivo; no se inventan brechas del refugio.
+Palacio conserva la ocultación/revelación inicial y la frontera de contacto por
+entrada; los ambientes abiertos usan contacto hostil real, como Campamento.
+
+`VistaEncuentro.escenario` permite a la terminal elegir encabezado y apariencia:
+T verde para troncos, ^ para roca de montaña, * para roca de playa, arena amarilla
+y orilla azul. Se conservan ASCII básico, dos columnas por tile y las mismas
+posiciones y reglas del motor. Los símbolos no crean nuevos tipos físicos.
 
 El [PLAN-2026-049](../../planes/pendientes/2026-11-19-49-campamento-bandidos.md)
 registra la entrega y su revisión de jugabilidad.

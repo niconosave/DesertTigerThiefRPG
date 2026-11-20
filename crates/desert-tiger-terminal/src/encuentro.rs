@@ -1,6 +1,6 @@
 //! Reproducción local de estados ya resueltos; no contiene reglas de combate.
 use crate::recursos::RecursosVisuales;
-use desert_tiger_app::{ObjetivoAtaque, TerrenoEncuentro, VistaEncuentro};
+use desert_tiger_app::{EscenarioEncuentro, ObjetivoAtaque, TerrenoEncuentro, VistaEncuentro};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -26,7 +26,16 @@ pub(crate) fn dibujar(
     }
     frame.render_widget(
         Paragraph::new(format!(
-            "ATAQUE · ronda {} · {}",
+            "ATAQUE · {} · ronda {} · {}",
+            match v.escenario {
+                EscenarioEncuentro::Recinto => "recinto",
+                EscenarioEncuentro::Campamento => "campamento",
+                EscenarioEncuentro::Palacio => "palacio",
+                EscenarioEncuentro::Ciudad => "ciudad",
+                EscenarioEncuentro::Bosque => "bosque",
+                EscenarioEncuentro::Montana => "montaña",
+                EscenarioEncuentro::Playa => "playa",
+            },
             v.ronda,
             if pausa { "pausa" } else { "en curso" }
         ))
@@ -55,8 +64,23 @@ pub(crate) fn dibujar(
             let i = usize::from((y + oy) * v.ancho + x + ox);
             let (s, c) = match v.celdas[i] {
                 TerrenoEncuentro::Desconocido => (" ", Color::Reset),
+                TerrenoEncuentro::Suelo if v.escenario == EscenarioEncuentro::Playa => {
+                    (".", Color::Yellow)
+                }
                 TerrenoEncuentro::Suelo => (".", Color::DarkGray),
+                TerrenoEncuentro::Muro if v.escenario == EscenarioEncuentro::Bosque => {
+                    ("T", Color::Green)
+                }
+                TerrenoEncuentro::Muro if v.escenario == EscenarioEncuentro::Montana => {
+                    ("^", Color::Gray)
+                }
+                TerrenoEncuentro::Muro if v.escenario == EscenarioEncuentro::Playa => {
+                    ("*", Color::Gray)
+                }
                 TerrenoEncuentro::Muro => ("#", Color::Gray),
+                TerrenoEncuentro::Vacio if v.escenario == EscenarioEncuentro::Montana => {
+                    (" ", Color::DarkGray)
+                }
                 TerrenoEncuentro::Vacio => ("~", Color::Blue),
             };
             if let Some(celda) = frame.buffer_mut().cell_mut((izquierda + x * 2, 2 + y)) {
@@ -221,6 +245,7 @@ mod pruebas {
         )
         .unwrap();
         let mut v = VistaEncuentro {
+            escenario: EscenarioEncuentro::Recinto,
             id: 1,
             paso: 0,
             ancho: 9,
@@ -267,6 +292,26 @@ mod pruebas {
             .map(|c| c.symbol())
             .collect::<String>();
         assert!(texto.contains("A-"));
+        v.celdas[4 * 9 + 3] = TerrenoEncuentro::Muro;
+        for (escenario, glifo, nombre) in [
+            (EscenarioEncuentro::Bosque, "T", "bosque"),
+            (EscenarioEncuentro::Montana, "^", "montaña"),
+            (EscenarioEncuentro::Playa, "*", "playa"),
+            (EscenarioEncuentro::Ciudad, "#", "ciudad"),
+            (EscenarioEncuentro::Palacio, "#", "palacio"),
+        ] {
+            v.escenario = escenario;
+            t.draw(|f| dibujar(f, &v, &recursos, true, false)).unwrap();
+            let texto = t
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .map(|c| c.symbol())
+                .collect::<String>();
+            assert!(texto.contains(glifo));
+            assert!(texto.contains(nombre));
+        }
         t.backend_mut().resize(120, 40);
         t.resize(Rect::new(0, 0, 120, 40)).unwrap();
         t.draw(|f| dibujar(f, &v, &recursos, true, true)).unwrap();

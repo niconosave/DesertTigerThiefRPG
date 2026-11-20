@@ -72,6 +72,11 @@ pub enum Escenario {
     #[default]
     Recinto,
     Campamento,
+    Palacio,
+    Ciudad,
+    Bosque,
+    Montana,
+    Playa,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Encuentro {
@@ -162,7 +167,7 @@ impl Encuentro {
                 }
                 celdas[usize::from(y * ancho + x)] = Celda::Muro;
             }
-        } else {
+        } else if escenario == Escenario::Campamento {
             for y in 1..alto - 1 {
                 if !(norte..=norte + 1).contains(&y) && !(sur..=sur + 1).contains(&y) {
                     celdas[usize::from(y * ancho + 20)] = Celda::Vacio;
@@ -174,6 +179,59 @@ impl Encuentro {
                         celdas[usize::from(y * ancho + x)] = Celda::Muro;
                     }
                 }
+            }
+        } else {
+            let mut rect = |x0: u16, y0: u16, x1: u16, y1: u16, t: Celda| {
+                for y in y0..=y1 {
+                    for x in x0..=x1 {
+                        celdas[usize::from(y * ancho + x)] = t;
+                    }
+                }
+            };
+            match escenario {
+                Escenario::Palacio => {
+                    for x in [11, 21] {
+                        rect(x, 1, x, 6, Celda::Muro);
+                        rect(x, 10, x, 15, Celda::Muro);
+                    }
+                    for x in [16, 25] {
+                        for y in [4, 12] {
+                            rect(x, y, x + 1, y + 1, Celda::Muro);
+                        }
+                    }
+                }
+                Escenario::Ciudad => {
+                    for (x0, y0, x1, y1) in [
+                        (7, 2, 11, 5),
+                        (7, 11, 11, 14),
+                        (17, 2, 21, 5),
+                        (18, 11, 22, 14),
+                        (25, 2, 28, 5),
+                    ] {
+                        rect(x0, y0, x1, y1, Celda::Muro);
+                    }
+                }
+                Escenario::Bosque => {
+                    let desplazamiento = sortear(azar, 2)? as u16;
+                    for x in [6, 9, 12, 15, 18, 21, 24] {
+                        for y in [3, 6, 11, 14] {
+                            rect(x + desplazamiento, y, x + desplazamiento, y, Celda::Muro);
+                        }
+                    }
+                }
+                Escenario::Montana => {
+                    rect(10, 1, 13, 5, Celda::Muro);
+                    rect(10, 11, 13, 15, Celda::Muro);
+                    rect(17, 2, 20, 6, Celda::Vacio);
+                    rect(17, 10, 20, 14, Celda::Vacio);
+                }
+                Escenario::Playa => {
+                    rect(5, 13, 29, 15, Celda::Vacio);
+                    rect(7, 11, 10, 12, Celda::Vacio);
+                    rect(10, 3, 11, 4, Celda::Muro);
+                    rect(20, 8, 21, 9, Celda::Muro);
+                }
+                _ => unreachable!("perfiles anteriores resueltos arriba"),
             }
         }
         let mut fichas = Vec::new();
@@ -262,13 +320,15 @@ impl Encuentro {
                     ("brecha_norte", 15, 7),
                     ("brecha_sur", 15, 9),
                 ]
-            } else {
+            } else if escenario == Escenario::Campamento {
                 vec![
                     ("entrada", 2, 8),
                     ("paso_norte", 20, norte),
                     ("paso_sur", 20, sur),
                     ("puesto_jefe", 27, 8),
                 ]
+            } else {
+                vec![("entrada", 2, 8), ("objetivo", 27, 8)]
             }
             .into_iter()
             .map(|(nombre, x, y)| {
@@ -296,7 +356,7 @@ impl Encuentro {
             },
             pulso: 0,
             retirando: false,
-            descubierta: escenario == Escenario::Campamento,
+            descubierta: !matches!(escenario, Escenario::Recinto | Escenario::Palacio),
             sucesos: vec![],
             desenlace: None,
             prioridad,
@@ -785,6 +845,64 @@ mod pruebas {
             relaciones: vec![],
         })
         .unwrap()
+    }
+    #[test]
+    fn escenarios_simples_conectados_distintos_y_jugables() {
+        let m = mundo(7, 3);
+        let mut formas = Vec::new();
+        for escenario in [
+            Escenario::Palacio,
+            Escenario::Ciudad,
+            Escenario::Bosque,
+            Escenario::Montana,
+            Escenario::Playa,
+        ] {
+            let mut e = Encuentro::nuevo_con_escenario(
+                &m,
+                &[actor(0), actor(1), actor(2)],
+                actor(3),
+                &[actor(4), actor(5), actor(6)],
+                &mut Dado(19),
+                escenario,
+            )
+            .unwrap();
+            let otra = Encuentro::nuevo_con_escenario(
+                &m,
+                &[actor(0), actor(1), actor(2)],
+                actor(3),
+                &[actor(4), actor(5), actor(6)],
+                &mut Dado(19),
+                escenario,
+            )
+            .unwrap();
+            assert_eq!(e, otra);
+            assert!(
+                !formas.contains(&e.celdas),
+                "geometría repetida: {escenario:?}"
+            );
+            formas.push(e.celdas.clone());
+            let mut vistos = BTreeSet::from([e.entrada]);
+            let mut cola = VecDeque::from([e.entrada]);
+            while let Some(p) = cola.pop_front() {
+                for vecino in e.vecinos(p) {
+                    if vistos.insert(vecino) {
+                        cola.push_back(vecino);
+                    }
+                }
+            }
+            assert!(
+                e.fichas.iter().all(|f| vistos.contains(&f.posicion)),
+                "inicio aislado: {escenario:?}"
+            );
+            for _ in 0..400 {
+                if e.desenlace.is_some() {
+                    break;
+                }
+                e.avanzar(&mut Dado(19)).unwrap();
+                assert!(!e.bloqueado, "atasco: {escenario:?}");
+            }
+            assert!(e.desenlace.is_some(), "no termina: {escenario:?}");
+        }
     }
     #[test]
     fn ciclo3_campamento_conectado_reproducible_con_dos_pasos() {

@@ -2,7 +2,9 @@
 
 mod contenido;
 mod encuentro;
-pub use encuentro::{FichaEncuentro, ObjetivoAtaque, TerrenoEncuentro, VistaEncuentro};
+pub use encuentro::{
+    EscenarioEncuentro, FichaEncuentro, ObjetivoAtaque, TerrenoEncuentro, VistaEncuentro,
+};
 mod eventos;
 pub use eventos::{IdOpcionEvento, IdPresentacionEvento, OpcionEvento, VistaEvento};
 mod contexto_viaje;
