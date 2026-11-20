@@ -19,6 +19,7 @@ pub enum Celda {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Ficha {
+    pub cautivo: bool,
     pub actor: IdActor,
     pub posicion: Posicion,
     pub aliado: bool,
@@ -30,7 +31,7 @@ pub struct Ficha {
 }
 impl Ficha {
     pub fn puede_actuar(&self) -> bool {
-        self.golpes < 2 && !self.salio && self.transportado_por.is_none()
+        !self.cautivo && self.golpes < 2 && !self.salio && self.transportado_por.is_none()
     }
     pub fn muerto(&self) -> bool {
         self.golpes >= 3
@@ -45,6 +46,10 @@ pub enum Desenlace {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Suceso {
+    Liberado {
+        ficha: usize,
+        por: usize,
+    },
     Paso {
         ficha: usize,
         desde: Posicion,
@@ -80,6 +85,7 @@ pub enum Escenario {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Encuentro {
+    pub rescate: bool,
     pub escenario: Escenario,
     pub referencias: BTreeMap<String, Posicion>,
     pub ancho: u16,
@@ -103,6 +109,7 @@ enum Intento {
     Mover(Posicion),
     Atacar(usize),
     Recoger(usize),
+    Liberar,
     Salir,
 }
 fn sortear(azar: &mut dyn FuenteAzar, n: usize) -> Result<usize, String> {
@@ -290,6 +297,7 @@ impl Encuentro {
             }
             celdas[usize::from(posicion.y * ancho + posicion.x)] = Celda::Suelo;
             fichas.push(Ficha {
+                cautivo: false,
                 actor,
                 posicion,
                 aliado,
@@ -312,6 +320,7 @@ impl Encuentro {
             prioridad.swap(i, j);
         }
         Ok(Self {
+            rescate: false,
             escenario,
             referencias: if escenario == Escenario::Recinto {
                 vec![
@@ -363,6 +372,23 @@ impl Encuentro {
             sin_progreso: 0,
             bloqueado: false,
         })
+    }
+    pub fn nuevo_rescate(
+        mundo: &Mundo,
+        grupo: &[IdActor],
+        cautivo: IdActor,
+        guardias: &[IdActor],
+        azar: &mut dyn FuenteAzar,
+        escenario: Escenario,
+    ) -> Result<Self, String> {
+        let mut e = Self::nuevo_con_escenario(mundo, grupo, cautivo, guardias, azar, escenario)?;
+        e.rescate = true;
+        e.fichas[e.objetivo].aliado = true;
+        e.fichas[e.objetivo].cautivo = true;
+        Ok(e)
+    }
+    pub fn rescatado_fuera(&self) -> bool {
+        self.rescate && self.fichas[self.objetivo].salio && !self.fichas[self.objetivo].muerto()
     }
     pub fn aplicar_comandos(
         &mut self,
@@ -560,7 +586,14 @@ impl Encuentro {
         if !f.puede_actuar() {
             return Intento::Esperar;
         }
-        let retirando = f.aliado && (self.retirando || self.fichas[self.objetivo].muerto());
+        let objetivo = &self.fichas[self.objetivo];
+        let retirando = f.aliado
+            && (self.retirando
+                || if self.rescate {
+                    !objetivo.cautivo || objetivo.muerto()
+                } else {
+                    objetivo.muerto()
+                });
         if retirando {
             if !self.fichas.iter().any(|p| p.transportado_por == Some(i))
                 && let Some((j, herido)) = self
@@ -568,7 +601,11 @@ impl Encuentro {
                     .iter()
                     .enumerate()
                     .filter(|(_, p)| {
-                        p.aliado && p.golpes == 2 && !p.salio && p.transportado_por.is_none()
+                        p.aliado
+                            && !p.cautivo
+                            && p.golpes == 2
+                            && !p.salio
+                            && p.transportado_por.is_none()
                     })
                     .min_by_key(|(_, p)| distancia(f.posicion, p.posicion))
             {
@@ -593,12 +630,30 @@ impl Encuentro {
             }
             return Intento::Esperar;
         }
+        if self.rescate && f.aliado {
+            if self.contacto(f.posicion, objetivo.posicion) {
+                return Intento::Liberar;
+            }
+            if let Some(j) = self.fichas.iter().enumerate().find_map(|(j, e)| {
+                (!e.aliado && e.puede_actuar() && self.contacto(f.posicion, e.posicion))
+                    .then_some(j)
+            }) {
+                return Intento::Atacar(j);
+            }
+            return self
+                .siguiente(i, objetivo.posicion, true)
+                .map(Intento::Mover)
+                .unwrap_or(Intento::Esperar);
+        }
         let enemigos = self.fichas.iter().enumerate().filter(|(_, e)| {
             e.aliado != f.aliado
                 && !e.salio
                 && e.transportado_por.is_none()
                 && (e.puede_actuar()
-                    || (f.aliado && e.actor == self.fichas[self.objetivo].actor && !e.muerto()))
+                    || (!self.rescate
+                        && f.aliado
+                        && e.actor == self.fichas[self.objetivo].actor
+                        && !e.muerto()))
         });
         let blanco = enemigos
             .min_by_key(|(j, e)| (distancia(f.posicion, e.posicion), *j))
@@ -683,6 +738,16 @@ impl Encuentro {
             if !self.fichas[i].puede_actuar() {
                 continue;
             }
+            if matches!(intentos[i], Intento::Liberar)
+                && self.rescate
+                && self.fichas[self.objetivo].cautivo
+            {
+                self.fichas[self.objetivo].cautivo = false;
+                self.sucesos.push(Suceso::Liberado {
+                    ficha: self.objetivo,
+                    por: i,
+                });
+            }
             if let Intento::Recoger(j) = intentos[i]
                 && self.fichas[j].golpes == 2
                 && self.fichas[j].transportado_por.is_none()
@@ -708,7 +773,11 @@ impl Encuentro {
                         }
                     }
                     let quedan = self.fichas.iter().any(|f| {
-                        f.aliado && f.golpes == 2 && !f.salio && f.transportado_por.is_none()
+                        f.aliado
+                            && !f.cautivo
+                            && f.golpes == 2
+                            && !f.salio
+                            && f.transportado_por.is_none()
                     });
                     if !quedan {
                         self.fichas[i].salio = true;
@@ -767,14 +836,25 @@ impl Encuentro {
         let fuera = self
             .fichas
             .iter()
-            .filter(|f| f.aliado && !f.muerto())
+            .filter(|f| f.aliado && !f.cautivo && !f.muerto())
             .all(|f| f.salio);
-        if fuera && self.fichas.iter().any(|f| f.aliado && !f.muerto()) {
-            self.desenlace = Some(if self.fichas[self.objetivo].muerto() {
-                Desenlace::Exito
-            } else {
-                Desenlace::Retirada
-            });
+        if fuera
+            && self
+                .fichas
+                .iter()
+                .any(|f| f.aliado && !f.cautivo && !f.muerto())
+        {
+            self.desenlace = Some(
+                if if self.rescate {
+                    self.rescatado_fuera()
+                } else {
+                    self.fichas[self.objetivo].muerto()
+                } {
+                    Desenlace::Exito
+                } else {
+                    Desenlace::Retirada
+                },
+            );
         } else if !libres {
             self.desenlace = Some(
                 self.fichas
@@ -845,6 +925,94 @@ mod pruebas {
             relaciones: vec![],
         })
         .unwrap()
+    }
+    #[test]
+    fn rescate_relaciones_conserva_ids_y_no_duplica_al_recapturar() {
+        use crate::{ExtremoRelacion, LoteOperaciones, OperacionMundo as Op, TipoRelacion};
+        let mut m = mundo(3, 2);
+        let confirmar = Op::ConfirmarRescate {
+            actor: actor(1),
+            captor: actor(2),
+            rescatador: actor(0),
+        };
+        for _ in 0..2 {
+            m.aplicar_lote(LoteOperaciones::uno(Op::RegistrarCautiverio {
+                actor: actor(1),
+                captor: actor(2),
+            }))
+            .unwrap();
+            let id = m
+                .relaciones()
+                .iter()
+                .find(|r| r.tipo() == TipoRelacion::PrisioneroDe)
+                .unwrap()
+                .id();
+            m.aplicar_lote(LoteOperaciones::uno(confirmar.clone()))
+                .unwrap();
+            assert_eq!(m.relacion(id).unwrap().tipo(), TipoRelacion::LiberadoDe);
+            m.aplicar_lote(LoteOperaciones::uno(confirmar.clone()))
+                .unwrap();
+            assert_eq!(m.relaciones().len(), 2);
+            let ids = m.relaciones_de(ExtremoRelacion::Actor(actor(0))).unwrap();
+            assert_eq!(ids.len(), 1);
+            assert_eq!(m.relacion(ids[0]).unwrap().tipo(), TipoRelacion::SalvadoPor);
+        }
+    }
+    #[test]
+    fn rescate_libera_y_extrae_incluso_incapacitado() {
+        let m = mundo(3, 2);
+        for golpes in [0, 2] {
+            let mut e = Encuentro::nuevo_rescate(
+                &m,
+                &[actor(0), actor(1)],
+                actor(2),
+                &[],
+                &mut Dado(19),
+                Escenario::Campamento,
+            )
+            .unwrap();
+            e.fichas[e.objetivo].golpes = golpes;
+            let mut liberaciones = 0;
+            for _ in 0..300 {
+                if e.desenlace.is_some() {
+                    break;
+                }
+                e.avanzar(&mut Dado(19)).unwrap();
+                liberaciones += e
+                    .sucesos
+                    .iter()
+                    .filter(|s| matches!(s, Suceso::Liberado { .. }))
+                    .count();
+                assert!(!e.bloqueado);
+            }
+            assert_eq!(e.desenlace, Some(Desenlace::Exito));
+            assert_eq!(liberaciones, 1);
+            assert!(e.rescatado_fuera());
+            assert_eq!(e.fichas[e.objetivo].golpes, golpes);
+        }
+    }
+    #[test]
+    fn rescate_retirada_sin_liberar_no_es_exito() {
+        let m = mundo(3, 2);
+        let mut e = Encuentro::nuevo_rescate(
+            &m,
+            &[actor(0), actor(1)],
+            actor(2),
+            &[],
+            &mut Dado(19),
+            Escenario::Campamento,
+        )
+        .unwrap();
+        e.reconsiderar(true);
+        for _ in 0..40 {
+            if e.desenlace.is_some() {
+                break;
+            }
+            e.avanzar(&mut Dado(19)).unwrap();
+        }
+        assert_eq!(e.desenlace, Some(Desenlace::Retirada));
+        assert!(e.fichas[e.objetivo].cautivo);
+        assert!(!e.rescatado_fuera());
     }
     #[test]
     fn escenarios_simples_conectados_distintos_y_jugables() {

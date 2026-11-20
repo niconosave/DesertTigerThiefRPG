@@ -45,3 +45,11 @@ Cada documento permanece en estado `Borrador` mientras tenga decisiones
 pendientes que afecten su alcance actual. Las extensiones expresamente aplazadas
 no bloquean su aprobación. Antes de crear un plan para un alcance, su
 documentación aplicable deberá estar aprobada para implementar.
+
+
+## Escenarios volumétricos futuros
+
+[29 — Escenarios volumétricos modulares y contexto táctico](./29-escenarios-volumetricos-modulares.md)
+registra el diseño futuro de volumen físico, composición adaptable de puentes,
+casas y accesos, y datos compartidos para IA. No está implementado ni sustituye
+el reglamento actual de encuentros.

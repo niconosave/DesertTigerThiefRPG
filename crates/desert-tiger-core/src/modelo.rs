@@ -289,6 +289,7 @@ pub enum TipoRelacion {
     EnemigoDe,
     PactoCon,
     PrisioneroDe,
+    LiberadoDe,
     SalvadoPor,
     TratosCon,
     ComerciaCon,
@@ -331,6 +332,7 @@ impl TipoRelacion {
             | Self::EnemigoDe
             | Self::PactoCon
             | Self::PrisioneroDe
+            | Self::LiberadoDe
             | Self::SalvadoPor
             | Self::TratosCon => matches!((origen, destino), (Actor(_), Actor(_))),
             Self::Conectado
@@ -1261,6 +1263,81 @@ impl Mundo {
                     grupo_virtual.integrantes.retain(|&id| id != actor);
                     cambios.push(CambioConfirmado::CompaneroSeparado { actor, lugar });
                 }
+                OperacionMundo::ConfirmarRescate {
+                    actor,
+                    captor,
+                    rescatador,
+                } => {
+                    for id in [actor, captor, rescatador] {
+                        if resolver_actor(&actores_virtuales, id).is_none() {
+                            return Err(ErrorOperacionMundo::ActorDesconocido { actor: id });
+                        }
+                    }
+                    if actor == captor
+                        || actor == rescatador
+                        || resolver_actor(&actores_virtuales, actor)
+                            .unwrap()
+                            .caracteristicas
+                            .iter()
+                            .any(|c| c.como_str() == "muerto")
+                    {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    let origen = ExtremoRelacion::Actor(actor);
+                    let destino = ExtremoRelacion::Actor(captor);
+                    let ya = relaciones_virtuales.iter().any(|r| {
+                        r.tipo == TipoRelacion::LiberadoDe
+                            && r.origen == origen
+                            && r.destino == destino
+                    });
+                    let mut cambio = false;
+                    for r in &mut relaciones_virtuales {
+                        if r.tipo == TipoRelacion::PrisioneroDe
+                            && r.origen == origen
+                            && r.destino == destino
+                        {
+                            r.tipo = TipoRelacion::LiberadoDe;
+                            cambio = true;
+                        }
+                    }
+                    if !cambio && !ya {
+                        return Err(ErrorOperacionMundo::EstadoGrupoInconsistente);
+                    }
+                    let destino = ExtremoRelacion::Actor(rescatador);
+                    if !relaciones_virtuales.iter().any(|r| {
+                        r.tipo == TipoRelacion::SalvadoPor
+                            && r.origen == origen
+                            && r.destino == destino
+                    }) {
+                        let id = IdRelacion::desde_posicion(relaciones_virtuales.len())
+                            .map_err(|_| ErrorOperacionMundo::EstadoGrupoInconsistente)?;
+                        relaciones_virtuales.push(Relacion {
+                            id,
+                            tipo: TipoRelacion::SalvadoPor,
+                            origen,
+                            destino,
+                            mercancia: None,
+                        });
+                        por_actor[actor.indice().unwrap()].push(id);
+                        por_actor[rescatador.indice().unwrap()].push(id);
+                    }
+                    if !relaciones_virtuales
+                        .iter()
+                        .any(|r| r.tipo == TipoRelacion::PrisioneroDe && r.origen == origen)
+                    {
+                        resolver_actor_mut(&mut actores_virtuales, actor)
+                            .unwrap()
+                            .caracteristicas
+                            .retain(|c| c.como_str() != "prisionero");
+                    }
+                    if cambio {
+                        cambios.push(CambioConfirmado::RescateConfirmado {
+                            actor,
+                            captor,
+                            rescatador,
+                        });
+                    }
+                }
                 OperacionMundo::RegistrarCautiverio { actor, captor: amo } => {
                     for id in [actor, amo] {
                         let actual = resolver_actor(&actores_virtuales, id)
@@ -1278,6 +1355,14 @@ impl Mundo {
                     }
                     let origen = ExtremoRelacion::Actor(actor);
                     let destino = ExtremoRelacion::Actor(amo);
+                    if let Some(r) = relaciones_virtuales.iter_mut().find(|r| {
+                        r.tipo == TipoRelacion::LiberadoDe
+                            && r.origen == origen
+                            && r.destino == destino
+                    }) {
+                        r.tipo = TipoRelacion::PrisioneroDe;
+                        cambios.push(CambioConfirmado::CautiverioRegistrado { actor, captor: amo });
+                    }
                     if !relaciones_virtuales.iter().any(|r| {
                         r.tipo == TipoRelacion::PrisioneroDe
                             && r.origen == origen
@@ -1402,6 +1487,11 @@ pub struct TrasladoConfirmado {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum OperacionMundo {
+    ConfirmarRescate {
+        actor: IdActor,
+        captor: IdActor,
+        rescatador: IdActor,
+    },
     RegistrarCautiverio {
         actor: IdActor,
         captor: IdActor,
@@ -1502,6 +1592,11 @@ impl CambiosConfirmados {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CambioConfirmado {
+    RescateConfirmado {
+        actor: IdActor,
+        captor: IdActor,
+        rescatador: IdActor,
+    },
     CautiverioRegistrado {
         actor: IdActor,
         captor: IdActor,

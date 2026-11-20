@@ -1,6 +1,6 @@
 # Entregas de Encuentros, Atacar y Rescatar
 
-Estado: ciclos 1 y 2 probados por el usuario; ciclo 3 implementado con campamento abierto, pendiente de revisión de jugabilidad. Fecha: 2026-11-19.
+Estado: ciclos 1 y 2 probados por el usuario; ciclo 3 ampliado con escenarios simples; ciclo 4 implementado con rescate de personas, pendiente de revisión de jugabilidad. Fecha: 2026-11-19.
 
 Esta hoja de ruta organiza el trabajo. No define mecánicas ni sustituye el plan
 de cada incremento. Su referencia es el [diseño de mecánicas](../diseno/encuentros-y-atacar.md)
@@ -100,6 +100,13 @@ banda de Kazir en un terreno abierto, con dos pasos de un barranco y rocas. La
 geometría, información inicial y aproximación difieren del refugio de Gorun.
 No se agrega aún una familia por cada ambiente. Rescatar puede ser el siguiente
 ciclo sin esperar a completar ese catálogo.
+
+### Ciclo 4: rescatar a Tamin
+
+El [PLAN-2026-050](./pendientes/2026-11-20-50-rescatar-personas.md) implementa el
+rescate de personas. Se puede soltar y extraer a Tamin del campamento de Kazir,
+con o sin guardias supervivientes. La libertad, el vínculo con quien lo salvó y
+la incorporación se conservan en la partida. Recuperar tesoros sigue pendiente.
 
 ### Ampliaciones siguientes
 

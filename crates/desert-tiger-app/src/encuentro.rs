@@ -6,6 +6,8 @@ use std::path::Path;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ConfigEncuentros {
+    #[serde(default)]
+    pub rescates: Vec<RescateConfigurado>,
     pub objetivos: Vec<ObjetivoConfigurado>,
 }
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -63,6 +65,16 @@ pub(crate) struct ObjetivoConfigurado {
     #[serde(default)]
     pub defensores: Vec<String>,
 }
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct RescateConfigurado {
+    pub actor: String,
+    pub captor: String,
+    #[serde(default)]
+    pub defensores: Vec<String>,
+    #[serde(default)]
+    pub escenario: EscenarioConfigurado,
+}
 impl ConfigEncuentros {
     pub(crate) fn cargar(raiz: &Path, claves: &CatalogoClaves) -> Result<Option<Self>, String> {
         let ruta = raiz.join("encounters.ron");
@@ -87,6 +99,27 @@ impl ConfigEncuentros {
                 }
             }
         }
+        let mut vistos = std::collections::BTreeSet::new();
+        for r in &c.rescates {
+            if !vistos.insert(&r.actor)
+                || r.actor == r.captor
+                || claves.actor_por_clave(&r.actor).is_none()
+                || claves.actor_por_clave(&r.captor).is_none()
+                || r.defensores.len() > 8
+            {
+                return Err("encounters.ron: rescate inválido".into());
+            }
+            let mut defensa = std::collections::BTreeSet::new();
+            for d in &r.defensores {
+                if d == &r.actor
+                    || d == &r.captor
+                    || !defensa.insert(d)
+                    || claves.actor_por_clave(d).is_none()
+                {
+                    return Err("encounters.ron: defensor de rescate inválido".into());
+                }
+            }
+        }
         Ok(Some(c))
     }
 }
@@ -104,6 +137,8 @@ pub enum TerrenoEncuentro {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FichaEncuentro {
+    pub cautivo: bool,
+    pub rescatado: bool,
     pub id: usize,
     pub impacto: Option<bool>,
     pub nombre: String,
@@ -116,6 +151,7 @@ pub struct FichaEncuentro {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaEncuentro {
+    pub rescate: bool,
     pub escenario: EscenarioEncuentro,
     pub id: u64,
     pub paso: u64,

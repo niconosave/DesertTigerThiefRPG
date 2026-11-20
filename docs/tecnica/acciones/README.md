@@ -39,3 +39,10 @@ Una acción particular que solo sea una operación interna trivial puede quedar
 descrita dentro de su acción general mientras tenga un único consumidor. En el
 momento en que posea reglas propias o se reutilice, requiere un documento en
 `particulares/`; ese documento pasa a ser su única fuente normativa.
+
+
+## Rescatar personas
+
+[11 — Rescatar personas](./11-rescatar-personas.md) documenta el primer rescate
+implementado: liberación y extracción de Tamin, cooperación, cautiverio y cierre.
+Comparte el motor del contrato 10; no añade todavía recuperación de tesoros.

@@ -70,6 +70,7 @@ pub(crate) struct Interfaz {
     trafico_terrestre: crate::trafico_decorativo::TraficoDecorativo,
     campamento: Option<crate::campamento::EstadoCampamento>,
     musica: crate::musica_campamento::MusicaCampamento,
+    seleccion_rescate: bool,
     objetivos_ataque: Option<(Vec<desert_tiger_app::ObjetivoAtaque>, usize)>,
     pausa_encuentro: bool,
     omitir_encuentro: bool,
@@ -118,6 +119,7 @@ impl Interfaz {
             campamento: None,
             musica: crate::musica_campamento::MusicaCampamento::default(),
             objetivos_ataque: None,
+            seleccion_rescate: false,
             pausa_encuentro: true,
             omitir_encuentro: false,
             retirada_encuentro: false,
@@ -581,22 +583,34 @@ impl Interfaz {
                         self.omitir_encuentro = false;
                         self.retirada_encuentro = false;
                         self.reloj_encuentro = Duration::ZERO;
-                        self.enviar(IntencionFrontend::ComenzarAtaque { objetivo: actor });
+                        self.enviar(if self.seleccion_rescate {
+                            IntencionFrontend::ComenzarRescate { objetivo: actor }
+                        } else {
+                            IntencionFrontend::ComenzarAtaque { objetivo: actor }
+                        });
                     }
                 }
                 _ => {}
             }
             return;
         }
-        if normalizar_letra(evento.code) == Some('t')
+        if matches!(normalizar_letra(evento.code), Some('t' | 'r'))
             && matches!(self.vista, VistaSesion::Disponible(_))
         {
+            self.seleccion_rescate = normalizar_letra(evento.code) == Some('r');
             if let Some(opciones) = self
                 .ultima_vista_mundo
                 .acciones
                 .iter()
                 .find_map(|a| match a {
-                    AccionDisponible::Atacar { objetivos } if !objetivos.is_empty() => {
+                    AccionDisponible::Atacar { objetivos }
+                        if !self.seleccion_rescate && !objetivos.is_empty() =>
+                    {
+                        Some(objetivos.clone())
+                    }
+                    AccionDisponible::Rescatar { objetivos }
+                        if self.seleccion_rescate && !objetivos.is_empty() =>
+                    {
                         Some(objetivos.clone())
                     }
                     _ => None,
@@ -910,7 +924,7 @@ impl Interfaz {
     pub(crate) fn dibujar(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
         self.dibujar_contenido(frame, recursos);
         if let Some((opciones, foco)) = &self.objetivos_ataque {
-            crate::encuentro::objetivos(frame, opciones, *foco, recursos);
+            crate::encuentro::objetivos(frame, opciones, *foco, recursos, self.seleccion_rescate);
         }
         recursos.paleta.aplicar(frame.buffer_mut());
     }
@@ -1647,7 +1661,10 @@ impl Interfaz {
                     }
                     Some(_) => {
                         let ataque = if mundo.acciones.iter().any(|a| matches!(a, AccionDisponible::Atacar {objetivos} if !objetivos.is_empty())) { "  [T] Atacar" } else { "" };
-                        format!(" [V] Viajar  [A] Acampar{ataque}  [D] Desarrollo  [Q] Salir")
+                        let rescate=if mundo.acciones.iter().any(|a|matches!(a,AccionDisponible::Rescatar {objetivos} if !objetivos.is_empty())) {"  [R] Rescatar"} else {""};
+                        format!(
+                            " [V] Viajar  [A] Acampar{ataque}{rescate}  [D] Desarrollo  [Q] Salir"
+                        )
                     }
                     None if mundo.acciones.contains(&AccionDisponible::Acampar) => {
                         " [A] Acampar  [D] Desarrollo  [Q] Salir".into()
@@ -1918,7 +1935,9 @@ fn foco_mas_cercano(
 fn destinos_viaje(mundo: &VistaMundo) -> Option<&[IdLugar]> {
     mundo.acciones.iter().find_map(|a| match a {
         AccionDisponible::Viajar { destinos } => Some(destinos.as_slice()),
-        AccionDisponible::Acampar | AccionDisponible::Atacar { .. } => None,
+        AccionDisponible::Acampar
+        | AccionDisponible::Atacar { .. }
+        | AccionDisponible::Rescatar { .. } => None,
     })
 }
 
@@ -2406,6 +2425,97 @@ mod pruebas {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::path::PathBuf;
+
+    #[test]
+    fn rescate_terminal_selector_y_extraccion_de_tamin() {
+        fn copiar(a: &std::path::Path, b: &std::path::Path) {
+            std::fs::create_dir_all(b).unwrap();
+            for e in std::fs::read_dir(a).unwrap() {
+                let e = e.unwrap();
+                let destino = b.join(e.file_name());
+                if e.path().is_dir() {
+                    copiar(&e.path(), &destino);
+                } else {
+                    std::fs::copy(e.path(), destino).unwrap();
+                }
+            }
+        }
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let temporal = std::env::temp_dir().join(format!("dt-rescate-ui-{}", std::process::id()));
+        copiar(&raiz.join("content/base"), &temporal);
+        let archivo = temporal.join("actors/tamin.ron");
+        let texto = std::fs::read_to_string(&archivo)
+            .unwrap()
+            .replace("EnLugar(\"lomas_de_anir\")", "EnLugar(\"costa_ambar\")");
+        std::fs::write(archivo, texto).unwrap();
+        let c = cargar_contenido(&temporal).unwrap();
+        std::fs::remove_dir_all(temporal).unwrap();
+        let mut i = Interfaz::nueva(
+            Partida::nueva(&c, ConfiguracionPartida { semilla: Some(42) }).unwrap(),
+        )
+        .unwrap();
+        for _ in 0..100 {
+            match i.vista.clone() {
+                VistaSesion::Disponible(_) => break,
+                VistaSesion::PresentandoEvento(v) => {
+                    i.enviar(IntencionFrontend::ContinuarEvento { presentacion: v.id })
+                }
+                VistaSesion::EsperandoDecisionEvento(v) => {
+                    i.enviar(IntencionFrontend::ResponderEvento {
+                        presentacion: v.id,
+                        opcion: v.opciones[0].id,
+                    })
+                }
+                VistaSesion::ProcesandoCierre { token } => {
+                    i.enviar(IntencionFrontend::ContinuarCierre { token })
+                }
+                otra => panic!("prólogo: {otra:?}"),
+            }
+        }
+        let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('r')));
+        assert!(i.seleccion_rescate);
+        assert_eq!(i.objetivos_ataque.as_ref().unwrap().0[0].nombre, "Tamin");
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        assert!(i.objetivos_ataque.is_none());
+        i.manejar_tecla(tecla(KeyCode::Char('r')));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        assert!(matches!(&i.vista,VistaSesion::Encuentro(v) if v.rescate));
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut t = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        t.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        let texto = t
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect::<String>();
+        assert!(texto.contains("RESCATE"));
+        assert!(texto.contains("@"));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        for _ in 0..500 {
+            if matches!(&i.vista,VistaSesion::Encuentro(v) if v.finalizado) {
+                break;
+            }
+            i.avanzar_animacion(Duration::from_secs(1));
+        }
+        assert!(matches!(&i.vista,VistaSesion::Encuentro(v) if v.finalizado));
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        for _ in 0..100 {
+            if matches!(i.vista, VistaSesion::Disponible(_)) {
+                break;
+            }
+            i.avanzar_espera();
+        }
+        assert!(matches!(i.vista, VistaSesion::Disponible(_)));
+        assert!(
+            i.ultima_vista_mundo
+                .companeros
+                .iter()
+                .any(|a| a.nombre == "Tamin")
+        );
+    }
 
     #[test]
     fn ciclo2_terminal_evento_suspende_tablero_y_reanuda() {
@@ -4983,7 +5093,9 @@ mod pruebas {
                 .iter()
                 .find_map(|a| match a {
                     AccionDisponible::Viajar { destinos } => destinos.first().copied(),
-                    AccionDisponible::Acampar | AccionDisponible::Atacar { .. } => None,
+                    AccionDisponible::Acampar
+                    | AccionDisponible::Atacar { .. }
+                    | AccionDisponible::Rescatar { .. } => None,
                 })
                 .unwrap();
             i.enviar(IntencionFrontend::ComenzarViaje { destino });

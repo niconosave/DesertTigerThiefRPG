@@ -7,6 +7,7 @@ pub enum ClasePunto {
     Disponible,
     ViajarInicio,
     AtacarInicio,
+    RescatarInicio,
     EncuentroAntesVineta,
     EncuentroMomento,
     EncuentroAntesCierre,
@@ -22,6 +23,7 @@ impl ClasePunto {
             Self::Disponible => "partida.disponible",
             Self::ViajarInicio => "viajar.inicio",
             Self::AtacarInicio => "atacar.inicio",
+            Self::RescatarInicio => "rescatar.inicio",
             Self::EncuentroAntesVineta => "encuentro.antes_vineta",
             Self::EncuentroMomento => "encuentro.momento",
             Self::EncuentroAntesCierre => "encuentro.antes_cierre",
@@ -37,6 +39,7 @@ impl ClasePunto {
             Self::Disponible,
             Self::ViajarInicio,
             Self::AtacarInicio,
+            Self::RescatarInicio,
             Self::EncuentroAntesVineta,
             Self::EncuentroMomento,
             Self::EncuentroAntesCierre,
@@ -52,7 +55,7 @@ impl ClasePunto {
     pub fn permite_interrumpir(self) -> bool {
         matches!(
             self,
-            Self::ViajarInicio | Self::EntreLugares | Self::AtacarInicio
+            Self::ViajarInicio | Self::EntreLugares | Self::AtacarInicio | Self::RescatarInicio
         )
     }
 }

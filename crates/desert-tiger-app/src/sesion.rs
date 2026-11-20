@@ -57,6 +57,9 @@ pub struct IdDecisionVista(u64);
 pub struct IdOpcionVista(u32);
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IntencionFrontend {
+    ComenzarRescate {
+        objetivo: IdActor,
+    },
     ComenzarAtaque {
         objetivo: IdActor,
     },
@@ -201,6 +204,9 @@ pub struct VistaActor {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AccionDisponible {
+    Rescatar {
+        objetivos: Vec<crate::ObjetivoAtaque>,
+    },
     Atacar {
         objetivos: Vec<crate::ObjetivoAtaque>,
     },
@@ -449,6 +455,7 @@ impl Partida {
         if matches!(
             intencion,
             IntencionFrontend::ComenzarAtaque { .. }
+                | IntencionFrontend::ComenzarRescate { .. }
                 | IntencionFrontend::AvanzarEncuentro { .. }
                 | IntencionFrontend::RetirarEncuentro { .. }
                 | IntencionFrontend::ReanudarEncuentro { .. }
@@ -496,6 +503,7 @@ impl Partida {
         }
         match intencion {
             IntencionFrontend::ComenzarAtaque { .. }
+            | IntencionFrontend::ComenzarRescate { .. }
             | IntencionFrontend::AvanzarEncuentro { .. }
             | IntencionFrontend::RetirarEncuentro { .. }
             | IntencionFrontend::ReanudarEncuentro { .. }
@@ -650,6 +658,7 @@ impl Partida {
         }
         let resultado = match intencion {
             IntencionFrontend::ComenzarAtaque { .. }
+            | IntencionFrontend::ComenzarRescate { .. }
             | IntencionFrontend::AvanzarEncuentro { .. }
             | IntencionFrontend::RetirarEncuentro { .. }
             | IntencionFrontend::ReanudarEncuentro { .. }
@@ -805,7 +814,11 @@ impl Partida {
             c
         } else if let Some(a) = &self.ataque {
             let mut c = self.contexto_sesion(ClasePunto::AccionTerminada);
-            c.accion = Some("atacar");
+            c.accion = Some(if a.motor.rescate {
+                "rescatar"
+            } else {
+                "atacar"
+            });
             c.objetivo = Some(crate::ExtremoRelacion::Actor(
                 a.motor.fichas[a.motor.objetivo].actor,
             ));
@@ -1099,6 +1112,9 @@ fn proyectar_mundo(
             AccionDisponible::Acampar,
             AccionDisponible::Atacar {
                 objetivos: ataque::objetivos(m, c),
+            },
+            AccionDisponible::Rescatar {
+                objetivos: ataque::objetivos_rescate(m, c),
             },
         ]
     };

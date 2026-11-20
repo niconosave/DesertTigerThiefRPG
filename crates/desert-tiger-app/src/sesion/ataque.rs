@@ -5,6 +5,8 @@ use desert_tiger_core::{Caracteristica, ExtremoRelacion, OperacionMundo, TipoRel
 #[derive(Clone)]
 pub(super) struct AtaqueActivo {
     id: u64,
+    captor_rescate: Option<IdActor>,
+    rescate_confirmado: bool,
     pub(super) motor: Encuentro,
     azar: ChaCha12Rng,
     pendiente: Option<VistaEncuentro>,
@@ -47,6 +49,51 @@ pub(super) fn objetivos(m: &Mundo, c: &ContenidoValidado) -> Vec<ObjetivoAtaque>
         })
         .collect()
 }
+pub(super) fn objetivos_rescate(m: &Mundo, c: &ContenidoValidado) -> Vec<ObjetivoAtaque> {
+    if m.colectivo_de(m.actor_jugador()).is_some()
+        || cautivo(m, m.actor_jugador())
+        || m.actor(m.actor_jugador()).is_none_or(|a| {
+            a.caracteristicas()
+                .any(|c| matches!(c.como_str(), "muerto" | "incapacitado"))
+        })
+    {
+        return vec![];
+    }
+    c.encuentros()
+        .into_iter()
+        .flat_map(|c| &c.rescates)
+        .filter_map(|r| {
+            let actor = c.claves().actor_por_clave(&r.actor)?;
+            let captor = c.claves().actor_por_clave(&r.captor)?;
+            let relaciones = m
+                .relaciones()
+                .iter()
+                .filter(|r| {
+                    r.tipo() == TipoRelacion::PrisioneroDe
+                        && r.origen() == ExtremoRelacion::Actor(actor)
+                })
+                .collect::<Vec<_>>();
+            if m.grupo().contiene(actor)
+                || actor == m.actor_jugador()
+                || m.colectivo_de(actor).is_some()
+                || m.grupo().contiene(captor)
+                || captor == m.actor_jugador()
+                || m.ubicacion_actor(actor) != Some(m.ubicacion_grupo())
+                || m.actor(actor)?
+                    .caracteristicas()
+                    .any(|c| c.como_str() == "muerto")
+                || relaciones.len() != 1
+                || relaciones[0].destino() != ExtremoRelacion::Actor(captor)
+            {
+                return None;
+            }
+            Some(ObjetivoAtaque {
+                actor,
+                nombre: c.presentacion().actor(actor)?.nombre().into(),
+            })
+        })
+        .collect()
+}
 fn tiempo_encuentro(pulso: u64) -> Result<desert_tiger_core::TiempoAccion, String> {
     let segundos = 600u128 + u128::from(pulso) * 6;
     let partes = segundos * 2_400_000_000u128 / 86_400;
@@ -67,7 +114,29 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
             .unwrap_or_else(|| "Combatiente".into())
     };
     let finalizado = m.desenlace.is_some();
-    let texto = if let Some(fin) = m.desenlace {
+    let texto = if m.rescate {
+        let quien = nombre(m.fichas[m.objetivo].actor);
+        if let Some(fin) = m.desenlace {
+            match fin {
+                Desenlace::Exito=>format!("Logran sacar a {quien} y el grupo alcanza la salida. El rescate ha terminado."),
+                Desenlace::Retirada=>format!("El grupo se retira sin conseguir sacar a {quien}."),
+                Desenlace::Captura {captor}=>format!("El grupo queda fuera de combate. {} toma prisioneros a quienes no lograron salir.",nombre(captor)),
+                Desenlace::Derrota=>"El rescate termina con el grupo fuera de combate. Las pérdidas y heridas permanecen.".into(),
+            }
+        } else if m.retirando {
+            format!(
+                "El grupo intenta retirarse del lugar. {quien} necesita alcanzar la salida para quedar a salvo."
+            )
+        } else if m.fichas[m.objetivo].muerto() {
+            format!("{quien} ha muerto. El grupo intenta salir con sus supervivientes.")
+        } else if !m.fichas[m.objetivo].cautivo {
+            format!("{quien} ya está desatado. El grupo intenta llevarlo hasta la salida.")
+        } else {
+            format!(
+                "El grupo busca alcanzar a {quien}, soltar sus ataduras y sacarlo del lugar. Los guardias intentarán impedirlo."
+            )
+        }
+    } else if let Some(fin) = m.desenlace {
         match fin {
         Desenlace::Exito=>"El objetivo ha muerto. El grupo logra salir del lugar.".into(),
         Desenlace::Retirada=>"El grupo alcanza la salida y abandona el ataque. El objetivo sigue vivo.".into(),
@@ -137,8 +206,10 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
         .fichas
         .iter()
         .enumerate()
-        .filter(|(_, f)| f.aliado || m.descubierta)
+        .filter(|(_, f)| (f.aliado && !f.cautivo) || m.descubierta)
         .map(|(id, f)| FichaEncuentro {
+            cautivo: f.cautivo,
+            rescatado: m.rescate && id == m.objetivo,
             id,
             impacto: m
                 .sucesos
@@ -185,6 +256,11 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
                     )
                 })
             }
+            Suceso::Liberado { ficha, por } => Some(format!(
+                "{} suelta las ataduras de {}. El grupo intenta llevarlo hasta la salida.",
+                nombre(m.fichas[*por].actor),
+                nombre(m.fichas[*ficha].actor)
+            )),
             Suceso::Recogido { ficha, por } => Some(format!(
                 "{} carga a {} para sacarlo.",
                 nombre(m.fichas[*por].actor),
@@ -194,6 +270,7 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
         })
         .collect();
     VistaEncuentro {
+        rescate: m.rescate,
         escenario: m.escenario,
         id: a.id,
         paso: a.secuencia,
@@ -263,10 +340,11 @@ impl Partida {
         };
         let id_objetivo = objetivo.actor;
         let pulso = a.motor.pulso;
+        let rescate = a.motor.rescate;
         a.fronteras.insert(momento);
         self.eventos.encuentro = Some((a.motor.clone(), momento.into()));
         let mut ctx = self.contexto_sesion(clase);
-        ctx.accion = Some("atacar");
+        ctx.accion = Some(if rescate { "rescatar" } else { "atacar" });
         ctx.instante = desert_tiger_core::proyectar_tiempo(self.inicio, tiempo_encuentro(pulso)?)
             .map_err(|e| e.to_string())?;
         ctx.objetivo = Some(crate::ExtremoRelacion::Actor(id_objetivo));
@@ -281,12 +359,29 @@ impl Partida {
             self.vista = VistaSesion::Disponible(self.mundo_visible.clone());
             return Ok(());
         }
-        self.crear_ataque_local(objetivo)
+        self.crear_ataque_local(objetivo, false)
             .map_err(|e| format!("{e:?}"))?;
         self.publicar_frontera_encuentro()?;
         Ok(())
     }
-    fn crear_ataque_local(&mut self, objetivo: IdActor) -> Result<(), ErrorIntencion> {
+    pub(super) fn iniciar_rescate_local(&mut self, objetivo: IdActor) -> Result<(), String> {
+        if !objetivos_rescate(&self.mundo, &self.contenido)
+            .iter()
+            .any(|o| o.actor == objetivo)
+        {
+            self.vista = VistaSesion::Disponible(self.mundo_visible.clone());
+            return Ok(());
+        }
+        self.crear_ataque_local(objetivo, true)
+            .map_err(|e| format!("{e:?}"))?;
+        self.publicar_frontera_encuentro()?;
+        Ok(())
+    }
+    fn crear_ataque_local(
+        &mut self,
+        objetivo: IdActor,
+        rescate: bool,
+    ) -> Result<(), ErrorIntencion> {
         let grupo = std::iter::once(self.mundo.actor_jugador())
             .chain(self.mundo.grupo().integrantes().iter().copied())
             .filter(|&id| {
@@ -299,14 +394,29 @@ impl Partida {
             .contenido
             .encuentros()
             .ok_or(ErrorIntencion::FaseIncompatible)?;
-        let perfil = config
-            .objetivos
-            .iter()
-            .find(|o| self.contenido.claves().actor_por_clave(&o.actor) == Some(objetivo))
-            .ok_or(ErrorIntencion::FaseIncompatible)?;
-        let defensores = perfil
-            .defensores
-            .iter()
+        let (escenario, claves_defensa, captor_rescate) = if rescate {
+            let r = config
+                .rescates
+                .iter()
+                .find(|r| self.contenido.claves().actor_por_clave(&r.actor) == Some(objetivo))
+                .ok_or(ErrorIntencion::FaseIncompatible)?;
+            (
+                r.escenario,
+                std::iter::once(&r.captor)
+                    .chain(&r.defensores)
+                    .collect::<Vec<_>>(),
+                self.contenido.claves().actor_por_clave(&r.captor),
+            )
+        } else {
+            let r = config
+                .objetivos
+                .iter()
+                .find(|r| self.contenido.claves().actor_por_clave(&r.actor) == Some(objetivo))
+                .ok_or(ErrorIntencion::FaseIncompatible)?;
+            (r.escenario, r.defensores.iter().collect::<Vec<_>>(), None)
+        };
+        let defensores = claves_defensa
+            .into_iter()
             .filter_map(|k| self.contenido.claves().actor_por_clave(k))
             .filter(|&a| {
                 a != objetivo
@@ -315,7 +425,7 @@ impl Partida {
                     && self
                         .mundo
                         .actor(a)
-                        .is_some_and(|a| !a.caracteristicas().any(|v| v.como_str() == "muerto"))
+                        .is_some_and(|a| !a.caracteristicas().any(|c| c.como_str() == "muerto"))
             })
             .collect::<Vec<_>>();
         let seed = self
@@ -323,13 +433,18 @@ impl Partida {
             .elegir_indice(NonZeroUsize::new(u32::MAX as usize).unwrap())
             .map_err(|_| ErrorIntencion::FaseIncompatible)? as u64;
         let mut azar = ChaCha12Rng::seed_from_u64(seed);
-        let motor = Encuentro::nuevo_con_escenario(
+        let constructor = if rescate {
+            Encuentro::nuevo_rescate
+        } else {
+            Encuentro::nuevo_con_escenario
+        };
+        let motor = constructor(
             &self.mundo,
             &grupo,
             objetivo,
             &defensores,
             &mut AzarChaCha(azar.clone()),
-            perfil.escenario.motor(&self.mundo),
+            escenario.motor(&self.mundo),
         )
         .map_err(|_| ErrorIntencion::AccionRechazada(RechazoAccion::DestinoInvalido))?;
         // Flujo separado de resolución, independiente del número de sorteos del generador.
@@ -339,6 +454,8 @@ impl Partida {
             .checked_add(1)
             .ok_or(ErrorIntencion::FaseIncompatible)?;
         let activo = AtaqueActivo {
+            captor_rescate,
+            rescate_confirmado: false,
             id: self.ordinal,
             motor,
             azar,
@@ -358,24 +475,40 @@ impl Partida {
         &mut self,
         i: IntencionFrontend,
     ) -> Result<VistaSesion, ErrorIntencion> {
-        if let IntencionFrontend::ComenzarAtaque { objetivo } = i {
+        if let IntencionFrontend::ComenzarAtaque { objetivo }
+        | IntencionFrontend::ComenzarRescate { objetivo } = i
+        {
+            let rescate = matches!(i, IntencionFrontend::ComenzarRescate { .. });
             if !matches!(self.vista, VistaSesion::Disponible(_)) {
                 return Err(ErrorIntencion::FaseIncompatible);
             }
-            if !objetivos(&self.mundo, &self.contenido)
-                .iter()
-                .any(|o| o.actor == objetivo)
+            if !(if rescate {
+                objetivos_rescate(&self.mundo, &self.contenido)
+            } else {
+                objetivos(&self.mundo, &self.contenido)
+            })
+            .iter()
+            .any(|o| o.actor == objetivo)
             {
                 return Err(ErrorIntencion::AccionRechazada(
                     RechazoAccion::DestinoInvalido,
                 ));
             }
-            let mut ctx = self.contexto_sesion(ClasePunto::AtacarInicio);
-            ctx.accion = Some("atacar");
+            let mut ctx = self.contexto_sesion(if rescate {
+                ClasePunto::RescatarInicio
+            } else {
+                ClasePunto::AtacarInicio
+            });
+            ctx.accion = Some(if rescate { "rescatar" } else { "atacar" });
             ctx.objetivo = Some(crate::ExtremoRelacion::Actor(objetivo));
-            if let Err(e) =
-                self.abrir_eventos(ctx, eventos_partida::Continuacion::IniciarAtaque(objetivo))
-            {
+            if let Err(e) = self.abrir_eventos(
+                ctx,
+                if rescate {
+                    eventos_partida::Continuacion::IniciarRescate(objetivo)
+                } else {
+                    eventos_partida::Continuacion::IniciarAtaque(objetivo)
+                },
+            ) {
                 self.fatal(CodigoFatalSesion::EventoNarrativo, e);
             }
             return Ok(self.vista());
@@ -464,6 +597,18 @@ impl Partida {
         }
         nuevo.azar = azar.0;
         let mut operaciones = vec![];
+        if nuevo.motor.rescatado_fuera() && !nuevo.rescate_confirmado {
+            let actor = nuevo.motor.fichas[nuevo.motor.objetivo].actor;
+            operaciones.push(OperacionMundo::ConfirmarRescate {
+                actor,
+                captor: nuevo
+                    .captor_rescate
+                    .ok_or(ErrorIntencion::FaseIncompatible)?,
+                rescatador: self.mundo.actor_jugador(),
+            });
+            operaciones.push(OperacionMundo::IncorporarCompanero { actor });
+            nuevo.rescate_confirmado = true;
+        }
         for f in &nuevo.motor.fichas {
             let actual = self
                 .mundo
@@ -492,12 +637,13 @@ impl Partida {
             }
         }
         if let Some(Desenlace::Captura { captor }) = nuevo.motor.desenlace {
-            for f in nuevo
-                .motor
-                .fichas
-                .iter()
-                .filter(|f| f.aliado && !f.muerto())
-            {
+            for f in nuevo.motor.fichas.iter().filter(|f| {
+                f.aliado
+                    && !f.salio
+                    && !f.muerto()
+                    && (!nuevo.motor.rescate
+                        || f.actor != nuevo.motor.fichas[nuevo.motor.objetivo].actor)
+            }) {
                 operaciones.push(OperacionMundo::RegistrarCautiverio {
                     actor: f.actor,
                     captor,
@@ -520,7 +666,7 @@ impl Partida {
                 .fichas
                 .iter()
                 .enumerate()
-                .filter(|(_, f)| f.aliado || nuevo.motor.descubierta)
+                .filter(|(_, f)| (f.aliado && !f.cautivo) || nuevo.motor.descubierta)
             {
                 if let Some(vf) = impacto.fichas.iter_mut().find(|vf| vf.id == f) {
                     vf.x = posiciones[f].x;
@@ -636,6 +782,147 @@ mod pruebas {
             proyectar_mundo(&p.mundo, &p.mapa, &p.contenido, &p.vision, None).unwrap();
         p.vista = VistaSesion::Disponible(p.mundo_visible.clone());
         p.contenido.claves().actor_por_clave("ogro_gorun").unwrap()
+    }
+    fn preparar_rescate(p: &mut Partida, sin_guardias: bool) -> IdActor {
+        let destino = p
+            .contenido
+            .claves()
+            .lugar_por_clave("lomas_de_anir")
+            .unwrap();
+        let mut ops = vec![OperacionMundo::Trasladar {
+            actor: p.mundo.actor_jugador(),
+            destino,
+        }];
+        if sin_guardias {
+            for clave in [
+                "jefe_bandido_kazir",
+                "bandido_nazur",
+                "bandido_hazek",
+                "bandido_sufan",
+            ] {
+                ops.push(OperacionMundo::AnadirCaracteristicaActor {
+                    actor: p.contenido.claves().actor_por_clave(clave).unwrap(),
+                    caracteristica: Caracteristica::nueva("muerto".into()).unwrap(),
+                });
+            }
+        }
+        p.mundo
+            .aplicar_lote(LoteOperaciones::nuevo(ops).unwrap())
+            .unwrap();
+        p.mundo_visible =
+            proyectar_mundo(&p.mundo, &p.mapa, &p.contenido, &p.vision, None).unwrap();
+        p.vista = VistaSesion::Disponible(p.mundo_visible.clone());
+        p.contenido.claves().actor_por_clave("tamin").unwrap()
+    }
+    #[test]
+    fn rescate_sesion_con_guardias_tiene_cierre_valido() {
+        let (mut p, _) = partida();
+        let objetivo = preparar_rescate(&mut p, false);
+        p.procesar(IntencionFrontend::ComenzarRescate { objetivo })
+            .unwrap();
+        for _ in 0..1000 {
+            if matches!(p.vista(),VistaSesion::Encuentro(v) if v.finalizado) {
+                break;
+            }
+            if let VistaSesion::Encuentro(v) = p.vista() {
+                if v.pausa_decision {
+                    p.procesar(IntencionFrontend::RetirarEncuentro {
+                        id: v.id,
+                        paso: v.paso,
+                    })
+                    .unwrap();
+                }
+            }
+            avanzar(&mut p);
+        }
+        assert!(matches!(p.vista(),VistaSesion::Encuentro(v) if v.finalizado));
+        let fuera = p.ataque.as_ref().unwrap().motor.rescatado_fuera();
+        assert_eq!(p.mundo.grupo().contiene(objetivo), fuera);
+        assert_eq!(cautivo(&p.mundo, objetivo), !fuera);
+        cierre(&mut p);
+    }
+    #[test]
+    fn rescate_sesion_tamin_sin_guardias_confirma_y_no_se_repite() {
+        let (mut p, _) = partida();
+        let objetivo = preparar_rescate(&mut p, true);
+        assert!(
+            objetivos_rescate(&p.mundo, &p.contenido)
+                .iter()
+                .any(|o| o.actor == objetivo)
+        );
+        let antes = p.resto;
+        p.procesar(IntencionFrontend::ComenzarRescate { objetivo })
+            .unwrap();
+        assert!(
+            matches!(p.vista(),VistaSesion::Encuentro(v) if v.rescate && v.fichas.iter().any(|f|f.cautivo && f.rescatado))
+        );
+        for _ in 0..400 {
+            if matches!(p.vista(),VistaSesion::Encuentro(v) if v.finalizado) {
+                break;
+            }
+            avanzar(&mut p);
+        }
+        assert_eq!(
+            p.ataque.as_ref().unwrap().motor.desenlace,
+            Some(Desenlace::Exito)
+        );
+        assert!(!cautivo(&p.mundo, objetivo));
+        assert!(p.mundo.grupo().contiene(objetivo));
+        assert!(
+            p.mundo
+                .relaciones()
+                .iter()
+                .any(|r| r.tipo() == TipoRelacion::SalvadoPor
+                    && r.origen() == ExtremoRelacion::Actor(objetivo)
+                    && r.destino() == ExtremoRelacion::Actor(p.mundo.actor_jugador()))
+        );
+        assert!(objetivos_rescate(&p.mundo, &p.contenido).is_empty());
+        assert_eq!(p.resto, antes);
+        cierre(&mut p);
+        assert_ne!(p.resto, antes);
+        assert!(
+            p.procesar(IntencionFrontend::ComenzarRescate { objetivo })
+                .is_err()
+        );
+    }
+    #[test]
+    fn rescate_sesion_retirada_guarda_cautiverio_y_guarnicion() {
+        let (mut p, _) = partida();
+        let objetivo = preparar_rescate(&mut p, false);
+        p.procesar(IntencionFrontend::ComenzarRescate { objetivo })
+            .unwrap();
+        assert_eq!(
+            p.ataque
+                .as_ref()
+                .unwrap()
+                .motor
+                .fichas
+                .iter()
+                .filter(|f| !f.aliado)
+                .count(),
+            4
+        );
+        let VistaSesion::Encuentro(v) = p.vista() else {
+            panic!()
+        };
+        p.procesar(IntencionFrontend::RetirarEncuentro {
+            id: v.id,
+            paso: v.paso,
+        })
+        .unwrap();
+        for _ in 0..150 {
+            if matches!(p.vista(),VistaSesion::Encuentro(v) if v.finalizado) {
+                break;
+            }
+            avanzar(&mut p);
+        }
+        assert_eq!(
+            p.ataque.as_ref().unwrap().motor.desenlace,
+            Some(Desenlace::Retirada)
+        );
+        cierre(&mut p);
+        assert!(cautivo(&p.mundo, objetivo));
+        assert!(!p.mundo.grupo().contiene(objetivo));
     }
     #[test]
     fn escenarios_seleccionan_terreno_y_palacios_explicitos() {

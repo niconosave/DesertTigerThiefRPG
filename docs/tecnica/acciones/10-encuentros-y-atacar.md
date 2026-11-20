@@ -223,6 +223,16 @@ superior. Ese solapamiento no modifica ocupación, amenaza, percepción ni nivel
 Se definirán después el anclaje gráfico, recorte y orden de señales de combate,
 sin introducir ahora datos o código de ejecución para estas capacidades.
 
+La evolución futura hacia geometría tridimensional, módulos que se adaptan entre
+sí y contexto táctico compartido se describe en el
+[componente 29](../componentes/29-escenarios-volumetricos-modulares.md).
+Es una dirección de diseño, independiente del renderizado 3D y todavía sin código.
+
+Rescatar personas ya reutiliza este motor. Su primer caso, Tamin, se define en el
+[contrato 11](./11-rescatar-personas.md), que sustituye las menciones históricas de
+Rescatar como capacidad íntegramente futura. La recuperación de tesoros sigue
+pendiente. La extensión volumétrica continúa siendo solo diseño futuro.
+
 ## 1. Autoridad y alcance
 
 Este contrato traduce las mecánicas a responsabilidades, datos y transiciones de

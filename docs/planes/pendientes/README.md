@@ -4,6 +4,12 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Rescatar personas
+
+[PLAN-2026-050](./2026-11-20-50-rescatar-personas.md) implementa la operación para
+liberar y extraer a Tamin, con selector y consecuencias persistentes. Queda probar
+su jugabilidad; no incluye tesoros ni todos los tipos de cautiverio.
+
 ## Campamento abierto para la banda de Kazir
 
 [PLAN-2026-049](./2026-11-19-49-campamento-bandidos.md) implementa el primer escenario

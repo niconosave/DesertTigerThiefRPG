@@ -1064,6 +1064,7 @@ enum TipoRelacionDto {
     EnemigoDe,
     PactoCon,
     PrisioneroDe,
+    LiberadoDe,
     SalvadoPor,
     TratosCon,
     ComerciaCon,
@@ -2340,6 +2341,7 @@ fn validar_relaciones(
             TipoRelacionDto::EnemigoDe => TipoRelacion::EnemigoDe,
             TipoRelacionDto::PactoCon => TipoRelacion::PactoCon,
             TipoRelacionDto::PrisioneroDe => TipoRelacion::PrisioneroDe,
+            TipoRelacionDto::LiberadoDe => TipoRelacion::LiberadoDe,
             TipoRelacionDto::SalvadoPor => TipoRelacion::SalvadoPor,
             TipoRelacionDto::TratosCon => TipoRelacion::TratosCon,
             TipoRelacionDto::ComerciaCon => TipoRelacion::ComerciaCon,
@@ -2494,6 +2496,7 @@ fn validar_relaciones(
                 TipoRelacion::EnemigoDe
                 | TipoRelacion::PactoCon
                 | TipoRelacion::PrisioneroDe
+                | TipoRelacion::LiberadoDe
                 | TipoRelacion::SalvadoPor
                 | TipoRelacion::TratosCon => "esta relación exige dos Actores",
 

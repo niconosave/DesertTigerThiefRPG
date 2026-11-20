@@ -239,6 +239,10 @@ pub(crate) fn proyectar(
                 (SentidoRelacionFicha::Saliente, "Prisionero de:")
             }
             TipoRelacion::PrisioneroDe => (SentidoRelacionFicha::Entrante, "Tiene prisionero a:"),
+            TipoRelacion::LiberadoDe if relacion.origen() == elemento => {
+                (SentidoRelacionFicha::Saliente, "Liberado de:")
+            }
+            TipoRelacion::LiberadoDe => (SentidoRelacionFicha::Entrante, "Antiguo cautivo:"),
             TipoRelacion::SalvadoPor if relacion.origen() == elemento => {
                 (SentidoRelacionFicha::Saliente, "Fue salvado por:")
             }

@@ -26,7 +26,8 @@ pub(crate) fn dibujar(
     }
     frame.render_widget(
         Paragraph::new(format!(
-            "ATAQUE · {} · ronda {} · {}",
+            "{} · {} · ronda {} · {}",
+            if v.rescate { "RESCATE" } else { "ATAQUE" },
             match v.escenario {
                 EscenarioEncuentro::Recinto => "recinto",
                 EscenarioEncuentro::Campamento => "campamento",
@@ -102,6 +103,8 @@ pub(crate) fn dibujar(
             '%'
         } else if f.golpes == 2 {
             'x'
+        } else if f.rescatado {
+            '@'
         } else if f.aliado {
             (b'A' + (i % 26) as u8) as char
         } else {
@@ -160,7 +163,11 @@ pub(crate) fn dibujar(
         .map(|(i, f)| {
             format!(
                 "{} {}{}",
-                (b'A' + (i % 26) as u8) as char,
+                if f.rescatado {
+                    '@'
+                } else {
+                    (b'A' + (i % 26) as u8) as char
+                },
                 f.nombre,
                 if f.golpes >= 3 {
                     " (muerto)"
@@ -168,6 +175,10 @@ pub(crate) fn dibujar(
                     " (incapacitado)"
                 } else if f.golpes == 1 {
                     " (herido)"
+                } else if f.cautivo {
+                    " (cautivo)"
+                } else if f.rescatado {
+                    " (acompañando)"
                 } else {
                     ""
                 }
@@ -212,21 +223,26 @@ pub(crate) fn objetivos(
     opciones: &[ObjetivoAtaque],
     foco: usize,
     r: &RecursosVisuales,
+    rescate: bool,
 ) {
     let a = frame.area();
     let w = a.width.min(48);
     let h = (opciones.len() as u16 + 3).min(a.height);
     let area = Rect::new(a.width.saturating_sub(w), 0, w, h);
     frame.render_widget(Clear, area);
-    let texto = std::iter::once("Elegí a quién atacar (Esc cancela)".into())
-        .chain(
-            opciones
-                .iter()
-                .enumerate()
-                .map(|(i, o)| format!("{} {}", if i == foco { ">" } else { " " }, o.nombre)),
-        )
-        .collect::<Vec<_>>()
-        .join("\n");
+    let texto = std::iter::once(if rescate {
+        "Elegí a quién rescatar (Esc cancela)".into()
+    } else {
+        "Elegí a quién atacar (Esc cancela)".into()
+    })
+    .chain(
+        opciones
+            .iter()
+            .enumerate()
+            .map(|(i, o)| format!("{} {}", if i == foco { ">" } else { " " }, o.nombre)),
+    )
+    .collect::<Vec<_>>()
+    .join("\n");
     frame.render_widget(
         Paragraph::new(texto).style(r.ui.texto_normal.fg(Color::Cyan)),
         area,
@@ -245,6 +261,7 @@ mod pruebas {
         )
         .unwrap();
         let mut v = VistaEncuentro {
+            rescate: false,
             escenario: EscenarioEncuentro::Recinto,
             id: 1,
             paso: 0,
@@ -252,6 +269,8 @@ mod pruebas {
             alto: 9,
             celdas: vec![TerrenoEncuentro::Suelo; 81],
             fichas: vec![FichaEncuentro {
+                cautivo: false,
+                rescatado: false,
                 id: 0,
                 impacto: Some(true),
                 nombre: "Prueba".into(),

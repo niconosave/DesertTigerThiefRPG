@@ -66,17 +66,16 @@ La condición de compartir Lugar es necesaria. No se agrega en este documento un
 regla que revele automáticamente objetivos desconocidos; cómo se conocen y se
 ofrecen en el selector se revisará al completar las reglas de información.
 
-### Rescatar: finalidad prevista, desarrollo posterior
+### Rescatar: finalidad y primer caso implementado
 
 Rescatar o recuperar tendrá como propósito alcanzar una persona o un bien y
 sacarlo de una situación. Compartirá escenarios, fichas, movimiento, oposición y
 viñetas con Atacar. Alcanzar a la persona o al tesoro no bastará si todavía falta
 extraerlo del escenario.
 
-Esta primera entrega de diseño se concentra en Atacar. Las condiciones de una
-persona rescatable, su cooperación, el transporte de un tesoro y sus desenlaces
-requieren una ampliación propia antes de implementar Rescatar. Otras acciones
-podrán utilizar encuentros cuando sus reglas lo requieran.
+El primer rescate de personas se define en la sección 22. La recuperación de
+bienes y el transporte de tesoros siguen pendientes. Otras acciones podrán
+utilizar encuentros cuando sus reglas lo requieran.
 
 ## 4. El escenario existe durante el episodio
 
@@ -695,3 +694,48 @@ natación, tiro a distancia ni alturas efectivas. Palacio conserva la revelació
 parcial del recinto inicial; los ambientes abiertos muestran todo desde el comienzo,
 sin introducir una simulación de visión individual. El texto y los símbolos de
 terreno distinguen los ambientes; ninguna variante añade equipo o tesoros.
+
+
+## 21. Dirección futura: volumen, módulos y contexto para IA
+
+Los lugares de combate tendrán tres dimensiones físicas en sus datos, sin exigir
+gráficos 3D. Se compondrán mediante módulos flexibles: casas, puentes completos con
+cubierta y apoyos, escaleras que puedan abrir una puerta y balcones añadidos a una
+fachada. Al encontrarse con construcciones previas, podrán adaptarlas o recortarlas
+según reglas de composición, conservando coherencia y accesos. Recetas breves y
+variaciones acotadas producirán escenarios diferentes sin colocar cada tile a mano.
+
+Además de materiales y terreno se generará contexto compartido para la IA:
+puertas, escaleras, conexiones de salto, bordes peligrosos, exposición, posiciones
+defensivas, combustibilidad y rutas candidatas de ataque o retirada. Las pistas
+geométricas no conceden capacidades a los personajes ni sustituyen las reglas.
+Los cambios posteriores deben actualizar la información que quede invalidada;
+no todo riesgo puede fijarse al generar el mapa.
+
+El [diseño futuro de escenarios volumétricos modulares](../tecnica/componentes/29-escenarios-volumetricos-modulares.md)
+detalla esta dirección y su posible desarrollo gradual. No modifica los escenarios
+implementados ni añade ahora reglas de salto, fuego, derrumbes o IA avanzada.
+
+
+## 22. Rescatar a una persona cautiva
+
+Implementado el primer caso con Tamin, secuestrado por la banda de Kazir. El grupo
+busca alcanzarlo, soltarlo y sacarlo del campamento. No necesita matar al jefe ni
+exterminar a los guardias. Rescatar después de haber vencido a la banda también es
+posible; matar al captor no completa por sí solo la liberación.
+
+El cautivo espera sin combatir. Un integrante capaz que llega junto a él dedica
+un pulso a soltar sus ataduras. Después el grupo y el rescatado intentan retirarse;
+las amenazas y reacciones siguen activas. Si está incapacitado, pueden cargarlo.
+Su libertad se confirma al alcanzar la salida vivo: se registra quién lo salvó y
+se incorpora al grupo, sin imponer una lealtad narrativa permanente. Conserva sus
+heridas. Si no sale, el rescate puede terminar en retirada, captura o derrota.
+
+El selector de rescate se abre con R en el mapa; dentro del encuentro esa tecla
+mantiene la orden de retirada. La persona rescatable se distingue con @. Esta
+versión requiere una persona viva, presente y con un captor declarado mediante
+PrisioneroDe. No incorpora aún tesoros, negativa del cautivo a cooperar, rescate de
+miembros de colectivos ni interpretación de relaciones de esclavitud.
+
+El [contrato de Rescatar personas](../tecnica/acciones/11-rescatar-personas.md)
+describe elegibilidad, consecuencias, integración de eventos y limitaciones.
