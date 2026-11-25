@@ -214,6 +214,9 @@ el espacio de entrada, conexiones ya perceptibles y el objetivo localizable.
 Se descubre otro espacio al entrar por su conexión abierta. La regla x>15 se retira.
 Si el objetivo no tiene posición conocida, el plan elige una conexión conocida
 hacia un espacio no explorado: menor coste accesible y luego ID de conexión.
+La conexión no tiene que ser adyacente al cuarto actual: se permiten rutas a
+través de salas conocidas para alcanzar una frontera conocida. Así, descubrir
+un salón con un integrante no deja sin destino a quienes todavía están detrás.
 Alcanza su umbral, abre la puerta si procede y cruza el primer paso autorizado
 por esa conexión; al confirmarlo descubre el espacio. No inspecciona su contenido
 para elegir. Si no hay objetivos ni fronteras alcanzables se bloquea con motivo.

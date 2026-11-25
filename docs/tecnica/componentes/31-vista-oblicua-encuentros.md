@@ -269,3 +269,20 @@ el negro de las letras invertidas ni las baldosas coloreadas. `Color::Black` es
 la entrada configurable de paleta; RGB `(0,0,0)` es pintura negra explícita.
 La transparencia la decide la terminal. Los modos explícitos de fondo negro
 `-B` o esquema fijo pueden sustituir Reset por un fondo opaco según su contrato.
+
+## Alineación de superficies y pies
+
+El origen de un bloque sólido está en Z, pero su cara superior se proyecta en
+Z+1. Las superficies expuestas de suelo se dibujan a esa altura, coincidiendo
+con los pies apoyados sobre ellas. Los coronamientos expuestos también se elevan
+una fila; las caras verticales permanecen en Z para conservar el volumen de la
+columna. Si el corte atraviesa el sólido, se mantiene su sección en Z: no se
+inventa una cara superior fuera del corte. Cada muestra se recorta después de
+proyectarla, sin escribir fuera del tablero.
+
+Las posiciones de actores, puertas y escalera no cambian. Una columna detrás
+puede coincidir en pantalla con los pies de un personaje situado delante; el
+suelo de su casilla se dibuja antes de los pies y proporciona su fondo, incluida
+la sombra, sin heredar el gris de esa columna. La regresión oblicua cubre este
+caso y el corte parcial del cuerpo. Las pruebas de sombra ajustan solamente la
+fila de pantalla del piso, no su huella ni su altura física.

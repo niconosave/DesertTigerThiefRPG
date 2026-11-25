@@ -111,3 +111,16 @@ reproducción al bloqueo táctico de un compañero en combate.
 La altura y escalera resultaron poco legibles. Se implementó la primera
 [vista oblicua](../../tecnica/componentes/31-vista-oblicua-encuentros.md), pendiente
 de valoración estética. La etapa no se archiva por esta prueba parcial.
+
+## Corrección del umbral durante el robo
+
+Reproducido el caso del palacio: tras descubrir el salón intermedio con el primer
+actor, los compañeros en la entrada no consideraban fronteras situadas más allá
+del cuarto vecino ya conocido. No era un aliado bloqueando físicamente la puerta.
+Se corrigió exploración para alcanzar fronteras a través de habitaciones conocidas,
+conservando las rutas filtradas y el primer paso autorizado hacia lo desconocido.
+La regresión `robo_palacio_companeros_cruzan_umbral` exige que los tres aliados
+crucen y que el tesoro se extraiga; el guardia se debilita en esta fixture para
+que las bajas no confundan el bloqueo de navegación con una derrota legítima.
+Se comprueban también navegación sin revelar destino oculto y robo real de la
+copa en sesión. Esta corrección queda disponible para la prueba jugable del usuario.

@@ -1190,6 +1190,57 @@ mod pruebas {
         e.validar_conclusion(r).unwrap();
     }
     #[test]
+    fn robo_palacio_companeros_cruzan_umbral() {
+        use crate::{ObjetoInicial, RelacionInicial, TipoRelacion};
+        let mut d = datos(4, 3);
+        let objeto = IdObjeto::desde_posicion(0).unwrap();
+        d.relaciones.push(RelacionInicial {
+            mercancia: None,
+            tipo: TipoRelacion::GuardadoEn,
+            origen: ExtremoRelacion::Objeto(objeto),
+            destino: ExtremoRelacion::Lugar(IdLugar::desde_posicion(0).unwrap()),
+        });
+        let m = Mundo::nuevo_con_elementos(
+            d,
+            0,
+            vec![ObjetoInicial {
+                id: objeto,
+                caracteristicas: vec![],
+            }],
+        )
+        .unwrap();
+        let mut e = Encuentro::nuevo_recuperacion(
+            &m,
+            &[actor(0), actor(1), actor(2)],
+            objeto,
+            &[actor(3)],
+            &mut Dado(19),
+            Escenario::Palacio,
+        )
+        .unwrap();
+        e.fichas.iter_mut().find(|f| !f.aliado).unwrap().ataque = -1000;
+        let mut cruzaron = BTreeSet::new();
+        for _ in 0..300 {
+            if e.desenlace.is_some() {
+                break;
+            }
+            e.avanzar(&mut Dado(10)).unwrap();
+            for f in e.fichas.iter().filter(|f| f.aliado && f.posicion.x > 11) {
+                cruzaron.insert(f.id);
+            }
+            if e.bloqueado {
+                panic!(
+                    "bloqueo: {:?}; intentos {:?}; conocidos {:?}",
+                    e.fichas,
+                    (0..e.fichas.len()).map(|i| e.elegir(i)).collect::<Vec<_>>(),
+                    e.espacios_descubiertos
+                );
+            }
+        }
+        assert_eq!(cruzaron.len(), 3, "{:?}", e.fichas);
+        assert_eq!(e.desenlace, Some(Desenlace::Exito));
+    }
+    #[test]
     fn objetos_encuentro_extrae_y_recoge_de_nuevo_si_cae_el_portador() {
         use crate::{ObjetoInicial, RelacionInicial, TipoRelacion};
         let mut d = datos(3, 2);

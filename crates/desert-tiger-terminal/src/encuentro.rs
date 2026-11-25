@@ -72,7 +72,7 @@ fn apariencia_solido(
 ) -> (&'static str, Color) {
     let bloque = if z == corte {
         Color::Gray
-    } else if z % 2 == 0 {
+    } else if z.is_multiple_of(2) {
         Color::DarkGray
     } else {
         crate::dibujo_caracteres::color_retrato(desert_tiger_app::ColorRetrato::GrisMuyOscuro)
@@ -196,11 +196,7 @@ pub(crate) fn dibujar(
         for z in 0..=corte.min(v.altura.saturating_sub(1)) {
             for x in ox..ox + ancho {
                 let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
-                if fila < 2 || fila >= i32::from(2 + alto) {
-                    continue;
-                }
                 let sx = izquierda + (x - ox) * 2;
-                let sy = fila as u16;
                 let t = v.celdas[usize::from((z * v.alto + y) * v.ancho + x)];
                 let color = if z % 2 == 0 { Color::Cyan } else { Color::Blue };
                 let (glifo, mut fondo) = match t {
@@ -226,15 +222,32 @@ pub(crate) fn dibujar(
                         }
                     };
                 }
-                let simbolos = if piso { [" ", " "] } else { [glifo, " "] };
-                for dx in 0..2 {
-                    if t == TerrenoEncuentro::Desconocido {
-                        desconocidos.insert((sx + dx, sy));
+                let superior = solido(t) && z < corte && matches!(glifo, "." | "+");
+                // La cara superior está en z+1; la cara vertical permanece en z.
+                let mut muestras = vec![];
+                if superior {
+                    if !piso {
+                        muestras.push((fila, [" ", " "]));
                     }
-                    propietarios.insert((sx + dx, sy), (t == TerrenoEncuentro::Desconocido, None));
-                    if let Some(c) = frame.buffer_mut().cell_mut((sx + dx, sy)) {
-                        c.set_symbol(simbolos[usize::from(dx)])
-                            .set_style(Style::default().fg(color).bg(fondo));
+                    muestras.push((fila - 1, if piso { [" ", " "] } else { [glifo, " "] }));
+                } else {
+                    muestras.push((fila, [glifo, " "]));
+                }
+                for (fila, simbolos) in muestras {
+                    if fila < 2 || fila >= i32::from(2 + alto) {
+                        continue;
+                    }
+                    let sy = fila as u16;
+                    for dx in 0..2 {
+                        if t == TerrenoEncuentro::Desconocido {
+                            desconocidos.insert((sx + dx, sy));
+                        }
+                        propietarios
+                            .insert((sx + dx, sy), (t == TerrenoEncuentro::Desconocido, None));
+                        if let Some(c) = frame.buffer_mut().cell_mut((sx + dx, sy)) {
+                            c.set_symbol(simbolos[usize::from(dx)])
+                                .set_style(Style::default().fg(color).bg(fondo));
+                        }
                     }
                 }
             }
@@ -543,9 +556,9 @@ mod pruebas {
                 })
                 .unwrap();
             // Piso en (2,5): extremo lejano de la sombra de altura tres.
-            assert_eq!(terminal.backend().buffer()[(35, 7)].bg, Color::Reset);
+            assert_eq!(terminal.backend().buffer()[(35, 6)].bg, Color::Reset);
             assert_eq!(
-                terminal.backend().buffer()[(33, 8)].bg,
+                terminal.backend().buffer()[(33, 7)].bg,
                 Color::Rgb(25, 35, 46)
             );
         }
@@ -654,9 +667,22 @@ mod pruebas {
         let torso = buscar(&cuerpo, "A");
         let piernas = buscar(&cuerpo, "^");
         assert_eq!(piernas, torso + 80);
-        assert_eq!(cuerpo.content[torso].bg, Color::Rgb(18, 26, 36));
-        assert_eq!(cuerpo.content[piernas].bg, Color::Rgb(25, 35, 46));
+        assert_eq!(cuerpo.content[torso].bg, Color::Rgb(25, 35, 46));
+        assert_eq!(cuerpo.content[piernas].bg, Color::Rgb(18, 26, 36));
         buscar(&cuerpo, "△");
+        // Una columna detrás comparte píxel con los pies, no su casilla física.
+        let sin_columna = v.clone();
+        for z in 0..=2 {
+            v.celdas[(z * 9 + 3) * 9 + 4] = TerrenoEncuentro::Muro;
+        }
+        dibujar_vista(&mut terminal, &v, 2);
+        assert_eq!(terminal.backend().buffer().content[piernas].symbol(), "^");
+        assert_eq!(
+            terminal.backend().buffer().content[piernas].bg,
+            Color::Reset
+        );
+        v = sin_columna;
+
         v.altura = 4;
         v.celdas.resize(9 * 9 * 4, TerrenoEncuentro::Aire);
         let pared = usize::from((3 * v.alto + 5) * v.ancho + 4);

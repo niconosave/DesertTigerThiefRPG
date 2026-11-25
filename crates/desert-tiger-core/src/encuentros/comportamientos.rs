@@ -136,15 +136,22 @@ impl Encuentro {
             return None;
         }
         if f.aliado
-            && let Some(origen) = self.espacio_en(f.posicion)
             && let Some(paso) = self
-                .conexiones_desde(origen)
+                .contexto
+                .conexiones
+                .iter()
                 .filter(|c| !c.salida)
                 .filter_map(|c| {
-                    let destino = if c.desde == origen { c.hasta } else { c.desde };
-                    if self.espacios_descubiertos.contains(&destino) {
-                        return None;
-                    }
+                    // La frontera puede estar más allá de una sala ya conocida.
+                    // Las rutas siguen limitadas a la memoria y al primer umbral.
+                    let destino = match (
+                        self.espacios_descubiertos.contains(&c.desde),
+                        self.espacios_descubiertos.contains(&c.hasta),
+                    ) {
+                        (true, false) => c.hasta,
+                        (false, true) => c.desde,
+                        _ => return None,
+                    };
                     let umbral = *c.recorrido.last()?;
                     self.vecinos(umbral)
                         .into_iter()
