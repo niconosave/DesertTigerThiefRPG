@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Implementado; audio en verificación auditiva; detalles históricos señalados en sus componentes |
-| Versión | 0.23 |
-| Fecha | 2026-11-06 |
+| Versión | 0.24 |
+| Fecha | 2026-11-24 |
 
 > El [contrato implementado de Viajar](./acciones/06-implementacion-viajar.md)
 > sustituye sus contratos anteriores. Las cabeceras de los componentes delimitan
@@ -37,14 +37,16 @@ entre procesos.
 
 | Crate | Responsabilidad transversal |
 |---|---|
-| `desert-tiger-core` | Define `Mundo`, las reglas y el proyecto semántico transitorio de cada acción general. Es la única autoridad que valida y modifica el estado reglado. No conoce terminal, prosa visible, tiles, filesystem ni Lua. |
+| `desert-tiger-core` | Define `Mundo`, las reglas y el estado transitorio de las acciones, incluido el espacio físico local de encuentros. Es la autoridad del estado reglado. No conoce terminal, prosa visible, tiles visuales del mapa mundial, filesystem ni Lua. |
 | `desert-tiger-app` | Define y posee la `Partida`, coordina los componentes, redacta vistas narrativas desde registros semánticos neutrales y ofrece una fachada independiente del frontend. Contiene la única instancia concreta de `Mundo` y el estado actual del mapa. |
 | `desert-tiger-terminal` | Es el ejecutable inicial. Traduce entrada física a intenciones semánticas, posee el arte concreto de viñetas y representa vistas y resultados. No ejecuta reglas. |
 
-El [diseño de encuentros y Atacar](./acciones/10-encuentros-y-atacar.md), todavía
-no implementado, amplía este reparto con casillas y posiciones locales regladas
-en el núcleo. Son geometría de juego, distinta de los tiles visuales del mapa
-mundial; los glifos, colores y animaciones permanecen en el frontend.
+La [base original de encuentros](./acciones/10-encuentros-y-atacar.md)
+introdujo casillas y posiciones locales regladas en el núcleo.
+La [base espacial y de planes implementada](./acciones/12-base-espacial-y-planes-encuentros.md)
+la sustituye por el modelo tridimensional, con verificación técnica completada
+y revisión jugable del usuario pendiente. Esa geometría de juego es distinta de los
+tiles visuales del mapa mundial; glifos, colores y animaciones siguen en el frontend.
 
 `desert-tiger-terminal` dependerá de la fachada pública de
 `desert-tiger-app`, no directamente de `desert-tiger-core`. Esa fachada no
@@ -133,7 +135,9 @@ entrega rutas, bytes de arte ni una clave perteneciente a un frontend concreto.
 
 ## 4. Contratos transversales
 
-- El estado reglado tiene una sola fuente de verdad: la instancia de `Mundo`.
+- Los hechos persistentes tienen una sola fuente de verdad: la instancia de `Mundo`.
+  La geometría y dirección locales pertenecen al encuentro activo; sus consecuencias
+  mundiales y su estado se confirman coordinadamente, sin duplicar identidades.
 - La Partida contiene esa instancia; no existe otra copia dentro del núcleo.
 - El mapa es estado de presentación poseído por la aplicación. `Mundo` solo
   conserva su identidad opaca y nunca consulta tiles o coordenadas.
@@ -235,7 +239,8 @@ La arquitectura se considerará respetada cuando:
 
 - el grafo interno mantenga únicamente `terminal → app → core`;
 - el núcleo pueda compilarse y probarse sin filesystem, Lua ni terminal;
-- ninguna regla reciba tiles, coordenadas, teclas o tipos gráficos;
+- ninguna regla dependa de tiles o coordenadas visuales del mapa mundial, teclas
+  o tipos gráficos; la geometría física local pertenece al núcleo de encuentros;
 - la alcanzabilidad y las rutas entre Lugares procedan exclusivamente de
   Relaciones resueltas e indexadas dentro del Mundo;
 - una prueba sin frontend pueda recorrer una acción, el avance temporal y la

@@ -7,6 +7,13 @@
 | Alcance | Espacio tridimensional, generación modular adaptable y datos para IA de encuentros |
 | Base | [Encuentros y Atacar](../acciones/10-encuentros-y-atacar.md) |
 
+La [base de mecánicas de espacio, planes y sistemas](../../diseno/encuentros-espacio-planes-y-sistemas.md)
+define el alcance inicial acordado posteriormente. Este documento conserva el
+diseño futuro de generación modular; no constituye el contrato técnico aprobado
+de esa primera entrega. Las reglas de juego se fijan en el diseño de mecánicas.
+El [contrato técnico 12](../acciones/12-base-espacial-y-planes-encuentros.md)
+define ahora la base acotada; la composición modular compleja permanece aplazada.
+
 ## 1. Propósito
 
 Los escenarios futuros tendrán volumen en sus datos, aunque se sigan dibujando con

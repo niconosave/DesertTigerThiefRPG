@@ -2,12 +2,17 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Primer episodio implementado; ampliaciones diseñadas |
-| Versión | 0.2 |
-| Fecha | 2026-11-19 |
+| Estado | Base implementada; próxima base de mecánicas en documento complementario |
+| Versión | 0.3 |
+| Fecha | 2026-11-24 |
 | Alcance | Base compartida de encuentros, acción Atacar y primer episodio jugable |
 
 ## 1. Propósito y autoridad
+
+La [nueva base de espacio, planes y sistemas](./encuentros-espacio-planes-y-sistemas.md)
+gobierna el próximo diseño espacial, la dirección de participantes y las
+conclusiones causales. Este documento conserva el reglamento implementado y su
+historial. Las capacidades futuras no se consideran existentes por estar diseñadas.
 
 Atacar representa un episodio completo: preparar una incursión, acercarse,
 penetrar en el escenario, afrontar oposición, alcanzar al objetivo y resolver
@@ -73,11 +78,14 @@ sacarlo de una situación. Compartirá escenarios, fichas, movimiento, oposició
 viñetas con Atacar. Alcanzar a la persona o al tesoro no bastará si todavía falta
 extraerlo del escenario.
 
-El primer rescate de personas se define en la sección 22. La recuperación de
-bienes y el transporte de tesoros siguen pendientes. Otras acciones podrán
-utilizar encuentros cuando sus reglas lo requieran.
+El rescate de personas se define en la sección 22. La recuperación de bienes
+y el transporte de tesoros están implementados y se describen en la sección 23.
+Otras acciones podrán utilizar encuentros cuando sus reglas lo requieran.
 
 ## 4. El escenario existe durante el episodio
+
+La nueva base conserva esta duración y precisa identidad y persistencia en su
+[sección 4](./encuentros-espacio-planes-y-sistemas.md#4-duración-e-identidad-del-escenario).
 
 Al comenzar se genera un escenario local apropiado al Lugar y a la situación.
 Permanece estable durante ese encuentro, salvo los cambios producidos por sus
@@ -96,6 +104,9 @@ ni anula la derrota. Las alteraciones que deban afectar a encuentros posteriores
 necesitarán su propia consecuencia persistente; no se deducen de un mapa eliminado.
 
 ## 5. Áreas, terreno y elementos
+
+Esta es la base del primer episodio. El [nuevo diseño espacial](./encuentros-espacio-planes-y-sistemas.md#5-volumen-y-movimiento)
+amplía volumen, elementos y contexto sin atribuir reglas nuevas al código actual.
 
 Un escenario está formado por áreas tileadas conectadas por accesos. Un área
 puede ser una habitación, patio, tramo de calle o espacio agreste. Su forma no
@@ -272,6 +283,9 @@ desenlace. No se exige eliminar a cada defensor como condición universal.
 
 ## 10. Dirección de las fichas y decisiones del jugador
 
+La separación futura entre planes, roles y comportamientos se establece en la
+[sección 9 de la nueva base](./encuentros-espacio-planes-y-sistemas.md#9-planes-genéricos-y-comportamientos).
+
 El comportamiento automático persigue el propósito vigente utilizando la
 situación y las capacidades de los participantes. No necesita descubrir por su
 cuenta todos los trucos que un escritor puede imaginar. Los acontecimientos
@@ -350,6 +364,10 @@ inicial de información de áreas y detección se definirá sin presuponer que l
 visibilidad del mapa mundial sirve como percepción de combate.
 
 ## 13. Desenlaces y continuidad de la partida
+
+La próxima entrega organiza estos resultados mediante
+[conclusiones causales](./encuentros-espacio-planes-y-sistemas.md#10-conclusiones-causales),
+sin hacer que el escenario imponga una condición universal de éxito.
 
 Se conservan por separado lo ocurrido con el objetivo y lo ocurrido con cada
 participante. Matar al objetivo y volver todos con vida son hechos diferentes.
@@ -431,7 +449,7 @@ No se prometen sus posibilidades mecánicas por el mero hecho de dibujarlas.
 
 ## 15. Verticalidad futura
 
-El alcance inicial usa áreas planas. El concepto de escenario admite después
+El episodio actualmente implementado usa áreas planas. El concepto de escenario admite después
 varios niveles: pisos de un edificio, balcones, techos y otros desniveles.
 
 - Un nivel superior puede ocupar la misma posición horizontal que otro inferior.
@@ -443,9 +461,10 @@ varios niveles: pisos de un edificio, balcones, techos y otros desniveles.
 - La generación y las viñetas podrán referirse a un área o nivel concreto;
   no se presume que todo acceso está en el mismo plano.
 
-Estas condiciones fijan el alcance futuro que debe respetar el diseño técnico.
-No exigen implementar ahora cámara por niveles, pisos superiores, tiro vertical,
-simulación estructural de edificios ni una matriz tridimensional completa.
+Estas condiciones eran una extensión del primer episodio. La
+[nueva base](./encuentros-espacio-planes-y-sistemas.md#3-primera-etapa) incorpora
+volumen y corte por altura al próximo alcance, conservando tiro vertical,
+simulación estructural y generación modular completa como ampliaciones posteriores.
 
 ### Ideas reservadas: cuerpos articulados y figuras superpuestas
 
@@ -482,44 +501,26 @@ general; se incorporarán comportamientos acotados y observables por entrega.
 
 ### Objetos particulares y nuevos casos de encuentro
 
-El usuario propone incorporar objetos con identidad propia, como una espada con
-nombre o un tesoro comparable al Grial. No se pretende administrar individualmente
-armas corrientes, flechas y cada herramienta del grupo. Un objeto puede ser mágico,
-histórico o simplemente tener nombre propio; no necesita poderes excepcionales.
-Su futura capacidad de equiparse queda reservada, sin exigirla para la primera
-entrega de objetos. Esta categoría es distinta de los conceptos: sus ejemplares
-pueden encontrarse, conseguirse y cambiar de poseedor.
+Los objetos con identidad, descripción, ubicación y relaciones están
+implementados, incluida la Copa de las Dos Mareas. Su recuperación se describe
+en la sección 23. El equipo ordinario y la futura capacidad de equipar objetos
+únicos requieren reglas posteriores; no se individualiza cada utensilio común.
 
-Primer alcance propuesto para desarrollar: identidad y descripción del objeto,
-ubicación o poseedor actual, consulta de ese estado y cambios de posesión mediante
-operaciones validadas. El tesoro debe persistir en la partida al terminar un
-encuentro y no duplicarse al repetir una continuación. El modelo y su integración
-con relaciones, contenido y Lua requieren un diseño técnico específico antes de
-implementar; todavía no constituyen una capacidad publicada.
-
-Casos jugables a preparar gradualmente:
-
-- Un tesoro que el grupo pueda ir a robar y extraer del encuentro.
-- Una persona esclavizada o prisionera que pueda ser rescatada y sacada del lugar.
-- Un ogro que devora gente, como objetivo de Atacar sin recurrir a un dragón.
-- Un salteador conocido por atacar y matar mercaderes, como otro adversario.
-
-Los dos últimos permiten probar Atacar sin usar siempre a los gobernantes de las
-ciudades. Se incorporarán con ubicación, características y unos pocos vínculos
-concretos. Atacar al ogro, extraer un tesoro y liberar una persona pueden compartir
-el tablero, pero tienen objetivos y consecuencias diferentes; matar al guardián no
-equivale por sí solo a adquirir el tesoro o liberar al prisionero. Por ahora son
-casos propuestos, no nuevos personajes u objetos ya añadidos al contenido.
+Gorun, la banda de Kazir y el cautivo Tamin están incorporados como casos
+jugables de Atacar y Rescatar. Atacar al guardián no concede automáticamente el
+tesoro ni libera a su prisionero. La interpretación de relaciones de esclavitud
+para nuevos rescates y los efectos de equipo quedan fuera de estos primeros casos.
 
 El usuario delegó los detalles del reglamento mínimo al implementador y confirmó
 movimiento diagonal, intenciones simultáneas y una reacción por ronda. La sección
 17 fija las reglas utilizadas. La propuesta anterior ortogonal y por turnos queda
 sustituida; las secciones anteriores describen también capacidades futuras.
 
-Permanecen para otros ciclos las familias de escenarios, aproximación sigilosa,
-armas e inventarios, fuga del objetivo, transformaciones narrativas locales,
-arquería, verticalidad efectiva y reglas de Rescatar. La captura simple conserva
-una relación de cautiverio; todavía no incluye un sistema de vida en prisión.
+Los ciclos posteriores incorporaron familias de escenarios, transformaciones
+narrativas locales y Rescatar. Sigilo, equipo, fuga dirigida del objetivo,
+arquería y verticalidad efectiva siguen como ampliaciones; la próxima base se
+detalla en el documento de espacio, planes y sistemas. La captura simple conserva
+cautiverio y todavía no incluye un sistema de vida en prisión.
 
 ## 17. Reglamento mínimo implementado
 
@@ -631,26 +632,6 @@ no implica una simulación de escombros, daño de derrumbe o fuego.
 
 ## 19. Ciclo 3: campamento en las lomas
 
-Primer incremento de variedad: Kazir y sus tres compañeros combaten en un
-campamento exterior, asignado por contenido. Gorun y los gobernantes conservan el
-recinto anterior. No se incorpora aún una selección automática según el Lugar.
-
-El campamento permite ver desde el comienzo el terreno y sus defensores; ambos
-bandos pueden desplazarse desde el primer pulso. Hay rocas que bloquean casillas
-y un barranco seco con dos pasos transitables separados, de dos casillas de ancho.
-La posición de esos pasos varía dentro de límites que conservan los recorridos.
-No hay muro que separe dos habitaciones ni una única puerta que controle el mapa.
-El terreno bloqueado sigue siendo intransitable: todavía no se salta ni se trepa.
-
-Se conservan golpes, ocupación, reacciones, avance simultáneo, retirada, carga de
-incapacitados, tiempo y desenlaces. El texto general se adapta al exterior; el
-contacto narrativo se alcanza al aproximarse realmente dos fichas hostiles.
-Tamin no participa en el combate. Este ciclo no lo libera al vencer a Kazir:
-la extracción de prisioneros corresponde a Rescatar.
-
-
-## 19. Ciclo 3: campamento en las lomas
-
 Implementada una segunda familia de escenarios, asignada al jefe Kazir. El grupo
 se aproxima a un campamento en terreno abierto: no atraviesa dos habitaciones.
 Grupos de rocas limitan algunos movimientos y un barranco seco divide el terreno;
@@ -712,9 +693,11 @@ geométricas no conceden capacidades a los personajes ni sustituyen las reglas.
 Los cambios posteriores deben actualizar la información que quede invalidada;
 no todo riesgo puede fijarse al generar el mapa.
 
-El [diseño futuro de escenarios volumétricos modulares](../tecnica/componentes/29-escenarios-volumetricos-modulares.md)
-detalla esta dirección y su posible desarrollo gradual. No modifica los escenarios
-implementados ni añade ahora reglas de salto, fuego, derrumbes o IA avanzada.
+El [diseño de espacio, planes y sistemas](./encuentros-espacio-planes-y-sistemas.md)
+fija la primera entrega de esa base. El
+[antecedente técnico de escenarios modulares](../tecnica/componentes/29-escenarios-volumetricos-modulares.md)
+conserva la dirección de generación futura; no sustituye el nuevo diseño de
+mecánicas ni incorpora salto, fuego, derrumbes o IA avanzada.
 
 
 ## 22. Rescatar a una persona cautiva
@@ -734,8 +717,9 @@ heridas. Si no sale, el rescate puede terminar en retirada, captura o derrota.
 El selector de rescate se abre con R en el mapa; dentro del encuentro esa tecla
 mantiene la orden de retirada. La persona rescatable se distingue con @. Esta
 versión requiere una persona viva, presente y con un captor declarado mediante
-PrisioneroDe. No incorpora aún tesoros, negativa del cautivo a cooperar, rescate de
-miembros de colectivos ni interpretación de relaciones de esclavitud.
+PrisioneroDe. El primer rescate no incluía tesoros; esa recuperación se añadió en
+la sección 23. Siguen pendientes la negativa del cautivo a cooperar, el rescate de
+miembros de colectivos y la interpretación de relaciones de esclavitud.
 
 El [contrato de Rescatar personas](../tecnica/acciones/11-rescatar-personas.md)
 describe elegibilidad, consecuencias, integración de eventos y limitaciones.
@@ -752,6 +736,10 @@ recoger el objeto y salir con él. El objeto ocupa una pieza propia del tablero;
 si cae el portador antes de salir, queda donde cayó y puede recogerlo otro.
 Retirarse sin extraerlo no concede el tesoro. Conseguirlo no libera automáticamente
 a otros cautivos del mismo lugar.
+
+El selector R reúne personas y objetos: se anuncia como Rescatar, Robar o
+Recuperar según los objetivos disponibles. Al extraer un tesoro, su posesión
+queda en el líder del grupo aunque lo haya recogido otro integrante.
 
 El [contrato de objetos](../tecnica/componentes/30-objetos-y-ubicaciones-compartidas.md)
 describe contenido, operaciones, ubicación y confirmación persistente.

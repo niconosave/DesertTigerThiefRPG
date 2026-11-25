@@ -4,7 +4,7 @@ use desert_tiger_app::{EscenarioEncuentro, ObjetivoAtaque, TerrenoEncuentro, Vis
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     widgets::{Clear, Paragraph},
 };
 #[derive(Clone)]
@@ -20,13 +20,118 @@ impl ObjetivoSeleccion {
         }
     }
 }
+
+fn solido(t: TerrenoEncuentro) -> bool {
+    matches!(
+        t,
+        TerrenoEncuentro::Suelo | TerrenoEncuentro::Muro | TerrenoEncuentro::Obstaculo
+    )
+}
+
+// Sombra ficticia sobre suelo: tres casillas por tramo de altura hacia -X,+Y.
+fn suelo_en_sombra(v: &VistaEncuentro, x: u16, y: u16, z: u16) -> bool {
+    let celda = |x: u16, y: u16, z: u16| {
+        if x >= v.ancho || y >= v.alto || z >= v.altura {
+            return None;
+        }
+        v.celdas
+            .get(usize::from((z * v.alto + y) * v.ancho + x))
+            .copied()
+    };
+    if celda(x, y, z) != Some(TerrenoEncuentro::Suelo)
+        || !matches!(
+            celda(x, y, z + 1),
+            Some(TerrenoEncuentro::Aire | TerrenoEncuentro::Vacio)
+        )
+    {
+        return false;
+    }
+    for paso in 1..=v.altura.saturating_sub(1).saturating_sub(z) {
+        for (dx, dy) in [(paso, paso), (paso, paso - 1), (paso - 1, paso)] {
+            let Some(sx) = x.checked_add(dx) else {
+                continue;
+            };
+            let Some(sy) = y.checked_sub(dy) else {
+                continue;
+            };
+            // Cada bloque conocido proyecta su huella, incluso sobre un hueco.
+            if celda(sx, sy, z + paso).is_some_and(solido) {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+fn apariencia_solido(
+    v: &VistaEncuentro,
+    x: u16,
+    y: u16,
+    z: u16,
+    corte: u16,
+) -> (&'static str, Color) {
+    let bloque = if z == corte {
+        Color::Gray
+    } else if z % 2 == 0 {
+        Color::DarkGray
+    } else {
+        crate::dibujo_caracteres::color_retrato(desert_tiger_app::ColorRetrato::GrisMuyOscuro)
+    };
+    let celda = |x: u16, y: u16, z: u16| {
+        if x >= v.ancho || y >= v.alto || z >= v.altura {
+            return None;
+        }
+        v.celdas
+            .get(usize::from((z * v.alto + y) * v.ancho + x))
+            .copied()
+    };
+    // El corte atraviesa el sólido. Desconocido encima no demuestra una cara expuesta.
+    if z >= corte
+        || !matches!(
+            celda(x, y, z + 1),
+            Some(TerrenoEncuentro::Aire | TerrenoEncuentro::Vacio)
+        )
+    {
+        return (" ", bloque);
+    }
+    let interior = x > 0
+        && y > 0
+        && [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
+            .iter()
+            .all(|&(nx, ny)| celda(nx, ny, z).is_some_and(solido));
+    if interior {
+        (".", Color::Reset)
+    } else {
+        ("+", bloque)
+    }
+}
+
+pub(crate) fn foco(v: &VistaEncuentro) -> Option<&desert_tiger_app::FichaEncuentro> {
+    v.fichas
+        .iter()
+        .filter(|f| f.aliado && !f.salio && !f.transportado)
+        .min_by_key(|f| (f.id != 0, f.id))
+}
+#[derive(Clone, Copy)]
+pub(crate) struct CamaraEncuentro {
+    pub corte: u16,
+    pub manual: bool,
+    pub centro: Option<(u16, u16)>,
+}
+
 pub(crate) fn dibujar(
     frame: &mut Frame<'_>,
     v: &VistaEncuentro,
     r: &RecursosVisuales,
     pausa: bool,
     detalle: bool,
+    camara: CamaraEncuentro,
 ) {
+    let CamaraEncuentro {
+        corte,
+        manual: corte_manual,
+        centro: centro_guardado,
+    } = camara;
     let a = frame.area();
     frame.render_widget(Clear, a);
     frame.render_widget(Paragraph::new("").style(r.ui.pantalla), a);
@@ -39,7 +144,7 @@ pub(crate) fn dibujar(
     }
     frame.render_widget(
         Paragraph::new(format!(
-            "{} · {} · ronda {} · {}",
+            "{} · {} · ronda {} · {} · z≤{} {}",
             if v.recuperacion {
                 "RECUPERAR"
             } else if v.rescate {
@@ -55,20 +160,25 @@ pub(crate) fn dibujar(
                 EscenarioEncuentro::Bosque => "bosque",
                 EscenarioEncuentro::Montana => "montaña",
                 EscenarioEncuentro::Playa => "playa",
+                EscenarioEncuentro::DosAlturas => "dos alturas",
             },
             v.ronda,
-            if pausa { "pausa" } else { "en curso" }
+            if pausa { "pausa" } else { "en curso" },
+            corte.min(v.altura.saturating_sub(1)),
+            if corte_manual {
+                "manual"
+            } else {
+                "seguimiento"
+            }
         ))
         .style(r.ui.titulo),
         Rect::new(1, 0, a.width - 2, 1),
     );
     let alto = a.height.saturating_sub(9).min(v.alto).max(1);
     let ancho = (a.width.saturating_sub(2) / 2).min(v.ancho).max(1);
-    let centro = v
-        .fichas
-        .iter()
-        .find(|f| f.aliado && !f.salio && !f.transportado)
+    let centro = foco(v)
         .map(|f| (f.x, f.y))
+        .or(centro_guardado)
         .unwrap_or((v.ancho / 2, v.alto / 2));
     let ox = centro
         .0
@@ -78,111 +188,164 @@ pub(crate) fn dibujar(
         .1
         .saturating_sub(alto / 2)
         .min(v.alto.saturating_sub(alto));
+    let mut desconocidos = std::collections::BTreeSet::new();
     let izquierda = (a.width - ancho * 2) / 2;
-    for y in 0..alto {
-        for x in 0..ancho {
-            let i = usize::from((y + oy) * v.ancho + x + ox);
-            let (s, c) = match v.celdas[i] {
-                TerrenoEncuentro::Desconocido => (" ", Color::Reset),
-                TerrenoEncuentro::Suelo if v.escenario == EscenarioEncuentro::Playa => {
-                    (".", Color::Yellow)
+    let mut propietarios = std::collections::BTreeMap::new();
+    // Composición de fondo a frente; Z solo desempata dentro de una fila física.
+    for y in 0..v.alto {
+        for z in 0..=corte.min(v.altura.saturating_sub(1)) {
+            for x in ox..ox + ancho {
+                let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
+                if fila < 2 || fila >= i32::from(2 + alto) {
+                    continue;
                 }
-                TerrenoEncuentro::Suelo => (".", Color::DarkGray),
-                TerrenoEncuentro::Muro if v.escenario == EscenarioEncuentro::Bosque => {
-                    ("T", Color::Green)
+                let sx = izquierda + (x - ox) * 2;
+                let sy = fila as u16;
+                let t = v.celdas[usize::from((z * v.alto + y) * v.ancho + x)];
+                let color = if z % 2 == 0 { Color::Cyan } else { Color::Blue };
+                let (glifo, mut fondo) = match t {
+                    TerrenoEncuentro::Aire | TerrenoEncuentro::Vacio => continue,
+                    TerrenoEncuentro::Desconocido => (" ", Color::Reset),
+                    TerrenoEncuentro::Suelo
+                    | TerrenoEncuentro::Muro
+                    | TerrenoEncuentro::Obstaculo => apariencia_solido(v, x, y, z, corte),
+                    TerrenoEncuentro::PuertaAbierta => ("/", Color::Reset),
+                    TerrenoEncuentro::PuertaCerrada => ("+", Color::DarkGray),
+                    TerrenoEncuentro::Indefinido => (";", Color::Reset),
+                };
+                let piso = t == TerrenoEncuentro::Suelo && glifo == ".";
+                if piso {
+                    fondo = if suelo_en_sombra(v, x, y, z) {
+                        Color::Reset
+                    } else {
+                        match (z % 2, (x + y) % 2) {
+                            (0, 0) => Color::Rgb(18, 26, 36),
+                            (0, _) => Color::Rgb(25, 35, 46),
+                            (_, 0) => Color::Rgb(24, 34, 25),
+                            (_, _) => Color::Rgb(33, 44, 31),
+                        }
+                    };
                 }
-                TerrenoEncuentro::Muro if v.escenario == EscenarioEncuentro::Montana => {
-                    ("^", Color::Gray)
+                let simbolos = if piso { [" ", " "] } else { [glifo, " "] };
+                for dx in 0..2 {
+                    if t == TerrenoEncuentro::Desconocido {
+                        desconocidos.insert((sx + dx, sy));
+                    }
+                    propietarios.insert((sx + dx, sy), (t == TerrenoEncuentro::Desconocido, None));
+                    if let Some(c) = frame.buffer_mut().cell_mut((sx + dx, sy)) {
+                        c.set_symbol(simbolos[usize::from(dx)])
+                            .set_style(Style::default().fg(color).bg(fondo));
+                    }
                 }
-                TerrenoEncuentro::Muro if v.escenario == EscenarioEncuentro::Playa => {
-                    ("*", Color::Gray)
+            }
+            for &(x, ey, ez) in &v.escaleras {
+                if ey != y || ez != z || x < ox || x >= ox + ancho {
+                    continue;
                 }
-                TerrenoEncuentro::Muro => ("#", Color::Gray),
-                TerrenoEncuentro::Vacio if v.escenario == EscenarioEncuentro::Montana => {
-                    (" ", Color::DarkGray)
+                let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
+                if fila >= 2 && fila < i32::from(2 + alto) {
+                    frame.buffer_mut()[(izquierda + (x - ox) * 2, fila as u16)]
+                        .set_symbol(if r.ascii { ">" } else { "△" })
+                        .set_fg(Color::Blue);
                 }
-                TerrenoEncuentro::Vacio => ("~", Color::Blue),
-            };
-            if let Some(celda) = frame.buffer_mut().cell_mut((izquierda + x * 2, 2 + y)) {
-                celda.set_symbol(s).set_style(Style::default().fg(c));
+            }
+            let mut fichas: Vec<_> = v.fichas.iter().collect();
+            fichas.sort_by_key(|f| std::cmp::Reverse(f.id));
+            for f in fichas {
+                if f.salio || f.transportado || f.y != y || f.x < ox || f.x >= ox + ancho {
+                    continue;
+                }
+                let torso = f.golpes < 2 && z == f.z + 1;
+                if z != f.z && !torso {
+                    continue;
+                }
+                let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
+                if fila < 2 || fila >= i32::from(2 + alto) {
+                    continue;
+                }
+                let glifo = if f.golpes >= 3 {
+                    '%'
+                } else if f.golpes == 2 {
+                    'x'
+                } else if !torso {
+                    '^'
+                } else if f.rescatado {
+                    '@'
+                } else if f.aliado {
+                    (b'A' + (f.id % 26) as u8) as char
+                } else {
+                    'E'
+                };
+                let color = if f.golpes > 0 {
+                    Color::LightRed
+                } else if f.aliado {
+                    Color::Cyan
+                } else {
+                    Color::Yellow
+                };
+                propietarios.insert(
+                    (izquierda + (f.x - ox) * 2, fila as u16),
+                    (false, Some(f.id)),
+                );
+                frame.buffer_mut()[(izquierda + (f.x - ox) * 2, fila as u16)]
+                    .set_char(glifo)
+                    .set_fg(color);
+                if torso && let Some(acierto) = f.impacto {
+                    let sx = izquierda + (f.x - ox) * 2 + 1;
+                    frame.buffer_mut()[(sx, fila as u16)]
+                        .set_symbol(if acierto { "*" } else { "-" })
+                        .set_fg(color);
+                    propietarios.insert((sx, fila as u16), (false, Some(f.id)));
+                }
+            }
+            if let Some(o) = &v.objeto
+                && !o.fuera
+                && !o.recogido
+                && o.y == y
+                && o.z == z
+                && o.x >= ox
+                && o.x < ox + ancho
+            {
+                let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
+                if fila >= 2 && fila < i32::from(2 + alto) {
+                    frame.buffer_mut()[(izquierda + (o.x - ox) * 2, fila as u16)]
+                        .set_symbol("$")
+                        .set_fg(Color::Yellow);
+                }
             }
         }
     }
-    for (i, f) in v.fichas.iter().enumerate().rev() {
-        if f.salio
-            || f.transportado
-            || f.x < ox
-            || f.y < oy
-            || f.x >= ox + ancho
-            || f.y >= oy + alto
-        {
+    for f in &v.fichas {
+        if f.salio || f.transportado || f.z > corte || f.x < ox || f.x >= ox + ancho {
             continue;
         }
-        let glifo = if f.golpes >= 3 {
-            '%'
-        } else if f.golpes == 2 {
-            'x'
-        } else if f.rescatado {
-            '@'
-        } else if f.aliado {
-            (b'A' + (i % 26) as u8) as char
-        } else {
-            'E'
-        };
-        if let Some(celda) = frame
-            .buffer_mut()
-            .cell_mut((izquierda + (f.x - ox) * 2, 2 + f.y - oy))
-        {
-            celda.set_char(glifo).set_style(
-                Style::default()
-                    .fg(if f.golpes > 0 {
-                        Color::LightRed
-                    } else if f.aliado {
-                        Color::Cyan
-                    } else {
-                        Color::Yellow
-                    })
-                    .add_modifier(Modifier::BOLD),
-            );
+        let z = (f.z + u16::from(f.golpes < 2)).min(corte);
+        let fila = 2 + i32::from(f.y) - i32::from(oy) - i32::from(z);
+        if fila < 2 || fila >= i32::from(2 + alto) {
+            continue;
         }
-    }
-    if let Some(o) = &v.objeto
-        && !o.fuera
-        && !o.recogido
-        && o.x >= ox
-        && o.x < ox + ancho
-        && o.y >= oy
-        && o.y < oy + alto
-        && let Some(celda) = frame
-            .buffer_mut()
-            .cell_mut((izquierda + (o.x - ox) * 2, 2 + o.y - oy))
-    {
-        celda.set_symbol("$").set_fg(Color::Yellow);
-    }
-    // Efecto breve junto a la ficha: acierto (*) o fallo (-).
-    for f in &v.fichas {
-        if let Some(acierto) = f.impacto
-            && !f.salio
-            && !f.transportado
-            && f.x >= ox
-            && f.x < ox + ancho
-            && f.y >= oy
-            && f.y < oy + alto
-            && let Some(c) = frame
-                .buffer_mut()
-                .cell_mut((izquierda + (f.x - ox) * 2 + 1, 2 + f.y - oy))
-        {
-            c.set_symbol(if acierto { "*" } else { "-" })
-                .set_fg(if acierto {
-                    Color::LightRed
-                } else {
-                    Color::White
-                });
+        let punto = (izquierda + (f.x - ox) * 2, fila as u16);
+        if propietarios.get(&punto) == Some(&(false, None)) && !desconocidos.contains(&punto) {
+            let letra = if f.golpes >= 3 {
+                '%'
+            } else if f.golpes == 2 {
+                'x'
+            } else if f.aliado {
+                (b'A' + (f.id % 26) as u8) as char
+            } else {
+                'E'
+            };
+            frame.buffer_mut()[punto]
+                .set_char(letra)
+                .set_fg(Color::Rgb(0, 0, 0))
+                .set_bg(if f.aliado { Color::Cyan } else { Color::Yellow });
         }
     }
     let pie = 2 + alto;
     frame.render_widget(
-        Paragraph::new(v.texto.as_str())
+        Paragraph::new(if v.evacuacion_pendiente.is_empty() { v.texto.clone() } else {
+                format!("No se pudo evacuar a: {}. Enter: continuar el auxilio. A: confirmar que quedan atrás.", v.evacuacion_pendiente.iter().map(|p| format!("{} ({})", p.nombre, p.motivo)).collect::<Vec<_>>().join(", "))
+            })
             .wrap(ratatui::widgets::Wrap { trim: true })
             .style(r.ui.texto_normal),
         Rect::new(1, pie, a.width - 2, 3.min(a.height.saturating_sub(pie))),
@@ -192,13 +355,13 @@ pub(crate) fn dibujar(
         .iter()
         .enumerate()
         .filter(|(_, f)| f.aliado)
-        .map(|(i, f)| {
+        .map(|(_, f)| {
             format!(
                 "{} {}{}",
                 if f.rescatado {
                     '@'
                 } else {
-                    (b'A' + (i % 26) as u8) as char
+                    (b'A' + (f.id % 26) as u8) as char
                 },
                 f.nombre,
                 if f.golpes >= 3 {
@@ -241,6 +404,8 @@ pub(crate) fn dibujar(
     }
     let controles = if v.finalizado {
         "Enter: cerrar episodio · D: detalles · Q: salir"
+    } else if !v.evacuacion_pendiente.is_empty() {
+        "Evacuación incompleta: Enter auxiliar · A abandonar · D detalles · Q salir"
     } else if v.pausa_decision {
         "Sin avance: Enter reintentar · R retirarse · D detalles · Q salir"
     } else {
@@ -303,13 +468,9 @@ mod pruebas {
     use super::*;
     use desert_tiger_app::FichaEncuentro;
     use ratatui::{Terminal, backend::TestBackend};
-    #[test]
-    fn encuentro_terminal_dibuja_fichas_impactos_y_admite_resize() {
-        let recursos = RecursosVisuales::cargar(
-            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal"),
-        )
-        .unwrap();
-        let mut v = VistaEncuentro {
+    fn fixture() -> VistaEncuentro {
+        VistaEncuentro {
+            escaleras: vec![],
             recuperacion: false,
             objeto: None,
             rescate: false,
@@ -318,7 +479,12 @@ mod pruebas {
             paso: 0,
             ancho: 9,
             alto: 9,
-            celdas: vec![TerrenoEncuentro::Suelo; 81],
+            altura: 3,
+            celdas: {
+                let mut c = vec![TerrenoEncuentro::Aire; 9 * 9 * 3];
+                c[..81].fill(TerrenoEncuentro::Suelo);
+                c
+            },
             fichas: vec![FichaEncuentro {
                 cautivo: false,
                 rescatado: false,
@@ -327,6 +493,7 @@ mod pruebas {
                 nombre: "Prueba".into(),
                 x: 4,
                 y: 4,
+                z: 1,
                 aliado: true,
                 golpes: 1,
                 salio: false,
@@ -338,10 +505,250 @@ mod pruebas {
             finalizado: false,
             puede_retirar: true,
             pausa_decision: false,
+            evacuacion_pendiente: Vec::new(),
             retirando: false,
+        }
+    }
+
+    #[test]
+    fn sombra_fondo_negro_y_longitud_independiente_del_corte() {
+        use ratatui::{Terminal, backend::TestBackend};
+        let recursos = RecursosVisuales::cargar(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal"),
+        )
+        .unwrap();
+        let mut v = fixture();
+        v.fichas.clear();
+        v.altura = 5;
+        v.celdas.resize(9 * 9 * 5, TerrenoEncuentro::Aire);
+        for z in 1..=3 {
+            v.celdas[(z * 9 + 2) * 9 + 5] = TerrenoEncuentro::Muro;
+        }
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        for corte in [1, 2, 4] {
+            terminal
+                .draw(|f| {
+                    dibujar(
+                        f,
+                        &v,
+                        &recursos,
+                        false,
+                        false,
+                        CamaraEncuentro {
+                            corte,
+                            manual: true,
+                            centro: None,
+                        },
+                    )
+                })
+                .unwrap();
+            // Piso en (2,5): extremo lejano de la sombra de altura tres.
+            assert_eq!(terminal.backend().buffer()[(35, 7)].bg, Color::Reset);
+            assert_eq!(
+                terminal.backend().buffer()[(33, 8)].bg,
+                Color::Rgb(25, 35, 46)
+            );
+        }
+    }
+    #[test]
+    fn sombra_bloque_elevado_con_aire_debajo() {
+        let mut v = fixture();
+        v.altura = 5;
+        v.celdas.resize(9 * 9 * 5, TerrenoEncuentro::Aire);
+        let bloque = (3 * 9 + 2) * 9 + 5;
+        v.celdas[bloque] = TerrenoEncuentro::Suelo;
+        for (x, y) in [(2, 4), (2, 5), (3, 5)] {
+            assert!(suelo_en_sombra(&v, x, y, 0));
+        }
+        // Los niveles vacíos no rellenan los tramos primero y segundo.
+        assert!(!suelo_en_sombra(&v, 4, 3, 0));
+        assert!(!suelo_en_sombra(&v, 3, 4, 0));
+        v.celdas[bloque] = TerrenoEncuentro::Desconocido;
+        assert!(!suelo_en_sombra(&v, 2, 5, 0));
+        v.celdas[bloque] = TerrenoEncuentro::Aire;
+        assert!(!suelo_en_sombra(&v, 2, 5, 0));
+    }
+    #[test]
+    fn sombra_diagonal_tres_niveles_solo_en_suelo_conocido() {
+        let mut v = fixture();
+        v.altura = 5;
+        v.celdas.resize(9 * 9 * 5, TerrenoEncuentro::Aire);
+        for z in 1..=3 {
+            v.celdas[(z * 9 + 2) * 9 + 5] = TerrenoEncuentro::Muro;
+        }
+        for (x, y) in [
+            (4, 2),
+            (4, 3),
+            (5, 3),
+            (3, 3),
+            (3, 4),
+            (4, 4),
+            (2, 4),
+            (2, 5),
+            (3, 5),
+        ] {
+            assert!(suelo_en_sombra(&v, x, y, 0), "{x},{y}");
+        }
+        assert!(!suelo_en_sombra(&v, 1, 6, 0));
+        assert!(!suelo_en_sombra(&v, 5, 1, 0));
+        assert!(suelo_en_sombra(&v, 2, 5, 0));
+        v.celdas[5 * 9 + 2] = TerrenoEncuentro::Muro;
+        assert!(!suelo_en_sombra(&v, 2, 5, 0));
+        v.celdas[(3 * 9 + 2) * 9 + 5] = TerrenoEncuentro::Desconocido;
+        assert!(!suelo_en_sombra(&v, 3, 5, 0));
+    }
+    #[test]
+    fn solidos_corte_superficie_y_coronamiento() {
+        let mut v = fixture();
+        assert_eq!(apariencia_solido(&v, 4, 4, 0, 0), (" ", Color::Gray));
+        assert_eq!(apariencia_solido(&v, 4, 4, 0, 1), (".", Color::Reset));
+        v.celdas[81 + 4 * 9 + 4] = TerrenoEncuentro::Muro;
+        assert_eq!(apariencia_solido(&v, 4, 4, 0, 2), (" ", Color::DarkGray));
+        assert_eq!(apariencia_solido(&v, 4, 4, 1, 1), (" ", Color::Gray));
+        assert_eq!(
+            apariencia_solido(&v, 4, 4, 1, 2),
+            ("+", Color::Rgb(32, 32, 32))
+        );
+        v.celdas[162 + 4 * 9 + 4] = TerrenoEncuentro::Desconocido;
+        assert_eq!(
+            apariencia_solido(&v, 4, 4, 1, 2),
+            (" ", Color::Rgb(32, 32, 32))
+        );
+    }
+    #[test]
+    fn vista_oblicua_cuerpo_escalera_y_corte_estable() {
+        use ratatui::{Terminal, backend::TestBackend};
+        let recursos = RecursosVisuales::cargar(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal"),
+        )
+        .unwrap();
+        let mut v = fixture();
+        v.escaleras.push((6, 6, 1));
+        let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+        let dibujar_vista = |t: &mut Terminal<TestBackend>, v: &VistaEncuentro, corte| {
+            t.draw(|f| {
+                dibujar(
+                    f,
+                    v,
+                    &recursos,
+                    false,
+                    false,
+                    CamaraEncuentro {
+                        corte,
+                        manual: true,
+                        centro: None,
+                    },
+                )
+            })
+            .unwrap();
         };
+        dibujar_vista(&mut terminal, &v, 2);
+        let cuerpo = terminal.backend().buffer().clone();
+        let buscar = |b: &ratatui::buffer::Buffer, signo: &str| {
+            b.content
+                .iter()
+                .enumerate()
+                .find_map(|(i, c)| (i >= 160 && i < 880 && c.symbol() == signo).then_some(i))
+                .unwrap_or_else(|| panic!("símbolo ausente: {signo}"))
+        };
+        let torso = buscar(&cuerpo, "A");
+        let piernas = buscar(&cuerpo, "^");
+        assert_eq!(piernas, torso + 80);
+        assert_eq!(cuerpo.content[torso].bg, Color::Rgb(18, 26, 36));
+        assert_eq!(cuerpo.content[piernas].bg, Color::Rgb(25, 35, 46));
+        buscar(&cuerpo, "△");
+        v.altura = 4;
+        v.celdas.resize(9 * 9 * 4, TerrenoEncuentro::Aire);
+        let pared = usize::from((3 * v.alto + 5) * v.ancho + 4);
+        v.celdas[pared] = TerrenoEncuentro::Muro;
+        dibujar_vista(&mut terminal, &v, 3);
+        assert_eq!(
+            terminal.backend().buffer().content[torso].fg,
+            Color::Rgb(0, 0, 0)
+        );
+        assert_eq!(terminal.backend().buffer().content[torso].bg, Color::Cyan);
+        v.celdas[pared] = TerrenoEncuentro::Desconocido;
+        dibujar_vista(&mut terminal, &v, 3);
+        assert_ne!(terminal.backend().buffer().content[torso].symbol(), "A");
+
+        dibujar_vista(&mut terminal, &v, 1);
+        assert_eq!(buscar(terminal.backend().buffer(), "^"), piernas);
+        assert!(
+            !terminal
+                .backend()
+                .buffer()
+                .content
+                .iter()
+                .enumerate()
+                .any(|(i, c)| i >= 160 && i < 880 && c.symbol() == "A")
+        );
+    }
+    #[test]
+    fn consecuencias_locales_muestra_persona_y_opciones_de_evacuacion() {
+        use ratatui::{Terminal, backend::TestBackend};
+        let recursos = RecursosVisuales::cargar(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal"),
+        )
+        .unwrap();
+        let mut v = fixture();
+        v.evacuacion_pendiente = vec![desert_tiger_app::ParticipanteEvacuacion {
+            id: 1,
+            nombre: "Nadine".into(),
+            motivo: "incapacitado, sin evacuar".into(),
+        }];
+        v.pausa_decision = true;
+        let antes = v.clone();
+        let mut t = Terminal::new(TestBackend::new(100, 30)).unwrap();
+        t.draw(|f| {
+            dibujar(
+                f,
+                &v,
+                &recursos,
+                false,
+                false,
+                CamaraEncuentro {
+                    corte: 2,
+                    manual: false,
+                    centro: None,
+                },
+            )
+        })
+        .unwrap();
+        let texto = t
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect::<String>();
+        assert!(texto.contains("Nadine"));
+        assert!(texto.contains("Enter auxiliar"));
+        assert!(texto.contains("A abandonar"));
+        assert_eq!(v, antes);
+    }
+    #[test]
+    fn corte_altura_dibuja_fichas_impactos_y_admite_resize() {
+        let recursos = RecursosVisuales::cargar(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal"),
+        )
+        .unwrap();
+        let mut v = fixture();
         let mut t = Terminal::new(TestBackend::new(80, 24)).unwrap();
-        t.draw(|f| dibujar(f, &v, &recursos, true, false)).unwrap();
+        t.draw(|f| {
+            dibujar(
+                f,
+                &v,
+                &recursos,
+                true,
+                false,
+                CamaraEncuentro {
+                    corte: 2,
+                    manual: false,
+                    centro: None,
+                },
+            )
+        })
+        .unwrap();
         let texto = t
             .backend()
             .buffer()
@@ -353,7 +760,21 @@ mod pruebas {
         assert!(texto.contains("El grupo entra en combate."));
         assert!(texto.contains("herido"));
         v.fichas[0].impacto = Some(false);
-        t.draw(|f| dibujar(f, &v, &recursos, false, false)).unwrap();
+        t.draw(|f| {
+            dibujar(
+                f,
+                &v,
+                &recursos,
+                false,
+                false,
+                CamaraEncuentro {
+                    corte: 2,
+                    manual: false,
+                    centro: None,
+                },
+            )
+        })
+        .unwrap();
         let texto = t
             .backend()
             .buffer()
@@ -363,15 +784,29 @@ mod pruebas {
             .collect::<String>();
         assert!(texto.contains("A-"));
         v.celdas[4 * 9 + 3] = TerrenoEncuentro::Muro;
-        for (escenario, glifo, nombre) in [
-            (EscenarioEncuentro::Bosque, "T", "bosque"),
-            (EscenarioEncuentro::Montana, "^", "montaña"),
-            (EscenarioEncuentro::Playa, "*", "playa"),
-            (EscenarioEncuentro::Ciudad, "#", "ciudad"),
-            (EscenarioEncuentro::Palacio, "#", "palacio"),
+        for (escenario, nombre) in [
+            (EscenarioEncuentro::Bosque, "bosque"),
+            (EscenarioEncuentro::Montana, "montaña"),
+            (EscenarioEncuentro::Playa, "playa"),
+            (EscenarioEncuentro::Ciudad, "ciudad"),
+            (EscenarioEncuentro::Palacio, "palacio"),
         ] {
             v.escenario = escenario;
-            t.draw(|f| dibujar(f, &v, &recursos, true, false)).unwrap();
+            t.draw(|f| {
+                dibujar(
+                    f,
+                    &v,
+                    &recursos,
+                    true,
+                    false,
+                    CamaraEncuentro {
+                        corte: 2,
+                        manual: false,
+                        centro: None,
+                    },
+                )
+            })
+            .unwrap();
             let texto = t
                 .backend()
                 .buffer()
@@ -379,14 +814,41 @@ mod pruebas {
                 .iter()
                 .map(|c| c.symbol())
                 .collect::<String>();
-            assert!(texto.contains(glifo));
             assert!(texto.contains(nombre));
         }
         t.backend_mut().resize(120, 40);
         t.resize(Rect::new(0, 0, 120, 40)).unwrap();
-        t.draw(|f| dibujar(f, &v, &recursos, true, true)).unwrap();
+        t.draw(|f| {
+            dibujar(
+                f,
+                &v,
+                &recursos,
+                true,
+                true,
+                CamaraEncuentro {
+                    corte: 2,
+                    manual: false,
+                    centro: None,
+                },
+            )
+        })
+        .unwrap();
         t.backend_mut().resize(12, 5);
         t.resize(Rect::new(0, 0, 12, 5)).unwrap();
-        t.draw(|f| dibujar(f, &v, &recursos, true, false)).unwrap();
+        t.draw(|f| {
+            dibujar(
+                f,
+                &v,
+                &recursos,
+                true,
+                false,
+                CamaraEncuentro {
+                    corte: 2,
+                    manual: false,
+                    centro: None,
+                },
+            )
+        })
+        .unwrap();
     }
 }

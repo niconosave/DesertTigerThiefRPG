@@ -78,6 +78,10 @@ pub(crate) struct Interfaz {
     retirada_encuentro: bool,
     reloj_encuentro: Duration,
     intervalo_encuentro: Duration,
+    altura_corte: Cell<u16>,
+    encuentro_vista_id: Cell<Option<u64>>,
+    camara_encuentro: Cell<Option<(u16, u16)>>,
+    corte_manual: Cell<bool>,
     aviso_audio: Option<AvisoAudio>,
     aviso_audio_mostrado: Cell<bool>,
 }
@@ -127,6 +131,10 @@ impl Interfaz {
             retirada_encuentro: false,
             reloj_encuentro: Duration::ZERO,
             intervalo_encuentro: Duration::from_millis(350),
+            altura_corte: Cell::new(2),
+            encuentro_vista_id: Cell::new(None),
+            camara_encuentro: Cell::new(None),
+            corte_manual: Cell::new(false),
             aviso_audio: None,
             aviso_audio_mostrado: Cell::new(false),
         })
@@ -448,6 +456,36 @@ impl Interfaz {
             self.enviar(IntencionFrontend::CancelarEspera { espera });
             return;
         }
+        if matches!(evento.code, KeyCode::Char('[' | ']' | 'c' | 'C')) {
+            let encuentro = match &self.vista {
+                VistaSesion::Encuentro(v) => Some(v.clone()),
+                _ => self.partida.encuentro_suspendido(),
+            };
+            if let Some(v) = encuentro {
+                self.preparar_vista_encuentro(&v);
+                match evento.code {
+                    KeyCode::Char('[') => {
+                        self.altura_corte
+                            .set(self.altura_corte.get().saturating_sub(1));
+                        self.corte_manual.set(true);
+                    }
+                    KeyCode::Char(']') => {
+                        self.altura_corte.set(
+                            self.altura_corte
+                                .get()
+                                .saturating_add(1)
+                                .min(v.altura.saturating_sub(1)),
+                        );
+                        self.corte_manual.set(true);
+                    }
+                    _ => {
+                        self.corte_manual.set(false);
+                        self.preparar_vista_encuentro(&v);
+                    }
+                }
+                return;
+            }
+        }
         if let Some(v) = self.evento().cloned() {
             let paginas = self.paginas_evento(&v);
             match evento.code {
@@ -538,7 +576,14 @@ impl Interfaz {
                     self.pausa_encuentro = false;
                 }
                 KeyCode::Enter | KeyCode::Char(' ') => self.pausa_encuentro = !self.pausa_encuentro,
-                KeyCode::Char('r' | 'R') if !v.finalizado => {
+                KeyCode::Char('a' | 'A') if !v.evacuacion_pendiente.is_empty() => {
+                    self.enviar(IntencionFrontend::ConfirmarAbandonoEncuentro {
+                        id: v.id,
+                        paso: v.paso,
+                    });
+                    self.pausa_encuentro = false;
+                }
+                KeyCode::Char('r' | 'R') if !v.finalizado && v.evacuacion_pendiente.is_empty() => {
                     if v.pausa_decision && v.puede_retirar {
                         self.enviar(IntencionFrontend::RetirarEncuentro {
                             id: v.id,
@@ -605,54 +650,44 @@ impl Interfaz {
             }
             return;
         }
-        if matches!(normalizar_letra(evento.code), Some('t' | 'r' | 'b'))
+        if matches!(normalizar_letra(evento.code), Some('t' | 'r'))
             && matches!(self.vista, VistaSesion::Disponible(_))
         {
-            self.seleccion_objeto = normalizar_letra(evento.code) == Some('b');
             self.seleccion_rescate = normalizar_letra(evento.code) == Some('r');
-            if let Some(opciones) = self
-                .ultima_vista_mundo
-                .acciones
+            let mut opciones = Vec::new();
+            for accion in &self.ultima_vista_mundo.acciones {
+                match accion {
+                    AccionDisponible::Atacar { objetivos } if !self.seleccion_rescate => {
+                        opciones.extend(
+                            objetivos
+                                .iter()
+                                .cloned()
+                                .map(crate::encuentro::ObjetivoSeleccion::Actor),
+                        );
+                    }
+                    AccionDisponible::Rescatar { objetivos } if self.seleccion_rescate => {
+                        opciones.extend(
+                            objetivos
+                                .iter()
+                                .cloned()
+                                .map(crate::encuentro::ObjetivoSeleccion::Actor),
+                        );
+                    }
+                    AccionDisponible::Recuperar { objetivos } if self.seleccion_rescate => {
+                        opciones.extend(
+                            objetivos
+                                .iter()
+                                .cloned()
+                                .map(crate::encuentro::ObjetivoSeleccion::Objeto),
+                        );
+                    }
+                    _ => {}
+                }
+            }
+            self.seleccion_objeto = opciones
                 .iter()
-                .find_map(|a| match a {
-                    AccionDisponible::Atacar { objetivos }
-                        if !self.seleccion_objeto
-                            && !self.seleccion_rescate
-                            && !objetivos.is_empty() =>
-                    {
-                        Some(
-                            objetivos
-                                .iter()
-                                .cloned()
-                                .map(crate::encuentro::ObjetivoSeleccion::Actor)
-                                .collect(),
-                        )
-                    }
-                    AccionDisponible::Rescatar { objetivos }
-                        if self.seleccion_rescate && !objetivos.is_empty() =>
-                    {
-                        Some(
-                            objetivos
-                                .iter()
-                                .cloned()
-                                .map(crate::encuentro::ObjetivoSeleccion::Actor)
-                                .collect(),
-                        )
-                    }
-                    AccionDisponible::Recuperar { objetivos }
-                        if self.seleccion_objeto && !objetivos.is_empty() =>
-                    {
-                        Some(
-                            objetivos
-                                .iter()
-                                .cloned()
-                                .map(crate::encuentro::ObjetivoSeleccion::Objeto)
-                                .collect(),
-                        )
-                    }
-                    _ => None,
-                })
-            {
+                .any(|o| matches!(o, crate::encuentro::ObjetivoSeleccion::Objeto(_)));
+            if !opciones.is_empty() {
                 self.objetivos_ataque = Some((opciones, 0));
             }
             return;
@@ -966,10 +1001,12 @@ impl Interfaz {
                 opciones,
                 *foco,
                 recursos,
-                if self.seleccion_objeto {
-                    "recuperar"
-                } else if self.seleccion_rescate {
-                    "rescatar"
+                if self.seleccion_rescate {
+                    match nombre_recuperacion(&self.ultima_vista_mundo.acciones) {
+                        Some("[R] Robar") => "robar",
+                        Some("[R] Rescatar") => "rescatar",
+                        _ => "recuperar",
+                    }
                 } else {
                     "atacar"
                 },
@@ -978,16 +1015,39 @@ impl Interfaz {
         recursos.paleta.aplicar(frame.buffer_mut());
     }
 
+    fn preparar_vista_encuentro(&self, v: &desert_tiger_app::VistaEncuentro) {
+        if self.encuentro_vista_id.get() != Some(v.id) {
+            self.encuentro_vista_id.set(Some(v.id));
+            self.corte_manual.set(false);
+            self.altura_corte.set(2.min(v.altura.saturating_sub(1)));
+            self.camara_encuentro.set(None);
+        }
+        if let Some(f) = crate::encuentro::foco(v) {
+            self.camara_encuentro.set(Some((f.x, f.y)));
+            if !self.corte_manual.get() {
+                self.altura_corte.set(f.z.saturating_add(1));
+            }
+        }
+        self.altura_corte
+            .set(self.altura_corte.get().min(v.altura.saturating_sub(1)));
+    }
+
     fn dibujar_contenido(&self, frame: &mut Frame<'_>, recursos: &RecursosVisuales) {
         self.tamano_terminal
             .set((frame.area().width, frame.area().height));
         if let VistaSesion::Encuentro(v) = &self.vista {
+            self.preparar_vista_encuentro(v);
             crate::encuentro::dibujar(
                 frame,
                 v,
                 recursos,
                 self.pausa_encuentro,
                 self.mostrar_detalle,
+                crate::encuentro::CamaraEncuentro {
+                    corte: self.altura_corte.get(),
+                    manual: self.corte_manual.get(),
+                    centro: self.camara_encuentro.get(),
+                },
             );
             if self.confirmar_salida {
                 self.dibujar_ventana(
@@ -1025,7 +1085,19 @@ impl Interfaz {
         let mundo = mundo_revelado.as_ref().unwrap_or(&self.ultima_vista_mundo);
         let region_mundo = Rect::new(area.x, area.y, area.width, area.height - 2);
         if let Some(encuentro) = self.partida.encuentro_suspendido() {
-            crate::encuentro::dibujar(frame, &encuentro, recursos, true, false);
+            self.preparar_vista_encuentro(&encuentro);
+            crate::encuentro::dibujar(
+                frame,
+                &encuentro,
+                recursos,
+                true,
+                false,
+                crate::encuentro::CamaraEncuentro {
+                    corte: self.altura_corte.get(),
+                    manual: self.corte_manual.get(),
+                    centro: self.camara_encuentro.get(),
+                },
+            );
         } else if self.decision_planificacion().is_some() {
             self.dibujar_mundo(frame, region_mundo, mundo, recursos);
         } else if let Some(campamento) = &self.campamento {
@@ -1721,14 +1793,11 @@ impl Interfaz {
                             AccionDisponible::Atacar { objetivos } if !objetivos.is_empty() => {
                                 opciones.push("[T] Atacar")
                             }
-                            AccionDisponible::Rescatar { objetivos } if !objetivos.is_empty() => {
-                                opciones.push("[R] Rescatar")
-                            }
-                            AccionDisponible::Recuperar { objetivos } if !objetivos.is_empty() => {
-                                opciones.push("[B] Robar")
-                            }
                             _ => {}
                         }
+                    }
+                    if let Some(nombre) = nombre_recuperacion(&mundo.acciones) {
+                        opciones.push(nombre);
                     }
                     opciones.extend(["[D] Desarrollo", "[Q] Salir"]);
                     format!(" {}", opciones.join(" "))
@@ -2291,6 +2360,21 @@ impl GeometriaMapa {
     }
 }
 
+fn nombre_recuperacion(acciones: &[AccionDisponible]) -> Option<&'static str> {
+    let personas = acciones
+        .iter()
+        .any(|a| matches!(a, AccionDisponible::Rescatar { objetivos } if !objetivos.is_empty()));
+    let objetos = acciones
+        .iter()
+        .any(|a| matches!(a, AccionDisponible::Recuperar { objetivos } if !objetivos.is_empty()));
+    match (personas, objetos) {
+        (true, true) => Some("[R] Recuperar"),
+        (true, false) => Some("[R] Rescatar"),
+        (false, true) => Some("[R] Robar"),
+        (false, false) => None,
+    }
+}
+
 fn origen_eje(mapa: usize, vista: usize, objetivo: usize) -> (usize, usize) {
     if mapa <= vista {
         (0, (vista - mapa) / 2)
@@ -2544,7 +2628,28 @@ mod pruebas {
             }
         }
         let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
-        i.manejar_tecla(tecla(KeyCode::Char('b')));
+        assert_eq!(
+            nombre_recuperacion(&i.ultima_vista_mundo.acciones),
+            Some("[R] Robar")
+        );
+        let acciones = i.ultima_vista_mundo.acciones.clone();
+        i.ultima_vista_mundo
+            .acciones
+            .push(AccionDisponible::Rescatar {
+                objetivos: vec![desert_tiger_app::ObjetivoAtaque {
+                    actor: desert_tiger_app::IdActor::desde_posicion(0).unwrap(),
+                    nombre: "Persona de prueba".into(),
+                }],
+            });
+        assert_eq!(
+            nombre_recuperacion(&i.ultima_vista_mundo.acciones),
+            Some("[R] Recuperar")
+        );
+        i.manejar_tecla(tecla(KeyCode::Char('r')));
+        assert_eq!(i.objetivos_ataque.as_ref().unwrap().0.len(), 2);
+        i.manejar_tecla(tecla(KeyCode::Esc));
+        i.ultima_vista_mundo.acciones = acciones;
+        i.manejar_tecla(tecla(KeyCode::Char('r')));
         assert!(i.seleccion_objeto);
         assert_eq!(
             i.objetivos_ataque.as_ref().unwrap().0[0].nombre(),
@@ -2582,7 +2687,7 @@ mod pruebas {
             i.avanzar_espera();
         }
         assert!(matches!(i.vista, VistaSesion::Disponible(_)));
-        assert!(!i.texto_acciones().contains("[B] Robar"));
+        assert!(!i.texto_acciones().contains("[R] Robar"));
     }
     #[test]
     fn rescate_terminal_selector_y_extraccion_de_tamin() {
@@ -2604,8 +2709,14 @@ mod pruebas {
         let archivo = temporal.join("actors/tamin.ron");
         let texto = std::fs::read_to_string(&archivo)
             .unwrap()
-            .replace("Lugar(\"nuris\")", "Lugar(\"costa_ambar\")");
+            .replace("Lugar(\"lomas_de_anir\")", "Lugar(\"costa_ambar\")");
         std::fs::write(archivo, texto).unwrap();
+        let escenarios = temporal.join("encounters.ron");
+        let fuente = std::fs::read_to_string(&escenarios).unwrap().replace(
+            r#"actor: "tamin", captor: "jefe_bandido_kazir", escenario: Campamento"#,
+            r#"actor: "tamin", captor: "jefe_bandido_kazir", escenario: DosAlturas"#,
+        );
+        std::fs::write(escenarios, fuente).unwrap();
         let c = cargar_contenido(&temporal).unwrap();
         std::fs::remove_dir_all(temporal).unwrap();
         let mut i = Interfaz::nueva(
@@ -2652,13 +2763,27 @@ mod pruebas {
         assert!(texto.contains("RESCATE"));
         assert!(texto.contains("@"));
         i.manejar_tecla(tecla(KeyCode::Enter));
-        for _ in 0..500 {
+        let mut vio_escalera = false;
+        let mut vio_rescatado_arriba = false;
+        for _ in 0..1000 {
+            if let VistaSesion::Encuentro(v) = &i.vista {
+                vio_escalera |= v.fichas.iter().any(|f| f.aliado && f.z > 1);
+                vio_rescatado_arriba |= v.fichas.iter().any(|f| f.nombre == "Tamin" && f.z == 4);
+            }
             if matches!(&i.vista,VistaSesion::Encuentro(v) if v.finalizado) {
                 break;
             }
             i.avanzar_animacion(Duration::from_secs(1));
         }
         assert!(matches!(&i.vista,VistaSesion::Encuentro(v) if v.finalizado));
+        assert!(
+            vio_escalera,
+            "el grupo recorre la escalera antes de evacuar"
+        );
+        assert!(
+            vio_rescatado_arriba,
+            "el cautivo ocupa la plataforma superior"
+        );
         i.manejar_tecla(tecla(KeyCode::Enter));
         for _ in 0..100 {
             if matches!(i.vista, VistaSesion::Disponible(_)) {
@@ -2748,7 +2873,61 @@ mod pruebas {
     }
 
     #[test]
-    fn encuentro_terminal_selector_pausa_omision_y_tamano() {
+    fn corte_altura_controles_en_encuentro_suspendido_no_avanzan_evento() {
+        let raiz = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let c = cargar_contenido(&raiz.join("content/base")).unwrap();
+        let mut i = Interfaz::nueva(
+            Partida::nueva(&c, ConfiguracionPartida { semilla: Some(42) }).unwrap(),
+        )
+        .unwrap();
+        for _ in 0..100 {
+            match i.vista.clone() {
+                VistaSesion::Disponible(_) => break,
+                VistaSesion::PresentandoEvento(v) => {
+                    i.enviar(IntencionFrontend::ContinuarEvento { presentacion: v.id })
+                }
+                VistaSesion::EsperandoDecisionEvento(v) => {
+                    i.enviar(IntencionFrontend::ResponderEvento {
+                        presentacion: v.id,
+                        opcion: v.opciones[0].id,
+                    })
+                }
+                VistaSesion::ProcesandoCierre { token } => {
+                    i.enviar(IntencionFrontend::ContinuarCierre { token })
+                }
+                otra => panic!("prólogo inesperado: {otra:?}"),
+            }
+        }
+        let tecla = |c| KeyEvent::new(c, KeyModifiers::NONE);
+        i.manejar_tecla(tecla(KeyCode::Char('t')));
+        let (opciones, foco) = i.objetivos_ataque.as_mut().unwrap();
+        *foco = opciones
+            .iter()
+            .position(|o| o.nombre() == "Gorun el Tragahuesos")
+            .unwrap();
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        let suspendido = i
+            .partida
+            .encuentro_suspendido()
+            .expect("preparación narrativa");
+        let evento = i.vista.clone();
+        i.manejar_tecla(tecla(KeyCode::Char(']')));
+        assert_eq!(i.altura_corte.get(), 3);
+        assert_eq!(i.vista, evento);
+        assert_eq!(i.partida.encuentro_suspendido(), Some(suspendido.clone()));
+        let recursos = RecursosVisuales::cargar(&raiz.join("assets/terminal")).unwrap();
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+        terminal.draw(|f| i.dibujar(f, &recursos)).unwrap();
+        assert_eq!(i.altura_corte.get(), 3);
+        i.manejar_tecla(tecla(KeyCode::Char('c')));
+        assert_eq!(i.altura_corte.get(), 2);
+        assert!(!i.corte_manual.get());
+        assert_eq!(i.partida.encuentro_suspendido(), Some(suspendido));
+    }
+
+    #[test]
+    fn integracion_encuentros_3d_selector_pausa_omision_y_tamano() {
         fn copiar(a: &std::path::Path, b: &std::path::Path) {
             std::fs::create_dir_all(b).unwrap();
             for e in std::fs::read_dir(a).unwrap() {
@@ -2802,6 +2981,30 @@ mod pruebas {
         let VistaSesion::Encuentro(inicial) = i.vista.clone() else {
             panic!("{:?}", i.vista)
         };
+        assert_eq!(
+            inicial.escenario,
+            desert_tiger_app::EscenarioEncuentro::Palacio
+        );
+        i.manejar_tecla(tecla(KeyCode::Char(']')));
+        assert!(i.corte_manual.get());
+        assert_eq!(i.altura_corte.get(), 3);
+        assert_eq!(i.vista, VistaSesion::Encuentro(inicial.clone()));
+        i.manejar_tecla(tecla(KeyCode::Char('c')));
+        assert!(!i.corte_manual.get());
+        assert_eq!(i.altura_corte.get(), 2);
+        let mut superior = inicial.clone();
+        superior.fichas[0].z = 4;
+        i.preparar_vista_encuentro(&superior);
+        assert_eq!(i.altura_corte.get(), 5);
+        i.corte_manual.set(true);
+        i.altura_corte.set(1);
+        i.preparar_vista_encuentro(&superior);
+        assert_eq!(i.altura_corte.get(), 1);
+        superior.id += 100;
+        i.preparar_vista_encuentro(&superior);
+        assert!(!i.corte_manual.get());
+        assert_eq!(i.altura_corte.get(), 5);
+        i.preparar_vista_encuentro(&inicial);
         i.avanzar_animacion(Duration::from_secs(1));
         assert_eq!(i.vista, VistaSesion::Encuentro(inicial.clone()));
         i.manejar_tecla(tecla(KeyCode::Enter));
@@ -2817,13 +3020,29 @@ mod pruebas {
         t.resize(ratatui::layout::Rect::new(0, 0, 80, 24)).unwrap();
         t.draw(|f| i.dibujar(f, &r)).unwrap();
         i.manejar_tecla(tecla(KeyCode::Char('s')));
-        for _ in 0..800 {
+        let mut vio_puerta_abierta = false;
+        for _ in 0..1000 {
+            if let VistaSesion::Encuentro(v) = &i.vista {
+                vio_puerta_abierta |= v
+                    .celdas
+                    .contains(&desert_tiger_app::TerrenoEncuentro::PuertaAbierta);
+            }
             if matches!(&i.vista,VistaSesion::Encuentro(v) if v.finalizado) {
                 break;
             }
             i.avanzar_animacion(Duration::from_millis(1));
         }
         assert!(matches!(&i.vista,VistaSesion::Encuentro(v) if v.finalizado));
+
+        assert!(vio_puerta_abierta, "se abre la puerta durante el recorrido");
+        i.manejar_tecla(tecla(KeyCode::Enter));
+        for _ in 0..100 {
+            if matches!(i.vista, VistaSesion::Disponible(_)) {
+                break;
+            }
+            i.avanzar_espera();
+        }
+        assert!(matches!(i.vista, VistaSesion::Disponible(_)));
     }
 
     #[test]

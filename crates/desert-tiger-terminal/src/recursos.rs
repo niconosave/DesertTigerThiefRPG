@@ -73,6 +73,7 @@ impl PatronTile {
 }
 
 pub(crate) struct RecursosVisuales {
+    pub(crate) ascii: bool,
     pub(crate) paleta: crate::colores::PaletaColores,
     reserva: AparienciaTile,
     apariencias: BTreeMap<ClaveTipoTile, PatronTile>,
@@ -94,6 +95,7 @@ impl RecursosVisuales {
 
     pub(crate) fn cargar_modo(raiz: &Path, modo: ModoGraficos) -> Result<Self, ErrorRecursos> {
         let mut recursos = Self::cargar(raiz)?;
+        recursos.ascii = modo == ModoGraficos::Ascii;
         let Some(carpeta) = modo.carpeta(raiz) else {
             return Ok(recursos);
         };
@@ -187,6 +189,7 @@ impl RecursosVisuales {
         let ilustraciones = convertir_escenas(escenas)
             .map_err(|e| ErrorRecursos(format!("{}: {e}", raiz.join("scenes.ron").display())))?;
         Ok(Self {
+            ascii: false,
             paleta: crate::colores::PaletaColores::default(),
             reserva,
             apariencias,

@@ -54,3 +54,17 @@ documentación aplicable deberá estar aprobada para implementar.
 registra el diseño futuro de volumen físico, composición adaptable de puentes,
 casas y accesos, y datos compartidos para IA. No está implementado ni sustituye
 el reglamento actual de encuentros.
+
+## Base espacial y planes de encuentros
+
+El [contrato de la próxima base](../acciones/12-base-espacial-y-planes-encuentros.md)
+reúne volumen y consultas locales, elementos, contexto, planes y representación
+por corte. Sustituye el modelo de encuentros actual sin mantener otro motor y se
+implementa mediante los bloques 052 a 057. La generación modular compleja del
+componente 29 queda para después.
+
+## Vista oblicua de encuentros
+
+[31-vista-oblicua-encuentros.md](./31-vista-oblicua-encuentros.md) prepara
+la proyección por altura, paredes, torso/piernas y escaleras. Pendiente de
+implementación; conserva corte y conocimiento filtrado del contrato 12.

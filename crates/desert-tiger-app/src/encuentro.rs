@@ -10,6 +10,7 @@ pub(crate) struct ConfigEncuentros {
     pub rescates: Vec<RescateConfigurado>,
     #[serde(default)]
     pub recuperaciones: Vec<RecuperacionConfigurada>,
+    #[serde(default)]
     pub objetivos: Vec<ObjetivoConfigurado>,
 }
 #[derive(Clone, Copy, Debug, Default, Deserialize)]
@@ -23,6 +24,7 @@ pub(crate) enum EscenarioConfigurado {
     Bosque,
     Montana,
     Playa,
+    DosAlturas,
 }
 impl EscenarioConfigurado {
     pub fn motor(
@@ -53,6 +55,7 @@ impl EscenarioConfigurado {
             Self::Bosque => Escenario::Bosque,
             Self::Montana => Escenario::Montana,
             Self::Playa => Escenario::Playa,
+            Self::DosAlturas => Escenario::DosAlturas,
             Self::Recinto => desert_tiger_core::encuentros::Escenario::Recinto,
             Self::Campamento => desert_tiger_core::encuentros::Escenario::Campamento,
         }
@@ -98,6 +101,7 @@ pub struct ObjetoEncuentro {
     pub nombre: String,
     pub x: u16,
     pub y: u16,
+    pub z: u16,
     pub recogido: bool,
     pub fuera: bool,
 }
@@ -173,9 +177,14 @@ pub struct ObjetivoAtaque {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TerrenoEncuentro {
     Desconocido,
+    Aire,
     Suelo,
     Muro,
     Vacio,
+    PuertaAbierta,
+    PuertaCerrada,
+    Obstaculo,
+    Indefinido,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FichaEncuentro {
@@ -186,13 +195,21 @@ pub struct FichaEncuentro {
     pub nombre: String,
     pub x: u16,
     pub y: u16,
+    pub z: u16,
     pub aliado: bool,
     pub golpes: u8,
     pub salio: bool,
     pub transportado: bool,
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ParticipanteEvacuacion {
+    pub id: usize,
+    pub nombre: String,
+    pub motivo: String,
+}
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VistaEncuentro {
+    pub escaleras: Vec<(u16, u16, u16)>,
     pub recuperacion: bool,
     pub objeto: Option<ObjetoEncuentro>,
     pub rescate: bool,
@@ -201,6 +218,7 @@ pub struct VistaEncuentro {
     pub paso: u64,
     pub ancho: u16,
     pub alto: u16,
+    pub altura: u16,
     pub celdas: Vec<TerrenoEncuentro>,
     pub fichas: Vec<FichaEncuentro>,
     pub texto: String,
@@ -209,5 +227,7 @@ pub struct VistaEncuentro {
     pub finalizado: bool,
     pub puede_retirar: bool,
     pub pausa_decision: bool,
+    /// Nombres de los participantes cuya evacuación requiere decisión explícita.
+    pub evacuacion_pendiente: Vec<ParticipanteEvacuacion>,
     pub retirando: bool,
 }

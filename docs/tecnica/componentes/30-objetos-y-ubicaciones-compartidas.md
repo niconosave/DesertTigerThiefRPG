@@ -73,7 +73,7 @@ no sirve para saltarse sus invariantes moviendo a un integrante por separado.
 
 `encounters.ron` admite `recuperaciones`: objeto, custodio, defensores y escenario.
 La oposición se declara explícitamente; no se vuelve hostil a cualquier portador
-por el hecho de llevar un objeto. El grupo libre puede elegir Robar con B cuando
+por el hecho de llevar un objeto. El grupo libre puede elegir Robar con R cuando
 el tesoro configurado está en su lugar actual y no lo lleva ya consigo.
 
 El motor reutiliza movimiento, combate y salida del rescate. El botín es una
@@ -91,7 +91,7 @@ validan contra ese estado para evitar cambios contradictorios durante el episodi
 ## Caso jugable y verificación
 
 La Copa de las Dos Mareas está en el palacio de Miraz en Nuris.
-Neshra la desea. Llegar con el grupo libre, pulsar B y elegir la copa permite
+Neshra la desea. Llegar con el grupo libre, pulsar R y elegir la copa permite
 combatir, recogerla y escapar. Miraz es el único defensor configurado.
 Rescatar a Tamin en Lomas de Anir sigue siendo una operación independiente con R.
 
@@ -99,3 +99,7 @@ Pruebas acotadas: ubicaciones comunes, portadores y colectivos, separación del
 captor, ciclos y atomicidad; recogida y caída del portador; extracción y retirada
 en la aplicación; selector y representación mediante TestBackend. La aceptación
 de ritmo y dificultad corresponde a la prueba manual.
+
+El selector R reúne personas y objetos: se anuncia como Rescatar, Robar o
+Recuperar según haya personas, objetos o ambos, respectivamente. Elegir una
+persona inicia el rescate; elegir un objeto inicia su recuperación.

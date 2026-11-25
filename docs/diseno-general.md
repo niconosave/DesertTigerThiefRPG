@@ -3,8 +3,8 @@
 | Campo | Valor |
 |---|---|
 | Estado | Base inicial aprobada |
-| Versión | 0.27 |
-| Fecha | 2026-11-12 |
+| Versión | 0.28 |
+| Fecha | 2026-11-24 |
 
 ## 1. Propósito
 
@@ -325,6 +325,30 @@ su dificultad y sus resultados. La dificultad se deduce para el intento
 concreto; no es una cualidad universal del Actor ni una conclusión precargada en
 el Lugar.
 
+### Encuentro y escenario local
+
+Atacar, Rescatar y Robar utilizan encuentros: episodios completos que comienzan
+con un propósito y pueden terminar por logro, retirada, captura u otra causa
+reglada. El escenario es el espacio local que permite ejecutar el episodio;
+no determina una condición universal de victoria.
+
+La nueva base de mecánicas contempla volumen físico tridimensional, elementos
+locales con identidad e información contextual referenciable. El escenario
+permanece estable durante un encuentro; uno nuevo vuelve a generarlo, respetando
+los hechos persistentes del mundo. El mapa mundial mantiene su función distinta.
+
+### Plan y comportamiento de encuentro
+
+Un Plan dirige participantes y coordina comportamientos según un propósito y
+la situación. Tiene prioridad y puede quedar suspendido, bloqueado o cancelado.
+Un Comportamiento atiende un cometido acotado, aunque coordine muchas acciones
+y personas; utiliza acciones particulares sujetas a las reglas de simulación.
+
+La primera adaptación conserva la lógica genérica actual. La nueva asignación
+de planes desde eventos narrativos se incorpora después. Estas categorías se
+desarrollan en el [diseño de espacio, planes y sistemas](./diseno/encuentros-espacio-planes-y-sistemas.md)
+y no cambian por sí solas la dirección de Viajar o de los NPC del mundo.
+
 ### Situación o escena dramática
 
 Es una unidad narrativa contextual organizada por una acción general. Explica
@@ -474,12 +498,12 @@ Los primeros incrementos previstos se concentrarán en:
 
 Esta lista expresa el orden de interés, no el alcance de un único incremento.
 
-El [borrador de encuentros y Atacar](./diseno/encuentros-y-atacar.md) desarrolla
-la propuesta de un escenario local temporal, fichas y viñetas de acciones, con
-una base compartida para Rescatar. Distingue el primer episodio, las reglas por
-revisar y las ampliaciones futuras; todavía no es una funcionalidad implementada.
-El primer incremento jugable implementará solamente `Viajar`, como se define en
-la sección 9.
+El [diseño de encuentros y Atacar](./diseno/encuentros-y-atacar.md) registra la
+base implementada de Atacar, Rescatar y recuperar tesoros, con escenario temporal,
+fichas y consecuencias. El [diseño de espacio, planes y sistemas](./diseno/encuentros-espacio-planes-y-sistemas.md)
+documenta la base implementada y verificada técnicamente, pendiente de revisión
+jugable, y distingue su alcance de las ampliaciones futuras. La sección 9 conserva el alcance histórico del primer incremento con
+Viajar; no limita las capacidades incorporadas posteriormente.
 
 ### Ejecución de una acción
 

@@ -13,7 +13,7 @@
             local sur = encuentro:referencia('brecha_sur')
             return {
             operaciones = {},
-            encuentro = {op_encuentro.terreno(norte.x, norte.y, 'suelo'), op_encuentro.terreno(sur.x, sur.y, 'suelo')},
+            encuentro = {op_encuentro.despejar(norte.x, norte.y, norte.z, 2), op_encuentro.despejar(sur.x, sur.y, sur.z, 2)},
             siguiente = 'brecha'
         }"#),
         Vigneta(clave: "brecha", presentacion: r#"return {

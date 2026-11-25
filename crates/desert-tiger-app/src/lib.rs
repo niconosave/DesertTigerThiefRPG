@@ -4,7 +4,7 @@ mod contenido;
 mod encuentro;
 pub use encuentro::{
     EscenarioEncuentro, FichaEncuentro, ObjetivoAtaque, ObjetivoObjeto, ObjetoEncuentro,
-    TerrenoEncuentro, VistaEncuentro,
+    ParticipanteEvacuacion, TerrenoEncuentro, VistaEncuentro,
 };
 mod eventos;
 pub use eventos::{IdOpcionEvento, IdPresentacionEvento, OpcionEvento, VistaEvento};

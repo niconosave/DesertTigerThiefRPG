@@ -1,6 +1,6 @@
 # Entregas de Encuentros, Atacar y Rescatar
 
-Estado: ciclos 1 y 2 probados por el usuario; ciclo 3 ampliado con escenarios simples; ciclo 4 implementado con rescate de personas, pendiente de revisión de jugabilidad. Fecha: 2026-11-19.
+Estado: ciclos 1 a 4 probados jugando por el usuario; recuperación de tesoros implementada y ajustada. Fecha: 2026-11-24.
 
 Esta hoja de ruta organiza el trabajo. No define mecánicas ni sustituye el plan
 de cada incremento. Su referencia es el [diseño de mecánicas](../diseno/encuentros-y-atacar.md)
@@ -76,10 +76,10 @@ finales incorporados. La transformación narrativa arbitraria del tablero y los
 comandos Lua locales extensos corresponden al ciclo 2. Las interfaces comunes
 necesarias se preparan sin implementar repertorios vacíos de capacidades futuras.
 
-**Precondición actual:** completar el reglamento mínimo de las
-[mecánicas, sección 16](../diseno/encuentros-y-atacar.md#16-propuestas-y-decisiones-todavía-abiertas).
-El plan no elige daño, diagonales, detección ni duraciones durante la programación.
-El contrato técnico ya separa las decisiones que esto requiere.
+El reglamento mínimo implementado figura en las
+[mecánicas, sección 17](../diseno/encuentros-y-atacar.md#17-reglamento-mínimo-implementado).
+Daño, diagonales, detección y duraciones de ese ciclo no siguen como decisiones
+abiertas. La próxima base tiene su propio diseño de mecánicas enlazado más abajo.
 
 ### Ciclo 2: acontecimiento escrito dentro del encuentro
 
@@ -106,7 +106,12 @@ ciclo sin esperar a completar ese catálogo.
 El [PLAN-2026-050](./pendientes/2026-11-20-50-rescatar-personas.md) implementa el
 rescate de personas. Se puede soltar y extraer a Tamin del campamento de Kazir,
 con o sin guardias supervivientes. La libertad, el vínculo con quien lo salvó y
-la incorporación se conservan en la partida. Recuperar tesoros sigue pendiente.
+la incorporación se conservan en la partida. El usuario confirmó el rescate de
+Tamin y su incorporación al grupo después del encuentro.
+
+La ampliación de [objetos y tesoro](./pendientes/2026-11-20-51-objetos-y-tesoro.md)
+incorpora la recuperación de objetos y el selector R compartido. Su contenido
+actual permite recuperar la copa del palacio de Miraz.
 
 ### Ampliaciones siguientes
 
@@ -118,6 +123,35 @@ geometría, información, oposición o reglas del terreno.
 Los niveles futuros ya están previstos en identidades y posiciones. La capacidad
 de subir, cambiar el nivel de cámara o atacar entre alturas tendrá una entrega
 propia; no se exige completar la verticalidad para jugar los ciclos anteriores.
+
+## Nueva base de encuentros
+
+El [diseño de espacio, planes y sistemas](../diseno/encuentros-espacio-planes-y-sistemas.md)
+ordena la próxima base de mecánicas: espacio tridimensional, contexto y elementos
+locales; adaptación de escenarios; dirección genérica mediante planes y
+comportamientos; una puerta sencilla como interacción nueva. La nueva asignación
+de planes desde eventos queda para una ampliación posterior. El
+[contrato técnico 12](../tecnica/acciones/12-base-espacial-y-planes-encuentros.md)
+y la [etapa de bloques 052 a 057](./base-espacial-y-planes-encuentros.md)
+definen ahora su implementación e integración.
+
+### Traducción directa al modelo nuevo
+
+La nueva etapa reemplaza el modelo anterior. No se mantienen dos motores de
+encuentros ni una capa de compatibilidad para ejecutar escenarios antiguos sin
+modificarlos. Generadores, contenido narrativo y representación se adaptan al
+nuevo diseño, conservando su intención y consecuencias, sin exigir distribuciones
+de casillas o interfaces anteriores idénticas.
+
+Durante el trabajo interno pueden quedar temporalmente sin funcionar los
+encuentros. La revisión jugable se hace cuando la nueva base y los encuentros
+traducidos estén integrados. Esto no exige construir soluciones provisionales
+solo para mantener jugable cada paso intermedio.
+
+Se mantienen verificaciones internas acotadas de las partes nuevas. Las pruebas
+que expresen reglas todavía vigentes se adaptan; las que dependan de mecanismos
+sustituidos no obligan a conservarlos. La integración final debe comprobar
+Atacar, Rescatar, recuperar tesoros y los eventos existentes sobre un único modelo.
 
 ## Cierre de cada ciclo y verificación
 

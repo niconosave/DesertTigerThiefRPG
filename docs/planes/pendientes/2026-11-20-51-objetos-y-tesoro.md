@@ -16,12 +16,12 @@ y [mecánicas de encuentros, sección 23](../../diseno/encuentros-y-atacar.md#23
 - [x] Consultas y operación de ubicación desde Lua.
 - [x] Recuperación local con portador, caída, recogida y salida.
 - [x] Copa de las Dos Mareas en el palacio de Miraz; deseo de Neshra.
-- [x] Selector B y pruebas acotadas de motor, aplicación y terminal.
+- [x] Selector R y pruebas acotadas de motor, aplicación y terminal.
 - [ ] Revisión manual por el usuario.
 
 ## Prueba manual
 
-Llegar libre a Nuris, pulsar B y elegir la copa. Observar combate,
+Llegar libre a Nuris, pulsar R y elegir la copa. Observar combate,
 recogida y retirada hacia la salida. Consultar después la ficha del líder del grupo:
 Lleva consigo debe enlazar al objeto. Viajar y comprobar que lo acompaña.
 Retirarse antes de recogerla debe dejarla allí. R sigue ofreciendo a Tamin.

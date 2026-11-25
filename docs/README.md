@@ -9,8 +9,11 @@ proyecto. La fuente principal de intención es el [diseño general](./diseno-gen
 |---|---|
 | [`diseno-general.md`](./diseno-general.md) | Define qué juego se quiere construir, sus conceptos y sus restricciones. |
 | [`diseno/acampar.md`](./diseno/acampar.md) | Diseño revisado de Acampar: fichas, características, relaciones y navegación. |
-| [`diseno/encuentros-y-atacar.md`](./diseno/encuentros-y-atacar.md) | Borrador de mecánicas: encuentros temporales, viñetas, movimiento, hostilidad y Atacar; Rescatar y verticalidad como ampliaciones. |
+| [`diseno/encuentros-y-atacar.md`](./diseno/encuentros-y-atacar.md) | Mecánicas implementadas de encuentros, Atacar, Rescatar y recuperación de tesoros; historial y ampliaciones. |
+| [`diseno/encuentros-espacio-planes-y-sistemas.md`](./diseno/encuentros-espacio-planes-y-sistemas.md) | Nuevo diseño de mecánicas: volumen, corte visual, elementos, contexto, planes y cierre causal; alcance inicial y sistemas futuros. |
 | [`tecnica/acciones/10-encuentros-y-atacar.md`](./tecnica/acciones/10-encuentros-y-atacar.md) | Diseño técnico del subsistema de encuentros y Atacar, con contratos de integración y reglas mecánicas pendientes. |
+| [`tecnica/acciones/12-base-espacial-y-planes-encuentros.md`](./tecnica/acciones/12-base-espacial-y-planes-encuentros.md) | Base implementada de encuentros: espacio 3D, planes, eventos adaptados y corte; revisión jugable pendiente. |
+| [`planes/base-espacial-y-planes-encuentros.md`](./planes/base-espacial-y-planes-encuentros.md) | Bloques 052 a 057 de sustitución directa y revisión jugable integrada. |
 | [`metodologia-desarrollo.md`](./metodologia-desarrollo.md) | Define cómo se diseñan, implementan y verifican los incrementos. |
 | [`contenido/`](./contenido/) | Contiene briefs creativos del mundo sin duplicar los datos RON concretos. |
 | [`tecnica/`](./tecnica/) | Contiene la arquitectura general y los diseños técnicos específicos. |

@@ -330,6 +330,24 @@ impl Coordinador {
         cat: &Catalogo,
         validar: &impl Fn(&Mundo, bool) -> Result<(), String>,
     ) -> Result<Option<Salida>, String> {
+        if self.encuentro.is_none() {
+            return self.paso_interno(mundo, c, cat, validar);
+        }
+        let mut candidato = self.clone();
+        let mut mundo_candidato = mundo.clone();
+        let salida = candidato.paso_interno(&mut mundo_candidato, c, cat, validar)?;
+        *self = candidato;
+        *mundo = mundo_candidato;
+        Ok(salida)
+    }
+
+    fn paso_interno(
+        &mut self,
+        mundo: &mut Mundo,
+        c: &CatalogoClaves,
+        cat: &Catalogo,
+        validar: &impl Fn(&Mundo, bool) -> Result<(), String>,
+    ) -> Result<Option<Salida>, String> {
         if let Some(v) = &self.vista {
             return Ok(Some(Salida::Vista(Box::new(v.clone()))));
         }
@@ -474,7 +492,9 @@ impl Coordinador {
                     .map_err(|err| format!("{}:{p}: {err}", e.archivo.display()))?;
                 validar(preparado.mundo(), cerrar)?;
                 if let Some((local, _)) = &mut self.encuentro {
-                    local.aplicar_comandos(&r.encuentro, preparado.mundo())?;
+                    local
+                        .aplicar_comandos(&r.encuentro, preparado.mundo())
+                        .map_err(|e| e.to_string())?;
                 } else if !r.encuentro.is_empty() {
                     return Err("comandos de encuentro sin tablero".into());
                 }

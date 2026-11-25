@@ -8,6 +8,12 @@
 | Fuente de mecánicas | [Encuentros y Atacar](../../diseno/encuentros-y-atacar.md) |
 | Alcance | Tablero temporal, ejecución de Atacar, viñetas, intervenciones y vista terminal |
 
+La próxima etapa se implementa con el
+[contrato 12 de base espacial y planes](./12-base-espacial-y-planes-encuentros.md).
+Este documento conserva la descripción del motor actual y la arquitectura
+propuesta anteriormente. Sus propuestas de ampliación quedan sustituidas en los
+ámbitos que delimita el contrato 12; no se mezclan ambos modelos ni protocolos.
+
 ## 0. Implementación del primer ciclo
 
 El reglamento vigente es la [sección 17 de mecánicas](../../diseno/encuentros-y-atacar.md#17-reglamento-mínimo-implementado).

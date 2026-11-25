@@ -1,6 +1,6 @@
 // Objetivos públicamente localizables, con oposición explícita.
 // Escenarios: Automatico (por terreno), Recinto, Campamento, Palacio,
-// Ciudad, Bosque, Montana, Playa. Omitir escenario usa Automatico.
+// Ciudad, Bosque, Montana, Playa, DosAlturas. Omitir escenario usa Automatico.
 // Gorun conserva Recinto porque sus eventos utilizan los anclajes de ese perfil.
 (
     recuperaciones: [
@@ -14,7 +14,7 @@
     objetivos: [
         (actor: "ogro_gorun", escenario: Recinto, defensores: []),
         (actor: "jefe_bandido_kazir", escenario: Campamento, defensores: ["bandido_nazur", "bandido_hazek", "bandido_sufan"]),
-        (actor: "zahrim", escenario: Palacio, defensores: ["dahran"]),
+        (actor: "zahrim", escenario: DosAlturas, defensores: ["dahran"]),
         (actor: "miraz", escenario: Palacio, defensores: []),
     ],
 )

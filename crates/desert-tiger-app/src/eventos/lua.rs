@@ -141,8 +141,7 @@ fn posicion_visible(lua: &Lua, p: Posicion) -> mlua::Result<Value> {
     let t = lua.create_table()?;
     t.set("x", p.x)?;
     t.set("y", p.y)?;
-    t.set("area", p.area)?;
-    t.set("nivel", p.nivel)?;
+    t.set("z", p.z)?;
     Ok(Value::Table(proxy_solo_lectura(lua, t)?))
 }
 fn texto(lua: &Lua, s: Option<&str>) -> mlua::Result<Value> {
@@ -675,32 +674,47 @@ impl Programa {
                     env.set("encuentro", proxy_solo_lectura(&lua, consultas_locales)?)?;
                     if matches!(tipo, TipoPrograma::Efectos) {
                         let ops_locales = lua.create_table()?;
-                        let posicion = |x: &Value, y: &Value| -> mlua::Result<Posicion> {
-                            Ok(Posicion {
-                                area: 0,
-                                nivel: 0,
-                                x: u16::try_from(entero(x)?).map_err(err)?,
-                                y: u16::try_from(entero(y)?).map_err(err)?,
-                            })
-                        };
+                        let posicion =
+                            |x: &Value, y: &Value, z: &Value| -> mlua::Result<Posicion> {
+                                Ok(Posicion {
+                                    x: u16::try_from(entero(x)?).map_err(err)?,
+                                    y: u16::try_from(entero(y)?).map_err(err)?,
+                                    z: u16::try_from(entero(z)?).map_err(err)?,
+                                })
+                            };
+                        funcion(scope, &ops_locales, "voxel", 4, 4, false, move |lua, v| {
+                            let terreno = match string(&v[3])?.as_str() {
+                                "aire" => Celda::Aire,
+                                "piedra" => Celda::Solido(
+                                    desert_tiger_core::encuentros::MaterialLocal::Piedra,
+                                ),
+                                "madera" => Celda::Solido(
+                                    desert_tiger_core::encuentros::MaterialLocal::Madera,
+                                ),
+                                "metal" => Celda::Solido(
+                                    desert_tiger_core::encuentros::MaterialLocal::Metal,
+                                ),
+                                _ => return Err(err("tipo de vóxel desconocido")),
+                            };
+                            Ok(Value::UserData(lua.create_userdata(ComandoLocal(
+                                ComandoEncuentro::Voxel {
+                                    posicion: posicion(&v[0], &v[1], &v[2])?,
+                                    terreno,
+                                },
+                            ))?))
+                        })?;
                         funcion(
                             scope,
                             &ops_locales,
-                            "terreno",
-                            3,
-                            3,
+                            "despejar",
+                            4,
+                            4,
                             false,
                             move |lua, v| {
-                                let terreno = match string(&v[2])?.as_str() {
-                                    "suelo" => Celda::Suelo,
-                                    "muro" => Celda::Muro,
-                                    "vacio" => Celda::Vacio,
-                                    _ => return Err(err("terreno desconocido")),
-                                };
                                 Ok(Value::UserData(lua.create_userdata(ComandoLocal(
-                                    ComandoEncuentro::CambiarTerreno {
-                                        posicion: posicion(&v[0], &v[1])?,
-                                        terreno,
+                                    ComandoEncuentro::Despejar {
+                                        posicion: posicion(&v[0], &v[1], &v[2])?,
+                                        alto: u16::try_from(entero(&v[3])?).map_err(err)?,
                                     },
                                 ))?))
                             },
@@ -709,14 +723,14 @@ impl Programa {
                             scope,
                             &ops_locales,
                             "reubicar",
-                            3,
-                            3,
+                            4,
+                            4,
                             false,
                             move |lua, v| {
                                 Ok(Value::UserData(lua.create_userdata(ComandoLocal(
                                     ComandoEncuentro::Reubicar {
                                         actor: actor(c, &v[0])?,
-                                        posicion: posicion(&v[1], &v[2])?,
+                                        posicion: posicion(&v[1], &v[2], &v[3])?,
                                     },
                                 ))?))
                             },

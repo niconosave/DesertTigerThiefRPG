@@ -4,6 +4,13 @@ Aquí viven los planes aprobados o en preparación cuya implementación todavía
 terminó. Deben crearse desde [`../PLANTILLA.md`](../PLANTILLA.md) y conservar
 referencias precisas a la documentación técnica que define el trabajo.
 
+## Base espacial y planes de encuentros
+
+Los [bloques 052 a 057](../base-espacial-y-planes-encuentros.md) están
+implementados y verificados técnicamente. La
+[revisión jugable del usuario](../revision-jugable-base-encuentros.md) está
+pendiente. Los seis planes se archivan juntos después de registrar esa respuesta.
+
 ## Rescatar personas
 
 [PLAN-2026-050](./2026-11-20-50-rescatar-personas.md) implementa la operación para

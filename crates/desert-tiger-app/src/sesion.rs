@@ -74,6 +74,10 @@ pub enum IntencionFrontend {
         id: u64,
         paso: u64,
     },
+    ConfirmarAbandonoEncuentro {
+        id: u64,
+        paso: u64,
+    },
     ReanudarEncuentro {
         id: u64,
         paso: u64,
@@ -465,6 +469,7 @@ impl Partida {
                 | IntencionFrontend::ComenzarRecuperacion { .. }
                 | IntencionFrontend::AvanzarEncuentro { .. }
                 | IntencionFrontend::RetirarEncuentro { .. }
+                | IntencionFrontend::ConfirmarAbandonoEncuentro { .. }
                 | IntencionFrontend::ReanudarEncuentro { .. }
                 | IntencionFrontend::CerrarEncuentro { .. }
         ) {
@@ -514,6 +519,7 @@ impl Partida {
             | IntencionFrontend::ComenzarRecuperacion { .. }
             | IntencionFrontend::AvanzarEncuentro { .. }
             | IntencionFrontend::RetirarEncuentro { .. }
+            | IntencionFrontend::ConfirmarAbandonoEncuentro { .. }
             | IntencionFrontend::ReanudarEncuentro { .. }
             | IntencionFrontend::CerrarEncuentro { .. } => {
                 return Err(ErrorIntencion::FaseIncompatible);
@@ -670,6 +676,7 @@ impl Partida {
             | IntencionFrontend::ComenzarRecuperacion { .. }
             | IntencionFrontend::AvanzarEncuentro { .. }
             | IntencionFrontend::RetirarEncuentro { .. }
+            | IntencionFrontend::ConfirmarAbandonoEncuentro { .. }
             | IntencionFrontend::ReanudarEncuentro { .. }
             | IntencionFrontend::CerrarEncuentro { .. } => {
                 return Err(ErrorIntencion::FaseIncompatible);
