@@ -2244,6 +2244,50 @@ mod pruebas {
     }
 
     #[test]
+    fn generacion_local_exteriores_sin_muro_perimetral() {
+        for escenario in [
+            Escenario::Campamento,
+            Escenario::Ciudad,
+            Escenario::Bosque,
+            Escenario::Montana,
+            Escenario::Playa,
+        ] {
+            let e = Encuentro::nuevo_con_escenario(
+                &mundo(2, 1),
+                &[actor(0)],
+                actor(1),
+                &[],
+                &mut Dado(0),
+                escenario,
+            )
+            .unwrap();
+            for y in 0..e.alto {
+                for x in 0..e.ancho {
+                    if x == 0 || y == 0 || x == e.ancho - 1 || y == e.alto - 1 {
+                        assert_ne!(
+                            e.terreno(Posicion { x, y, z: 1 }),
+                            Some(Celda::Muro),
+                            "{escenario:?} {x},{y}"
+                        );
+                    }
+                }
+            }
+            assert!(
+                e.vecinos_caminables(Posicion { x: 0, y: 0, z: 1 })
+                    .iter()
+                    .all(|p| p.x < e.ancho && p.y < e.alto)
+            );
+            if escenario == Escenario::Campamento {
+                assert!(!e.suelo(Posicion { x: 20, y: 0, z: 1 }));
+                assert!(!e.suelo(Posicion {
+                    x: 20,
+                    y: e.alto - 1,
+                    z: 1
+                }));
+            }
+        }
+    }
+    #[test]
     fn generacion_local_todos_los_perfiles_respetan_limites() {
         for escenario in [
             Escenario::Recinto,

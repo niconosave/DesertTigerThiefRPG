@@ -45,10 +45,11 @@ impl Encuentro {
         let mut celdas = vec![Celda::Suelo; usize::from(ancho * alto)];
         for y in 0..alto {
             for x in 0..ancho {
-                if x == 0
-                    || y == 0
-                    || x == ancho - 1
-                    || y == alto - 1
+                let cerrado = matches!(
+                    escenario,
+                    Escenario::Recinto | Escenario::Palacio | Escenario::DosAlturas
+                );
+                if (cerrado && (x == 0 || y == 0 || x == ancho - 1 || y == alto - 1))
                     || (escenario == Escenario::Recinto && x == 15 && y != 8)
                 {
                     celdas[usize::from(y * ancho + x)] = Celda::Muro;
@@ -70,7 +71,7 @@ impl Encuentro {
                 celdas[usize::from(y * ancho + x)] = Celda::Muro;
             }
         } else if escenario == Escenario::Campamento {
-            for y in 1..alto - 1 {
+            for y in 0..alto {
                 if !(norte..=norte + 1).contains(&y) && !(sur..=sur + 1).contains(&y) {
                     celdas[usize::from(y * ancho + 20)] = Celda::Vacio;
                 }

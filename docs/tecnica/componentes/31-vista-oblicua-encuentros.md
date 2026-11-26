@@ -286,3 +286,118 @@ suelo de su casilla se dibuja antes de los pies y proporciona su fondo, incluida
 la sombra, sin heredar el gris de esa columna. La regresión oblicua cubre este
 caso y el corte parcial del cuerpo. Las pruebas de sombra ajustan solamente la
 fila de pantalla del piso, no su huella ni su altura física.
+
+## Bordes de los escenarios exteriores
+
+Campamento, Ciudad, Bosque, Montana y Playa ya no generan el muro rectangular
+perimetral. Los límites del volumen siguen impidiendo salir del tablero; no se
+crean salidas de encuentro adicionales. Se mantienen obstáculos y edificios
+interiores. El barranco del campamento se prolonga hasta los bordes para conservar
+sus pasos de cruce sin añadir un rodeo accidental por el perímetro.
+Recinto (guarida cerrada), Palacio y DosAlturas (palacio elevado) conservan sus
+paredes exteriores. Las pruebas de generación comprueban perímetro abierto,
+límites válidos y barranco; se verifica además el recorrido del campamento.
+
+## Fin del tablero sin borde artificial
+
+Las superficies expuestas de piso que llegan al límite XY del volumen se dibujan
+con las mismas baldosas que las interiores. La ausencia de una casilla fuera del
+tablero no genera coronamiento `+` ni cara gris. Los vacíos reales dentro del
+escenario siguen diferenciándose de esos límites artificiales. No cambian paredes,
+columnas ni secciones sólidas al cortar Z. Se verifican esquinas y laterales con
+`piso_perimetral` y se conserva la regresión `vista_oblicua`.
+
+## Corrección de bordes internos y encuadre
+
+Tras revisar el campamento, se elimina también el coronamiento del suelo junto
+a huecos internos: toda superficie expuesta de Suelo usa baldosas, sin cara gris
+adicional. El vacío sigue siendo vacío; no se rellena el barranco con geometría.
+Paredes y columnas conservan sus coronamientos. Las secciones sólidas en Z0 no
+se confunden con una superficie expuesta y conservan su representación.
+
+El origen vertical de cámara se compensa una fila para incorporar la cara superior
+del suelo base y llenar la zona visible del tablero sin la franja vacía que dejó
+la eliminación de las caras perimetrales. La misma compensación se aplica a
+terreno, escaleras, fichas, objetos y siluetas: no cambia su alineación relativa.
+La regresión de perímetro comprueba ahora el buffer real en las cuatro esquinas
+y junto al hueco, además de la clasificación de superficies. Pasaron
+`piso_perimetral`, `vista_oblicua` y `sombra_fondo`.
+
+## Referencia común para sección y superficie
+
+La sección cortada de un bloque en Z también termina en su cara superior Z+1.
+Se sustituye la regla anterior que dibujaba la sección en el origen Z: era la
+causa del salto del suelo y los huecos al pasar de corte 0 a corte 1. El color
+sigue distinguiendo sección gris de superficie expuesta con baldosas, sin cambiar
+el contorno proyectado.
+
+Las caras verticales de suelo expuestas hacia el frente junto a un vacío real
+conocido vuelven a dibujarse en gris, en Z. No se generan por ausencia de celdas
+fuera del tablero ni por terreno desconocido, y no añaden signos de coronamiento
+al piso. Se mantienen los coronamientos de paredes y columnas. La modificación
+solo cambia la representación, no geometría, rutas ni posiciones de fichas.
+
+Pasaron cinco pruebas seleccionadas: contorno estable entre sección/superficie,
+perímetro sin borde artificial, cuerpo oblicuo y dos pruebas de corte. La prueba
+nueva compara el contorno del buffer completo del tablero entre Z0 y Z1 y verifica
+una cara vertical junto al hueco. Logs en `/tmp/seccion-*.log`.
+
+## Regla vigente de sección y volumen por corte
+
+Tras la aclaración del usuario, se sustituye la regla anterior de mantener fijo
+el contorno entre sección y superficie. Un bloque en el nivel del corte Z se
+muestra como sección plana en su propio Z. Cuando el corte lo supera, su cara
+lateral se dibuja en Z y su cara superior expuesta en Z+1. La base permanece fija;
+la sección asciende según el nivel elegido. Los bloques por encima del corte no
+se dibujan. Un soporte de suelo cubierto por otro bloque no añade una cara gris
+interior si no tiene frente expuesto.
+
+Una columna con bloques Z1–Z4 tiene sección sola en corte 1; una, dos y tres líneas
+de pared bajo la sección en cortes 2, 3 y 4; cuatro líneas de pared y superficie
+superior en corte 5. Los cortes posteriores conservan esa misma forma. No se
+agregan techos inexistentes. La regla se aplica también al suelo Z0: al pasar a
+corte 1 se descubre su volumen y su superficie superior, desplazada una fila.
+
+Se reemplazó la prueba del contorno invariable por un recorrido del renderizador
+con esa columna de cuatro bloques, cortes 1–7 y comprobación del suelo en cortes
+0 y 1. Pasaron `seccion_plana`, `vista_oblicua`, `corte_altura` (dos pruebas) y
+`piso_perimetral`. La geometría, movimientos, puertas y cámaras no cambian.
+
+## Encuadre completo de la proyección y cara inferior exterior
+
+Se sustituye el límite vertical basado únicamente en `v.alto` por el intervalo
+proyectado de la geometría conocida y las fichas publicadas. Se reserva margen
+superior para caras elevadas y torsos, y una fila para la cara inferior del suelo.
+Los límites se calculan sin depender del corte actual, evitando desplazamientos
+de cámara al inspeccionar alturas. En ventanas amplias entra toda la proyección;
+en ventanas pequeñas se recorta siguiendo la posición proyectada del personaje
+principal, con coordenadas verticales de cámara que pueden ser negativas.
+
+La cara vertical del suelo en el extremo frontal del tablero vuelve a mostrarse,
+sin coronamiento `+` ni pared añadida. Es el espesor del bloque existente. Su fila
+está dentro del área del tablero; no invade la descripción ni los controles.
+La misma cámara se aplica a terreno, escaleras, fichas, impactos, objetos y siluetas.
+
+Se comprueba el renderizado de una pared alta en el extremo superior, el torso
+y piernas de un personaje en esa fila y la cara inferior completa en una ventana
+alta. También se comprueba seguimiento en una ventana corta. Pasaron las pruebas
+`encuadre_muestra`, `sombra_fondo`, `seccion_plana`, `integracion_encuentros_3d`,
+`vista_oblicua` y `corte_altura` (dos), reutilizando el resto de evidencia previa.
+Los logs de esta corrección están en `/tmp/encuadre-*.log`.
+
+Los coronamientos expuestos de los sólidos se dibujan con `++`, uno por cada
+columna del tile. Las puertas conservan su símbolo individual.
+
+## Esquinas del coronamiento de muros
+
+Corregida la clasificación de esquinas del volumen: la ausencia de vecinos fuera
+del tablero no cuenta como un bloque sólido para determinar la superficie
+interior de un muro. En las cuatro esquinas el coronamiento conserva `++` y su
+fondo sólido, sin puntos con fondo Reset. El piso expuesto conserva su regla
+propia de baldosas, anterior a esa comprobación. Pasaron `esquinas_de_muros` y
+`piso_perimetral`.
+
+Gorun sigue usando Recinto por configuración de encuentros. Su relato describe
+un refugio entre rocas con separación de piedra, no establece explícitamente
+una cueva: la forma rectangular cerrada es la simplificación de la receta actual,
+no una decisión narrativa adicional.

@@ -94,8 +94,15 @@ fn apariencia_solido(
     {
         return (" ", bloque);
     }
+    // El suelo expuesto siempre es una baldosa, incluso junto a un hueco.
+    if celda(x, y, z) == Some(TerrenoEncuentro::Suelo) {
+        return (".", Color::Reset);
+    }
+    // Un coronamiento en el extremo del volumen siempre tiene borde expuesto.
     let interior = x > 0
         && y > 0
+        && x + 1 < v.ancho
+        && y + 1 < v.alto
         && [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
             .iter()
             .all(|&(nx, ny)| celda(nx, ny, z).is_some_and(solido));
@@ -104,6 +111,36 @@ fn apariencia_solido(
     } else {
         ("+", bloque)
     }
+}
+
+/// Bornes de la proyección completa conocida, independientes del corte elegido.
+fn encuadre_vertical(v: &VistaEncuentro, disponible: u16, centro_y: u16) -> (i32, u16) {
+    let mut minimo = -1i32;
+    let maximo = i32::from(v.alto.saturating_sub(1));
+    for z in 0..v.altura {
+        for y in 0..v.alto {
+            for x in 0..v.ancho {
+                let t = v.celdas[usize::from((z * v.alto + y) * v.ancho + x)];
+                if solido(t)
+                    || matches!(
+                        t,
+                        TerrenoEncuentro::PuertaAbierta | TerrenoEncuentro::PuertaCerrada
+                    )
+                {
+                    minimo = minimo.min(i32::from(y) - i32::from(z) - 1);
+                }
+            }
+        }
+    }
+    for f in v.fichas.iter().filter(|f| !f.salio && !f.transportado) {
+        minimo = minimo.min(i32::from(f.y) - i32::from(f.z) - i32::from(f.golpes < 2));
+    }
+    let alto = disponible.min((maximo - minimo + 1) as u16).max(1);
+    let foco_y = foco(v)
+        .map(|f| i32::from(f.y) - i32::from(f.z) - 1)
+        .unwrap_or(i32::from(centro_y) - 1);
+    let origen = (foco_y - i32::from(alto) / 2).clamp(minimo, maximo + 1 - i32::from(alto));
+    (origen, alto)
 }
 
 pub(crate) fn foco(v: &VistaEncuentro) -> Option<&desert_tiger_app::FichaEncuentro> {
@@ -174,7 +211,6 @@ pub(crate) fn dibujar(
         .style(r.ui.titulo),
         Rect::new(1, 0, a.width - 2, 1),
     );
-    let alto = a.height.saturating_sub(9).min(v.alto).max(1);
     let ancho = (a.width.saturating_sub(2) / 2).min(v.ancho).max(1);
     let centro = foco(v)
         .map(|f| (f.x, f.y))
@@ -184,10 +220,7 @@ pub(crate) fn dibujar(
         .0
         .saturating_sub(ancho / 2)
         .min(v.ancho.saturating_sub(ancho));
-    let oy = centro
-        .1
-        .saturating_sub(alto / 2)
-        .min(v.alto.saturating_sub(alto));
+    let (oy, alto) = encuadre_vertical(v, a.height.saturating_sub(9).max(1), centro.1);
     let mut desconocidos = std::collections::BTreeSet::new();
     let izquierda = (a.width - ancho * 2) / 2;
     let mut propietarios = std::collections::BTreeMap::new();
@@ -195,7 +228,7 @@ pub(crate) fn dibujar(
     for y in 0..v.alto {
         for z in 0..=corte.min(v.altura.saturating_sub(1)) {
             for x in ox..ox + ancho {
-                let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
+                let fila = 2 + i32::from(y) - oy - i32::from(z);
                 let sx = izquierda + (x - ox) * 2;
                 let t = v.celdas[usize::from((z * v.alto + y) * v.ancho + x)];
                 let color = if z % 2 == 0 { Color::Cyan } else { Color::Blue };
@@ -223,17 +256,47 @@ pub(crate) fn dibujar(
                     };
                 }
                 let superior = solido(t) && z < corte && matches!(glifo, "." | "+");
-                // La cara superior está en z+1; la cara vertical permanece en z.
+                // En el corte se ve una sección plana; las caras inferiores dan volumen.
+                let seccion = solido(t) && z == corte.min(v.altura.saturating_sub(1));
+                let frente_vacio = y + 1 == v.alto
+                    || matches!(
+                        v.celdas
+                            .get(usize::from((z * v.alto + y + 1) * v.ancho + x)),
+                        Some(TerrenoEncuentro::Aire | TerrenoEncuentro::Vacio)
+                    );
                 let mut muestras = vec![];
-                if superior {
-                    if !piso {
-                        muestras.push((fila, [" ", " "]));
+                if seccion {
+                    muestras.push((fila, [glifo, " "], fondo));
+                } else if superior {
+                    if t != TerrenoEncuentro::Suelo {
+                        muestras.push((fila, [" ", " "], fondo));
+                    } else if frente_vacio {
+                        let cara = if z == corte {
+                            Color::Gray
+                        } else if z.is_multiple_of(2) {
+                            Color::DarkGray
+                        } else {
+                            crate::dibujo_caracteres::color_retrato(
+                                desert_tiger_app::ColorRetrato::GrisMuyOscuro,
+                            )
+                        };
+                        muestras.push((fila, [" ", " "], cara));
                     }
-                    muestras.push((fila - 1, if piso { [" ", " "] } else { [glifo, " "] }));
-                } else {
-                    muestras.push((fila, [glifo, " "]));
+                    muestras.push((
+                        fila - 1,
+                        if piso {
+                            [" ", " "]
+                        } else if glifo == "+" {
+                            ["+", "+"]
+                        } else {
+                            [glifo, " "]
+                        },
+                        fondo,
+                    ));
+                } else if t != TerrenoEncuentro::Suelo || frente_vacio {
+                    muestras.push((fila, [glifo, " "], fondo));
                 }
-                for (fila, simbolos) in muestras {
+                for (fila, simbolos, fondo) in muestras {
                     if fila < 2 || fila >= i32::from(2 + alto) {
                         continue;
                     }
@@ -255,7 +318,7 @@ pub(crate) fn dibujar(
                 if ey != y || ez != z || x < ox || x >= ox + ancho {
                     continue;
                 }
-                let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
+                let fila = 2 + i32::from(y) - oy - i32::from(z);
                 if fila >= 2 && fila < i32::from(2 + alto) {
                     frame.buffer_mut()[(izquierda + (x - ox) * 2, fila as u16)]
                         .set_symbol(if r.ascii { ">" } else { "△" })
@@ -272,7 +335,7 @@ pub(crate) fn dibujar(
                 if z != f.z && !torso {
                     continue;
                 }
-                let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
+                let fila = 2 + i32::from(y) - oy - i32::from(z);
                 if fila < 2 || fila >= i32::from(2 + alto) {
                     continue;
                 }
@@ -319,7 +382,7 @@ pub(crate) fn dibujar(
                 && o.x >= ox
                 && o.x < ox + ancho
             {
-                let fila = 2 + i32::from(y) - i32::from(oy) - i32::from(z);
+                let fila = 2 + i32::from(y) - oy - i32::from(z);
                 if fila >= 2 && fila < i32::from(2 + alto) {
                     frame.buffer_mut()[(izquierda + (o.x - ox) * 2, fila as u16)]
                         .set_symbol("$")
@@ -333,7 +396,7 @@ pub(crate) fn dibujar(
             continue;
         }
         let z = (f.z + u16::from(f.golpes < 2)).min(corte);
-        let fila = 2 + i32::from(f.y) - i32::from(oy) - i32::from(z);
+        let fila = 2 + i32::from(f.y) - oy - i32::from(z);
         if fila < 2 || fila >= i32::from(2 + alto) {
             continue;
         }
@@ -524,6 +587,71 @@ mod pruebas {
     }
 
     #[test]
+    fn esquinas_de_muros_conservan_coronamiento() {
+        let mut v = fixture();
+        for y in 0..v.alto {
+            for x in 0..v.ancho {
+                if x == 0 || y == 0 || x == v.ancho - 1 || y == v.alto - 1 {
+                    v.celdas[usize::from((v.alto + y) * v.ancho + x)] = TerrenoEncuentro::Muro;
+                }
+            }
+        }
+        for (x, y) in [(0, 0), (8, 0), (0, 8), (8, 8)] {
+            let (glifo, fondo) = apariencia_solido(&v, x, y, 1, 2);
+            assert_eq!(glifo, "+");
+            assert_ne!(fondo, Color::Reset);
+        }
+    }
+    #[test]
+    fn encuadre_muestra_pared_alta_torso_y_cara_inferior() {
+        let recursos = RecursosVisuales::cargar(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal"),
+        )
+        .unwrap();
+        let mut v = fixture();
+        v.altura = 8;
+        v.celdas.resize(9 * 9 * 8, TerrenoEncuentro::Aire);
+        for z in 1..=5 {
+            v.celdas[(z * 9) * 9 + 2] = TerrenoEncuentro::Muro;
+        }
+        v.fichas[0].y = 0;
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(100, 40)).unwrap();
+        terminal
+            .draw(|f| {
+                dibujar(
+                    f,
+                    &v,
+                    &recursos,
+                    false,
+                    false,
+                    CamaraEncuentro {
+                        corte: 6,
+                        manual: true,
+                        centro: None,
+                    },
+                )
+            })
+            .unwrap();
+        let buffer = terminal.backend().buffer();
+        assert_eq!(
+            buffer[(45, 2)].symbol(),
+            "+",
+            "coronamiento alto sin recorte"
+        );
+        assert_eq!(buffer[(49, 6)].symbol(), "A");
+        assert_eq!(buffer[(49, 7)].symbol(), "^");
+        assert_eq!(
+            buffer[(41, 16)].bg,
+            Color::DarkGray,
+            "cara inferior fuera de la planta XY"
+        );
+        assert_eq!(encuadre_vertical(&v, 31, 0), (-6, 15));
+        let (origen, alto) = encuadre_vertical(&v, 5, 0);
+        let torso = 2 - i32::from(v.fichas[0].z) - 1 - origen;
+        assert!(torso >= 2 && torso + 1 < 2 + i32::from(alto));
+    }
+    #[test]
     fn sombra_fondo_negro_y_longitud_independiente_del_corte() {
         use ratatui::{Terminal, backend::TestBackend};
         let recursos = RecursosVisuales::cargar(
@@ -556,9 +684,9 @@ mod pruebas {
                 })
                 .unwrap();
             // Piso en (2,5): extremo lejano de la sombra de altura tres.
-            assert_eq!(terminal.backend().buffer()[(35, 6)].bg, Color::Reset);
+            assert_eq!(terminal.backend().buffer()[(35, 8)].bg, Color::Reset);
             assert_eq!(
-                terminal.backend().buffer()[(33, 7)].bg,
+                terminal.backend().buffer()[(33, 9)].bg,
                 Color::Rgb(25, 35, 46)
             );
         }
@@ -609,6 +737,131 @@ mod pruebas {
         assert!(!suelo_en_sombra(&v, 2, 5, 0));
         v.celdas[(3 * 9 + 2) * 9 + 5] = TerrenoEncuentro::Desconocido;
         assert!(!suelo_en_sombra(&v, 3, 5, 0));
+    }
+    #[test]
+    fn seccion_plana_y_volumen_segun_altura_del_corte() {
+        let recursos = RecursosVisuales::cargar(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal"),
+        )
+        .unwrap();
+        let mut v = fixture();
+        v.fichas.clear();
+        v.altura = 8;
+        v.celdas.resize(9 * 9 * 8, TerrenoEncuentro::Aire);
+        for z in 1..=4 {
+            v.celdas[(z * 9 + 7) * 9 + 4] = TerrenoEncuentro::Muro;
+        }
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+        for corte in 1..=7 {
+            terminal
+                .draw(|f| {
+                    dibujar(
+                        f,
+                        &v,
+                        &recursos,
+                        false,
+                        false,
+                        CamaraEncuentro {
+                            corte,
+                            manual: true,
+                            centro: None,
+                        },
+                    )
+                })
+                .unwrap();
+            let filas: Vec<_> = (2..11)
+                .filter(|&y| {
+                    matches!(
+                        terminal.backend().buffer()[(39, y)].bg,
+                        Color::Gray | Color::DarkGray | Color::Rgb(32, 32, 32)
+                    )
+                })
+                .collect();
+            let cima = if corte <= 4 { 10 - corte } else { 5 };
+            assert_eq!(filas, (cima..=9).collect::<Vec<_>>(), "corte {corte}");
+        }
+        // La sección del suelo usa su Z; al mirar encima se ve la cara Z+1.
+        terminal
+            .draw(|f| {
+                dibujar(
+                    f,
+                    &v,
+                    &recursos,
+                    false,
+                    false,
+                    CamaraEncuentro {
+                        corte: 0,
+                        manual: true,
+                        centro: None,
+                    },
+                )
+            })
+            .unwrap();
+        assert_eq!(terminal.backend().buffer()[(33, 3)].bg, Color::Gray);
+        terminal
+            .draw(|f| {
+                dibujar(
+                    f,
+                    &v,
+                    &recursos,
+                    false,
+                    false,
+                    CamaraEncuentro {
+                        corte: 1,
+                        manual: true,
+                        centro: None,
+                    },
+                )
+            })
+            .unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(33, 2)].bg,
+            Color::Rgb(25, 35, 46)
+        );
+    }
+    #[test]
+    fn piso_perimetral_sin_coronamiento_artificial() {
+        let mut v = fixture();
+        for (x, y) in [(0, 0), (8, 0), (0, 8), (8, 8), (4, 8), (0, 4)] {
+            assert_eq!(apariencia_solido(&v, x, y, 0, 1), (".", Color::Reset));
+        }
+        // Tampoco hay una franja gris junto a los huecos internos.
+        v.celdas[4 * 9 + 4] = TerrenoEncuentro::Vacio;
+        assert_eq!(apariencia_solido(&v, 4, 3, 0, 1).0, ".");
+        v.fichas.clear();
+        let recursos = RecursosVisuales::cargar(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../assets/terminal"),
+        )
+        .unwrap();
+        let mut terminal =
+            ratatui::Terminal::new(ratatui::backend::TestBackend::new(80, 24)).unwrap();
+        terminal
+            .draw(|f| {
+                dibujar(
+                    f,
+                    &v,
+                    &recursos,
+                    false,
+                    false,
+                    CamaraEncuentro {
+                        corte: 1,
+                        manual: true,
+                        centro: None,
+                    },
+                )
+            })
+            .unwrap();
+        for punto in [(31, 2), (31, 10), (47, 2), (47, 10)] {
+            assert_eq!(
+                terminal.backend().buffer()[punto].bg,
+                Color::Rgb(18, 26, 36)
+            );
+        }
+        assert_eq!(
+            terminal.backend().buffer()[(39, 5)].bg,
+            Color::Rgb(25, 35, 46)
+        );
     }
     #[test]
     fn solidos_corte_superficie_y_coronamiento() {
