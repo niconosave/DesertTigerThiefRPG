@@ -5,6 +5,10 @@ use std::fmt;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ErrorEncuentro {
+    PresupuestoDireccionAgotado,
+    IdentidadesAgotadas {
+        dominio: &'static str,
+    },
     Geometria(ErrorGeometria),
     PosicionFueraDeLimites(Posicion),
     EstadoIncompatible {
@@ -28,6 +32,8 @@ pub enum ErrorEncuentro {
 impl fmt::Display for ErrorEncuentro {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::IdentidadesAgotadas { dominio } => write!(f, "identidades de {dominio} agotadas"),
+            Self::PresupuestoDireccionAgotado => f.write_str("presupuesto de dirección agotado"),
             Self::PosicionFueraDeLimites(p) => write!(f, "posición fuera del encuentro: {p:?}"),
             Self::Geometria(e) => write!(f, "geometría del encuentro: {e:?}"),
             Self::EstadoIncompatible { operacion } => {

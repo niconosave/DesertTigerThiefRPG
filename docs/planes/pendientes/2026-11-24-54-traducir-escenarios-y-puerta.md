@@ -84,3 +84,8 @@ actualiza primero el diseño canónico y se registra aquí su efecto sobre el tr
 - Verificaciones ejecutadas: 34 pruebas core de encuentros, una de consecuencias_locales (copa en Palacio), dos de eventos_locales_3d (Gorun), todas aprobadas. Clippy del core y formato correctos. Logs /tmp/054-core.log, /tmp/054-copa.log, /tmp/054-gorun-final.log y /tmp/054-clippy.log.
 - Desviaciones respecto del plan: DosAlturas se ofrece en contenido mediante el ataque a Zahrim para permitir revisión manual.
 - Trabajo posterior: [hoja de ruta](../base-espacial-y-planes-encuentros.md).
+
+
+## Complemento de cierre (2026-11-26)
+
+Se completó el resultado por participante de cada interacción con puerta, separado del cambio físico único. Rechazos y SinCambio no cuentan como progreso. Véase el cierre de los cuatro pendientes en el contrato técnico 12 y la revisión integrada 057.

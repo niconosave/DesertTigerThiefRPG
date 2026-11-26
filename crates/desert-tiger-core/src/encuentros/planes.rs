@@ -31,13 +31,21 @@ pub struct DireccionFicha {
     pub plan: IdPlan,
     pub rol: RolEncuentro,
     pub cometido: Cometido,
+    pub bloqueo: Option<MotivoBloqueo>,
 }
 impl Encuentro {
     pub fn direccion(&self, ficha: IdFicha) -> Option<&DireccionFicha> {
         self.direcciones.get(&ficha)
     }
 
-    pub(super) fn coordinar_planes(&mut self) {
+    pub(super) fn consumir_transicion(&mut self) -> Result<(), ErrorEncuentro> {
+        if self.transiciones_direccion >= self.limite_direccion {
+            return Err(ErrorEncuentro::PresupuestoDireccionAgotado);
+        }
+        self.transiciones_direccion += 1;
+        Ok(())
+    }
+    pub(super) fn coordinar_planes(&mut self) -> Result<(), ErrorEncuentro> {
         let anteriores = std::mem::take(&mut self.direcciones);
         self.rutas_decision.clear();
         let mut orden: Vec<_> = self
@@ -55,11 +63,9 @@ impl Encuentro {
         orden.sort();
         let mut reservados = BTreeSet::new();
         for (_, _, i) in orden {
+            self.consumir_transicion()?;
             let plan = &self.planes[i];
-            let grupo = plan
-                .participantes
-                .iter()
-                .any(|id| self.ficha(*id).is_some_and(|f| f.aliado));
+            let grupo = plan.tipo != TipoPlan::Oposicion;
             let retirada = grupo
                 && (plan.proposito == PropositoPlan::Retirarse
                     || self.objetivo_muerto()
@@ -87,10 +93,16 @@ impl Encuentro {
             } else {
                 EstadoPlan::Activo
             };
-            self.planes[i].bloqueo = disponibles
-                .is_empty()
-                .then_some(MotivoBloqueo::SinParticipantes);
+            self.planes[i].bloqueo =
+                disponibles
+                    .is_empty()
+                    .then_some(if self.planes[i].participantes.is_empty() {
+                        MotivoBloqueo::SinParticipantes
+                    } else {
+                        MotivoBloqueo::ParticipanteNoDisponible
+                    });
             for id in disponibles {
+                self.consumir_transicion()?;
                 let f = self.ficha(id).unwrap();
                 let indice = self.fichas.iter().position(|a| a.id == id).unwrap();
                 let rutas = self.mapa_rutas(indice);
@@ -138,11 +150,11 @@ impl Encuentro {
                 {
                     anterior.id
                 } else {
-                    let Some(siguiente) = self.proximo_comportamiento.checked_add(1) else {
-                        self.planes[i].estado = EstadoPlan::Bloqueado;
-                        self.planes[i].bloqueo = Some(MotivoBloqueo::PresupuestoAgotado);
-                        continue;
-                    };
+                    let siguiente = self.proximo_comportamiento.checked_add(1).ok_or(
+                        ErrorEncuentro::IdentidadesAgotadas {
+                            dominio: "comportamiento",
+                        },
+                    )?;
                     let nuevo = IdComportamiento(self.proximo_comportamiento);
                     self.proximo_comportamiento = siguiente;
                     nuevo
@@ -155,9 +167,37 @@ impl Encuentro {
                         plan: self.planes[i].id,
                         rol,
                         cometido,
+                        bloqueo: None,
                     },
                 );
             }
         }
+        Ok(())
+    }
+    pub(super) fn actualizar_bloqueos_direccion(&mut self) {
+        for plan in self
+            .planes
+            .iter_mut()
+            .filter(|p| p.estado == EstadoPlan::Activo)
+        {
+            let ds: Vec<_> = self
+                .direcciones
+                .values()
+                .filter(|d| d.plan == plan.id)
+                .collect();
+            if !ds.is_empty() && ds.iter().all(|d| d.bloqueo.is_some()) {
+                plan.estado = EstadoPlan::Bloqueado;
+                plan.bloqueo = ds[0].bloqueo;
+            }
+        }
+    }
+    pub(super) fn grupo_sin_direccion_practicable(&self) -> bool {
+        let ds: Vec<_> = self
+            .fichas
+            .iter()
+            .filter(|f| f.aliado && f.puede_actuar())
+            .map(|f| self.direcciones.get(&f.id))
+            .collect();
+        !ds.is_empty() && ds.iter().all(|d| d.is_some_and(|d| d.bloqueo.is_some()))
     }
 }

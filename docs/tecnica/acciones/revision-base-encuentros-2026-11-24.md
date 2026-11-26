@@ -99,3 +99,51 @@ la firma de dibujar_retratos_dialogo). No se ejecutó la batería global.
 La [guía de revisión del usuario](../../planes/revision-jugable-base-encuentros.md)
 registra el único paso de aceptación pendiente. No se presenta la automatización
 como una revisión humana ni se archivan los planes antes de esa respuesta.
+
+## Pendientes confirmados al contrastar el contrato después del complemento 053
+
+La implementación de memoria y sucesos del 053 no cierra por sí sola todo el
+contrato 12. En la revisión posterior, sin ejecutar una batería nueva, se
+identifican estos puntos concretos:
+
+- **Bloqueos con causa (053 / contrato 14):** `SinRuta` y
+  `ParticipanteNoDisponible` están declarados, pero la ejecución no los emplea
+  para distinguir esos casos. Predominan ausencia de participantes y ocho pulsos
+  sin progreso. Falta completar la clasificación y su notificación.
+- **Resultados de interacción con puerta (054 / contrato 8):** se conserva el
+  único cambio por pulso y el ejecutor real, pero no se registran como resultados
+  explícitos todos los concurrentes, rechazos y casos SinCambio que pide el
+  contrato. La memoria de comportamiento no sustituye esa contabilidad.
+- **Presupuesto de dirección (053 / contrato 14):** no hay un contador explícito
+  que aplique las 128 transiciones internas y devuelva un bloqueo reintentable
+  por agotamiento. El agotamiento de IDs actualmente contemplado es otra cosa.
+- **Reutilización en conclusiones (056 / contrato 14):** evaluar y validar el
+  cierre vuelven a ejecutar `capturas_posibles`; la validación de sesión/cierre
+  puede repetir esas búsquedas. Falta respetar la reutilización por ficha/revisión
+  sin eliminar la revalidación de acceso de cada cautivo.
+
+Son requisitos de la base ya documentada, no nuevas maniobras, planes Lua ni
+inteligencia artificial universal. Deben tener pruebas acotadas propias antes de
+marcar cerrado el conjunto. Esta lista registra hallazgos comprobados; no afirma
+haber agotado una revisión línea por línea de todos los contratos.
+
+
+## Resolución de los cuatro pendientes (2026-11-26)
+
+Quedan implementados los cuatro hallazgos registrados en la revisión del contrato:
+
+- Bloqueos con causa específica, visibles en dirección, memoria y presentación.
+- Resultados de puerta por participante, incluidos concurrentes, rechazos y
+  `SinCambio`; los intentos sin efecto no simulan progreso.
+- Presupuesto explícito de 128 transiciones con descarte del candidato y pausa
+  reintentable antes de consumir azar o confirmar acciones.
+- Conclusiones con rutas reutilizadas y certificado físico: validar repetidamente
+  no ejecuta nuevas búsquedas; modificar ese estado invalida el resultado.
+
+Las cuatro regresiones `base_pendiente` cubren estos contratos. También pasaron
+las regresiones seleccionadas de puertas, planes, consecuencias, robo, rescate
+y eventos locales. La corrección conserva el avance durante congestión temporal
+de una salida: que una ficha espere no bloquea al grupo si otras progresan.
+No se ejecutó la batería global. Esta resolución se limita a los cuatro hallazgos;
+no afirma una auditoría exhaustiva de cada cláusula ni incluye preparación de
+equipo, sigilo, nuevas maniobras o autoría de planes desde Lua.

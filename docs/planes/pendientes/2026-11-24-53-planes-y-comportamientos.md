@@ -5,7 +5,7 @@
 | ID | PLAN-2026-053 |
 | Estado | Completado técnicamente; integración de etapa pendiente |
 | Creado | 2026-11-24 |
-| Actualizado | 2026-11-24 |
+| Actualizado | 2026-11-25 |
 
 ## Resultado buscado
 
@@ -84,3 +84,44 @@ actualiza primero el diseño canónico y se registra aquí su efecto sobre el tr
 - Verificaciones ejecutadas: 31 pruebas del módulo encuentros; tres de rescate_sesion y una de consecuencias_locales, todas aprobadas. Logs /tmp/053-entrega-core.log, /tmp/053-entrega-rescate.log y /tmp/053-entrega-botin.log. Formato y Clippy del core comprobados.
 - Desviaciones respecto del plan: ninguna ampliación de mecánicas; la nueva autoría de planes Lua sigue fuera de alcance.
 - Trabajo posterior: [hoja de ruta](../base-espacial-y-planes-encuentros.md).
+
+## Complemento de implementación tras revisión de los pendientes
+
+La primera implementación dejó dirección efectiva pero no toda la memoria y
+notificación descrita. Se completan ahora esos puntos; el registro anterior no
+constituye prueba de que ya existieran.
+
+- `TipoPlan` distingue incursión de ataque, rescate, robo, oposición y retirada.
+  `MemoriaPlan`, asociada por ID, conserva propósito inicial, fase, estado y hechos.
+- `ComportamientoActivo` guarda identidad, plan, participantes, rol/cometido,
+  destino, referencias de fichas, estado, pulsos, falta de progreso y resultados
+  confirmados. La dirección actual apunta a esa instancia; el historial conserva
+  las que terminan o se interrumpen. El repertorio inicial asigna instancias por
+  ficha y coordina la colaboración por roles del plan.
+- Una exploración mantiene su destino mientras siga pendiente y alcanzable;
+  al necesitar otro compara coste de ruta e ID de conexión, sin usar orden del
+  vector ni información de habitaciones desconocidas.
+- Suspender conserva identidad, destino y resultados. Reanudar cancela la retirada;
+  una retirada posterior crea otro plan con otro ID, sin revivir un cancelado.
+- Incapacidad interrumpe el comportamiento conservando sus resultados. Cumplimiento,
+  interrupción y cancelación se distinguen; la oposición tiene su propio resultado,
+  independiente del éxito de la misión del jugador.
+- `SucesoDireccion` registra plan, pulso, participantes y cambio de estado, fase
+  o comportamiento, incluyendo motivo de bloqueo. Consultar no genera sucesos.
+- Progreso y hechos se registran por pulso único. Fallar el candidato no confirma
+  memoria ni historial. Un comportamiento sin progreso puede quedar bloqueado;
+  los resultados ya confirmados no se borran por el bloqueo.
+
+Verificación seleccionada: `planes_locales` (10), `robo_palacio` (1),
+`rescate_sesion` (3) y `consecuencias_locales` (3). Clippy del core sin avisos;
+formato y diferencias comprobados. Logs `/tmp/053-*.log`. Se reutilizaron las
+regresiones existentes; no se ejecutó la batería global.
+
+La interfaz visual mantiene las acciones básicas existentes. Este complemento
+implementa su dirección persistente, no un nuevo repertorio de maniobras ni
+asignación de planes mediante Lua. El cierre conjunto sigue en el 057.
+
+
+## Complemento de cierre (2026-11-26)
+
+Se completaron motivos de bloqueo y presupuesto de dirección; la espera conserva el objetivo del comportamiento y la congestión temporal no congela el encuentro. Véase el cierre de los cuatro pendientes en el contrato técnico 12 y la revisión integrada 057.

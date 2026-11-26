@@ -124,3 +124,34 @@ crucen y que el tesoro se extraiga; el guardia se debilita en esta fixture para
 que las bajas no confundan el bloqueo de navegación con una derrota legítima.
 Se comprueban también navegación sin revelar destino oculto y robo real de la
 copa en sesión. Esta corrección queda disponible para la prueba jugable del usuario.
+
+## Seguimiento de los pendientes del 053
+
+Después de la revisión documental se completaron las instancias persistentes,
+memoria de fases y resultados, sucesos de dirección, cancelación de retirada y
+selección de fronteras por coste. El [plan 053](./2026-11-24-53-planes-y-comportamientos.md)
+registra código y pruebas concretas. La evaluación anterior que decía no quedar
+implementación pendiente fue demasiado amplia; los otros contratos deberán
+contrastarse con la misma precisión antes del archivo conjunto. No se amplía
+el alcance con nuevos planes Lua o maniobras físicas.
+
+
+## Resolución de los cuatro pendientes (2026-11-26)
+
+Quedan implementados los cuatro hallazgos registrados en la revisión del contrato:
+
+- Bloqueos con causa específica, visibles en dirección, memoria y presentación.
+- Resultados de puerta por participante, incluidos concurrentes, rechazos y
+  `SinCambio`; los intentos sin efecto no simulan progreso.
+- Presupuesto explícito de 128 transiciones con descarte del candidato y pausa
+  reintentable antes de consumir azar o confirmar acciones.
+- Conclusiones con rutas reutilizadas y certificado físico: validar repetidamente
+  no ejecuta nuevas búsquedas; modificar ese estado invalida el resultado.
+
+Las cuatro regresiones `base_pendiente` cubren estos contratos. También pasaron
+las regresiones seleccionadas de puertas, planes, consecuencias, robo, rescate
+y eventos locales. La corrección conserva el avance durante congestión temporal
+de una salida: que una ficha espere no bloquea al grupo si otras progresan.
+No se ejecutó la batería global. Esta resolución se limita a los cuatro hallazgos;
+no afirma una auditoría exhaustiva de cada cláusula ni incluye preparación de
+equipo, sigilo, nuevas maniobras o autoría de planes desde Lua.

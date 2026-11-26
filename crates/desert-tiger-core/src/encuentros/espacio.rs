@@ -1,5 +1,7 @@
 //! Geometría, ocupación y navegación del escenario local.
 use super::*;
+#[cfg(test)]
+thread_local! {pub(super) static BUSQUEDAS_PRUEBA: std::cell::Cell<usize> = const {std::cell::Cell::new(0)};}
 
 impl Encuentro {
     pub fn terreno(&self, p: Posicion) -> Option<Celda> {
@@ -377,6 +379,8 @@ impl Encuentro {
     }
 
     pub(super) fn mapa_rutas(&self, desde: usize) -> BTreeMap<Posicion, (u32, Posicion)> {
+        #[cfg(test)]
+        BUSQUEDAS_PRUEBA.with(|n| n.set(n.get() + 1));
         let Ok(conocido) = self.contexto_navegacion(self.fichas[desde].id) else {
             return BTreeMap::new();
         };

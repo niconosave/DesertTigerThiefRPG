@@ -22,8 +22,40 @@ pub enum ResultadoBien {
     Extraido(IdFicha),
     Permanece(ExtremoRelacion),
 }
+/// Certificado local: las rutas se calcularon sobre este estado físico exacto.
+/// Validarlo compara datos; no ejecuta otra búsqueda ni muta una caché desde una consulta.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct EstadoCaptura {
+    dimensiones: (u16, u16, u16),
+    celdas: Vec<Celda>,
+    elementos: Vec<ElementoLocal>,
+    fichas: Vec<Ficha>,
+    contexto: ContextoLocal,
+    capturas: BTreeMap<IdFicha, IdFicha>,
+}
+impl EstadoCaptura {
+    fn nuevo(e: &Encuentro) -> Self {
+        Self {
+            dimensiones: (e.ancho, e.alto, e.altura),
+            celdas: e.celdas.clone(),
+            elementos: e.elementos.clone(),
+            fichas: e.fichas.clone(),
+            contexto: e.contexto.clone(),
+            capturas: e.capturas.clone(),
+        }
+    }
+    fn coincide(&self, e: &Encuentro) -> bool {
+        self.dimensiones == (e.ancho, e.alto, e.altura)
+            && self.celdas == e.celdas
+            && self.elementos == e.elementos
+            && self.fichas == e.fichas
+            && self.contexto == e.contexto
+            && self.capturas == e.capturas
+    }
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ResultadoEncuentro {
+    certificado: EstadoCaptura,
     pub causa: CausaFin,
     pub objetivo_cumplido: bool,
     pub fichas: BTreeMap<IdFicha, ResultadoFicha>,
@@ -163,6 +195,7 @@ impl Encuentro {
             );
         }
         let resultado = ResultadoEncuentro {
+            certificado: EstadoCaptura::nuevo(self),
             causa,
             objetivo_cumplido: logro,
             fichas,
@@ -193,8 +226,11 @@ impl Encuentro {
         if self.fichas.iter().any(|f| f.aliado && f.puede_actuar()) {
             return Err("aún hay participantes activos dentro".into());
         }
-        if self.capturas != self.capturas_posibles() {
-            return Err("captores sin acceso vigente".into());
+        if !r.certificado.coincide(self) {
+            return Err(
+                "conclusión desactualizada: cambió el estado usado para comprobar las capturas"
+                    .into(),
+            );
         }
         for f in &self.fichas {
             let valido = match r.fichas[&f.id] {

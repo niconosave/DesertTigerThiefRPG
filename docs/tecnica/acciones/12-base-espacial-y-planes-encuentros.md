@@ -685,3 +685,78 @@ enlaza los planes concretos.
 Las nuevas órdenes de planes Lua tendrán otro diseño después de validar la base
 genérica. Los sistemas de preparación, sigilo, combate dinámico y generación
 modular seguirán ampliándose con reglamentos y entregas propios.
+
+## Complemento implementado de dirección persistente (053)
+
+El contrato de planes y comportamientos se concreta en `encuentros/planes.rs`,
+`comportamientos.rs` y `seguimiento.rs`. `PlanLocal` guarda configuración y tipo;
+`MemoriaPlan` guarda fase, propósito inicial y hechos por ID. El avance actualiza
+las memorias exclusivamente sobre el candidato del encuentro.
+
+La secuencia implementada es coordinación de roles, elección de intenciones,
+preparación/reanudación de `ComportamientoActivo`, resolución simultánea y registro
+de progreso, resultados y sucesos de dirección. El avance inicial dispone de fase
+Preparacion; los pulsos pasan por Aproximacion, Oposicion, Objetivo y Salida según
+las condiciones reales, y Terminado al concluir/cancelar el plan. La preparación
+mantiene el coste existente y no añade equipo ni decisiones nuevas.
+
+Cada instancia contiene ID, propietario, participantes, rol/cometido, destino y
+referencias de fichas, estado y hechos confirmados. La exploración reutiliza su
+destino hasta descubrirlo o perder su ruta; la selección de una nueva frontera
+compara costes e identidad estable. Se mantienen las restricciones de conocimiento.
+Las consultas `comportamiento`, `memoria_plan` y `sucesos_direccion` son puras.
+
+Los estados del comportamiento son Activo, Suspendido, Bloqueado, Cumplido,
+Interrumpido y Cancelado. La indisponibilidad no convierte una tarea pendiente en
+un logro. Los pulsos y sus resultados se registran una sola vez por instancia;
+responder una decisión, reproducir un frame o consultar no añade progreso.
+`SucesoDireccion` publica cambios de estado del plan con motivo, de fase y de
+estado de comportamiento, identificando plan, participantes, pulso e instancia.
+Todavía no se agregan filtros ni comandos de autoría Lua para estos sucesos.
+
+Reanudar cancela el plan de retirada y revalida el de misión, conservando memoria.
+Una segunda retirada crea un plan nuevo. El resultado del plan Oposicion se calcula
+para su bando, no copiando el resultado de la misión. La memoria suspendida no se
+reescribe con fases o resultados de otro plan.
+
+
+## Cierre de los cuatro pendientes de la base (2026-11-26)
+
+### Bloqueos y continuidad
+
+La dirección distingue `SinRuta`, `ParticipanteNoDisponible` y
+`SinParticipantes`; el motivo se conserva en planes, comportamientos y sucesos,
+y la sesión explica la pausa al jugador. Una espera conserva su cometido,
+destino y referencias para poder reanudarla. La congestión transitoria no pausa
+al grupo mientras otra ficha avanza, sale o cambia su estado físico. Se mantiene
+el límite de ocho pulsos sin progreso como protección adicional.
+
+### Presupuesto de dirección
+
+Cada pulso dispone de 128 transiciones: considerar un plan, asignar un rol o
+preparar una propuesta de comportamiento consume una unidad. La observación y
+el registro del resultado no vuelven a planificar. Estas operaciones se realizan
+antes de resolver acciones y consumir azar. Si se agota el presupuesto se descarta
+el candidato completo y se presenta un bloqueo `PresupuestoAgotado`, reintentable
+mediante los controles existentes. No se confirma movimiento, pulso ni consumo
+de azar de ese candidato. Agotar identidades es un error distinto, no una pausa
+reintentable por presupuesto.
+
+### Interacciones con puertas
+
+Cada intención elegida de abrir o cerrar produce `InteraccionPuerta` por ficha:
+`Cambiada`, `Concurrente` con el ejecutor real, `SinCambio` o `Rechazada` con su
+causa. `PuertaCambiada` sigue describiendo el único cambio físico. El resultado
+individual entra en la memoria del comportamiento y del plan; rechazos y
+`SinCambio` no cuentan como progreso. Una solicitud externa inválida se rechaza
+antes de ejecutar el pulso y no se convierte en una acción consumida.
+
+### Validación de las conclusiones
+
+Al concluir se calculan rutas por captor y se reutilizan para comprobar a sus
+posibles cautivos. El resultado conserva un certificado del estado físico exacto
+(celdas, elementos, fichas, contexto y capturas). Las validaciones posteriores
+comparan ese estado sin repetir búsquedas ni mutar cachés desde una consulta.
+Un cambio que invalide el certificado se rechaza atómicamente; no se aplica una
+conclusión obsoleta. Esto evita repetir el cálculo en presentación y cierre sin
+renunciar a comprobar que el acceso y las personas siguen siendo los mismos.

@@ -293,6 +293,30 @@ fn vista(a: &AtaqueActivo, c: &ContenidoValidado) -> VistaEncuentro {
     } else {
         texto
     };
+    let texto = if m.bloqueado && m.desenlace.is_none() {
+        use desert_tiger_core::encuentros::{MotivoBloqueo, TipoPlan};
+        let motivo = m
+            .planes
+            .iter()
+            .filter(|p| p.tipo != TipoPlan::Oposicion)
+            .find_map(|p| p.bloqueo);
+        let aviso = match motivo {
+            Some(MotivoBloqueo::SinRuta) => {
+                "El grupo no encuentra una ruta practicable hacia su siguiente objetivo."
+            }
+            Some(MotivoBloqueo::ParticipanteNoDisponible) => {
+                "No hay un participante disponible para continuar esta tarea."
+            }
+            Some(MotivoBloqueo::SinParticipantes) => "El plan no tiene participantes asignados.",
+            Some(MotivoBloqueo::PresupuestoAgotado) => {
+                "Se alcanzó el límite de planificación. Podés reintentar o pedir la retirada."
+            }
+            _ => "El grupo no consigue avanzar. Podés reconsiderar la misión o pedir la retirada.",
+        };
+        format!("{texto} {aviso}")
+    } else {
+        texto
+    };
     let mut celdas: Vec<TerrenoEncuentro> = m
         .voxeles()
         .map(|(p, _)| match m.terreno_recordado(p) {

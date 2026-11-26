@@ -8,11 +8,17 @@ pub use error::ErrorEncuentro;
 mod generacion;
 mod planes;
 mod puertas;
+pub use puertas::{RechazoPuerta, ResultadoPuerta};
 mod resultado;
+mod seguimiento;
 pub use conocimiento::ContextoNavegacion;
 pub use elementos::{AparienciaLocal, EnvolventeLocal};
 pub use planes::{Cometido, DireccionFicha, MotivoBloqueo, RolEncuentro};
 pub use resultado::{CausaFin, ResultadoBien, ResultadoEncuentro, ResultadoFicha};
+pub use seguimiento::{
+    CambioDireccion, ComportamientoActivo, EstadoComportamiento, FasePlan, MemoriaPlan,
+    SucesoDireccion,
+};
 
 use crate::azar::FuenteAzar;
 use crate::{ExtremoRelacion, IdActor, IdObjeto, Mundo};
@@ -120,8 +126,17 @@ pub enum EstadoPlan {
     Cumplido,
     Cancelado,
 }
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TipoPlan {
+    IncursionAtacar,
+    IncursionRescatar,
+    IncursionRobar,
+    Oposicion,
+    Retirada,
+}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlanLocal {
+    pub tipo: TipoPlan,
     pub id: IdPlan,
     pub proposito: PropositoPlan,
     pub prioridad: u8,
@@ -173,6 +188,12 @@ pub enum Desenlace {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Suceso {
+    InteraccionPuerta {
+        ficha: IdFicha,
+        elemento: IdElementoLocal,
+        solicitado: EstadoPuerta,
+        resultado: ResultadoPuerta,
+    },
     PuertaCambiada {
         elemento: IdElementoLocal,
         por: IdFicha,
@@ -200,6 +221,18 @@ pub enum Suceso {
         ficha: IdFicha,
         por: IdFicha,
     },
+}
+impl Suceso {
+    pub fn es_progreso(&self) -> bool {
+        match self {
+            Self::Golpe { acierto, .. } => *acierto,
+            Self::InteraccionPuerta { resultado, .. } => matches!(
+                resultado,
+                ResultadoPuerta::Cambiada | ResultadoPuerta::Concurrente { .. }
+            ),
+            _ => true,
+        }
+    }
 }
 /// Transformaciones explícitas de autor, sin simular su causa narrativa.
 #[derive(Clone, Debug)]
@@ -246,6 +279,11 @@ pub struct Encuentro {
     puertas_inicio: BTreeMap<IdElementoLocal, EstadoPuerta>,
     direcciones: BTreeMap<IdFicha, DireccionFicha>,
     proximo_comportamiento: u16,
+    limite_direccion: u16,
+    transiciones_direccion: u16,
+    comportamientos: BTreeMap<IdComportamiento, ComportamientoActivo>,
+    memoria_planes: BTreeMap<IdPlan, MemoriaPlan>,
+    historial_direccion: Vec<SucesoDireccion>,
     rutas_decision: BTreeMap<IdFicha, BTreeMap<Posicion, (u32, Posicion)>>,
     pub fichas: Vec<Ficha>,
     pub objetivo: Option<IdFicha>,
@@ -469,7 +507,11 @@ impl Encuentro {
     ) -> Result<Self, ErrorEncuentro> {
         let mut e = Self::nuevo_con_escenario(mundo, grupo, cautivo, guardias, azar, escenario)?;
         e.rescate = true;
+        e.planes[0].tipo = TipoPlan::IncursionRescatar;
         e.planes[0].proposito = PropositoPlan::Rescatar;
+        if let Some(m) = e.memoria_planes.get_mut(&e.planes[0].id) {
+            m.proposito_inicial = PropositoPlan::Rescatar;
+        }
         let cautivo_id = e.objetivo.expect("objetivo del rescate");
         for plan in e.planes.iter_mut().skip(1) {
             plan.participantes.retain(|id| *id != cautivo_id);
@@ -635,6 +677,9 @@ impl Encuentro {
             candidato.contexto.revision_geometria = self.contexto.revision_geometria + 1;
         }
         candidato.recordar_terreno();
+        if let Some(r) = &candidato.resultado {
+            candidato.validar_conclusion(r)?;
+        }
         candidato.sucesos.clear();
         candidato.bloqueado = false;
         candidato.sin_progreso = 0;
@@ -649,7 +694,27 @@ impl Encuentro {
             });
         }
         let mut candidato = self.clone();
-        candidato.resolver(azar)?;
+        candidato.transiciones_direccion = 0;
+        match candidato.resolver(azar) {
+            Err(ErrorEncuentro::PresupuestoDireccionAgotado) => {
+                // Toda decisión parcial se descarta antes de acciones, azar y tiempo.
+                self.sucesos.clear();
+                self.bloqueado = true;
+                self.transiciones_direccion = self.limite_direccion;
+                for p in self
+                    .planes
+                    .iter_mut()
+                    .filter(|p| p.estado == EstadoPlan::Activo)
+                {
+                    p.estado = EstadoPlan::Bloqueado;
+                    p.bloqueo = Some(MotivoBloqueo::PresupuestoAgotado);
+                }
+                self.registrar_direccion(false);
+                return Ok(());
+            }
+            Err(e) => return Err(e),
+            Ok(()) => {}
+        }
         *self = candidato;
         Ok(())
     }
@@ -664,7 +729,7 @@ impl Encuentro {
                 _ => None,
             })
             .collect();
-        self.coordinar_planes();
+        self.coordinar_planes()?;
         let antes = self.fichas.clone();
         let mut intentos = (0..antes.len()).map(|i| self.elegir(i)).collect::<Vec<_>>();
         for intento in &mut intentos {
@@ -674,18 +739,47 @@ impl Encuentro {
                 *intento = Intento::Abrir(puerta);
             }
         }
-        for (ficha, intento) in antes.iter().zip(&intentos) {
+        let motivos: Vec<_> = antes
+            .iter()
+            .zip(&intentos)
+            .map(|(f, intento)| {
+                if !matches!(intento, Intento::Esperar) {
+                    return None;
+                }
+                if !f.puede_actuar() {
+                    return Some(MotivoBloqueo::ParticipanteNoDisponible);
+                }
+                let oponente = self
+                    .direcciones
+                    .get(&f.id)
+                    .is_some_and(|d| d.rol == RolEncuentro::Oponente);
+                if oponente
+                    && !antes.iter().any(|otro| {
+                        otro.aliado != f.aliado
+                            && otro.puede_actuar()
+                            && self.participante_observable_por(f, otro)
+                    })
+                {
+                    Some(MotivoBloqueo::ParticipanteNoDisponible)
+                } else {
+                    Some(MotivoBloqueo::SinRuta)
+                }
+            })
+            .collect();
+        for ((ficha, intento), motivo) in antes.iter().zip(&intentos).zip(motivos) {
             if let Some(d) = self.direcciones.get_mut(&ficha.id) {
+                d.bloqueo = motivo;
                 d.cometido = match intento {
                     Intento::Atacar(_) => Cometido::AfrontarOposicion,
                     Intento::Liberar | Intento::TomarObjeto => Cometido::ActuarSobreObjetivo,
                     Intento::Recoger(_) => Cometido::Auxiliar,
                     Intento::Salir => Cometido::Evacuar,
-                    Intento::Esperar => Cometido::Esperar,
+                    Intento::Esperar => d.cometido,
                     _ => d.cometido,
                 };
             }
         }
+        self.preparar_comportamientos(&intentos)?;
         let mut golpes: BTreeMap<(usize, usize), bool> = BTreeMap::new();
         for (i, intento) in intentos.iter().enumerate() {
             if let Intento::Atacar(j) = intento {
@@ -916,16 +1010,16 @@ impl Encuentro {
         }
         self.recordar_terreno();
         self.evaluar_conclusion()?;
-        if self
-            .sucesos
-            .iter()
-            .any(|s| !matches!(s, Suceso::Golpe { acierto: false, .. }))
-        {
+        self.actualizar_bloqueos_direccion();
+        let progreso = self.sucesos.iter().any(Suceso::es_progreso)
+            || antes.iter().zip(&self.fichas).any(|(a, b)| a != b);
+        if progreso {
             self.sin_progreso = 0;
         } else {
             self.sin_progreso = self.sin_progreso.saturating_add(1);
         }
-        self.bloqueado = self.sin_progreso >= 8;
+        self.bloqueado = self.sin_progreso >= 8
+            || (self.desenlace.is_none() && !progreso && self.grupo_sin_direccion_practicable());
         if self.bloqueado
             && self.desenlace.is_none()
             && (self.retirando || self.extraccion_fuera() || self.objetivo_muerto())
@@ -947,11 +1041,16 @@ impl Encuentro {
                 if plan.estado == EstadoPlan::Cancelado {
                     continue;
                 }
-                let cumplido = match plan.proposito {
-                    PropositoPlan::Retirarse => {
-                        matches!(resultado, Desenlace::Retirada | Desenlace::Exito)
+                let oposicion = plan.tipo == TipoPlan::Oposicion;
+                let cumplido = if oposicion {
+                    matches!(resultado, Desenlace::Captura { .. } | Desenlace::Derrota)
+                } else {
+                    match plan.proposito {
+                        PropositoPlan::Retirarse => {
+                            matches!(resultado, Desenlace::Retirada | Desenlace::Exito)
+                        }
+                        _ => resultado == Desenlace::Exito,
                     }
-                    _ => resultado == Desenlace::Exito,
                 };
                 plan.estado = if cumplido {
                     EstadoPlan::Cumplido
@@ -961,20 +1060,38 @@ impl Encuentro {
                 plan.bloqueo = None;
             }
         }
+        self.registrar_direccion(true);
         Ok(())
     }
     pub fn reconsiderar(&mut self, retirada: bool) {
         self.retirando = retirada;
         if retirada
-            && !self
-                .planes
-                .iter()
-                .any(|p| p.proposito == PropositoPlan::Retirarse)
+            && !self.planes.iter().any(|p| {
+                p.proposito == PropositoPlan::Retirarse
+                    && !matches!(p.estado, EstadoPlan::Cancelado | EstadoPlan::Cumplido)
+            })
         {
+            let id = if self.planes.iter().all(|p| p.id != IdPlan(1)) {
+                IdPlan(1)
+            } else {
+                let Some(id) = self
+                    .planes
+                    .iter()
+                    .map(|p| p.id.0)
+                    .max()
+                    .unwrap_or(0)
+                    .checked_add(1)
+                else {
+                    self.bloqueado = true;
+                    return;
+                };
+                IdPlan(id)
+            };
             self.planes.insert(
                 0,
                 PlanLocal {
-                    id: IdPlan(1),
+                    tipo: TipoPlan::Retirada,
+                    id,
                     proposito: PropositoPlan::Retirarse,
                     prioridad: 20,
                     participantes: self
@@ -990,17 +1107,15 @@ impl Encuentro {
             );
         }
         for plan in &mut self.planes {
-            if plan
-                .participantes
-                .iter()
-                .all(|id| self.fichas.iter().any(|f| f.id == *id && !f.aliado))
-            {
+            if plan.tipo == TipoPlan::Oposicion {
                 continue;
             }
             if matches!(plan.estado, EstadoPlan::Cancelado | EstadoPlan::Cumplido) {
                 continue;
             }
-            plan.estado = if (plan.proposito == PropositoPlan::Retirarse) == retirada {
+            plan.estado = if !retirada && plan.proposito == PropositoPlan::Retirarse {
+                EstadoPlan::Cancelado
+            } else if (plan.proposito == PropositoPlan::Retirarse) == retirada {
                 EstadoPlan::Activo
             } else {
                 EstadoPlan::Suspendido
@@ -1008,6 +1123,7 @@ impl Encuentro {
         }
         self.bloqueado = false;
         self.sin_progreso = 0;
+        self.registrar_direccion(false);
     }
 }
 
@@ -1056,6 +1172,381 @@ mod pruebas {
             variables_globales: vec![],
             relaciones: vec![],
         }
+    }
+    #[test]
+    fn base_pendiente_presupuesto_pausa_sin_azar_ni_avance_parcial() {
+        struct Cuenta(usize);
+        impl FuenteAzar for Cuenta {
+            fn elegir_indice(
+                &mut self,
+                _: NonZeroUsize,
+            ) -> Result<usize, crate::azar::ErrorFuenteAzar> {
+                self.0 += 1;
+                Err(crate::azar::ErrorFuenteAzar)
+            }
+        }
+        let mut e =
+            Encuentro::nuevo(&mundo(2, 1), &[actor(0)], actor(1), &[], &mut Dado(0)).unwrap();
+        e.fichas[0].posicion = Posicion { x: 5, y: 8, z: 1 };
+        e.fichas[1].posicion = Posicion { x: 6, y: 8, z: 1 };
+        e.recordar_terreno();
+        e.limite_direccion = 1;
+        let fichas = e.fichas.clone();
+        let mut azar = Cuenta(0);
+        e.avanzar(&mut azar).unwrap();
+        assert_eq!(azar.0, 0);
+        assert_eq!(e.pulso, 0);
+        assert_eq!(e.fichas, fichas);
+        assert!(e.bloqueado && e.comportamientos.is_empty());
+        assert!(
+            e.planes
+                .iter()
+                .all(|p| p.bloqueo == Some(MotivoBloqueo::PresupuestoAgotado))
+        );
+        assert!(e.sucesos_direccion().iter().any(|s| matches!(
+            s.cambio,
+            CambioDireccion::Plan {
+                motivo: Some(MotivoBloqueo::PresupuestoAgotado),
+                ..
+            }
+        )));
+        e.limite_direccion = 128;
+        e.reconsiderar(false);
+        e.avanzar(&mut Dado(10)).unwrap();
+        assert_eq!(e.pulso, 1);
+        assert!(e.transiciones_direccion <= 128);
+    }
+    #[test]
+    fn base_pendiente_bloqueos_distinguen_ruta_y_disponibilidad() {
+        let mut e =
+            Encuentro::nuevo(&mundo(2, 1), &[actor(0)], actor(1), &[], &mut Dado(0)).unwrap();
+        let conexiones = e.contexto.conexiones.clone();
+        e.contexto.conexiones.clear();
+        e.avanzar(&mut Dado(0)).unwrap();
+        assert!(e.bloqueado);
+        let b = e
+            .comportamiento(e.direccion(e.fichas[0].id).unwrap().id)
+            .unwrap();
+        assert_eq!(b.estado, EstadoComportamiento::Bloqueado);
+        assert_eq!(b.motivo, Some(MotivoBloqueo::SinRuta));
+        assert_eq!(
+            e.planes.iter().find(|p| p.id == IdPlan(0)).unwrap().bloqueo,
+            Some(MotivoBloqueo::SinRuta)
+        );
+        e.contexto.conexiones = conexiones;
+        e.reconsiderar(false);
+        e.avanzar(&mut Dado(0)).unwrap();
+        assert!(
+            e.sucesos
+                .iter()
+                .any(|s| matches!(s,Suceso::Paso{ficha,..} if *ficha==e.fichas[0].id))
+        );
+        e.fichas[0].golpes = 2;
+        e.coordinar_planes().unwrap();
+        assert_eq!(
+            e.planes.iter().find(|p| p.id == IdPlan(0)).unwrap().bloqueo,
+            Some(MotivoBloqueo::ParticipanteNoDisponible)
+        );
+        e.planes
+            .iter_mut()
+            .find(|p| p.id == IdPlan(0))
+            .unwrap()
+            .participantes
+            .clear();
+        e.coordinar_planes().unwrap();
+        assert_eq!(
+            e.planes.iter().find(|p| p.id == IdPlan(0)).unwrap().bloqueo,
+            Some(MotivoBloqueo::SinParticipantes)
+        );
+    }
+    #[test]
+    fn base_pendiente_puerta_resultado_por_participante() {
+        let mut e = Encuentro::nuevo_con_escenario(
+            &mundo(3, 2),
+            &[actor(0), actor(1)],
+            actor(2),
+            &[],
+            &mut Dado(19),
+            Escenario::Palacio,
+        )
+        .unwrap();
+        e.fichas[0].posicion = Posicion { x: 10, y: 8, z: 1 };
+        e.fichas[1].posicion = Posicion { x: 12, y: 8, z: 1 };
+        for f in [e.fichas[0].id, e.fichas[1].id] {
+            e.solicitar_puerta(f, IdElementoLocal(0), EstadoPuerta::Abierta)
+                .unwrap();
+        }
+        e.avanzar(&mut Dado(0)).unwrap();
+        let resultados: Vec<_> = e
+            .sucesos
+            .iter()
+            .filter_map(|s| {
+                if let Suceso::InteraccionPuerta {
+                    ficha, resultado, ..
+                } = s
+                {
+                    Some((*ficha, *resultado))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(resultados.len(), 2);
+        let ejecutor = resultados
+            .iter()
+            .find(|(_, r)| *r == ResultadoPuerta::Cambiada)
+            .unwrap()
+            .0;
+        assert!(
+            resultados
+                .iter()
+                .any(|(_, r)| *r == ResultadoPuerta::Concurrente { ejecutor })
+        );
+        for f in [e.fichas[0].id, e.fichas[1].id] {
+            e.solicitar_puerta(f, IdElementoLocal(0), EstadoPuerta::Abierta)
+                .unwrap();
+        }
+        e.avanzar(&mut Dado(0)).unwrap();
+        assert_eq!(
+            e.sucesos
+                .iter()
+                .filter(|s| matches!(
+                    s,
+                    Suceso::InteraccionPuerta {
+                        resultado: ResultadoPuerta::SinCambio,
+                        ..
+                    }
+                ))
+                .count(),
+            2
+        );
+        assert!(
+            !e.sucesos
+                .iter()
+                .filter(|s| matches!(s, Suceso::InteraccionPuerta { .. }))
+                .any(Suceso::es_progreso)
+        );
+        for f in &e.fichas[..2] {
+            let id = e.direccion(f.id).unwrap().id;
+            assert_eq!(e.comportamiento(id).unwrap().pulsos_sin_progreso, 1);
+        }
+        let id = e.fichas[1].id;
+        e.fichas[1].posicion = Posicion { x: 11, y: 8, z: 1 };
+        for p in &mut e.planes {
+            p.participantes.retain(|&f| f != id);
+        }
+        e.solicitar_puerta(e.fichas[0].id, IdElementoLocal(0), EstadoPuerta::Cerrada)
+            .unwrap();
+        e.avanzar(&mut Dado(0)).unwrap();
+        assert!(e.sucesos.iter().any(|s| matches!(
+            s,
+            Suceso::InteraccionPuerta {
+                resultado: ResultadoPuerta::Rechazada(RechazoPuerta::VanoOcupado),
+                ..
+            }
+        )));
+        assert!(matches!(
+            e.elementos[0].clase,
+            ClaseElemento::PuertaManual {
+                estado: EstadoPuerta::Abierta,
+                ..
+            }
+        ));
+    }
+    #[test]
+    fn base_pendiente_conclusion_reutiliza_rutas_y_rechaza_estado_cambiado() {
+        let mut e =
+            Encuentro::nuevo(&mundo(2, 1), &[actor(0)], actor(1), &[], &mut Dado(0)).unwrap();
+        e.fichas[0].golpes = 2;
+        espacio::BUSQUEDAS_PRUEBA.with(|n| n.set(0));
+        e.avanzar(&mut Dado(0)).unwrap();
+        let cantidad = espacio::BUSQUEDAS_PRUEBA.with(|n| n.get());
+        assert!(
+            cantidad <= 2,
+            "{cantidad}: una búsqueda inicial y una final para el captor"
+        );
+        let r = e.resultado.as_ref().unwrap().clone();
+        let original = e.clone();
+        for _ in 0..4 {
+            e.validar_conclusion(&r).unwrap();
+        }
+        assert_eq!(espacio::BUSQUEDAS_PRUEBA.with(|n| n.get()), cantidad);
+        assert_eq!(e, original);
+        e.fichas[1].posicion.x -= 1;
+        assert!(e.validar_conclusion(&r).is_err());
+        assert_eq!(espacio::BUSQUEDAS_PRUEBA.with(|n| n.get()), cantidad);
+        let mut otra_geometria = original;
+        otra_geometria.celdas[0] = Celda::Vacio;
+        assert!(otra_geometria.validar_conclusion(&r).is_err());
+        assert_eq!(espacio::BUSQUEDAS_PRUEBA.with(|n| n.get()), cantidad);
+    }
+    #[test]
+    fn planes_locales_oposicion_tiene_resultado_propio() {
+        let mut e =
+            Encuentro::nuevo(&mundo(2, 1), &[actor(0)], actor(1), &[], &mut Dado(0)).unwrap();
+        e.fichas[0].golpes = 2;
+        e.avanzar(&mut Dado(0)).unwrap();
+        assert_eq!(
+            e.planes
+                .iter()
+                .find(|p| p.tipo == TipoPlan::Oposicion)
+                .unwrap()
+                .estado,
+            EstadoPlan::Cumplido
+        );
+        assert_eq!(
+            e.planes
+                .iter()
+                .find(|p| p.tipo == TipoPlan::IncursionAtacar)
+                .unwrap()
+                .estado,
+            EstadoPlan::Cancelado
+        );
+        assert_eq!(e.memoria_plan(IdPlan(0)).unwrap().fase, FasePlan::Terminado);
+    }
+    #[test]
+    fn planes_locales_fallo_de_pulso_no_confirma_memoria_ni_sucesos() {
+        struct SinAzar;
+        impl FuenteAzar for SinAzar {
+            fn elegir_indice(
+                &mut self,
+                _: NonZeroUsize,
+            ) -> Result<usize, crate::azar::ErrorFuenteAzar> {
+                Err(crate::azar::ErrorFuenteAzar)
+            }
+        }
+        let mut e =
+            Encuentro::nuevo(&mundo(2, 1), &[actor(0)], actor(1), &[], &mut Dado(0)).unwrap();
+        e.fichas[0].posicion = Posicion { x: 5, y: 8, z: 1 };
+        e.fichas[1].posicion = Posicion { x: 6, y: 8, z: 1 };
+        e.recordar_terreno();
+        let anterior = e.clone();
+        assert!(e.avanzar(&mut SinAzar).is_err());
+        assert_eq!(e, anterior);
+        assert!(e.comportamientos.is_empty());
+    }
+    #[test]
+    fn planes_locales_memoria_suspension_reanudacion_y_sucesos_unicos() {
+        let mut e = Encuentro::nuevo_con_escenario(
+            &mundo(2, 1),
+            &[actor(0)],
+            actor(1),
+            &[],
+            &mut Dado(0),
+            Escenario::Palacio,
+        )
+        .unwrap();
+        assert_eq!(
+            e.memoria_plan(IdPlan(0)).unwrap().fase,
+            FasePlan::Preparacion
+        );
+        e.avanzar(&mut Dado(0)).unwrap();
+        let id = e.direccion(e.fichas[0].id).unwrap().id;
+        let memoria = e.comportamiento(id).unwrap().clone();
+        assert_eq!(memoria.pulsos, 1);
+        assert!(
+            memoria
+                .resultados
+                .iter()
+                .any(|s| matches!(s, Suceso::Paso { .. }))
+        );
+        e.reconsiderar(true);
+        assert_eq!(
+            e.comportamiento(id).unwrap().estado,
+            EstadoComportamiento::Suspendido
+        );
+        let fase = e.memoria_plan(IdPlan(0)).unwrap().fase;
+        e.avanzar(&mut Dado(0)).unwrap();
+        assert_eq!(e.comportamiento(id).unwrap().pulsos, 1);
+        assert_eq!(e.memoria_plan(IdPlan(0)).unwrap().fase, fase);
+        let retirada = e
+            .planes
+            .iter()
+            .find(|p| p.proposito == PropositoPlan::Retirarse)
+            .unwrap()
+            .id;
+        e.reconsiderar(false);
+        assert_eq!(
+            e.planes.iter().find(|p| p.id == retirada).unwrap().estado,
+            EstadoPlan::Cancelado
+        );
+        e.avanzar(&mut Dado(0)).unwrap();
+        assert_eq!(e.direccion(e.fichas[0].id).unwrap().id, id);
+        assert_eq!(e.comportamiento(id).unwrap().pulsos, 2);
+        assert_eq!(e.comportamiento(id).unwrap().destino, memoria.destino);
+        assert_eq!(e.comportamiento(id).unwrap().resultados.len(), 2);
+        assert_eq!(e.memoria_plan(IdPlan(0)).unwrap().fase, fase);
+        let historial = e.sucesos_direccion().to_vec();
+        let resultados = e.memoria_plan(IdPlan(0)).unwrap().resultados.clone();
+        e.registrar_direccion(true);
+        assert_eq!(e.sucesos_direccion(), historial);
+        assert_eq!(e.memoria_plan(IdPlan(0)).unwrap().resultados, resultados);
+        e.reconsiderar(true);
+        assert!(
+            e.planes
+                .iter()
+                .any(|p| p.proposito == PropositoPlan::Retirarse
+                    && p.id != retirada
+                    && p.estado == EstadoPlan::Activo)
+        );
+    }
+    #[test]
+    fn planes_locales_incapacidad_interrumpe_sin_borrar_progreso() {
+        let mut e = Encuentro::nuevo_con_escenario(
+            &mundo(3, 2),
+            &[actor(0), actor(1)],
+            actor(2),
+            &[],
+            &mut Dado(0),
+            Escenario::Palacio,
+        )
+        .unwrap();
+        e.avanzar(&mut Dado(0)).unwrap();
+        let id = e.direccion(e.fichas[0].id).unwrap().id;
+        let resultados = e.comportamiento(id).unwrap().resultados.clone();
+        e.fichas[0].golpes = 2;
+        e.avanzar(&mut Dado(0)).unwrap();
+        assert_eq!(
+            e.comportamiento(id).unwrap().estado,
+            EstadoComportamiento::Interrumpido
+        );
+        assert_eq!(e.comportamiento(id).unwrap().resultados, resultados);
+        assert!(e.direccion(e.fichas[0].id).is_none());
+        assert!(e.direccion(e.fichas[1].id).is_some());
+    }
+    #[test]
+    fn planes_locales_exploracion_elige_frontera_mas_cercana() {
+        let mut e = Encuentro::nuevo_con_escenario(
+            &mundo(2, 1),
+            &[actor(0)],
+            actor(1),
+            &[],
+            &mut Dado(0),
+            Escenario::Palacio,
+        )
+        .unwrap();
+        e.fichas[0].posicion = Posicion { x: 9, y: 2, z: 1 };
+        for z in 1..=2 {
+            e.celdas[usize::from((z * e.alto + 2) * e.ancho + 11)] = Celda::Aire;
+        }
+        e.contexto.conexiones.push(ConexionLocal {
+            id: IdConexion(7),
+            desde: IdEspacio(0),
+            hasta: IdEspacio(1),
+            recorrido: vec![Posicion { x: 11, y: 2, z: 1 }],
+            control: None,
+            salida: false,
+        });
+        e.recordar_terreno();
+        e.coordinar_planes().unwrap();
+        let elegido = e.elegir(0);
+        assert!(
+            matches!(elegido,Intento::Mover(p) if p.x>=10 && p.y<=3),
+            "{elegido:?}"
+        );
+        e.contexto.conexiones.reverse();
+        assert_eq!(e.elegir(0), elegido);
+        assert!(!e.espacios_descubiertos.contains(&IdEspacio(1)));
     }
     #[test]
     fn errores_locales_conservan_ids_y_rechazan_antes_de_mutar() {
@@ -2001,17 +2492,17 @@ mod pruebas {
         let mut e =
             Encuentro::nuevo(&mundo(2, 1), &[actor(0)], actor(1), &[], &mut Dado(0)).unwrap();
         let actor = e.fichas[0].id;
-        e.coordinar_planes();
+        e.coordinar_planes().unwrap();
         let original = e.direccion(actor).unwrap().id;
-        e.coordinar_planes();
+        e.coordinar_planes().unwrap();
         assert_eq!(e.direccion(actor).unwrap().id, original);
         e.avanzar(&mut Dado(0)).unwrap();
         let posicion = e.ficha(actor).unwrap().posicion;
         e.reconsiderar(true);
-        e.coordinar_planes();
+        e.coordinar_planes().unwrap();
         assert_ne!(e.direccion(actor).unwrap().id, original);
         e.reconsiderar(false);
-        e.coordinar_planes();
+        e.coordinar_planes().unwrap();
         assert_eq!(e.direccion(actor).unwrap().plan, IdPlan(0));
         assert_eq!(e.ficha(actor).unwrap().posicion, posicion);
     }
@@ -2036,7 +2527,7 @@ mod pruebas {
         .unwrap();
         e.fichas[3].golpes = 2;
         e.reconsiderar(true);
-        e.coordinar_planes();
+        e.coordinar_planes().unwrap();
         let herido = e.fichas[3].id;
         let auxiliares: Vec<_> = e
             .direcciones
@@ -2051,7 +2542,7 @@ mod pruebas {
             .find(|f| f.id == anterior)
             .unwrap()
             .golpes = 2;
-        e.coordinar_planes();
+        e.coordinar_planes().unwrap();
         assert!(e.direccion(anterior).is_none());
         assert_eq!(
             e.direcciones
@@ -2073,12 +2564,15 @@ mod pruebas {
             e.planes.iter().find(|p| p.id == IdPlan(0)).unwrap().estado,
             EstadoPlan::Cancelado
         );
-        e.coordinar_planes();
+        e.coordinar_planes().unwrap();
         assert!(e.direccion(e.fichas[0].id).is_none());
         e.planes[0].estado = EstadoPlan::Activo;
         e.fichas[0].golpes = 2;
-        e.coordinar_planes();
-        assert_eq!(e.planes[0].bloqueo, Some(MotivoBloqueo::SinParticipantes));
+        e.coordinar_planes().unwrap();
+        assert_eq!(
+            e.planes[0].bloqueo,
+            Some(MotivoBloqueo::ParticipanteNoDisponible)
+        );
     }
 
     #[test]

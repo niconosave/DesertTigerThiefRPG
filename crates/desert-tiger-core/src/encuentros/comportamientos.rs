@@ -135,35 +135,89 @@ impl Encuentro {
         if objetivo_conocido {
             return None;
         }
-        if f.aliado
-            && let Some(paso) = self
-                .contexto
-                .conexiones
-                .iter()
-                .filter(|c| !c.salida)
-                .filter_map(|c| {
-                    // La frontera puede estar más allá de una sala ya conocida.
-                    // Las rutas siguen limitadas a la memoria y al primer umbral.
-                    let destino = match (
-                        self.espacios_descubiertos.contains(&c.desde),
-                        self.espacios_descubiertos.contains(&c.hasta),
-                    ) {
-                        (true, false) => c.hasta,
-                        (false, true) => c.desde,
-                        _ => return None,
-                    };
-                    let umbral = *c.recorrido.last()?;
-                    self.vecinos(umbral)
-                        .into_iter()
-                        .filter(|&p| self.espacio_en(p) == Some(destino))
-                        .find_map(|p| siguiente(p, false))
-                })
-                .next()
-        {
-            return Some(Intento::Mover(paso));
+        if !f.aliado {
+            return None;
         }
-
-        None
+        self.frontera_exploracion(i)
+            .and_then(|p| siguiente(p, false))
+            .map(Intento::Mover)
+    }
+    pub(super) fn frontera_exploracion(&self, i: usize) -> Option<Posicion> {
+        let f = &self.fichas[i];
+        let rutas_propias;
+        let rutas = if let Some(r) = self.rutas_decision.get(&f.id) {
+            r
+        } else {
+            rutas_propias = self.mapa_rutas(i);
+            &rutas_propias
+        };
+        // Mantener el destino del comportamiento hasta alcanzarlo o perder su ruta.
+        // Suspender el plan no obliga a elegir otra frontera al reanudarlo.
+        if let Some(d) = self.direccion(f.id)
+            && let Some(b) = self.comportamiento(d.id).or_else(|| {
+                self.comportamientos.values().find(|b| {
+                    b.plan == d.plan
+                        && b.rol == d.rol
+                        && b.participantes.contains(&f.id)
+                        && b.cometido == Cometido::Alcanzar
+                        && matches!(
+                            b.estado,
+                            EstadoComportamiento::Activo
+                                | EstadoComportamiento::Suspendido
+                                | EstadoComportamiento::Bloqueado
+                        )
+                })
+            })
+            && b.plan == d.plan
+            && b.cometido == Cometido::Alcanzar
+            && matches!(
+                b.estado,
+                EstadoComportamiento::Activo
+                    | EstadoComportamiento::Suspendido
+                    | EstadoComportamiento::Bloqueado
+            )
+            && let Some(p) = b.destino
+            && self
+                .espacio_en(p)
+                .is_some_and(|espacio| !self.espacios_descubiertos.contains(&espacio))
+            && rutas.contains_key(&p)
+            && !self
+                .fichas
+                .iter()
+                .any(|otra| otra.puede_actuar() && otra.posicion == p)
+        {
+            return Some(p);
+        }
+        let frontera = self
+            .contexto
+            .conexiones
+            .iter()
+            .filter(|c| !c.salida)
+            .filter_map(|c| {
+                let destino = match (
+                    self.espacios_descubiertos.contains(&c.desde),
+                    self.espacios_descubiertos.contains(&c.hasta),
+                ) {
+                    (true, false) => c.hasta,
+                    (false, true) => c.desde,
+                    _ => return None,
+                };
+                let umbral = *c.recorrido.last()?;
+                self.vecinos(umbral)
+                    .into_iter()
+                    .filter(|&p| self.espacio_en(p) == Some(destino))
+                    .filter(|&p| {
+                        p != f.posicion
+                            && !self
+                                .fichas
+                                .iter()
+                                .any(|otra| otra.puede_actuar() && otra.posicion == p)
+                    })
+                    .filter_map(|p| Some((rutas.get(&p)?.0, c.id, p)))
+                    .min_by_key(|&(coste, id, p)| (coste, id, p))
+            })
+            .min_by_key(|&(coste, id, p)| (coste, id, p));
+        frontera.map(|(_, _, p)| p)
     }
     fn comportamiento_recuperar(
         &self,

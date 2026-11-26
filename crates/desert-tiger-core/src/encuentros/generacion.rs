@@ -377,6 +377,11 @@ impl Encuentro {
             PropositoPlan::Recuperar
         };
         let mut planes = vec![PlanLocal {
+            tipo: if objetivo.is_some() {
+                TipoPlan::IncursionAtacar
+            } else {
+                TipoPlan::IncursionRobar
+            },
             id: IdPlan(0),
             proposito,
             prioridad: 10,
@@ -385,6 +390,7 @@ impl Encuentro {
             bloqueo: None,
         }];
         planes.push(PlanLocal {
+            tipo: TipoPlan::Oposicion,
             id: IdPlan(2),
             proposito: PropositoPlan::Atacar,
             prioridad: 10,
@@ -429,6 +435,11 @@ impl Encuentro {
             direcciones: BTreeMap::new(),
             rutas_decision: BTreeMap::new(),
             proximo_comportamiento: 0,
+            limite_direccion: 128,
+            transiciones_direccion: 0,
+            comportamientos: BTreeMap::new(),
+            memoria_planes: BTreeMap::new(),
+            historial_direccion: vec![],
             objetivo: objetivo.map(|_| fichas[grupo.len()].id),
             fichas,
             entrada: Posicion { z: 1, x: 2, y: 8 },
@@ -469,6 +480,7 @@ impl Encuentro {
             return Err("receta sin recorrido entre participantes".into());
         }
         encuentro.recordar_terreno();
+        encuentro.registrar_direccion(false);
         Ok(encuentro)
     }
 }

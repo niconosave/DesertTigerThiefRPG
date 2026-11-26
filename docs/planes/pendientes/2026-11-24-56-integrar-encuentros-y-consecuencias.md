@@ -105,3 +105,8 @@ actualiza primero el diseño canónico y se registra aquí su efecto sobre el tr
 - No se ejecutó una batería del workspace. La revisión jugable integrada,
   comprobaciones adicionales justificadas y archivo conjunto pertenecen al 057.
 - Trabajo posterior: [hoja de ruta](../base-espacial-y-planes-encuentros.md).
+
+
+## Complemento de cierre (2026-11-26)
+
+La conclusión reutiliza rutas por captor y conserva un certificado del estado físico. Su validación no repite búsquedas y rechaza conclusiones obsoletas. Véase el cierre de los cuatro pendientes en el contrato técnico 12 y la revisión integrada 057.
